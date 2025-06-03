@@ -25,6 +25,7 @@ Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
 ChainRulesCore = "1.25.1"
+Flux = "0.16"
 ForwardDiff = "1.0.1"
 Lux = "1.12.4"
 LuxCore = "1.2.4"
