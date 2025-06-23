@@ -16,7 +16,7 @@ using EasyHybrid.AxisKeys
 using Zygote
 using EasyHybrid.JLD2
 # data
-df_o = CSV.read("/Users/lalonso/Documents/HybridML/data/Rh_AliceHolt_forcing_filled.csv", DataFrame)
+df_o = CSV.read(joinpath(@__DIR__, "data/Rh_AliceHolt_forcing_filled.csv"), DataFrame)
 # some pre-processing
 df = copy(df_o)
 df[!, :Temp] = df[!, :Temp] .- 273.15 # convert to Celsius
@@ -26,13 +26,16 @@ rename!(df, :Respiration_heterotrophic => :Rh)  # rename as in hybrid model
 ds_keyed = to_keyedArray(Float32.(df)) # predictors + forcing
 
 # Define neural network
-NN = Lux.Chain(Dense(2, 15, Lux.relu), Dense(15, 15, Lux.relu), Dense(15, 1));
+NN = Lux.Chain(Dense(1, 15, Lux.relu), Dense(15, 15, Lux.relu), Dense(15, 1))
 # instantiate Hybrid Model
-RbQ10 = RespirationRbQ10(NN, (:Rgpot, :Moist), (:Rh, ), (:Temp,), 2.5f0) # ? do different initial Q10s
+# RbQ10 = RespirationRbQ10(NN, (:Rgpot, :Moist), (:Rh, ), (:Temp,), 2.5f0) # ? do different initial Q10s
 # train model
-out = train(RbQ10, ds_keyed, (:Q10, ); nepochs=200, batchsize=512, opt=Adam(0.01));
+# out = train(RbQ10, ds_keyed, (:Q10, ); nepochs=200, batchsize=512, opt=Adam(0.01));
 
-## legacy
+RDAMM = RespirationDAMM(NN, (:Rgpot,), (:Rh, ), (:Temp, :Moist), 2.5f0, 9.97f-7, 0.121f0 ) # ? do different initial Q10s
+# train model
+out = train(RDAMM, ds_keyed, (:Q10, :kmo, :kms); nepochs=200, batchsize=512, opt=Adam(0.01)); 
+## legacy 
 # ? test lossfn
 ps, st = LuxCore.setup(Random.default_rng(), RbQ10)
 # the Tuple `ds_p, ds_t` is later used for batching in the `dataloader`.
@@ -54,6 +57,7 @@ predictions = load_group(output_file, "predictions")
 
 physical_params, _ = load_group(output_file, "physical_params")
 
+#Q10 value as the training advances 
 series(WrappedTuples(physical_params); axis=(; xlabel = "epoch", ylabel=""))
 
 training_loss, _ = load_group(output_file, "training_loss")
@@ -67,6 +71,7 @@ series(WrappedTuples(validation_loss); axis=(; xlabel = "epoch", ylabel="validat
 
 ## Plotting results
 series(out.ps_history; axis=(; xlabel = "epoch", ylabel=""))
+
 
 # with AoG
 yvars = [:Rh]
