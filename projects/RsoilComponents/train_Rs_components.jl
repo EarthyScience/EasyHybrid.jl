@@ -3,14 +3,7 @@ Pkg.activate("projects/RsoilComponents")
 Pkg.develop(path=pwd())
 Pkg.instantiate()
 
-using Revise
 using EasyHybrid
-using Lux
-using Optimisers
-using Random
-using LuxCore
-using CSV, DataFrames
-using EasyHybrid.MLUtils
 
 script_dir = @__DIR__
 include(joinpath(script_dir, "data", "prec_process_data.jl"))
@@ -35,6 +28,6 @@ ps, st = LuxCore.setup(Random.default_rng(), Rsc)
 # the Tuple `ds_p, ds_t` is later used for batching in the `dataloader`.
 ds_t_nan = .!isnan.(ds_t)
 
-ls = lossfn(Rsc, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss())
+ls = EasyHybrid.lossfn(Rsc, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss(train_mode=false))
 
 out = train(Rsc, (ds_p_f, ds_t), (:Q10_het, :Q10_myc, :Q10_root, ); nepochs=100, batchsize=512, opt=Adam(0.01));

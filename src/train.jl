@@ -1,12 +1,24 @@
 export train
 
 """
-    train(hybridModel, data; nepochs=200, batchsize=10, opt=Adam(0.01))
+    train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0.01), file_name=nothing, loss_types=[:mse, :mae], training_loss=:mse, agg=sum)
+
+Train a hybrid model using the provided data and save the training process to a file in JLD2 format. Default output file is `trained_model.jld2` at the current working directory under `output_tmp`.
+
+# Arguments:
+- `hybridModel`: The hybrid model to be trained.
+- `data`: The training data, either a tuple of KeyedArrays or a single KeyedArray.
+- `save_ps`: A tuple of physical parameters to save during training.
+- `nepochs`: Number of training epochs (default: 200).
+- `batchsize`: Size of the training batches (default: 10).
+- `opt`: The optimizer to use for training (default: Adam(0.01)).
+- `file_name`: The name of the file to save the training process (default: nothing-> "trained_model.jld2").
+- `loss_types`: A vector of loss types to compute during training (default: `[:mse, :mae]`).
+- `training_loss`: The loss type to use during training (default: `:mse`).
+- `agg`: The aggregation function to apply to the computed losses (default: `sum`).
 """
 function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0.01),
-    file_name=nothing,
-        # metrics =( :mse, :nse) # TODO: include a list of metrics
-        )
+    file_name=nothing, loss_types=[:mse, :mae], training_loss=:mse, agg=sum)
     data_ = prepare_data(hybridModel, data)
     # all the KeyedArray thing!
 
@@ -20,8 +32,10 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     # ? initial losses
     is_no_nan_t = .!isnan.(y_train)
     is_no_nan_v = .!isnan.(y_val)
-    l_init_train = lossfn(hybridModel, x_train, (y_train, is_no_nan_t), ps, st, LoggingLoss())
-    l_init_val = lossfn(hybridModel, x_val, (y_val, is_no_nan_v), ps, st, LoggingLoss())
+    l_init_train = lossfn(hybridModel, x_train, (y_train, is_no_nan_t), ps, st,
+        LoggingLoss(train_mode=false, loss_types=loss_types, training_loss=training_loss, agg=agg))
+    l_init_val = lossfn(hybridModel, x_val, (y_val, is_no_nan_v), ps, st,
+        LoggingLoss(train_mode=false, loss_types=loss_types, training_loss=training_loss, agg=agg))
 
     train_history = [l_init_train]
     val_history = [l_init_val]
@@ -41,7 +55,8 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
             # ? check NaN indices before going forward, and pass filtered `x, y`.
             is_no_nan = .!isnan.(y)
             if length(is_no_nan)>0 # ! be careful here, multivariate needs fine tuning
-                grads = Zygote.gradient((ps) -> lossfn(hybridModel, x, (y, is_no_nan), ps, st), ps)[1] #TODO do we have to do losses then one with logging, one without
+                grads = Zygote.gradient((ps) -> lossfn(hybridModel, x, (y, is_no_nan), ps, st,
+                    LoggingLoss(training_loss=training_loss, agg=agg)), ps)[1]
                 Optimisers.update!(opt_state, ps, grads)
             end
         end
@@ -51,24 +66,25 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
         tmp_e = NamedTuple{save_ps}(ps_values)
         push!(ps_history, tmp_e)
 
-        l_train = lossfn(hybridModel, x_train,  (y_train, is_no_nan_t), ps, st, LoggingLoss())
-        l_val = lossfn(hybridModel, x_val, (y_val, is_no_nan_v), ps, st, LoggingLoss())
-        # out_metrics = [m() for m in metrics] # TODO: include a list of metrics!
+        l_train = lossfn(hybridModel, x_train,  (y_train, is_no_nan_t), ps, st,
+            LoggingLoss(train_mode=false, loss_types=loss_types, training_loss=training_loss, agg=agg))
+        l_val = lossfn(hybridModel, x_val, (y_val, is_no_nan_v), ps, st,
+            LoggingLoss(train_mode=false, loss_types=loss_types, training_loss=training_loss, agg=agg))
         save_train_val_loss!(file_name, l_train, "training_loss", epoch)
         save_train_val_loss!(file_name, l_val, "validation_loss", epoch)
         
         push!(train_history, l_train)
         push!(val_history, l_val)
 
-        _headers, paddings = header_and_paddings(l_init_train)
+        _headers, paddings = header_and_paddings(getproperty(l_init_train, training_loss))
 
         next!(prog; showvalues = [
             ("epoch ", epoch),
             ("targets ", join(_headers, "  ")),
-            (styled"{red:training-start }", styled_values(l_init_train; paddings)),
-            (styled"{bright_red:current }", styled_values(l_train; color=:bright_red, paddings)),
-            (styled"{cyan:validation-start }", styled_values(l_init_val; paddings)),
-            (styled"{bright_cyan:current }", styled_values(l_val; color=:bright_cyan, paddings)),
+            (styled"{red:training-start }", styled_values(getproperty(l_init_train, training_loss); paddings)),
+            (styled"{bright_red:current }", styled_values(getproperty(l_train, training_loss); color=:bright_red, paddings)),
+            (styled"{cyan:validation-start }", styled_values(getproperty(l_init_val, training_loss); paddings)),
+            (styled"{bright_cyan:current }", styled_values(getproperty(l_val, training_loss); color=:bright_cyan, paddings)),
             ]
             )
             # TODO: log metrics

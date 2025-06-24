@@ -4,18 +4,8 @@ Pkg.develop(path=pwd())
 Pkg.instantiate()
 
 using EasyHybrid
-using Lux
-using MLUtils
-using Random
-using Optimization
-using OptimizationOptimisers
-using ComponentArrays
-using GLMakie
-using Random
-using LuxCore
-using CSV, DataFrames
-using Statistics
-using Printf
+using EasyHybrid.Printf
+using EasyHybrid.MLUtils
 
 df = CSV.read("projects/RbQ10/data/Rh_AliceHolt_forcing_filled.csv", DataFrame)
 
@@ -34,7 +24,6 @@ NN = Lux.Chain(Dense(2, 15, Lux.relu), Dense(15, 15, Lux.relu), Dense(15, 1));
 
 ps, st = LuxCore.setup(Random.default_rng(), RbQ10)
 
-using ComponentArrays
 ps_ca = ComponentArray(ps) .|> Float64
 # smodel = StatefulLuxLayer{false}(RbQ10, nothing, st)
 # deal with the `Rb` state also here, (; Rb, st), since this is the output from LuxCore.apply.
@@ -50,15 +39,12 @@ function callback(state, l) #callback function to observe training
     return false
 end
 
-
-using Statistics
-
 # the Tuple `ds_p, ds_t` is later used for batching in the `dataloader`.
 ds_p_f, ds_t = EasyHybrid.prepare_data(RbQ10, ds_keyed)
 ds_t_nan = .!isnan.(ds_t)
-ls = lossfn(RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st)
+ls = EasyHybrid.lossfn(RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss(train_mode=false))
 
-ls2 = (p, data) -> lossfn(RbQ10, ds_p_f, (ds_t, ds_t_nan), p, st)
+ls2 = (p, data) -> EasyHybrid.lossfn(RbQ10, ds_p_f, (ds_t, ds_t_nan), p, st, LoggingLoss())
 
 dta = (ds_p_f, ds_t, ds_t_nan)
 

@@ -5,17 +5,12 @@ Pkg.instantiate()
 
 using Revise
 using EasyHybrid
-using Lux
-using Optimisers
+# plotting
 using GLMakie
 using AlgebraOfGraphics
-using Random
-using LuxCore
-using CSV, DataFrames
-using EasyHybrid.MLUtils
-using Statistics
 import Plots as pl
-# using StatsBase
+# ML utils
+using EasyHybrid.MLUtils
 
 # ? move the `csv` file into the `BulkDSOC/data` folder (create folder)
 df = CSV.read(joinpath(@__DIR__, "./data/lucas_preprocessed.csv"), DataFrame, normalizenames=true)
@@ -57,13 +52,13 @@ ps, st = LuxCore.setup(Random.default_rng(), BulkDSOC)
 # the Tuple `ds_p, ds_t` is later used for batching in the `dataloader`.
 ds_t_nan = .!isnan.(ds_t)
 
-ls = lossfn(BulkDSOC, ds_p, (ds_t, ds_t_nan), ps, st) # #TODO runs up to here
+ls = EasyHybrid.lossfn(BulkDSOC, ds_p, (ds_t, ds_t_nan), ps, st, LoggingLoss(train_mode=false)) # #TODO runs up to here
 
 println(length(names_cov))
 out = train(BulkDSOC, (ds_p, ds_t), (:oBD, ); nepochs=100, batchsize=32, opt=AdaMax(0.01));
 
 # plot train history
-series(out.train_history; axis = (; xlabel = "epoch", ylabel = "loss", xscale=log10, yscale=log10))
+series(WrappedTuples(out.train_history.mse); axis = (; xlabel = "epoch", ylabel = "loss", xscale=log10, yscale=log10))
 
 # physical parameter
 series(out.ps_history; axis=(; xlabel = "epoch", ylabel=""))
@@ -117,8 +112,8 @@ with_theme(theme_light()) do
         # yscale=log10, 
         xscale=log10
         )
-    lines!(ax, out.train_history.sum, color=:orangered, label = "train")
-    lines!(ax, out.val_history.sum, color=:dodgerblue, label ="validation")
+    lines!(ax, WrappedTuples(out.train_history.mse).sum, color=:orangered, label = "train")
+    lines!(ax, WrappedTuples(out.val_history.mse).sum, color=:dodgerblue, label ="validation")
     # limits!(ax, 1, 1000, 0.04, 1)
     axislegend()
     fig
