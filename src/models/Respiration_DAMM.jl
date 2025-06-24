@@ -12,7 +12,7 @@ struct RespirationDAMM{D, T1,T2, T3, T4} <: LuxCore.AbstractLuxContainerLayer{(:
     forcing
     targets
     Q10
-    kmo
+    kmo # how efficient an enzyme of microbial activity is at utilizing oxygen. Low Kmo means high efficiency as for aerobic organisms.
     kms
     function RespirationDAMM(NN::D, predictors::T1, forcing::T2, targets::T3, Q10::T4, kmo::T4, kms::T4) where {D, T1, T2, T3, T4}
         new{D, T1, T2, T3, T4}(NN, collect(predictors), collect(targets), collect(forcing), [Q10], [kmo], [kms])
