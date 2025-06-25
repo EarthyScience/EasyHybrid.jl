@@ -5,17 +5,11 @@ Pkg.instantiate()
 
 using Revise
 using EasyHybrid
-using Lux
-using Optimisers
+using EasyHybrid.Lux
+# plotting
 using GLMakie
 using AlgebraOfGraphics
-using Random
-using LuxCore
-using CSV, DataFrames
-using EasyHybrid.MLUtils
-using Statistics
 import Plots as pl
-# using StatsBase
 
 # ? move the `csv` file into the `BulkDSOC/data` folder (create folder)
 df = CSV.read(joinpath(@__DIR__, "./data/lucas_preprocessed.csv"), DataFrame, normalizenames=true)

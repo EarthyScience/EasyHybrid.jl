@@ -8,7 +8,7 @@ using EasyHybrid
 # α is the newly introduced physical parameter to be learned!
 ```
 
-see your new model definition by typing `?YourHybridModelName`.
+see your new model by typing `?YourHybridModelName`.
 
 ::: details you should see something like:
 
@@ -65,15 +65,15 @@ Hence, after specifying the `physical parameters`, you only need to describe how
 Model definition, how does the actual model operates!
 
 ```julia
-function (hm::YourHybridModelName)(ds_k, ps, st::NamedTuple)
+function (hm::YourHybridModelName)(dataset_keyed, ps, st)
   # data selection
-  p = ds_k(hm.predictors)
-  x = Array(ds_k(hm.forcing))
+  p = dataset_keyed(hm.predictors)
+  x = Array(dataset_keyed(hm.forcing))
   
   # output from Neural network application 
   β, st = LuxCore.apply(hm.NN, p, ps.ps, st.st) # [!code highlight]
 
-  # equation!
+  # equation! this is where you should focus, your model!
   ŷ = β .* ps.α .^(0.1f0 * (x .- 15.0f0)) # [!code warning]
 
   return (; ŷ), (; β, st) # always output predictions and states as two tuples

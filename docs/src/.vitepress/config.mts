@@ -28,7 +28,7 @@ const nav = [
 ]
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
-  base: '/dev/',
+  base: 'REPLACE_ME_DOCUMENTER_VITEPRESS',
   title: 'REPLACE_ME_DOCUMENTER_VITEPRESS',
   description: 'REPLACE_ME_DOCUMENTER_VITEPRESS',
   lastUpdated: true,

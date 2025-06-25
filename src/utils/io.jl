@@ -9,7 +9,7 @@ function save_ps_st(file_name, hm, ps, st, save_ps)
     end
 
     jldopen(file_name, "w") do file
-        file["HybridModel:$hm_name/epoch_0"] = (ps, st)
+        file["HybridModel_$hm_name/epoch_0"] = (ps, st)
         if !isempty(save_ps)
             file["physical_params/epoch_0"] = tmp_e
         end
@@ -25,7 +25,7 @@ function save_ps_st!(file_name, hm, ps, st, save_ps, epoch)
     end
 
     jldopen(file_name, "a+") do file
-        file["HybridModel:$hm_name/epoch_$epoch"] = (ps, st)
+        file["HybridModel_$hm_name/epoch_$epoch"] = (ps, st)
         if !isempty(save_ps)
             file["physical_params/epoch_$epoch"] = tmp_e
         end
@@ -58,6 +58,7 @@ function to_named_tuple(ka, target_names)
 end
 
 function load_group(file_name, group)
+    group = string(group)
     group_tmp = JLD2.load(file_name, group)
     group_keys = collect(keys(group_tmp))
     if occursin("epoch", first(group_keys))
@@ -70,14 +71,14 @@ function load_group(file_name, group)
 end
 
 function get_all_groups(filename)
-    groups = String[]
+    groups = Symbol[]
     JLD2.jldopen(filename, "r") do file
         function recurse_groups(g, path="")
             for k in keys(g)
                 obj = g[k]
                 newpath = joinpath(path, k)
                 if obj isa JLD2.Group
-                    push!(groups, newpath)
+                    push!(groups, Symbol(newpath))
                     recurse_groups(obj, newpath)
                 end
             end

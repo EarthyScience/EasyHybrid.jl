@@ -1,21 +1,17 @@
+# activate the project's environment and instantiate dependencies
 using Pkg
 Pkg.activate("projects/RbQ10")
 Pkg.develop(path=pwd())
 Pkg.instantiate()
 
+# start using the package
 using EasyHybrid
-using Lux
-using Optimisers
+
+# for Plotting
 using GLMakie
 using AlgebraOfGraphics
-using Random
-using LuxCore
-using CSV, DataFrames
-using EasyHybrid.MLUtils
-using EasyHybrid.AxisKeys
-using Zygote
-using EasyHybrid.JLD2
-# data
+
+# load data
 df_o = CSV.read(joinpath(@__DIR__, "./data/Rh_AliceHolt_forcing_filled.csv"), DataFrame)
 
 # some pre-processing
@@ -27,7 +23,7 @@ rename!(df, :Respiration_heterotrophic => :Rh)  # rename as in hybrid model
 ds_keyed = to_keyedArray(Float32.(df)) # predictors + forcing
 
 # Define neural network
-NN = Lux.Chain(Dense(2, 15, Lux.relu), Dense(15, 15, Lux.relu), Dense(15, 1));
+NN = Chain(Dense(2, 15, relu), Dense(15, 15, relu), Dense(15, 1));
 # instantiate Hybrid Model
 RbQ10 = RespirationRbQ10(NN, (:Rgpot, :Moist), (:Rh, ), (:Temp,), 2.5f0) # ? do different initial Q10s
 # train model
@@ -53,16 +49,16 @@ output_file = joinpath(@__DIR__, "output_tmp/trained_model.jld2")
 
 all_groups = get_all_groups(output_file)
 
-predictions = load_group(output_file, "predictions")
+predictions = load_group(output_file, :predictions)
 
-physical_params, _ = load_group(output_file, "physical_params")
+physical_params, _ = load_group(output_file, :physical_params)
 
 series(WrappedTuples(physical_params); axis=(; xlabel = "epoch", ylabel=""))
 
-training_loss, _ = load_group(output_file, "training_loss")
+training_loss, _ = load_group(output_file, :training_loss)
 series(WrappedTuples(WrappedTuples(training_loss).mse); axis=(; xlabel = "epoch", ylabel="training loss", xscale=log10, yscale=log10))
 
-validation_loss, _ = load_group(output_file, "validation_loss")
+validation_loss, _ = load_group(output_file, :validation_loss)
 series(WrappedTuples(WrappedTuples(validation_loss).mse); axis=(; xlabel = "epoch", ylabel="validation loss", xscale=log10, yscale=log10))
 
 
