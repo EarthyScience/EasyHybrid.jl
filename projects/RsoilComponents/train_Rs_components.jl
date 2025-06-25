@@ -3,6 +3,8 @@ Pkg.activate("projects/RsoilComponents")
 Pkg.develop(path=pwd())
 Pkg.instantiate()
 
+using Revise
+
 using EasyHybrid
 using GLMakie
 using AlgebraOfGraphics
@@ -14,7 +16,51 @@ include(joinpath(script_dir, "data", "prec_process_data.jl"))
 df = dfall[!, Not(:timesteps)]
 ds_keyed = to_keyedArray(Float32.(df))
 
+target_names = [:R_soil]
+forcing_names = [:cham_temp_filled]
+
+Temp = Array(ds_keyed(collect(target_names)))
+mRbQ10(hybridRs.Rb, hybridRs.Q10, Temp, 15.0f0)
+
+hybridRs = RbQ10_2p(target_names, forcing_names, 2.5f0, 1.f0)
+hybridRs = RbQ10_2p(target_names, (:cham_temp_filled,), 2.5f0, 1.f0)
+
+out = train(hybridRs, ds_keyed, (:Rb, :Q10); nepochs=100, batchsize=512, opt=Adam(0.01));
+
+series(out.ps_history; axis=(; xlabel = "epoch", ylabel=""))
+
+# Define neural network
+NN = Chain(Dense(1, 15, relu), Dense(15, 15, relu), Dense(15, 1));
+# instantiate Hybrid Model
+RbQ10 = RespirationRbQ10(NN, (:moisture_filled,), target_names, forcing_names, 1.5f0) # ? do different initial Q10s
+# train model
+out2 = train(RbQ10, ds_keyed, (:Q10, ); nepochs=200, batchsize=512, opt=Adam(0.01));
+
+series(out2.ps_history; axis=(; xlabel = "epoch", ylabel=""))
+
+import Plots as pl
+
+
+pl.scatter(df.cham_temp_filled, df.R_soil, alpha = 0.05)
+
+TempRange = collect(range(0,30,100))
+
+mod = mRbQ10(out.ps.Rb,out.ps.Q10, TempRange, 0)
+pl.plot!(TempRange,mod, linewidth=3, label = "dumb Q10")
+
+mod = mRbQ10(out.ps.Rb,out2.ps.Q10, TempRange, 0)
+pl.plot!(TempRange,mod, linewidth=3, label = "Hybrid Q10")
+
+pl.scatter(df.moisture, df.R_soil, alpha = 0.05)
+
+
+series(out.train_history; axis = (; xlabel = "epoch", ylabel = "loss", xscale=log10, yscale=log10))
+
 target_names = [:R_soil, :R_root, :R_myc, :R_het]
+hybridRs = RbQ10_2p(target_names, (:cham_temp_filled,), 2.5f0, 1.f0)
+
+
+
 
 NN = Lux.Chain(Dense(2, 15, Lux.sigmoid), Dense(15, 15, Lux.sigmoid), Dense(15, 3, x -> x^2));
 Rsc = Rs_components(NN, (:rgpot, :moisture_filled), target_names, (:cham_temp_filled,), 2.5f0, 2.5f0, 2.5f0)
