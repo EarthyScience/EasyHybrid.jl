@@ -52,7 +52,7 @@ function (hm::Rs_components)(ds_k, ps, st::NamedTuple)
     R_root = mRbQ10(Rb_root, ps.Q10_root, x[1,:], 15.f0)
     R_myc = mRbQ10(Rb_myc, ps.Q10_myc, x[1,:], 15.f0)
 
-    R_soil = R_het  + R_root + R_myc
+    R_soil = R_het .+ R_root .+ R_myc
 
     return (; R_soil, R_het, R_root, R_myc), (; Rb_het, Rb_root, Rb_myc, st)
 end
