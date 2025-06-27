@@ -23,7 +23,7 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     # all the KeyedArray thing!
 
     # ? split training and validation data
-    (x_train, y_train), (x_val, y_val) = splitobs(data_; at=0.8, shuffle=true)
+    (x_train, y_train), (x_val, y_val) = splitobs(data_; at=0.8, shuffle=false)
     train_loader = DataLoader((x_train, y_train), batchsize=batchsize, shuffle=true);
     # ? setup model
     ps, st = LuxCore.setup(Random.default_rng(), hybridModel)
