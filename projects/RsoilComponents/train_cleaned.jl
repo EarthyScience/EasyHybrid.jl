@@ -22,9 +22,9 @@ forcing_names = [:cham_temp_filled]
 # Define neural network
 NN = Chain(Dense(2, 15, relu), Dense(15, 15, relu), Dense(15, 1));
 # instantiate Hybrid Model
-RbQ10 = RespirationRbQ10(NN, (:moisture_filled, :rgpot2), target_names, forcing_names, 1.5f0) # ? do different initial Q10s
+RbQ10 = RespirationRbQ10(NN, (:moisture_filled, :rgpot2), target_names, forcing_names, 2.5f0) # ? do different initial Q10s
 # train model
-o_Rsonly = train(RbQ10, ds_keyed, (:Q10, ); nepochs=200, batchsize=512, opt=Adam(0.01), file_name = "o_Rsonly.jld2");
+o_Rsonly = train(RbQ10, ds_keyed, (:Q10, ); nepochs=2000, batchsize=512, opt=Adam(0.01), file_name = "o_Rsonly.jld2");
 
 series(o_Rsonly.ps_history; axis=(; xlabel = "epoch", ylabel=""))
 
@@ -47,7 +47,7 @@ NN = Lux.Chain(Dense(2, 15, Lux.sigmoid), Dense(15, 15, Lux.sigmoid), Dense(15, 
 target_names = [:R_soil, :R_root, :R_myc, :R_het]
 Rsc = Rs_components(NN, (:rgpot, :moisture_filled), target_names, (:cham_temp_filled,), 2.5f0, 2.5f0, 2.5f0)
 
-o_Rscomponents = train(Rsc, ds_keyed, (:Q10_het, :Q10_myc, :Q10_root, ); nepochs=200, batchsize=512, opt=Adam(0.01), file_name = "o_Rscomponents.jld2");
+o_Rscomponents = train(Rsc, ds_keyed, (:Q10_het, :Q10_myc, :Q10_root, ); nepochs=1000, batchsize=512, opt=Adam(0.01), file_name = "o_Rscomponents.jld2");
 
 series(o_Rscomponents.ps_history; axis=(; xlabel = "epoch", ylabel=""))
 
@@ -66,9 +66,16 @@ end
 
 
 
+ds_exp = ds_keyed
 
+ds_exp(:rgpot) .= mean(filter(!isnan, Array(ds_exp(:rgpot))))
+ds_exp(:moisture_filled) .= mean(filter(!isnan, Array(ds_exp(:moisture_filled))))
 
+ŷ = Rsc(ds_exp, o_Rscomponents.ps, o_Rscomponents.st)[1]
+ŷ2 = RbQ10(ds_exp, o_Rsonly.ps, o_Rsonly.st)[1]
 
+plot(ds_keyed(:cham_temp_filled), ŷ.R_soil)
+plot!(ds_keyed(:cham_temp_filled), ŷ2.R_soil[1,:])
 
 output_file = joinpath(@__DIR__, "output_tmp/o_Rsonly.jld2")
 # o = jldopen(output_file, "r")
