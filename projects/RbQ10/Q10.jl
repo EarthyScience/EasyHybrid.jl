@@ -11,21 +11,21 @@ using EasyHybrid
 using GLMakie
 using AlgebraOfGraphics
 
-# load data
-df_o = CSV.read(joinpath(@__DIR__, "./data/Rh_AliceHolt_forcing_filled.csv"), DataFrame)
+script_dir = @__DIR__
+include(joinpath(script_dir, "data", "prec_process_data.jl"))
 
-# some pre-processing
-df = copy(df_o)
-df[!, :Temp] = df[!, :Temp] .- 273.15 # convert to Celsius
-# df = filter(:Respiration_heterotrophic => !isnan, df)
-rename!(df, :Respiration_heterotrophic => :Rh)  # rename as in hybrid model
+# Common data preprocessing
+df = dfall[!, Not(:timesteps)]
+ds_keyed = to_keyedArray(Float32.(df))
 
-ds_keyed = to_keyedArray(Float32.(df)) # predictors + forcing
+target_names = [:R_soil]
+forcing_names = [:cham_temp_filled]
+predictor_names = [:moisture_filled, :rgpot2]
 
 # Define neural network
 NN = Chain(Dense(2, 15, relu), Dense(15, 15, relu), Dense(15, 1));
 # instantiate Hybrid Model
-RbQ10 = RespirationRbQ10(NN, (:Rgpot, :Moist), (:Rh, ), (:Temp,), 2.5f0) # ? do different initial Q10s
+RbQ10 = RespirationRbQ10(NN, predictor_names, target_names, forcing_names, 2.5f0) # ? do different initial Q10s
 # train model
 out = train(RbQ10, ds_keyed, (:Q10, ); nepochs=200, batchsize=512, opt=Adam(0.01));
 
@@ -68,7 +68,7 @@ series(WrappedTuples(WrappedTuples(validation_loss).mse); axis=(; xlabel = "epoc
 series(out.ps_history; axis=(; xlabel = "epoch", ylabel=""))
 
 # with AoG
-yvars = [:Rh]
+yvars = target_names
 xvars = Symbol.(string.(yvars) .* "_pred")
 
 layers = visual(Scatter, alpha = 0.35)
@@ -95,11 +95,11 @@ let
     fig = Figure(; size = (1200, 600))
     ax_train = Makie.Axis(fig[1, 1], title = "training")
     ax_val = Makie.Axis(fig[2, 1], title = "validation")
-    lines!(ax_train, out.train_obs_pred[!, :Rh_pred], color=:orangered, label = "prediction")
-    lines!(ax_train, out.train_obs_pred[!, :Rh], color=:dodgerblue, label ="observation")
+    lines!(ax_train, out.train_obs_pred[!, :R_soil_pred], color=:orangered, label = "prediction")
+    lines!(ax_train, out.train_obs_pred[!, :R_soil], color=:dodgerblue, label ="observation")
     # validation
-    lines!(ax_val, out.val_obs_pred[!, :Rh_pred], color=:orangered, label = "prediction")
-    lines!(ax_val, out.val_obs_pred[!, :Rh], color=:dodgerblue, label ="observation")
+    lines!(ax_val, out.val_obs_pred[!, :R_soil_pred], color=:orangered, label = "prediction")
+    lines!(ax_val, out.val_obs_pred[!, :R_soil], color=:dodgerblue, label ="observation")
     axislegend(; position=:lt)
     Label(fig[0,1], "Observations vs predictions", tellwidth=false)
     fig
@@ -118,14 +118,14 @@ with_theme(theme_light()) do
 end
 
 
-yobs_all =  ds_keyed(:Rh)
+yobs_all =  ds_keyed(:R_soil)
 
 ŷ, RbQ10_st = LuxCore.apply(RbQ10, ds_p_f, out.ps, out.st)
 
 with_theme(theme_light()) do 
     fig = Figure(; size = (1200, 600))
     ax_train = Makie.Axis(fig[1, 1], title = "full time series")
-    lines!(ax_train, ŷ.Rh[:], color=:orangered, label = "prediction")
+    lines!(ax_train, ŷ.R_soil[:], color=:orangered, label = "prediction")
     lines!(ax_train, yobs_all[:], color=:dodgerblue, label ="observation")
     axislegend(ax_train; position=:lt)
     Label(fig[0,1], "Observations vs predictions", tellwidth=false)
@@ -134,4 +134,4 @@ end
 
 # ? Rb
 lines(out.αst_train.Rb[:])
-lines!(ds_p_f(:Moist)[:])
+lines!(ds_p_f(:moisture_filled)[:])

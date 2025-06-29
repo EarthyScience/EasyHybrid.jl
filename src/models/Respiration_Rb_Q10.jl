@@ -10,7 +10,7 @@ A linear hybrid model with a neural network `NN`, `predictors`, `targets` and `f
 struct RespirationRbQ10{D, T1, T2, T3, T4} <: LuxCore.AbstractLuxContainerLayer{(:NN, :predictors, :forcing, :targets, :Q10)}
     NN
     predictors
-    forcing
+    forcing #TODO order is messed up compared to new
     targets
     Q10
     function RespirationRbQ10(NN::D, predictors::T1, forcing::T2, targets::T3, Q10::T4) where {D, T1, T2, T3, T4}
@@ -55,7 +55,8 @@ function (hm::RespirationRbQ10)(ds_k, ps, st::NamedTuple)
     
     Rb, st = LuxCore.apply(hm.NN, p, ps.ps, st.st) #! NN(αᵢ(t)) ≡ Rb(T(t), M(t))
 
-    R_soil = mRbQ10(Rb, ps.Q10, x, 0.0f0) # ? should 15°C be the reference temperature also an input variable?
+    #TODO output name flexible - could be R_soil, heterotrophic, autotrophic, etc.
+    R_soil = mRbQ10(Rb, ps.Q10, x, 15.0f0) # ? should 15°C be the reference temperature also an input variable?
 
     return (; R_soil), (; Rb, st)
 end

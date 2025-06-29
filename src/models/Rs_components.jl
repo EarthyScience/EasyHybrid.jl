@@ -48,7 +48,7 @@ function (hm::Rs_components)(ds_k, ps, st::NamedTuple)
     Rb_root = out[2,:]
     Rb_myc = out[3,:]
 
-    R_het = mRbQ10(Rb_het, ps.Q10_het, x[1,:], 15.f0) # TODO out of memory error here	
+    R_het = mRbQ10(Rb_het, ps.Q10_het, x[1,:], 15.f0)	
     R_root = mRbQ10(Rb_root, ps.Q10_root, x[1,:], 15.f0)
     R_myc = mRbQ10(Rb_myc, ps.Q10_myc, x[1,:], 15.f0)
 
