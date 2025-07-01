@@ -51,15 +51,19 @@ function (hm::RespirationDAMM)(ds_k, ps, st::NamedTuple)
 
    Rb, st = LuxCore.apply(hm.NN, p, ps.ps, st.st) #! NN(αᵢ(t)) ≡ Rb(T(t), M(t))
 
-        # Michaelis-Menten limitation for Oxygen 
+   # Michaelis-Menten limitation for Oxygen 
    BD =0.8
    PD =2.52
    Dgas= 1.67
    O2airfraction = 0.2095
    porosity = 1 - BD/PD
 
+   kmo = sigmoid(ps.kmo) .* 1.f-3 .+ 1.f-4
+   kms = sigmoid(ps.kms) .* 1.f-6 .+ 1.f-8
+   Q10 = sigmoid(ps.Q10) .* 3.f0 .+ 1.f0
+
    O2 =  @. Dgas * O2airfraction *(porosity - Moist) ^(4.0 /3.0) # Oxygen concentration in the soil air (mol/m^3)
-   Ox_limitation = O2 ./ (ps.kmo .+ O2)
+   Ox_limitation = O2 ./ (kmo .+ O2)
 
 
    # Michaelis-Menten limitation for substrate 
@@ -68,11 +72,13 @@ function (hm::RespirationDAMM)(ds_k, ps, st::NamedTuple)
    Sxtot =0.048 
    
    Sx = @. Sxtot * psx * Dliq * Moist .^ 3 
-   S_limitation = Sx ./ (ps.kms .+ Sx)
+   S_limitation = Sx ./ (kms .+ Sx)
+
+   Q10term = Q10 .^(0.1f0 * (Temp .- 15.0f0))
 
     # Model for Respiration_heterotrophic   
-    Rh = Rb .* ps.Q10 .^(0.1f0 * (Temp .- 15.0f0)) .* Ox_limitation .* S_limitation # ? should 15°C be the reference temperature also an input variable?
+    Rh = Rb .* Q10term .* Ox_limitation .* S_limitation # ? should 15°C be the reference temperature also an input variable?
 
-    return (; Rh, O2, Ox_limitation, Moist, Sx, S_limitation, porosity, Rb), ( ;st)
+    return (; Rh, O2, Ox_limitation, Moist, Sx, S_limitation, porosity, Rb, Q10term), ( ;st)
 end
 

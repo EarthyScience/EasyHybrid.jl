@@ -10,7 +10,7 @@ using EasyHybrid
 # for Plotting
 using GLMakie
 using AlgebraOfGraphics
-GLMakie.activate!()
+GLMakie.activate!(inline=true) # for plots in vscode true, separate window false
 
 
 # For plotting when GLMakie is not available or not opening new panels
@@ -44,23 +44,51 @@ NN = Chain(Dense(1, 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2)
 # Model with DAMM equation from script "Respiration_DAMM"
 RDAMM = RespirationDAMM(NN, (:Rgpot,), (:Rh, ), (:Temp, :Moist), 2.5f0, 9.97f-7, 1.21f0 ) # ? do different initial Q10s and kmo and kms. f0 takes values as Float32. The f-7 is simply scientific notation (like e-7) 
 ps, st = LuxCore.setup(Random.default_rng(), RDAMM)  
-out = RDAMM(ds_keyed, ps, st)[1]
-
-ps, st = LuxCore.setup(Random.default_rng(), RDAMM)
-# the Tuple `ds_p, ds_t` is later used for batching in the `dataloader`.
-ds_p_f, ds_t = EasyHybrid.prepare_data(RDAMM, ds_keyed)
-ds_t_nan = .!isnan.(ds_t)
-ls = EasyHybrid.lossfn(RDAMM, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss())
+hout = RDAMM(ds_keyed, ps, st)[1]
 
 
-import Plots as pl
-pl.plot(out.Rh')
-pl.plot!(out.Rb')
+# put an Axis into cell (1,1), it becomes the “current axis”
+fig1 = Figure()
+fig1[1, 1] = Makie.Axis(fig1; xlabel = "Time", title = "Initial RDAMM Output")
 
-pl.plot(out.S_limitation')
+# now all of these plot calls go to that axis implicitly
+lines!(vec(hout.Rh),           label = "Rh (predicted)")
+lines!(vec(hout.Q10term),      label = "Q10 term")
+lines!(vec(hout.Rb),           label = "Rb (base respiration)")
+lines!(vec(hout.S_limitation), label = "Substrate limitation")
+lines!(vec(hout.Ox_limitation), label = "Oxygen limitation")
+
+# observed
+lines!(vec(ds_t(:Rh)),         label = "Rh (observed)", linewidth = 2)
+
+axislegend(position = :rt)     # also applies to the current axis
+
+fig1  # display
+
 
 # train model
-trainout = train(RDAMM, ds_keyed, (:Q10, :kmo, :kms); nepochs=200, batchsize=512, opt=AdaGrad(0.01)); 
+out = train(RDAMM, ds_keyed, (:Q10, :kmo, :kms); nepochs=200, batchsize=512, opt=Adam(0.01)); 
+
+tout = RDAMM(ds_keyed, out.ps, out.st)[1]
+
+# put an Axis into cell (1,1), it becomes the “current axis”
+fig1 = Figure()
+fig1[1, 1] = Makie.Axis(fig1; xlabel = "Time", title = "Initial RDAMM Output")
+
+# now all of these plot calls go to that axis implicitly
+lines!(vec(tout.Rh),           label = "Rh (predicted)")
+lines!(vec(tout.Q10term),      label = "Q10 term")
+lines!(vec(tout.Rb),           label = "Rb (base respiration)")
+lines!(vec(tout.S_limitation), label = "Substrate limitation")
+lines!(vec(tout.Ox_limitation), label = "Oxygen limitation")
+
+# observed
+lines!(vec(ds_t(:Rh)),         label = "Rh (observed)", linewidth = 2)
+
+axislegend(position = :rt)     # also applies to the current axis
+
+fig1  # display
+
 
 ## legacy for RBQ10 model 
             # ? test lossfn
