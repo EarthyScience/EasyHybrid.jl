@@ -10,9 +10,18 @@ using EasyHybrid
 # for Plotting
 using GLMakie
 using AlgebraOfGraphics
+GLMakie.activate!()
+
+
+# For plotting when GLMakie is not available or not opening new panels
+#import Pkg
+#Pkg.add("CairoMakie")
+#using CairoMakie
 
 # load data
 df_o = CSV.read(joinpath(@__DIR__, "./data/Rh_AliceHolt_forcing_filled.csv"), DataFrame)
+
+
 
 # some pre-processing
 df = copy(df_o)
@@ -20,44 +29,63 @@ df[!, :Temp] = df[!, :Temp] .- 273.15 # convert to Celsius
 # df = filter(:Respiration_heterotrophic => !isnan, df)
 rename!(df, :Respiration_heterotrophic => :Rh)  # rename as in hybrid model
 
+names(df) #check if the names are correct and complete 
+
 ds_keyed = to_keyedArray(Float32.(df)) # predictors + forcing
 
 # Define neural network
-NN = Chain(Dense(1, 15, relu), Dense(15, 15, relu), Dense(15, 1))
+NN = Chain(Dense(1, 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
+
 # instantiate Hybrid Model
 # RbQ10 = RespirationRbQ10(NN, (:Rgpot, :Moist), (:Rh, ), (:Temp,), 2.5f0) # ? do different initial Q10s
 # train model
 # out = train(RbQ10, ds_keyed, (:Q10, ); nepochs=200, batchsize=512, opt=Adam(0.01));
 
-RDAMM = RespirationDAMM(NN, (:Rgpot,), (:Rh, ), (:Temp, :Moist), 2.5f0, 9.97f-7, 0.121f0 ) # ? do different initial Q10s
-# train model
-out = train(RDAMM, ds_keyed, (:Q10, :kmo, :kms); nepochs=200, batchsize=512, opt=Adam(0.01)); 
-## legacy 
-# ? test lossfn
-ps, st = LuxCore.setup(Random.default_rng(), RbQ10)
+# Model with DAMM equation from script "Respiration_DAMM"
+RDAMM = RespirationDAMM(NN, (:Rgpot,), (:Rh, ), (:Temp, :Moist), 2.5f0, 9.97f-7, 1.21f0 ) # ? do different initial Q10s and kmo and kms. f0 takes values as Float32. The f-7 is simply scientific notation (like e-7) 
+ps, st = LuxCore.setup(Random.default_rng(), RDAMM)  
+out = RDAMM(ds_keyed, ps, st)[1]
+
+ps, st = LuxCore.setup(Random.default_rng(), RDAMM)
 # the Tuple `ds_p, ds_t` is later used for batching in the `dataloader`.
-ds_p_f, ds_t = EasyHybrid.prepare_data(RbQ10, ds_keyed)
+ds_p_f, ds_t = EasyHybrid.prepare_data(RDAMM, ds_keyed)
 ds_t_nan = .!isnan.(ds_t)
-ls = EasyHybrid.lossfn(RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss())
+ls = EasyHybrid.lossfn(RDAMM, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss())
 
-ls_logs = EasyHybrid.lossfn(RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss(train_mode=false))
 
-# ? play with :Temp as predictors in NN, temperature sensitivity!
-# TODO: variance effect due to LSTM vs NN
-out = train(RbQ10, (ds_p_f, ds_t), (:Q10, ); nepochs=200, batchsize=512, opt=Adam(0.01));
+import Plots as pl
+pl.plot(out.Rh')
+pl.plot!(out.Rb')
 
+pl.plot(out.S_limitation')
+
+# train model
+trainout = train(RDAMM, ds_keyed, (:Q10, :kmo, :kms); nepochs=200, batchsize=512, opt=AdaGrad(0.01)); 
+
+## legacy for RBQ10 model 
+            # ? test lossfn
+            #=
+            ps, st = LuxCore.setup(Random.default_rng(), RbQ10)
+            # the Tuple `ds_p, ds_t` is later used for batching in the `dataloader`.
+            ds_p_f, ds_t = EasyHybrid.prepare_data(RbQ10, ds_keyed)
+            ds_t_nan = .!isnan.(ds_t)
+            ls = EasyHybrid.lossfn(RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss())
+            ls_logs = EasyHybrid.lossfn(RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss(train_mode=false))
+            # ? play with :Temp as predictors in NN, temperature sensitivity!
+            # TODO: variance effect due to LSTM vs NN
+            out = train(RbQ10, (ds_p_f, ds_t), (:Q10, ); nepochs=200, batchsize=512, opt=Adam(0.01));
+            =#
 output_file = joinpath(@__DIR__, "output_tmp/trained_model.jld2")
+
 # o = jldopen(output_file, "r")
 # close(o)
 
 all_groups = get_all_groups(output_file)
-
 predictions = load_group(output_file, :predictions)
-
 physical_params, _ = load_group(output_file, :physical_params)
 
-#Q10 value as the training advances 
-series(WrappedTuples(physical_params); axis=(; xlabel = "epoch", ylabel=""))
+
+# Plots Loss over epochs for training and validation datasets. 
 
 training_loss, _ = load_group(output_file, :training_loss)
 series(WrappedTuples(WrappedTuples(training_loss).mse); axis=(; xlabel = "epoch", ylabel="training loss", xscale=log10, yscale=log10))
@@ -68,21 +96,34 @@ series(WrappedTuples(WrappedTuples(validation_loss).mse); axis=(; xlabel = "epoc
 
 # load_group(output_file, "RespirationRbQ10")
 
-## Plotting results
-series(out.ps_history; axis=(; xlabel = "epoch", ylabel=""))
+## Plotting results---  redundant with the below  
+#series(out.ps_history; axis=(; xlabel = "epoch", ylabel=""))
 
+# Plot for Q10 value as the training advances 
+series(WrappedTuples(physical_params); axis=(; xlabel = "epoch", ylabel=""))
 
-# with AoG
+# AoG plotting
+
+# Convert all columns to Float64 as they are mixed of Float32 and Float64 and present problems to plot 
+df_plot = deepcopy(out.train_obs_pred)
+for c in names(df_plot)
+    if eltype(df_plot[!, c]) <: AbstractFloat
+        df_plot[!, c] = Float64.(df_plot[!, c])
+    end
+end
+   
 yvars = [:Rh]
 xvars = Symbol.(string.(yvars) .* "_pred")
-
 layers = visual(Scatter, alpha = 0.35)
-plt = data(out.train_obs_pred) * layers * mapping(xvars, yvars, col=dims(1) => renamer(string.(yvars)))
-plt *= mapping(color = dims(1) => renamer(string.(xvars))=> "Metrics")
-# linear
-l_linear = linear() * visual(color=:grey25)
-plt += data(out.train_obs_pred) * l_linear *  mapping(xvars, yvars, col=dims(1) => renamer(string.(yvars)))
+plt = data(df_plot) * layers * mapping(xvars, yvars, col=dims(1) => renamer(string.(yvars)))
+plt *= mapping(color = dims(1) => renamer(string.(xvars)) => "Metrics")
+# Add regression line 
+l_linear = linear() * visual(color = :grey25)
+plt += data(df_plot) * l_linear * mapping(xvars, yvars, col=dims(1) => renamer(string.(yvars)))
+display(draw(plt))
 
+"""
+# Same plot as AoG but with editable scales and legend 
 let
    draw(plt, scales(
         X = (; label = rich("Prediction", font=:bold)),
@@ -93,9 +134,9 @@ let
     facet = (; linkxaxes = :none, linkyaxes = :none,),
 ) 
 end
+"""
 
-
-
+# Plotting observations vs predictions 
 let
     fig = Figure(; size = (1200, 600))
     ax_train = Makie.Axis(fig[1, 1], title = "training")
@@ -110,6 +151,7 @@ let
     fig
 end
 
+# Plotting Training and Validation Loss 
 with_theme(theme_light()) do 
     fig = Figure(; size = (1200, 300))
     ax = Makie.Axis(fig[1,1], title = "Loss",

@@ -2,10 +2,13 @@
 export RespirationDAMM
 
 """
-    RespirationDAMM(NN, predictor, forcing, targets, Q10, kmo, kms)
+    RespirationDAMM(NN, predictor, forcing, targets, Q10, kmo, kms) # pedictor is Rgpot, forcing is Temp and Moist   
 
 A DAMM equation type with `targets` and `forcing` terms.
-"""
+Rh: is the primary target. Respiration_heterotrophic.
+Rb:	Output of the neural net, base respiration before modifiers.
+Q10, kmo, kms:	Learned physical parameters like temp sensitivity and Michaelis-Menten constants.
+""" 
 struct RespirationDAMM{D, T1,T2, T3, T4} <: LuxCore.AbstractLuxContainerLayer{(:NN, :predictors, :forcing, :targets, :Q10, :kmo, :kms)}
     NN
     predictors
@@ -40,33 +43,36 @@ ŷ (respiration rate) is computed as a function of the neural network output `R
 ````
 """
 function (hm::RespirationDAMM)(ds_k, ps, st::NamedTuple)
-    p = ds_k(hm.predictors)
-   x = ds_k(hm.forcing) # don't propagate names after this
-   x.Moist
+    p = Array(ds_k(hm.predictors))
+    x = ds_k(hm.forcing) # don't propagate names after this
    
+    Moist = Array(x([:Moist]))
+    Temp = Array(x([:Temp]))
+
    Rb, st = LuxCore.apply(hm.NN, p, ps.ps, st.st) #! NN(αᵢ(t)) ≡ Rb(T(t), M(t))
 
+        # Michaelis-Menten limitation for Oxygen 
    BD =0.8
    PD =2.52
    Dgas= 1.67
    O2airfraction = 0.2095
    porosity = 1 - BD/PD
 
-   O2 =  Dgas * O2airfraction *(porosity .-x.Moist) .^(4.0 /3.0) # Oxygen concentration in the soil air (mol/m^3)
-     # Michaelis-Menten limitation for Oxygen 
+   O2 =  @. Dgas * O2airfraction *(porosity - Moist) ^(4.0 /3.0) # Oxygen concentration in the soil air (mol/m^3)
    Ox_limitation = O2 ./ (ps.kmo .+ O2)
 
-   # Substrate definition
+
+   # Michaelis-Menten limitation for substrate 
    Dliq = 3.17
    psx = 4.14f-4 # proportion of C that is DOC 
    Sxtot =0.048 
-   Sx = Sxtot * psx * Dliq * x.Moist .^ 3 
+   
+   Sx = @. Sxtot * psx * Dliq * Moist .^ 3 
+   S_limitation = Sx ./ (ps.kms .+ Sx)
 
-   # Substrate limitation 
-    S_limitation = Sx ./ (ps.kms .+ Sx)
+    # Model for Respiration_heterotrophic   
+    Rh = Rb .* ps.Q10 .^(0.1f0 * (Temp .- 15.0f0)) .* Ox_limitation .* S_limitation # ? should 15°C be the reference temperature also an input variable?
 
-    Rh = Rb .* ps.Q10 .^(0.1f0 * (x .- 15.0f0)) .* Ox_limitation .* S_limitation # ? should 15°C be the reference temperature also an input variable?
-
-    return (; Rh), (; Rb, st)
+    return (; Rh, O2, Ox_limitation, Moist, Sx, S_limitation, porosity, Rb), ( ;st)
 end
 
