@@ -5,3 +5,4 @@ tmp_*
 Manifest.toml
 .DS_Store
 *.csv
+/projects/BulkDSOC/eval/

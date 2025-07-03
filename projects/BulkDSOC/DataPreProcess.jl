@@ -69,11 +69,12 @@ df = df_o[:, [:bulk_density_fe, :soc, :coarse_vol, names_cov...]]
 
 # ? match target_names
 rename!(df, :bulk_density_fe => :BD, :soc => :SOCconc, :coarse_vol => :CF) # rename as in hybrid model
+# BD g/cm3, SOCconc g/kg, CF [0,1]
 
 df[:, :SOCconc] .= df[:, :SOCconc] ./ 1000 # convert to fraction
 
 # ? calculate SOC density
-df[!,:SOCdensity] = df.BD .* df.SOCconc .* (1 .- df.CF) # TODO: check units
+df[!,:SOCdensity] = df.BD .* df.SOCconc .* (1 .- df.CF) # SOCdensity ton/m3
 target_names = [:BD, :SOCconc, :CF, :SOCdensity]
 # df[:, target_names] = replace.(df[:, target_names], missing => NaN) # replace missing with NaN
 
