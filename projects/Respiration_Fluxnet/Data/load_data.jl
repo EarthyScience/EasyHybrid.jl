@@ -1,16 +1,11 @@
 # activate the project's environment and instantiate dependencies
-using Pkg
-Pkg.activate("projects/Respiration_Fluxnet")
-Pkg.develop(path=pwd())
-Pkg.instantiate()
-
 using NCDatasets, DataFrames, Dates
 
 struct FluxNetSite
-    data     :: DataFrame            # time‐series
-    scalars  :: Dict{Symbol,Any}     # 0-D & length-1 vars
-    profiles :: DataFrame  # length-N vars (profiles)
-    gattrs   :: Dict{String,Any}     # global file attributes
+    timeseries     :: DataFrame            # time‐series
+    scalars        :: Dict{Symbol,Any}     # 0-D & length-1 vars
+    profiles       :: DataFrame  # length-N vars (profiles)
+    gattrs         :: Dict{String,Any}     # global file attributes
 end
 
 """
@@ -88,8 +83,3 @@ function load_fluxnet_nc(path; timevar="date", timedim="time", soildim = "depth"
         close(ds)
     end
 end
-site = load_fluxnet_nc(joinpath(@__DIR__, "data20240123", "AR-SLu.nc"), timevar="date")
-
-println(names(site.data))
-site.scalars
-println(names(site.profiles))
