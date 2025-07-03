@@ -13,3 +13,4 @@ Manifest.toml
 *_tmp
 *.pdf
 *.pptx
+*.nc
