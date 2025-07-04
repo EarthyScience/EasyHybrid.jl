@@ -12,7 +12,13 @@ include("Data/load_data.jl")
 # =============================================================================
 # Load data
 # =============================================================================
+
+# copy data to data/data20240123/ from here /Net/Groups/BGI/work_4/scratch/jnelson/4Sinikka/data20240123
+# or adjust the path to /Net/Groups/BGI/work_4/scratch/jnelson/4Sinikka/data20240123 + FluxNetSite
+
 site = load_fluxnet_nc(joinpath(@__DIR__, "Data", "data20240123", "US-SRG.nc"), timevar="date")
+
+
 
 # explore data structure
 println(names(site.timeseries))
