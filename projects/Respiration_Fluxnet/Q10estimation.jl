@@ -60,10 +60,10 @@ available_vars = names(site.timeseries);
 println("Available variables: ", available_vars)
 
 df = site.timeseries[!, Not(:time, :date)]
-rename!(df, :RECO_NT => :Rh)
+rename!(df, :RECO_NT => :R_soil)
 
 # Select target and forcing variables and predictors
-target_RbQ10 = :Rh
+target_RbQ10 = :R_soil
 forcing_RbQ10 = :TA
 
 predictors_RbQ10 = [:SWC_shallow, :P]
