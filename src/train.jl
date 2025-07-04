@@ -18,7 +18,7 @@ Train a hybrid model using the provided data and save the training process to a 
 - `agg`: The aggregation function to apply to the computed losses (default: `sum`).
 """
 function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0.01),
-    file_name=nothing, loss_types=[:mse, :mae], training_loss=:mse, agg=sum)
+    file_name=nothing, loss_types=[:mse, :r2], training_loss=:mse, agg=sum)
     data_ = prepare_data(hybridModel, data)
     # all the KeyedArray thing!
 
