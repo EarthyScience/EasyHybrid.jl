@@ -15,11 +15,14 @@ include("Data/load_data.jl")
 # copy data to data/data20240123/ from here /Net/Groups/BGI/work_4/scratch/jnelson/4Sinikka/data20240123
 # or adjust the path to /Net/Groups/BGI/work_4/scratch/jnelson/4Sinikka/data20240123 + FluxNetSite
 
+
 site = load_fluxnet_nc(joinpath(@__DIR__, "Data", "data20240123", "US-SRG.nc"), timevar="date")
 
 site.timeseries.dayofyear = dayofyear.(site.timeseries.time)
 site.timeseries.sine_dayofyear = sin.(site.timeseries.dayofyear)
 site.timeseries.cos_dayofyear = cos.(site.timeseries.dayofyear)
+
+
 
 # explore data structure
 println(names(site.timeseries))

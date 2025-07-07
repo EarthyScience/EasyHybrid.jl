@@ -77,9 +77,9 @@ function load_fluxnet_nc(path; timevar="date", timedim="time", soildim = "depth"
 
         # -- global file attributes ----------------------------------------
         gattrs = Dict(k => ds.attrib[k] for k in keys(ds.attrib))
-
-        return FluxNetSite(df, scalars, dfsoil, gattrs)
-    finally
         close(ds)
+        return FluxNetSite(df, scalars, dfsoil, gattrs)
+    catch e
+        error("Error reading, nothing to do here!")
     end
 end
