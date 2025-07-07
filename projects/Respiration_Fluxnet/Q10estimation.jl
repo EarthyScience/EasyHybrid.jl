@@ -88,10 +88,11 @@ end
 
 ds_keyed_reco = to_keyedArray(Float32.(sdf))
 
-NN_RbQ10 = Chain(Dense(length(predictors_RbQ10), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
+# TODO check batchnorm
+NN_RbQ10 = Chain(BatchNorm(length(predictors_RbQ10)), Dense(length(predictors_RbQ10), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
 
 # Instantiate RespirationRbQ10 model
-RbQ10_model = RespirationRbQ10(NN_RbQ10, predictors_RbQ10, (target_RbQ10,), (forcing_RbQ10,), 2.5f0)
+RbQ10_model = RespirationRbQ10(NN_RbQ10, predictors_RbQ10, (target_RbQ10,), (forcing_RbQ10,), 1.5f0)
 
 # Train RbQ10 model
 out_RbQ10 = train(RbQ10_model, ds_keyed_reco, (:Q10,); nepochs=10, batchsize=512, opt=Adam(0.01))
@@ -103,6 +104,34 @@ lines!(ax_train, out_RbQ10.train_obs_pred[!, Symbol(string(target_RbQ10, "_pred"
 lines!(ax_train, out_RbQ10.train_obs_pred[!, target_RbQ10], color=:dodgerblue, label="observation")
 axislegend(ax_train; position=:lt)
 fig_RbQ10
+
+# Plot the RECO predictions as scatter plot
+fig_RECO = Figure(size=(800, 600))
+
+# Calculate RECO statistics
+reco_pred = out_RbQ10.train_obs_pred[!, Symbol(string(target_RbQ10, "_pred"))]
+reco_obs = out_RbQ10.train_obs_pred[!, target_RbQ10]
+ss_res = sum((reco_obs .- reco_pred).^2)
+ss_tot = sum((reco_obs .- mean(reco_obs)).^2)
+reco_modelling_efficiency = 1 - ss_res / ss_tot
+reco_rmse = sqrt(mean((reco_pred .- reco_obs).^2))
+
+ax_RECO = Makie.Axis(fig_RECO[1, 1], 
+    title="RbQ10 Model - RECO Predictions vs Observations
+    \n Modelling Efficiency: $(round(reco_modelling_efficiency, digits=3)) 
+    \n RMSE: $(round(reco_rmse, digits=3)) μmol CO2 m-2 s-1",
+    xlabel="Predicted RECO", 
+    ylabel="Observed RECO", aspect=1)
+scatter!(ax_RECO, reco_pred, reco_obs, color=:purple, alpha=0.6, markersize=8)
+
+# Add 1:1 line
+max_val = max(maximum(reco_obs), maximum(reco_pred))
+min_val = min(minimum(reco_obs), minimum(reco_pred))
+lines!(ax_RECO, [min_val, max_val], [min_val, max_val], color=:black, linestyle=:dash, linewidth=1, label="1:1 line")
+
+axislegend(ax_RECO; position=:lt)
+
+fig_RECO
 
 # =============================================================================
 # train hybrid FluxPartModel_Q10_Lux model on NEE to get Q10, GPP, and Reco
@@ -122,19 +151,17 @@ dropmissing!(sdf)
 
 ds_keyed_FluxPartModel = to_keyedArray(Float32.(sdf))
 
-NNRb = Chain(Dense(length(predictors_Rb_FluxPartModel), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
-NNRUE = Chain(Dense(length(predictors_RUE_FluxPartModel), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
+NNRb = Chain(BatchNorm(length(predictors_Rb_FluxPartModel)), Dense(length(predictors_Rb_FluxPartModel), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
+NNRUE = Chain(BatchNorm(length(predictors_RUE_FluxPartModel)), Dense(length(predictors_RUE_FluxPartModel), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
 
-FluxPart = FluxPartModelQ10Lux(NNRUE, NNRb, predictors_RUE_FluxPartModel, predictors_Rb_FluxPartModel, forcing_FluxPartModel, target_FluxPartModel, 2.5f0)
+FluxPart = FluxPartModelQ10Lux(NNRUE, NNRb, predictors_RUE_FluxPartModel, predictors_Rb_FluxPartModel, forcing_FluxPartModel, target_FluxPartModel, 1.5f0)
 
 FluxPart.RUE_predictors
 
 ds_keyed_FluxPartModel(predictors_Rb_FluxPartModel)
 
-out =EasyHybrid.prepare_data(FluxPart, ds_keyed_FluxPartModel)
-
 # Train FluxPartModel
-out_FluxPart = train(FluxPart, ds_keyed_FluxPartModel, (:Q10,); nepochs=100, batchsize=512, opt=AdaGrad(0.01))
+out_FluxPart = train(FluxPart, ds_keyed_FluxPartModel, (:Q10,); nepochs=100, batchsize=512, opt=AdamW(0.01))
 
 # Plot training results for FluxPartModel
 fig_FluxPart = Figure(size=(1200, 600))
@@ -150,19 +177,19 @@ fig_NEE = Figure(size=(800, 600))
 # Calculate NEE statistics
 nee_pred = out_FluxPart.train_obs_pred[!, Symbol(string(:NEE, "_pred"))]
 nee_obs = out_FluxPart.train_obs_pred[!, :NEE]
-nee_correlation = cor(nee_pred, nee_obs)
+ss_res = sum((nee_obs .- nee_pred).^2)
+ss_tot = sum((nee_obs .- mean(nee_obs)).^2)
+nee_modelling_efficiency = 1 - ss_res / ss_tot
 nee_rmse = sqrt(mean((nee_pred .- nee_obs).^2))
-nee_mean_diff = mean(nee_pred .- nee_obs)
 
 ax_NEE = Makie.Axis(fig_NEE[1, 1], 
     title="FluxPartModel - NEE Predictions vs Observations
-    \n Correlation: $(round(nee_correlation, digits=3)) 
-    \n RMSE: $(round(nee_rmse, digits=3)) μmol/m²/s
-    \n Mean Difference: $(round(nee_mean_diff, digits=3)) μmol/m²/s", 
-    xlabel="Observed NEE", 
-    ylabel="Predicted NEE", aspect=1)
+    \n Modelling Efficiency: $(round(nee_modelling_efficiency, digits=3)) 
+    \n RMSE: $(round(nee_rmse, digits=3)) μmol CO2 m-2 s-1",
+    xlabel="Predicted NEE", 
+    ylabel="Observed NEE", aspect=1)
 
-scatter!(ax_NEE, nee_obs, nee_pred, color=:purple, alpha=0.6, markersize=8)
+scatter!(ax_NEE, nee_pred, nee_obs, color=:purple, alpha=0.6, markersize=8)
 
 # Add 1:1 line
 max_val = max(maximum(nee_obs), maximum(nee_pred))
@@ -172,70 +199,9 @@ lines!(ax_NEE, [min_val, max_val], [min_val, max_val], color=:black, linestyle=:
 axislegend(ax_NEE; position=:lt)
 fig_NEE
 
-mean(ds_keyed_reco(:R_soil))
+# look at Q10s
 
-# =============================================================================
-# Compare respiration from RbQ10 model vs FluxPartModel
-# =============================================================================
+out_FluxPart.ps.Q10[1]
+out_RbQ10.ps.Q10[1]
 
-# Get respiration predictions from both models
-# For RbQ10 model, we already have the predictions in out_RbQ10.train_obs_pred
-# For FluxPartModel, we need to extract the RECO component from the model output
-
-# Get the trained parameters and states
-ps_RbQ10 = out_RbQ10.ps
-st_RbQ10 = out_RbQ10.st
-ps_FluxPart = out_FluxPart.ps
-st_FluxPart = out_FluxPart.st
-
-# Get respiration predictions from FluxPartModel
-# We need to run the model to get the RECO component
-_, FluxPart_outputs = FluxPart(ds_keyed_FluxPartModel, ps_FluxPart, st_FluxPart)
-reco_FluxPart = FluxPart_outputs.RECO
-
-# Get respiration predictions from RbQ10 model
-RbQ10_outputs, _ = RbQ10_model(ds_keyed_reco, ps_RbQ10, st_RbQ10)
-reco_RbQ10 = RbQ10_outputs.R_soil
-
-# Create comparison plot
-fig_comparison = Figure(size=(1400, 800))
-
-# Main comparison plot
-ax_main = Makie.Axis(fig_comparison[1, 1], 
-    title="Respiration Comparison: RbQ10 vs FluxPartModel", 
-    xlabel="Time", 
-    ylabel="Respiration (μmol/m²/s)")
-
-# Plot both respiration estimates
-lines!(ax_main, vec(reco_RbQ10), color=:dodgerblue, linewidth=2, label="RbQ10 Model")
-lines!(ax_main, vec(reco_FluxPart), color=:orangered, linewidth=2, label="FluxPartModel")
-
-axislegend(ax_main; position=:lt)
-
-# Calculate statistics
-correlation = cor(vec(reco_RbQ10)[1:min_length], vec(reco_FluxPart)[1:min_length])
-rmse = sqrt(mean((vec(reco_RbQ10)[1:min_length] .- vec(reco_FluxPart)[1:min_length]).^2))
-
-
-# Scatter plot comparing the two estimates
-ax_scatter = Makie.Axis(fig_comparison[1, 2], 
-    title="Respiration Correlation 
-    \n Correlation: $(round(correlation, digits=3)) 
-    \n RMSE: $(round(rmse, digits=3)) μmol/m²/s", 
-    xlabel="RbQ10 Respiration", 
-    ylabel="FluxPartModel Respiration")
-
-# Use the shorter length to match data
-min_length = min(length(vec(reco_RbQ10)), length(vec(reco_FluxPart)))
-scatter!(ax_scatter, vec(reco_RbQ10)[1:min_length], vec(reco_FluxPart)[1:min_length], 
-    color=:purple, alpha=0.6, markersize=8)
-
-# Add 1:1 line
-max_val = max(maximum(vec(reco_RbQ10)), maximum(vec(reco_FluxPart)))
-min_val = min(minimum(vec(reco_RbQ10)), minimum(vec(reco_FluxPart)))
-lines!(ax_scatter, [min_val, max_val], [min_val, max_val], color=:black, linestyle=:dash, linewidth=1, label="1:1 line")
-
-axislegend(ax_scatter; position=:lt)
-
-fig_comparison
 
