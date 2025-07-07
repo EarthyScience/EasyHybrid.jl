@@ -161,11 +161,17 @@ function prepare_data(hm, data)
     else
         targets = hm.targets
         predictors_forcing = Symbol[]
-        if hasproperty(hm, :predictors)
-            push!(predictors_forcing, hm.predictors...)
-        end
-        if hasproperty(hm, :forcing)
-            push!(predictors_forcing, hm.forcing...)
+        # Check for any property that contains "predictors" in its name
+        for prop in propertynames(hm)
+            if occursin("predictors", string(prop))
+                push!(predictors_forcing, getproperty(hm, prop)...)
+            end
+        end 
+        # Check for any property that contains "forcing" in its name
+        for prop in propertynames(hm)
+            if occursin("forcing", string(prop))
+                push!(predictors_forcing, getproperty(hm, prop)...)
+            end
         end
         if isempty(predictors_forcing)
             @warn "Note that you don't have predictors or forcing variables."
