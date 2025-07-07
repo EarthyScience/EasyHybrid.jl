@@ -32,9 +32,9 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     # ? initial losses
     is_no_nan_t = .!isnan.(y_train)
     is_no_nan_v = .!isnan.(y_val)
-    l_init_train = lossfn(hybridModel, x_train, (y_train, is_no_nan_t), ps, st,
+    l_init_train = lossfn(hybridModel, x_train, (y_train, is_no_nan_t), ps, LuxCore.testmode(st),
         LoggingLoss(train_mode=false, loss_types=loss_types, training_loss=training_loss, agg=agg))
-    l_init_val = lossfn(hybridModel, x_val, (y_val, is_no_nan_v), ps, st,
+    l_init_val = lossfn(hybridModel, x_val, (y_val, is_no_nan_v), ps, LuxCore.testmode(st),
         LoggingLoss(train_mode=false, loss_types=loss_types, training_loss=training_loss, agg=agg))
 
     train_history = [l_init_train]
@@ -66,9 +66,9 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
         tmp_e = NamedTuple{save_ps}(ps_values)
         push!(ps_history, tmp_e)
 
-        l_train = lossfn(hybridModel, x_train,  (y_train, is_no_nan_t), ps, st,
+        l_train = lossfn(hybridModel, x_train,  (y_train, is_no_nan_t), ps, LuxCore.testmode(st),
             LoggingLoss(train_mode=false, loss_types=loss_types, training_loss=training_loss, agg=agg))
-        l_val = lossfn(hybridModel, x_val, (y_val, is_no_nan_v), ps, st,
+        l_val = lossfn(hybridModel, x_val, (y_val, is_no_nan_v), ps, LuxCore.testmode(st),
             LoggingLoss(train_mode=false, loss_types=loss_types, training_loss=training_loss, agg=agg))
         save_train_val_loss!(file_name, l_train, "training_loss", epoch)
         save_train_val_loss!(file_name, l_val, "validation_loss", epoch)
@@ -96,8 +96,8 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
 
     # ? save final evaluation or best at best validation value
 
-    ŷ_train, αst_train = hybridModel(x_train, ps, st)
-    ŷ_val, αst_val = hybridModel(x_val, ps, st)
+    ŷ_train, αst_train = hybridModel(x_train, ps, LuxCore.testmode(st))
+    ŷ_val, αst_val = hybridModel(x_val, ps, LuxCore.testmode(st))
     save_predictions!(file_name, ŷ_train, αst_train, "training")
     save_predictions!(file_name, ŷ_val, αst_val, "validation")
 
