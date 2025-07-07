@@ -51,13 +51,24 @@ ŷ (respiration rate) is computed as a function of the neural network output `R
 """
 function (hm::RespirationRbQ10)(ds_k, ps, st::NamedTuple)
     p = ds_k(hm.predictors)
-    x = Array(ds_k(hm.forcing)) # don't propagate names after this
-    
-    Rb, st = LuxCore.apply(hm.NN, p, ps.ps, st.st) #! NN(αᵢ(t)) ≡ Rb(T(t), M(t))
+    x_forcing = ds_k(hm.forcing)
+    x = if hasproperty(x_forcing, :window)
+        last_idx = last(x_forcing.window)
+        @show last_idx # ! don't propagate names after this, hence the `Array` conversion
+        return Array(x_forcing[window=last_idx])
+    else
+        return Array(x_forcing)
+    end
 
+    # x = Array(x_forcing) # don't propagate names after this
+    @show size(x)
+    # x = x[:, 8 , :]
+    Rb, st = LuxCore.apply(hm.NN, p, ps.ps, st.st) #! NN(αᵢ(t)) ≡ Rb(T(t), M(t))
+    # @show size(Rb)
+    # @show size(x)
+    # @show size(p)
     #TODO output name flexible - could be R_soil, heterotrophic, autotrophic, etc.
     R_soil = mRbQ10(Rb, ps.Q10, x, 15.0f0) # ? should 15°C be the reference temperature also an input variable?
 
     return (; R_soil), (; Rb, st)
 end
-
