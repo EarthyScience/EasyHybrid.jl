@@ -76,7 +76,7 @@ rename!(df, :RECO_NT => :R_soil)
 target_RbQ10 = :R_soil
 forcing_RbQ10 = :TA
 
-predictors_RbQ10 = [:SWC_shallow, :P, :WS, :sine_dayofyear, :cos_dayofyear] # similar to Tramontana et al. 2020 - wind direction is missing
+predictors_RbQ10 = [:SWC_shallow, :P] # similar to Tramontana et al. 2020 - wind direction is missing
 
 # select columns and drop rows with any NaN values
 sdf = copy(df[!, [predictors_RbQ10..., target_RbQ10, forcing_RbQ10]])
@@ -92,13 +92,20 @@ end
 ds_keyed_reco = to_keyedArray(Float32.(sdf))
 
 # TODO check batchnorm
-NN_RbQ10 = Chain(BatchNorm(length(predictors_RbQ10), affine = false), Dense(length(predictors_RbQ10), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
+NN_RbQ10 = Chain(Dense(length(predictors_RbQ10), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
 
 # Instantiate RespirationRbQ10 model
 RbQ10_model = RespirationRbQ10(NN_RbQ10, predictors_RbQ10, (target_RbQ10,), (forcing_RbQ10,), 1.5f0)
 
+# ? test lossfn
+ps, st = LuxCore.setup(Random.default_rng(), RbQ10_model)
+# the Tuple `ds_p, ds_t` is later used for batching in the `dataloader`.
+ds_p_f, ds_t = EasyHybrid.prepare_data(RbQ10_model, ds_keyed_reco)
+ds_t_nan = .!isnan.(ds_t)
+ls = EasyHybrid.lossfn(RbQ10_model, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss())
+
 # Train RbQ10 model
-out_RbQ10 = train(RbQ10_model, ds_keyed_reco, (:Q10,); nepochs=10, batchsize=512, opt=Adam(0.01))
+out_RbQ10 = train(RbQ10_model, ds_keyed_reco, (:Q10,); nepochs=10, batchsize=512, opt=AdaGrad(0.01))
 
 # Plot training results for RbQ10
 fig_RbQ10 = Figure(size=(1200, 600))

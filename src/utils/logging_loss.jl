@@ -45,7 +45,7 @@ end
 Get predictions and targets from the hybrid model and return them along with the NaN mask.
 """
 function get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
-    ŷ, st = HM(x, ps, st)
+    ŷ, st = HM(x, ps, st) #TODO the output st can contain more than st, e.g. Rb is that what we want?
     y = y_t(HM.targets)
     y_nan = y_nan(HM.targets)
     return (ŷ, y, y_nan, st)
