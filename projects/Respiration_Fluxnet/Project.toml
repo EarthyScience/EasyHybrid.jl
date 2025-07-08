@@ -1,0 +1,6 @@
+[deps]
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+EasyHybrid = "61bb816a-e6af-4913-ab9e-91bff2e122e3"
+GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
+NCDatasets = "85f8d34a-cbdd-5861-8df4-14fed0d494ab"
