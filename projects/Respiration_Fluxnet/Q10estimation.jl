@@ -92,7 +92,7 @@ end
 ds_keyed_reco = to_keyedArray(Float32.(sdf))
 
 # TODO check batchnorm
-NN_RbQ10 = Chain(BatchNorm(length(predictors_RbQ10)), Dense(length(predictors_RbQ10), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
+NN_RbQ10 = Chain(BatchNorm(length(predictors_RbQ10), affine = false), Dense(length(predictors_RbQ10), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
 
 # Instantiate RespirationRbQ10 model
 RbQ10_model = RespirationRbQ10(NN_RbQ10, predictors_RbQ10, (target_RbQ10,), (forcing_RbQ10,), 1.5f0)
@@ -154,8 +154,8 @@ dropmissing!(sdf)
 
 ds_keyed_FluxPartModel = to_keyedArray(Float32.(sdf))
 
-NNRb = Chain(BatchNorm(length(predictors_Rb_FluxPartModel)), Dense(length(predictors_Rb_FluxPartModel), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
-NNRUE = Chain(BatchNorm(length(predictors_RUE_FluxPartModel)), Dense(length(predictors_RUE_FluxPartModel), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
+NNRb = Chain(BatchNorm(length(predictors_Rb_FluxPartModel), affine=false), Dense(length(predictors_Rb_FluxPartModel), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
+NNRUE = Chain(BatchNorm(length(predictors_RUE_FluxPartModel), affine=false), Dense(length(predictors_RUE_FluxPartModel), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
 
 FluxPart = FluxPartModelQ10Lux(NNRUE, NNRb, predictors_RUE_FluxPartModel, predictors_Rb_FluxPartModel, forcing_FluxPartModel, target_FluxPartModel, 1.5f0)
 
