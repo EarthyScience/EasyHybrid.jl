@@ -48,7 +48,7 @@ function get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
     ŷ, st = HM(x, ps, st) #TODO the output st can contain more than st, e.g. Rb is that what we want?
     y = y_t(HM.targets)
     y_nan = y_nan(HM.targets)
-    return (ŷ, y, y_nan, st)
+    return (ŷ, y, y_nan, (st=st.st,)) #TODO has to be done otherwise e.g. Rb is passed as a st and messes up the training
 end
 function compute_loss(ŷ, y, y_nan, targets, training_loss::Symbol, agg::Function)
     losses = [loss_fn(ŷ[k], y(k), y_nan(k), Val(training_loss)) for k in targets]
