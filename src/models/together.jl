@@ -25,7 +25,7 @@ function constructHybridModel8(
 )
     all_names = collect(keys(params.table.axes[1]))
     @assert all(n in all_names for n in nn_names) "nn_names ⊆ param_names"
-    NN = Chain(Dense(length(predictors), 16, sigmoid ), Dense(16, length(nn_names)))
+    NN = Chain(BatchNorm(length(predictors)), Dense(length(predictors), 32, tanh), Dense(32, length(nn_names), tanh))
     fixed_names = [ n for n in all_names if !(n in [nn_names..., global_names...]) ]
     return HybridModel15(NN, predictors, forcing, targets, mech_fun, params, nn_names, global_names, fixed_names)
 end
@@ -37,9 +37,11 @@ function LuxCore.initialparameters(rng::AbstractRNG, m::HybridModel15)
     # start with the NN weights
     nt = (; ps = ps_nn)
     # then append each global parameter as a 1‐vector of Float32
-    for g in m.global_names
-        default_val = m.params.table[g, :default]
-        nt = merge(nt, NamedTuple{(g,), Tuple{Vector{Float32}}}(([Float32(default_val)],)))
+    if !isempty(m.global_names)
+        for g in m.global_names
+            default_val = m.params.table[g, :default]
+            nt = merge(nt, NamedTuple{(g,), Tuple{Vector{Float32}}}(([Float32(default_val)],)))
+        end
     end
     return nt
 end
@@ -49,9 +51,11 @@ function LuxCore.initialstates(rng::AbstractRNG, m::HybridModel15)
     # start with the NN weights
     nt = (;)
     # then append each global parameter as a 1‐vector of Float32
-    for f in m.fixed_names  
-        default_val = m.params.table[f, :default]
-        nt = merge(nt, NamedTuple{(f,), Tuple{Vector{Float32}}}(([Float32(default_val)],)))
+    if !isempty(m.fixed_names)
+        for f in m.fixed_names  
+            default_val = m.params.table[f, :default]
+            nt = merge(nt, NamedTuple{(f,), Tuple{Vector{Float32}}}(([Float32(default_val)],)))
+        end
     end
     nt = (; st = st_nn, fixed = nt)
     return nt
@@ -68,30 +72,6 @@ function scale_single_param(name, raw_val, table)
     return ℓ .+ (u .- ℓ) .* sigmoid.(raw_val)
 end
 
-"""
-    scale_params(raw::NamedTuple, table::ComponentMatrix)
-
-Given a NamedTuple of raw vectors `raw` and your FXWParams10.table,
-produce a NamedTuple of the same field-names where each entry
-has been mapped into [lower, upper] via a sigmoid.
-"""
-function scale_params(raw::NamedTuple, table::ComponentMatrix)
-    # grab all the field‐names as an immutable tuple
-    names = Tuple(keys(raw))  # e.g. (:θ_s, :h_r, …)
-
-    # build an immutable tuple of scaled arrays
-    scaled_vals = Tuple(
-        scale_single_param(name, raw[name], table)
-        for name in names
-    )
-
-    # now build a tuple of their types
-    types_tup = Tuple(typeof(v) for v in scaled_vals)
-
-    # and finally construct the NamedTuple with explicit names and types
-    return NamedTuple{names, types_tup}(scaled_vals)
-end
-
 
 # ───────────────────────────────────────────────────────────────────────────
 # 4) Forward pass: exactly as before, but drop init_globals
@@ -102,36 +82,40 @@ function (m::HybridModel15)(ds_k, ps, st)
 
     # 2) run NN → B×P
 
-    # scale global parameters
-    global_vals = Tuple(
-            scale_single_param(g, ps[g], m.params.table)
-            for g in m.global_names
+    # scale global parameters (handle empty case)
+    if !isempty(m.global_names)
+        global_vals = Tuple(
+                scale_single_param(g, ps[g], m.params.table)
+                for g in m.global_names
+            )
+        glob_ps = NamedTuple{Tuple(m.global_names), Tuple{typeof.(global_vals)...}}(global_vals)
+    else
+        glob_ps = NamedTuple()
+    end
+
+    # scale NN parameters (handle empty case)
+    if !isempty(m.nn_names)
+        nn_out, st_NN = LuxCore.apply(m.NN, p, ps.ps, st.st)
+        nn_cols = eachrow(nn_out)
+        nn_ps   = NamedTuple(zip(m.nn_names, nn_cols))
+        scaled_nn_vals = Tuple(
+            scale_single_param(name, nn_ps[name], m.params.table)
+            for name in m.nn_names
         )
-    glob_ps = NamedTuple{Tuple(m.global_names), Tuple{typeof.(global_vals)...}}(global_vals)
+        scaled_nn_ps   = NamedTuple(zip(m.nn_names, scaled_nn_vals))
+    else
+        scaled_nn_ps = NamedTuple()
+        st_NN = st.st
+    end
 
-    # scale NN parameters
-    nn_out, st_NN = LuxCore.apply(m.NN, p, ps.ps, st.st)
-    nn_cols = eachrow(nn_out)
-    nn_ps   = NamedTuple(zip(m.nn_names, nn_cols))
-    scaled_nn_vals = Tuple(
-        scale_single_param(name, nn_ps[name], m.params.table)
-        for name in m.nn_names
-    )
-    scaled_nn_ps   = NamedTuple(zip(m.nn_names, scaled_nn_vals))
+    # pick fixed parameters (handle empty case)
+    if !isempty(m.fixed_names)
+        fixed_vals = Tuple(st.fixed[f] for f in m.fixed_names)
+        fixed_ps = NamedTuple{Tuple(m.fixed_names), Tuple{typeof.(fixed_vals)...}}(fixed_vals)
+    else
+        fixed_ps = NamedTuple()
+    end
 
-    # pick fixed parameters
-    fixed_vals = Tuple(st.fixed[f] for f in m.fixed_names)
-    fixed_ps = NamedTuple{Tuple(m.fixed_names), Tuple{typeof.(fixed_vals)...}}(fixed_vals)
-
-    # 4) sigmoid‐scale the unconstrained nn and global params into [lower, upper]
-    #scaled_nn  = scale_params(nn_ps,  m.params.table)
-    #scaled_glob = scale_params(glob_ps, m.params.table)
-
-    #println("scaled_nn: ", scaled_nn)
-    #println("scaled_glob: ", scaled_glob)
-    #println("fixed_ps: ", fixed_ps)
-
-    #a = merge(scaled_nn, scaled_glob, fixed_ps)
     a = merge(scaled_nn_ps, glob_ps, fixed_ps)
   
     # 6) physics
@@ -163,8 +147,8 @@ hm = constructHybridModel8(
   targets,                   # target
   mFXW_theta,               # your physics function
   p,                         # FXWParams10 holds the bounds/defaults
-  [:m],                      # nn_names (empty here)
-  [:h_r, :h_0]              # global_names
+  [:θ_s, :α, :n, :m],                      # nn_names
+  []              # global_names
 )
 
 hm.targets
@@ -173,7 +157,7 @@ hm.targets
 ps = LuxCore.initialparameters(Random.default_rng(), hm)
 st = LuxCore.initialstates(Random.default_rng(), hm)
 
-out, st2 = hm(ds_keyed[:,1:10], ps, st)
+out, st2 = hm(ds_keyed, ps, st)
 
 out.θ
 
@@ -201,6 +185,34 @@ end
 ls = EasyHybrid.lossfn(hm, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss())
 
 tout = train(hm, ds_keyed[:,1:100], (); nepochs=100, batchsize=10, opt=Adam(0.01), file_name = "tour.jld2")
+
+# Plot the NEE predictions as scatter plot
+fig_θ = Figure(size=(800, 600))
+
+# Calculate NEE statistics
+θ_pred = tout.train_obs_pred[!, Symbol(string(:θ, "_pred"))]
+θ_obs = tout.train_obs_pred[!, :θ]
+ss_res = sum((θ_obs .- θ_pred).^2)
+ss_tot = sum((θ_obs .- mean(θ_obs)).^2)
+θ_modelling_efficiency = 1 - ss_res / ss_tot
+θ_rmse = sqrt(mean((θ_pred .- θ_obs).^2))
+
+ax_θ = Makie.Axis(fig_θ[1, 1], 
+    title="FluxPartModel - θ Predictions vs Observations
+    \n Modelling Efficiency: $(round(θ_modelling_efficiency, digits=3)) 
+    \n RMSE: $(round(θ_rmse, digits=3)) μmol CO2 m-2 s-1",
+    xlabel="Predicted θ", 
+    ylabel="Observed θ", aspect=1)
+
+scatter!(ax_θ, θ_pred, θ_obs, color=:purple, alpha=0.6, markersize=8)
+
+# Add 1:1 line
+max_val = max(maximum(θ_obs), maximum(θ_pred))
+min_val = min(minimum(θ_obs), minimum(θ_pred))
+lines!(ax_θ, [min_val, max_val], [min_val, max_val], color=:black, linestyle=:dash, linewidth=1, label="1:1 line")
+
+axislegend(ax_θ; position=:lt)
+fig_θ
 
 
 

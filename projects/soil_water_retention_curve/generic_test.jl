@@ -135,13 +135,13 @@ mutable struct FXWParams10
     # 3) inner constructor lives inside the struct block
     function FXWParams10()
         values = (
- #"columns" are default, lower, upper
-          θ_s = (0.45,    0.0,   1.0),
-          h_r = (0.05,    0.0,   0.5),
-          h_0 = (100.0,   0.0, 1000.0),
-          α   = (0.04,    0.001, 0.05),
-          n   = (1.56,    1.0,   5.0),
-          m   = (0.36,    0.0,   1.0)
+                    # "columns" are: default, lower, upper 
+                    θ_s = (0.464,     0.302,     0.700),     # Saturated water content [cm³/cm³]
+                    h_r = (1500.0,   1500.0,    1500.0),    # Pressure head at residual water content [cm]
+                    h_0 = (6.3e6,    6.3e6,     6.3e6),     # Pressure head at zero water content [cm]
+                    α   = (0.103,    0.000,     7.874),     # Shape parameter [cm⁻¹] 
+                    n   = (3.163,    1.100,    20.000),     # Shape parameter [-]
+                    m   = (0.372,    0.100,     2.000)     # Shape parameter [-]
         )
         cm = build_cm(values)
         new(cm)             # wrap it up
