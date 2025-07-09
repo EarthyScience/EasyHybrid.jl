@@ -135,6 +135,7 @@ mutable struct FXWParams10
     # 3) inner constructor lives inside the struct block
     function FXWParams10()
         values = (
+ #"columns" are default, lower, upper
           θ_s = (0.45,    0.0,   1.0),
           h_r = (0.05,    0.0,   0.5),
           h_0 = (100.0,   0.0, 1000.0),
@@ -152,6 +153,8 @@ ca =FXWParams10()
 ca2 = ca.table
 
 ca2[:, :default]
+
+using PrettyTables
 
 pretty_table(
     ca2;

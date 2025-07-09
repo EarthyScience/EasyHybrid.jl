@@ -1,5 +1,3 @@
-using LuxCore, Random
-
 mutable struct HybridModel13{D,T1,T2,T3,P,T4,T5} <: LuxCore.AbstractLuxContainerLayer{
     (:NN, :predictors, :forcing, :targets, :mech_fun, :params, :nn_names)
 }
@@ -166,7 +164,7 @@ out, st2 = hm(ds_keyed[:,1:10], ps, st)
 
 out.θ
 
-mFXW_theta(Array(ds_keyed(:h,1:10)), out.θ_s, out.h_r, out.h_0, out.α, out.n, out.m)
+#mFXW_theta(Array(ds_keyed(:h,1:10)), out.θ_s, out.h_r, out.h_0, out.α, out.n, out.m)
 
 typeof(out)
 
@@ -189,7 +187,7 @@ end
 
 ls = EasyHybrid.lossfn(hm, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss())
 
-tout = train(hm, ds_keyed[:,1:100], (); nepochs=10, batchsize=10, opt=Adam(0.01), file_name = "o_SWRC.jld2")
+tout = train(hm, ds_keyed, (); nepochs=100, batchsize=512, opt=Adam(0.01), file_name = "o_SWRC.jld2")
 
 
 
