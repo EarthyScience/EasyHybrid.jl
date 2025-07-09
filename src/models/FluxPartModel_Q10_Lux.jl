@@ -28,7 +28,7 @@ end
 function LuxCore.initialstates(::AbstractRNG, layer::FluxPartModelQ10Lux)
     _, st_RUE = LuxCore.setup(Random.default_rng(), layer.RUE_NN)
     _, st_Rb = LuxCore.setup(Random.default_rng(), layer.Rb_NN)
-    return (; RUE_st = st_RUE, Rb_st = st_Rb)
+    return (; st = (; RUE_st = st_RUE, Rb_st = st_Rb))
 end
 
 """
@@ -60,8 +60,8 @@ function (hm::FluxPartModelQ10Lux)(ds_k, ps, st::NamedTuple)
     ta = Array(forcing_data([:TA]))     # TA
     
     # Apply neural networks
-    RUE, st_RUE = LuxCore.apply(hm.RUE_NN, RUE_input, ps.RUE_ps, st.RUE_st)
-    Rb, st_Rb = LuxCore.apply(hm.Rb_NN, Rb_input, ps.Rb_ps, st.Rb_st)
+    RUE, st_RUE = LuxCore.apply(hm.RUE_NN, RUE_input, ps.RUE_ps, st.st.RUE_st) # TODO could be simplified if we move diagnostics out of the tuple with st
+    Rb, st_Rb = LuxCore.apply(hm.Rb_NN, Rb_input, ps.Rb_ps, st.st.Rb_st)
     
     # Scale outputs
     RUE_scaled = 1.0f0 .* RUE
@@ -75,5 +75,5 @@ function (hm::FluxPartModelQ10Lux)(ds_k, ps, st::NamedTuple)
     # Update states
     new_st = (; RUE_st = st_RUE, Rb_st = st_Rb)
     
-    return (; NEE), (; RUE = RUE_scaled, Rb = Rb_scaled, GPP, RECO, st = new_st)
+    return (; NEE, RUE = RUE_scaled, Rb = Rb_scaled, GPP, RECO), (; st = new_st)
 end
