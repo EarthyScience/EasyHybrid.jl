@@ -1,46 +1,3 @@
-mutable struct HybridModel13{D,T1,T2,T3,P,T4,T5} <: LuxCore.AbstractLuxContainerLayer{
-    (:NN, :predictors, :forcing, :targets, :mech_fun, :params, :nn_names)
-}
-    NN
-    predictors
-    forcing
-    targets
-    mech_fun
-    params
-    nn_names
-
-    function HybridModel13(
-        NN::D,
-        predictors::T1,
-        forcing::T2,
-        targets::T3,
-        mech_fun::P,
-        params::T4,
-        nn_names::T5
-    ) where {D,T1,T2,T3,P,T4,T5}
-        # canonicalize to Vector{Symbol}
-        predictors_v = collect(predictors)
-        forcing_v    = collect(forcing)
-        targets_v    = collect(targets)
-        nn_names_v   = collect(nn_names)
-
-        # validate nn_names ⊆ param keys
-        all_names = collect(keys(params.table.axes[1]))
-        @assert all(n in all_names for n in nn_names_v) "nn_names must be subset of params keys"
-
-        return new{D,T1,T2,T3,T4,T5,P}(
-          NN,
-          predictors_v,
-          forcing_v,
-          targets_v,
-          mech_fun,
-          params,
-          nn_names_v
-        )
-    end
-end
-
-
 # ───────────────────────────────────────────────────────────────────────────
 # 1) New HybridModel that holds FXWParams10 directly
 mutable struct HybridModel15
@@ -50,8 +7,9 @@ mutable struct HybridModel15
     targets      :: Vector{Symbol}
     mech_fun     :: Function
     params       :: FXWParams10          # now hold the full ComponentMatrix
-    nn_names     :: Vector{Symbol}       # which rows come from the NN
-    global_names :: Vector{Symbol}       # which rows come from the global parameters
+    nn_names     :: Vector{Symbol}       # which parameters come from the NN
+    global_names :: Vector{Symbol}       # which parameters are estimated globally
+    fixed_names  :: Vector{Symbol}       # which parameters are fixed
 end
 
 # 2) Constructor: dispatch on FXWParams10 instead of separate pieces
@@ -62,13 +20,14 @@ function constructHybridModel8(
     targets,
     mech_fun,
     params,
-    nn_names
+    nn_names,
+    global_names
 )
     all_names = collect(keys(params.table.axes[1]))
     @assert all(n in all_names for n in nn_names) "nn_names ⊆ param_names"
-    NN = Chain(Dense(length(predictors), 16, relu ), Dense(16, length(nn_names)))
-    global_names = [ n for n in all_names if !(n in nn_names) ]
-    return HybridModel15(NN, predictors, forcing, targets, mech_fun, params, nn_names, global_names)
+    NN = Chain(Dense(length(predictors), 16, sigmoid ), Dense(16, length(nn_names)))
+    fixed_names = [ n for n in all_names if !(n in [nn_names..., global_names...]) ]
+    return HybridModel15(NN, predictors, forcing, targets, mech_fun, params, nn_names, global_names, fixed_names)
 end
 
 # ───────────────────────────────────────────────────────────────────────────
@@ -77,10 +36,8 @@ function LuxCore.initialparameters(rng::AbstractRNG, m::HybridModel15)
     ps_nn, _ = LuxCore.setup(rng, m.NN)
     # start with the NN weights
     nt = (; ps = ps_nn)
-    # then append each global parameter (not in nn_names) as a 1‐vector of Float32
-    all_names    = collect(keys(m.params.table.axes[1]))
-    global_names = setdiff(all_names, m.nn_names)
-    for g in global_names
+    # then append each global parameter as a 1‐vector of Float32
+    for g in m.global_names
         default_val = m.params.table[g, :default]
         nt = merge(nt, NamedTuple{(g,), Tuple{Vector{Float32}}}(([Float32(default_val)],)))
     end
@@ -89,8 +46,52 @@ end
 
 function LuxCore.initialstates(rng::AbstractRNG, m::HybridModel15)
     _, st_nn = LuxCore.setup(rng, m.NN)
-    return (; st = st_nn)
+    # start with the NN weights
+    nt = (;)
+    # then append each global parameter as a 1‐vector of Float32
+    for f in m.fixed_names  
+        default_val = m.params.table[f, :default]
+        nt = merge(nt, NamedTuple{(f,), Tuple{Vector{Float32}}}(([Float32(default_val)],)))
+    end
+    nt = (; st = st_nn, fixed = nt)
+    return nt
 end
+
+"""
+    scale_single_param(name, raw_val, table)
+
+Scale a single parameter using the sigmoid scaling function.
+"""
+function scale_single_param(name, raw_val, table)
+    ℓ = table[name, :lower]
+    u = table[name, :upper]
+    return ℓ .+ (u .- ℓ) .* sigmoid.(raw_val)
+end
+
+"""
+    scale_params(raw::NamedTuple, table::ComponentMatrix)
+
+Given a NamedTuple of raw vectors `raw` and your FXWParams10.table,
+produce a NamedTuple of the same field-names where each entry
+has been mapped into [lower, upper] via a sigmoid.
+"""
+function scale_params(raw::NamedTuple, table::ComponentMatrix)
+    # grab all the field‐names as an immutable tuple
+    names = Tuple(keys(raw))  # e.g. (:θ_s, :h_r, …)
+
+    # build an immutable tuple of scaled arrays
+    scaled_vals = Tuple(
+        scale_single_param(name, raw[name], table)
+        for name in names
+    )
+
+    # now build a tuple of their types
+    types_tup = Tuple(typeof(v) for v in scaled_vals)
+
+    # and finally construct the NamedTuple with explicit names and types
+    return NamedTuple{names, types_tup}(scaled_vals)
+end
+
 
 # ───────────────────────────────────────────────────────────────────────────
 # 4) Forward pass: exactly as before, but drop init_globals
@@ -100,36 +101,47 @@ function (m::HybridModel15)(ds_k, ps, st)
     x     = Array(ds_k(m.forcing))[1, :]
 
     # 2) run NN → B×P
-    nn_out, st = LuxCore.apply(m.NN, p, ps.ps, st.st)
 
-    # 3) split into NamedTuple of NN‐driven parameters
+    # scale global parameters
+    global_vals = Tuple(
+            scale_single_param(g, ps[g], m.params.table)
+            for g in m.global_names
+        )
+    glob_ps = NamedTuple{Tuple(m.global_names), Tuple{typeof.(global_vals)...}}(global_vals)
+
+    # scale NN parameters
+    nn_out, st_NN = LuxCore.apply(m.NN, p, ps.ps, st.st)
     nn_cols = eachrow(nn_out)
     nn_ps   = NamedTuple(zip(m.nn_names, nn_cols))
+    scaled_nn_vals = Tuple(
+        scale_single_param(name, nn_ps[name], m.params.table)
+        for name in m.nn_names
+    )
+    scaled_nn_ps   = NamedTuple(zip(m.nn_names, scaled_nn_vals))
 
-    # 4) globals were stored in ps via initialparameters
-    # 1) make a concrete tuple of values
-    vals = Tuple(ps[g] for g in m.global_names)   # Tuple{Vector{Float32},…}
+    # pick fixed parameters
+    fixed_vals = Tuple(st.fixed[f] for f in m.fixed_names)
+    fixed_ps = NamedTuple{Tuple(m.fixed_names), Tuple{typeof.(fixed_vals)...}}(fixed_vals)
 
-    # 2) explicitly name the fields and types
-    glob_ps = NamedTuple{Tuple(m.global_names), Tuple{typeof.(vals)...}}(vals)
+    # 4) sigmoid‐scale the unconstrained nn and global params into [lower, upper]
+    #scaled_nn  = scale_params(nn_ps,  m.params.table)
+    #scaled_glob = scale_params(glob_ps, m.params.table)
 
-    # 5) gather args
-    nn_args   = Tuple(getfield(nn_ps, n) for n in m.nn_names)
-    glob_args = Tuple(getfield(glob_ps, g) for g in m.global_names)
+    #println("scaled_nn: ", scaled_nn)
+    #println("scaled_glob: ", scaled_glob)
+    #println("fixed_ps: ", fixed_ps)
 
-    #println(nn_args)
-    #println(glob_args)
-
-    all_args = (nn_args..., glob_ps...)
-    #println(all_args)           
-
+    #a = merge(scaled_nn, scaled_glob, fixed_ps)
+    a = merge(scaled_nn_ps, glob_ps, fixed_ps)
+  
     # 6) physics
-    y_pred = m.mech_fun(x, all_args...)
+    y_pred = m.mech_fun(x, a.θ_s, a.h_r, a.h_0, a.α, a.n, a.m)
 
-        out = (;θ = y_pred,)
+    out = (;θ = y_pred, a = a)
 
+    st_new = (; st = st_NN, fixed = st.fixed)
 
-    return out, (; st)
+    return out, (; st = st_new)
 end
 
 # ───────────────────────────────────────────────────────────────────────────
@@ -151,7 +163,8 @@ hm = constructHybridModel8(
   targets,                   # target
   mFXW_theta,               # your physics function
   p,                         # FXWParams10 holds the bounds/defaults
-  [:m]                   # nn_names (empty here)
+  [:m],                      # nn_names (empty here)
+  [:h_r, :h_0]              # global_names
 )
 
 hm.targets
@@ -187,7 +200,7 @@ end
 
 ls = EasyHybrid.lossfn(hm, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss())
 
-tout = train(hm, ds_keyed, (); nepochs=100, batchsize=512, opt=Adam(0.01), file_name = "o_SWRC.jld2")
+tout = train(hm, ds_keyed[:,1:100], (); nepochs=100, batchsize=10, opt=Adam(0.01), file_name = "tour.jld2")
 
 
 
