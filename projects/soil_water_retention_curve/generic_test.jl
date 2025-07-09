@@ -17,7 +17,9 @@ df = copy(df_o)
 df.h = 10 .^ df.pF
 
 # Rename :WC to :θ in the DataFrame
-rename!(df, :WC => :θ)
+df.θ = df.WC .* 10 #./ 100
+
+df
 
 ds_keyed = to_keyedArray(Float32.(df))
 
@@ -130,18 +132,18 @@ end
 
 # 2) the struct with inner constructor
 mutable struct FXWParams10
-    table::ComponentMatrix{Float64, Matrix{Float64}} 
+    table::ComponentMatrix{Float32, Matrix{Float32}} 
 
     # 3) inner constructor lives inside the struct block
     function FXWParams10()
         values = (
                     # "columns" are: default, lower, upper 
-                    θ_s = (0.464,     0.302,     0.700),     # Saturated water content [cm³/cm³]
-                    h_r = (1500.0,   1500.0,    1500.0),    # Pressure head at residual water content [cm]
-                    h_0 = (6.3e6,    6.3e6,     6.3e6),     # Pressure head at zero water content [cm]
-                    α   = (0.103,    0.000,     7.874),     # Shape parameter [cm⁻¹] 
-                    n   = (3.163,    1.100,    20.000),     # Shape parameter [-]
-                    m   = (0.372,    0.100,     2.000)     # Shape parameter [-]
+                    θ_s = (0.464f0,     0.302f0,     0.700f0),     # Saturated water content [cm³/cm³]
+                    h_r = (1500.0f0,   1500.0f0,    1500.0f0),    # Pressure head at residual water content [cm]
+                    h_0 = (6.3f6,    6.3f6,     6.3f6),     # Pressure head at zero water content [cm]
+                    α   = (log(0.103f0),log(0.01f0),log(7.874f0)),     # Shape parameter [cm⁻¹] 
+                    n   = (log(3.163f0 - 1),log(1.100f0 - 1),log(20.000f0 - 1)),     # Shape parameter [-]
+                    m   = (log(0.372f0),    log(0.100f0),     log(2.000f0)),     # Shape parameter [-]
         )
         cm = build_cm(values)
         new(cm)             # wrap it up
