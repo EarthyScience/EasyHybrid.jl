@@ -54,7 +54,7 @@ ls = EasyHybrid.lossfn(hybridSWRC, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss
 
 out = hybridSWRC(ds_keyed, ps, st)
 
-# Train model (h_r and h_0 are global parameters to be estimated)
+# Train model (h_r and h_0 are global parameters to be estimated)o_SWRC = train(hybridSWRC, ds_keyed, (:h_r, :h_0, ); nepochs=10, batchsize=512, opt=Adam(0.01), file_name = "o_SWRC.jld2")
 o_SWRC = train(hybridSWRC, ds_keyed, (:h_r, :h_0, ); nepochs=10, batchsize=512, opt=Adam(0.01), file_name = "o_SWRC.jld2")
 
 # Plot parameter history

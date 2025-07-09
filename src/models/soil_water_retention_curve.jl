@@ -113,9 +113,8 @@ function (hm::WaterRetentionHybrid)(ds_k, ps, st::NamedTuple)
     θ_s, α, n, m = eachrow(nn_out)
 
     θ = mFXW_theta(h, θ_s, ps.h_r, ps.h_0, α, n, m)
-
-    return (; θ), (; θ_s, α, n, m, st)
-    #return (; h, θ_s, α, n, m, st)
+    
+    return (; θ, θ_s, α, n, m, h), (; st)
 
 end
 
