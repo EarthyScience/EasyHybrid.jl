@@ -106,8 +106,8 @@ pnames(p::AbstractHybridModel) = keys(p.hybrid.table.axes[1])
 Scale a single parameter using the sigmoid scaling function.
 """
 function scale_single_param(name, raw_val, hm::AbstractHybridModel)
-    ℓ = lower(hm)[1]
-    u = upper(hm)[1]
+    ℓ = lower(hm)[name]
+    u = upper(hm)[name]
     return ℓ .+ (u .- ℓ) .* sigmoid.(raw_val)
 end
 
@@ -160,12 +160,12 @@ function (m::HybridModel15)(ds_k, ps, st)
 
     a = merge(scaled_nn_ps, glob_ps, fixed_ps)
 
-    println(a)
-    println("\n")
+    #println(a)
+    #println("\n")
     #println(typeof(values(a)))
 
     # 6) physics
-    y_pred = m.mech_fun(x; a...)
+    y_pred = m.mech_fun(x, a.θ_s, a.h_r, a.h_0, a.log_α, a.log_nm1, a.log_m)
 
     out = (;θ = y_pred, a = a)
 
