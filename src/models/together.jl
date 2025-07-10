@@ -1,6 +1,6 @@
 # ───────────────────────────────────────────────────────────────────────────
 # 1) New HybridModel that holds FXWParams10 directly
-mutable struct HybridModel15
+struct HybridModel15
     NN           :: Chain
     predictors   :: Vector{Symbol}
     forcing      :: Vector{Symbol}
@@ -120,9 +120,9 @@ function (m::HybridModel15)(ds_k, ps, st)
     a = merge(scaled_nn_ps, glob_ps, fixed_ps)
   
     # 6) physics
-    y_pred = m.mech_fun(x, a.θ_s, a.h_r, a.h_0, exp.(a.α), exp.(a.n) .+ 1, exp.(a.m))
+    y_pred = m.mech_fun(x, a.θ_s, a.h_r, a.h_0, a.log_α, a.log_nm1, a.log_m)
 
-    out = (;θ = y_pred * 1000f0, a = a)
+    out = (;θ = y_pred, a = a)
 
     st_new = (; st = st_NN, fixed = st.fixed)
 

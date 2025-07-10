@@ -45,3 +45,8 @@ function loss_fn(ŷ, y, y_nan, ::Val{:r2})
     r = cor(ŷ[y_nan], y[y_nan])
     return r*r
 end
+
+# one minus nse
+function loss_fn(ŷ, y, y_nan, ::Val{:nse})
+    return sum((ŷ[y_nan] .- y[y_nan]).^2) / sum((y[y_nan] .- mean(y[y_nan])).^2)
+end

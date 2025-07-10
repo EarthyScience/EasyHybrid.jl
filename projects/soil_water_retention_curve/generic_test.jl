@@ -1,15 +1,17 @@
+# =============================================================================
+# Setup and Data Loading
+# =============================================================================
 using Pkg
 Pkg.activate("projects/soil_water_retention_curve")
 Pkg.develop(path=pwd())
 Pkg.instantiate()
 
-using Revise
-
 using EasyHybrid
 using GLMakie
 using Statistics
+using ComponentArrays
 
-# ? move the `csv` file into the `BulkDSOC/data` folder (create folder)
+# Load and preprocess data
 @__DIR__
 df_o = CSV.read(joinpath(@__DIR__, "./data/Norouzi_et_al_2024_WRR_Final.csv"), DataFrame, normalizenames=true)
 
@@ -17,196 +19,141 @@ df = copy(df_o)
 df.h = 10 .^ df.pF
 
 # Rename :WC to :θ in the DataFrame
-df.θ = df.WC .* 10 #./ 100
+df.θ = df.WC # make it larger an rescale in hybrid model as well - better gradients?
 
 df
 
 ds_keyed = to_keyedArray(Float32.(df))
 
-ds_keyed(:θ)
-ds_keyed(:h)
+# =============================================================================
+# Parameter Structure Definition
+# =============================================================================
 
+struct FXWParams6 <: AbstractHybridModel
+    hybrid::EasyHybrid.HybridModel6
+end
 
-
-
-# 1) Define your mechanistic wrapper that matches mech_fun(h, p1, p2, …)
-mech_fun(h, θ_s, α, n, m, h_r, h_0) = mFXW_theta(h, θ_s, h_r, h_0, α, n, m)
-
-# 2) Build a small NN that outputs 4 parameters: θ_s, α, n, m
-NN = Chain(
-  Dense( 5, 16, relu ),      # say you have 5 predictor features
-  Dense(16,  4)              # output size = length(nn_names) = 4
+paras = (
+    # "columns" are: default, lower, upper 
+    θ_s = (0.396f0,     0.302f0,     0.700f0),     # Saturated water content [cm³/cm³]
+    h_r = (1500.0f0,   1500.0f0,    1500.0f0),    # Pressure head at residual water content [cm]
+    h_0 = (6.3f6,    6.3f6,     6.3f6),     # Pressure head at zero water content [cm]
+    log_α   = (log(0.048f0), log(0.01f0), log(7.874f0)),     # Shape parameter [cm⁻¹] 
+    log_nm1   = (log(3.302f0 - 1), log(1.100f0 - 1), log(20.000f0 - 1)),     # Shape parameter [-]
+    log_m   = (log(0.199f0),    log(0.100f0),     log(2.000f0)),     # Shape parameter [-]
 )
 
-# 3) Specify which keys in your dataset:
-targets = :θ
-forcing = :h
-predictors = [:sand, :clay, :silt, :BD, :OC]   
+typeof(FXWParams6)
 
-# 4) List all mechanistic parameter names (order must match mech_fun signature)
-param_names = [:θ_s, :α, :n, :m, :h_r, :h_0]
+function construct_hybrid(paras::NamedTuple, f::DataType)
+    ca = EasyHybrid.HybridModel6(paras)
+    return f(ca)
+end
 
-# 5) Tell the wrapper which of those come from the NN
-nn_names = [:θ_s, :α, :n, :m]
+pms = construct_hybrid(paras, FXWParams6)
 
-init_globals = (h_r = 1f0, h_0 = 1f0)
+function default(p::AbstractHybridModel)
+    p.hybrid.table[:, :default]
+end
 
-# 6) Provide initials for the globals (h_r, h_0)
-model = constructHybridModel(
-  NN,
-  predictors,
-  forcing,
-  targets,
-  mech_fun,
-  param_names,
-  nn_names,
-  init_globals
+default(pms)
+
+
+# =============================================================================
+# Model Functions
+# =============================================================================
+
+# Explicit parameter method
+mechfun(h; θ_s, h_r, h_0, log_α, log_nm1, log_m) = mFXW_theta(h, θ_s, h_r, h_0, exp.(log_α), exp.(log_nm1) .+ 1, exp.(log_m)) .* 100 # scale to %
+
+mechfun(h, params::AbstractHybridModel) = mechfun(h; values(default(params))...)
+
+
+# =============================================================================
+# Default Model Bahviour
+# =============================================================================
+pFs = vec(collect(range(-1.0, 7, length=100))) .|> Float32
+θ_pred = mechfun(10.0 .^ pFs, pms)
+
+GLMakie.activate!(inline=true)
+fig = Figure()
+ax = Makie.Axis(fig[1, 1], xlabel = "θ", ylabel = "pF")
+plot!(ax, ds_keyed(:θ), ds_keyed(:pF), label="data", color=(:grey25, 0.25))
+lines!(ax, θ_pred, pFs, color=:red, label="FXW default", linewidth=2)
+axislegend(ax; position=:rt)
+fig
+
+# =============================================================================
+# Global Parameter Training
+# =============================================================================
+targets = [:θ]
+forcing = [:h]
+
+# Build hybrid model with global parameters only
+hm = constructHybridModel8(
+    [],               # predictors
+    forcing,          # forcing
+    targets,          # target
+    mechfun,          # physics function
+    pms,               # parameter defaults and bounds of mechanistic model
+    [],               # nn_names
+    [:θ_s, :log_α, :log_nm1, :log_m]  # global_names
 )
 
+fieldnames(typeof(hm))
 
-# 7) Initialize parameters & states
-rng = Random.default_rng()
-ps  = LuxCore.initialparameters(rng, model)
-st  = LuxCore.initialstates(rng, model)
+hm.mech_fun
 
-# 8) Forward‐pass on a batch `ds_k` (e.g. from DataLoader)
-output, new_state = model(ds_keyed, ps, st)
+ps = LuxCore.initialparameters(Random.default_rng(), hm)
+st = LuxCore.initialstates(Random.default_rng(), hm)
 
+hm(ds_keyed, ps, st)
 
-using ModelParameters
+tout = train(hm, ds_keyed, (); nepochs=100, batchsize=512, opt=AdaGrad(0.01), file_name = "tout.jld2", training_loss=:nse, loss_types=[:mse, :nse])
 
-# Define the parameter container with bounds
-Base.@kwdef struct FXWParams
-    θ_s::Param = Param(0.45, bounds = (0.0, 1.0))
-    h_r::Param = Param(0.05, bounds = (0.0, 0.5))
-    h_0::Param = Param(100.0, bounds = (0.0, 1000.0))
-    α::Param   = Param(0.04, bounds = (0.001, 0.5))
-    n::Param   = Param(1.56, bounds = (1.0, 5.0))
-    m::Param   = Param(1.0 - 1/1.56, bounds = (0.0, 1.0))
-end
+θ_pred1 = tout.val_obs_pred[!, Symbol("θ_pred")]
+θ_obs1 = tout.val_obs_pred[!, :θ]
 
-function mFXW_theta2(h, p::FXWParams)
-    S_e = Se_FXW(h, p.h_r.val, p.h_0.val, p.α.val, p.n.val, p.m.val)
-    θ   = p.θ_s.val .* S_e
-    return θ
-end
-
-mFXW_theta2(ds_keyed(:h), FXWParams())
-
-mdl = Model(FXWParams())     # Flattened view for optimizers, plotting, etc.
-vec = collect(mdl[:val])
-
-using Parameters
-@with_kw struct FXWParams2
-    θ_s::Param = Param(0.45, bounds = (0.0, 1.0))
-    h_r::Param = Param(0.05, bounds = (0.0, 0.5))
-    h_0::Param = Param(100.0, bounds = (0.0, 1000.0))
-    α::Param   = Param(0.04, bounds = (0.001, 0.5))
-    n::Param   = Param(1.56, bounds = (1.0, 5.0))
-    m::Param   = Param(1.0 - 1/1.56, bounds = (0.0, 1.0))
-end
-
-function mFXW_theta2(h, p::FXWParams2)
-    @unpack_FXWParams2 p
-    θ = θ_s.val .* Se_FXW(h, h_r.val, h_0.val, α.val, n.val, m.val)
-    return θ
-end
-
-mFXW_theta2(ds_keyed(:h), FXWParams2())
+using GLMakie
+fig = Figure(size=(800, 600))
+opplot!(fig, θ_pred1, θ_obs1, "Global parameters", 1, 1)
 
 
+# =============================================================================
+# Neural Network Training
+# =============================================================================
+predictors = [:BD, :OC, :clay, :silt, :sand]
 
-
-
-using ComponentArrays
-
-# 1) module‐level helper
-function build_cm(values::NamedTuple) where T<:Real
-    param_names     = collect(keys(values))
-    bound_names = (:default, :lower, :upper)
-    data = [ values[p][i] for p in param_names, i in 1:length(bound_names) ]
-    row_ax = ComponentArrays.Axis(param_names)
-    col_ax = ComponentArrays.Axis(bound_names)
-    return ComponentArray(data, row_ax, col_ax)
-end
-
-# 2) the struct with inner constructor
-mutable struct FXWParams10
-    table::ComponentMatrix{Float32, Matrix{Float32}} 
-
-    # 3) inner constructor lives inside the struct block
-    function FXWParams10()
-        values = (
-                    # "columns" are: default, lower, upper 
-                    θ_s = (0.464f0,     0.302f0,     0.700f0),     # Saturated water content [cm³/cm³]
-                    h_r = (1500.0f0,   1500.0f0,    1500.0f0),    # Pressure head at residual water content [cm]
-                    h_0 = (6.3f6,    6.3f6,     6.3f6),     # Pressure head at zero water content [cm]
-                    α   = (log(0.103f0),log(0.01f0),log(7.874f0)),     # Shape parameter [cm⁻¹] 
-                    n   = (log(3.163f0 - 1),log(1.100f0 - 1),log(20.000f0 - 1)),     # Shape parameter [-]
-                    m   = (log(0.372f0),    log(0.100f0),     log(2.000f0)),     # Shape parameter [-]
-        )
-        cm = build_cm(values)
-        new(cm)             # wrap it up
-    end
-end
-
-ca =FXWParams10()
-
-ca2 = ca.table
-
-ca2[:, :default]
-
-using PrettyTables
-
-pretty_table(
-    ca2;
-    header     = collect(keys(ca2.axes[2])),
-    row_labels = collect(keys(ca2.axes[1])),
-    alignment  = [:r, :r, :r]
+# Build hybrid model with neural network
+hm2 = constructHybridModel8(
+    predictors,                                 # predictors
+    forcing,                                    # forcing
+    targets,                                    # targets
+    mechfun,                                    # physics function
+    pms,                                         # parameter bounds
+    [:θ_s, :log_α, :log_nm1, :log_m],           # nn_names
+    []                                          # global_names
 )
 
+ps = LuxCore.initialparameters(Random.default_rng(), hm2)
+st = LuxCore.initialstates(Random.default_rng(), hm2)
 
-function mFXW_theta3(h, p::FXWParams10)
-    p = p.table[:, :default]
-    θ = p.θ_s .* Se_FXW(h, p.h_r, p.h_0, p.α, p.n, p.m)
-    return θ
-end
+hm2(ds_keyed, ps, st)
 
-mFXW_theta3(ds_keyed(:h), ca)
+tout2 = train(hm2, ds_keyed, (); nepochs=100, batchsize=512, opt=AdaGrad(0.01), file_name = "tout2.jld2", training_loss=:nse, loss_types=[:mse, :nse])
 
-using ComponentArrays, PrettyTables
+# =============================================================================
+# Results Visualization
+# =============================================================================
 
-function build_cm(values::Dict{Symbol,Tuple{T,T,T}}) where T<:Real
-    params     = collect(keys(values))
-    bounds     = (:default, :lower, :upper)
-    data       = [ values[p][i] for p in params, i in 1:length(bounds) ]
-    row_ax     = ComponentArrays.Axis(params...)
-    col_ax     = ComponentArrays.Axis(bounds...)
-    return ComponentMatrix(data, row_ax, col_ax)  # correct 2D constructor
-end
+θ_pred2 = tout2.val_obs_pred[!, Symbol(string(:θ, "_pred"))]
+θ_obs2 = tout2.val_obs_pred[!, :θ]
 
-mutable struct FXWParams11
-    table::ComponentMatrix{Float64}
-    function FXWParams11()
-        vals = Dict(
-          :θ_s => (0.45, 0.0, 1.0),
-          :h_r => (0.05, 0.0, 0.5),
-          :h_0 => (100.0,0.0,1000.0),
-          :α   => (0.04, 0.001,0.05),
-          :n   => (1.56, 1.0, 5.0),
-          :m   => (0.36, 0.0, 1.0)
-        )
-        new(build_cm(vals))
-    end
-end
+opplot!(fig, θ_pred2, θ_obs2, "Neural parameters", 1, 2)
 
-# Usage
-p   = FXWParams11()
-ca2 = p.table
 
-pretty_table(
-    ca2;
-    header     = collect(keys(ca2.axes[2])),
-    row_labels = collect(keys(ca2.axes[1])),
-    alignment  = [:l, :r, :r, :r]
-)
+
+
+
+
+

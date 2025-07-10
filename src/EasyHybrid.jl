@@ -48,5 +48,6 @@ include("utils/synthetic_test_data.jl")
 include("utils/logging_loss.jl")
 include("utils/loss_fn.jl")
 include("train.jl")
+include("utils/helpers_for_HybridModel.jl")
 
 end

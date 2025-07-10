@@ -40,6 +40,16 @@ function lossfn(HM::LuxCore.AbstractLuxContainerLayer, x, (y_t, y_nan), ps, st, 
     end
 end
 
+function lossfn(HM::HybridModel15, x, (y_t, y_nan), ps, st, logging::LoggingLoss)
+    targets = HM.targets
+    ŷ, y, y_nan = get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
+    if logging.train_mode
+        return compute_loss(ŷ, y, y_nan, targets, logging.training_loss, logging.agg), st
+    else
+        return compute_loss(ŷ, y, y_nan, targets, logging.loss_types, logging.agg), st
+    end
+end
+
 """
     get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
 Get predictions and targets from the hybrid model and return them along with the NaN mask.
