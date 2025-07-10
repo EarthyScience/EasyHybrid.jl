@@ -15,13 +15,16 @@ function theme_easy_hybrid()
     my_colors = hybrid_colors(0.8)
     my_markers = [:circle, :utriangle, :rect, :diamond, :dtriangle, :diamond, :pentagon]
     my_linestyle = [:solid, :dash, :dot, :dashdot, :dashdotdot, :dash]
-    cycle1 = Cycle([:color, :linestyle], covary=true)
+    # cycle1 = Cycle([:color, :linestyle], covary=true)
+    cycle1 = Cycle([:color], covary=true)
     cycle2 = Cycle([:color, :marker, :strokecolor], covary=true)
     cycle3 = Cycle([:color, :marker, :linestyle, :strokecolor], covary=true)
     cycle4 = Cycle([:color, :linestyle, :strokecolor], covary=true)
     cycle5 = Cycle([:color, :marker, :stemcolor, :stemlinestyle], covary=true)
     Theme(
-        size = (600,400),
+        font="CMU Serif",
+        fontsize=16,
+        size = (600, 400),
         palette=(color=my_colors, marker=my_markers, linestyle=my_linestyle,
             strokecolor=my_colors, patchcolor = my_colors,
             stemcolor = my_colors, stemlinestyle=my_linestyle,
@@ -44,20 +47,22 @@ function theme_easy_hybrid()
         Axis = (
             xlabel = "x",
             ylabel = "y",
-            # xtickalign=0.5,
-            # ytickalign=0.5,
-            # yticksize=12,
-            # xticksize=12,
+            xtickalign=1,
+            ytickalign=1,
+            yticksize=10,
+            xticksize=10,
+            xgridstyle=:dash, ygridstyle=:dash,
+            xminorgridstyle=:dash, yminorgridstyle=:dash,
             xminorgridvisible = true,
             yminorgridvisible = true,
             # xtrimspine = true,
             # ytrimspine = true,
-            rightspinevisible = false,
-            topspinevisible = false
-            # spinewidth=0.25
+            # rightspinevisible = false,
+            # topspinevisible = false
+            spinewidth=0.5
         ),
         Legend=(framecolor=(:black, 0.35),
-            backgroundcolor=(:white, 0.85)),
+            backgroundcolor=(:white, 0.5)),
         Axis3 = (
             zlabelrotation = 0π,
             xlabeloffset = 50,
@@ -72,8 +77,8 @@ function theme_easy_hybrid()
         Colorbar=(
             label = "f(x,y)",
             ticksize=15,
-            tickalign=0.5,
-            spinewidth=0.0,
+            tickalign=1,
+            spinewidth=0.25,
             minorticksvisible= true),
         LScene = (
             show_axis = true,

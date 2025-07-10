@@ -30,7 +30,9 @@ end
 
 function __init__()
     @debug "setting theme_easy_hybrid"
-    set_theme!(theme_easy_hybrid())
+    # hybrid_latex = merge(theme_easy_hybrid(), theme_latexfonts())
+    hybrid_latex = theme_easy_hybrid()
+    set_theme!(hybrid_latex)
 end
 
 end

@@ -113,8 +113,8 @@ out_RbQ10 = train(RbQ10_model, ds_keyed_reco, (:Q10,); nepochs=100, batchsize=51
 # Plot training results for RbQ10
 fig_RbQ10 = Figure(size=(1200, 600))
 ax_train = Makie.Axis(fig_RbQ10[1, 1], title="RbQ10 Model - Training Results", xlabel = "Time", ylabel = "RECO")
-lines!(ax_train, out_RbQ10.train_obs_pred[!, Symbol(string(target_RbQ10, "_pred"))], color=:orangered, label="prediction")
-lines!(ax_train, out_RbQ10.train_obs_pred[!, target_RbQ10], color=:dodgerblue, label="observation")
+lines!(ax_train, out_RbQ10.train_obs_pred[!, Symbol(string(target_RbQ10, "_pred"))], color=(:tomato, 0.85), linewidth=0.65, label="prediction")
+lines!(ax_train, out_RbQ10.train_obs_pred[!, target_RbQ10], color=:grey25, label="observation")
 axislegend(ax_train; position=:lt)
 fig_RbQ10
 
