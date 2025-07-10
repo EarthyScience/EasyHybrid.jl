@@ -19,7 +19,7 @@ df = copy(df_o)
 df.h = 10 .^ df.pF
 
 # Rename :WC to :θ in the DataFrame
-df.θ = df.WC # make it larger an rescale in hybrid model as well - better gradients?
+df.θ = df.WC ./ 100.0# make it larger an rescale in hybrid model as well - better gradients?
 
 df
 
@@ -64,7 +64,7 @@ default(pms)
 # =============================================================================
 
 # Explicit parameter method
-mechfun(h; θ_s, h_r, h_0, log_α, log_nm1, log_m) = mFXW_theta(h, θ_s, h_r, h_0, exp.(log_α), exp.(log_nm1) .+ 1, exp.(log_m)) .* 100 # scale to %
+mechfun(h; θ_s, h_r, h_0, log_α, log_nm1, log_m) = mFXW_theta(h, θ_s, h_r, h_0, exp.(log_α), exp.(log_nm1) .+ 1, exp.(log_m)) # scale to %
 
 mechfun(h, params::AbstractHybridModel) = mechfun(h; values(default(params))...)
 
@@ -73,15 +73,22 @@ mechfun(h, params::AbstractHybridModel) = mechfun(h; values(default(params))...)
 # Default Model Bahviour
 # =============================================================================
 pFs = vec(collect(range(-1.0, 7, length=100))) .|> Float32
-θ_pred = mechfun(10.0 .^ pFs, pms)
+
+h_values = sort(Array(ds_keyed(:h)))
+pF_values = sort(Array(ds_keyed(:pF)))
+
+θ_pred = mechfun(h_values, pms)
 
 GLMakie.activate!(inline=true)
 fig = Figure()
 ax = Makie.Axis(fig[1, 1], xlabel = "θ", ylabel = "pF")
 plot!(ax, ds_keyed(:θ), ds_keyed(:pF), label="data", color=(:grey25, 0.25))
-lines!(ax, θ_pred, pFs, color=:red, label="FXW default", linewidth=2)
+lines!(ax, θ_pred, pF_values, color=:red, label="FXW default")
 axislegend(ax; position=:rt)
 fig
+
+fig = Figure(size=(800, 600))
+opplot!(fig, Array(ds_keyed(:θ)), θ_pred, "Default", 1, 1)
 
 # =============================================================================
 # Global Parameter Training
@@ -115,8 +122,7 @@ tout = train(hm, ds_keyed, (); nepochs=100, batchsize=512, opt=AdaGrad(0.01), fi
 θ_obs1 = tout.val_obs_pred[!, :θ]
 
 using GLMakie
-fig = Figure(size=(800, 600))
-opplot!(fig, θ_pred1, θ_obs1, "Global parameters", 1, 1)
+opplot!(fig, θ_pred1, θ_obs1, "Global parameters", 2, 1)
 
 
 # =============================================================================
