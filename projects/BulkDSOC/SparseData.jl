@@ -31,6 +31,14 @@ for t in target_names1
     df_d[!, t] = Float64.( coalesce.(df_d[!, t], NaN) )
 end
 
+# check how spacrce the data is
+present_counts = [count(!ismissing, df[!, t]) for t in target_names1]
+missing_counts = [count(ismissing, df[!, t]) for t in target_names1]
+for t in target_names1
+    println("$t: present = ", count(!ismissing, df[!, t]),
+            ", missing = ", count(ismissing, df[!, t]))
+end
+
 ds_all = to_keyedArray(df_d);
 ds_p = ds_all(names_cov);
 ds_t = ds_all(target_names1);  
@@ -48,77 +56,105 @@ head_soc = Dense(32,1,sigmoid)
 head_cf  = Dense(32,1,sigmoid)
 
 mh = MultiHeadNN(trunk, head_bd, head_soc, head_cf, names_cov, [:BD, :SOCconc, :CF])
+result = train(mh, (ds_p, ds_t), (); nepochs=20, batchsize=64, opt=Adam(0.01))
 
-ds_t =  ds_all(target_names1)
-result = train(mh, (ds_p, ds_t), save_ps;nepochs=100, batchsize=32, opt=Adam(0.01))
-
-# eval
 using AxisKeys
-y_true   = result.y_val  # key things
-y_pred = KeyedArray(result.ŷ_val, (target_names1, axes(y_pred, 2)))
+y_true = result.y_val
+y_pred = KeyedArray(result.ŷ_val, (target_names1, axes(y_true, 2)))
 
 for k in target_names1
-    true_vec = y_true(k) |> collect      
-    pred_vec = y_pred(k) |> collect
+    true_vec = collect(y_true(k))
+    pred_vec = collect(y_pred(k))
 
-    ss_res = sum((true_vec .- pred_vec).^2)
-    ss_tot = sum((true_vec .- mean(true_vec)).^2)
+    mask = .!isnan.(true_vec) 
+    nk   = count(mask)
+    t = true_vec[mask]
+    p = pred_vec[mask]
+
+    ss_res = sum((t .- p).^2)
+    ss_tot = sum((t .- mean(t)).^2)
     r2     = 1 - ss_res / ss_tot
-    mae    = mean(abs.(pred_vec .- true_vec))
-    bias   = mean(pred_vec .- true_vec)
+    mae    = mean(abs.(p .- t))
+    bias   = mean(p .- t)
 
     plt = histogram2d(
-        true_vec, pred_vec;
+        t, p;
         nbins     = (30, 30),
         cbar      = true,
-        xlab      = "True $k",
-        ylab      = "Predicted $k",
-        title     = "$k\nR2=$(round(r2, digits=3)),MAE=$(round(mae, digits=3)),bias=$(round(bias, digits=3))",
-        color     = cgrad(:bamako, rev = true),
+        xlab      = "True",
+        ylab      = "Predicted",
+        title     = "$k\nR²=$(round(r2, digits=3)),  MAE=$(round(mae,digits=3)),  bias=$(round(bias,digits=3))",
+        color     = cgrad(:bamako, rev=true),
         normalize = false,
     )
-    lims = extrema(vcat(true_vec, pred_vec))
-    Plots.plot!(plt, [lims[1], lims[2]], [lims[1], lims[2]];
-          color = :black, linewidth = 2, label = "1:1")
-
-    savefig(plt, joinpath(@__DIR__,"eval/$(testid)_accuracy_$(k)_val.png"))
+    lims = extrema(vcat(t, p))
+    Plots.plot!(plt,
+        [lims[1], lims[2]], [lims[1], lims[2]];
+        color=:black, linewidth=2, label="1:1 line",
+        aspect_ratio=:equal, xlims=lims, ylims=lims
+    )
+    savefig(plt, joinpath(@__DIR__, "eval/$(testid)_accuracy_$(k)_val.png"))
 end
-# check BD vs SOCconc
-BD_pred = vec(y_pred(:BD))    
-SOCconc_pred  = vec(y_pred(:SOCconc))
-plt = histogram2d(
-    BD_pred, SOCconc_pred;
-    nbins      = (30, 30),
-    cbar       = true,
-    xlab       = "BD",
-    ylab       = "SOCconc",
-    #title      = "SOCdensity-MTD\nR2=$(round(r2, digits=3)), MAE=$(round(mae, digits=3)), bias=$(round(bias, digits=3))",
-    color      = cgrad(:bamako, rev=true),
-    normalize  = false
-)
-savefig(plt, joinpath(@__DIR__, "./eval/$(testid)_BD.vs.SOCconc.png"))
 
-CF_pred = vec(y_pred(:CF))
-SOCD_pred = SOCconc_pred .* BD_pred .* (1 .- CF_pred) 
-(_, _), (_, SOCD_true_val) = splitobs((ds_p, ds_all(:SOCdensity)); at = 0.8, shuffle = false)
-pred_vec = collect(SOCD_pred)   
+# BD vs SOCconc, when both are present
+mask_bd   = .!isnan.(y_pred(:BD))
+mask_soc  = .!isnan.(y_pred(:SOCconc))
+mask_pair = mask_bd .& mask_soc
+
+if any(mask_pair)
+    BD_pred      = vec(y_pred(:BD))[mask_pair]
+    SOCconc_pred = vec(y_pred(:SOCconc))[mask_pair]
+    bd_lims = extrema(BD_pred)      
+    soc_lims = extrema(SOCconc_pred)
+
+    plt = histogram2d(
+        BD_pred, SOCconc_pred;
+        nbins     = (30, 30),
+        cbar      = true,
+        xlab      = "BD",
+        ylab      = "SOCconc",
+        xlims=bd_lims, ylims=soc_lims,
+        color     = cgrad(:bamako, rev=true),
+        normalize = false,
+        size = (460, 400)
+    )
+    savefig(plt, joinpath(@__DIR__, "eval/$(testid)_BD.vs.SOCconc.png"))
+end
+
+# SOCdensity
+BD_pred      = vec(y_pred(:BD))
+SOCconc_pred = vec(y_pred(:SOCconc))
+CF_pred      = vec(y_pred(:CF))
+SOCD_pred = SOCconc_pred .* BD_pred .* (1 .- CF_pred)
+
+(_, _), (_, SOCD_true_val) = splitobs((ds_p, ds_all(:SOCdensity)); at=0.8, shuffle=false)
 true_vec = vec(Array(SOCD_true_val))
-ss_res = sum((true_vec .- pred_vec).^2)
-ss_tot = sum((true_vec .- mean(true_vec)).^2)
-r2     = 1 - ss_res / ss_tot
-mae    = mean(abs.(pred_vec .- true_vec))
-bias   = mean(pred_vec .- true_vec)
-plt = histogram2d(
-    true_vec, pred_vec;
-    nbins      = (30, 30),
-    cbar       = true,
-    xlab       = "True",
-    ylab       = "Predicted",
-    title      = "SOCdensity-MTD\nR2=$(round(r2, digits=3)), MAE=$(round(mae, digits=3)), bias=$(round(bias, digits=3))",
-    color      = cgrad(:bamako, rev=true),
-    normalize  = false
-)
-lims = extrema(vcat(true_vec, pred_vec))
-Plots.plot!(plt, [lims[1], lims[2]], [lims[1], lims[2]];
-          color = :black, linewidth = 2, label = "1:1")
-savefig(plt, joinpath(@__DIR__,"eval/$(testid)_accuracy_SOCdensity_val.png"))
+mask = .!ismissing.(true_vec)
+
+if any(mask)
+    t = true_vec[mask]; p = SOCD_pred[mask]
+
+    ss_res = sum((t .- p).^2)
+    ss_tot = sum((t .- mean(t)).^2)
+    r2     = 1 - ss_res / ss_tot
+    mae    = mean(abs.(p .- t))
+    bias   = mean(p .- t)
+
+    plt = histogram2d(
+        t, p;
+        nbins     = (30, 30),
+        cbar      = true,
+        xlab      = "True",
+        ylab      = "Predicted",
+        title     = "SOCdensity\nR²=$(round(r2,digits=3)),  MAE=$(round(mae,digits=3)),  bias=$(round(bias,digits=3))",
+        color     = cgrad(:bamako, rev=true),
+        normalize = false,
+    )
+    lims = extrema(vcat(collect(t), collect(p)))
+    
+    Plots.plot!(plt,
+        [lims[1], lims[2]], [lims[1], lims[2]];
+        color=:black, linewidth=2, label="1:1 line",
+        aspect_ratio=:equal, xlims=lims, ylims=lims)    
+    savefig(plt, joinpath(@__DIR__, "eval/$(testid)_accuracy_SOCdensity_MTD.png"))
+end

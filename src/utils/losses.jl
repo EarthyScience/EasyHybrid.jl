@@ -50,8 +50,7 @@ function lossfn(NN::Lux.Chain, ds_p, (ds_t, ds_t_nan), ps, st)
     y = Matrix(ds_t) 
 
     diff2 = (ŷ .- y).^2
-    rmse  = sqrt(mean(diff2[ds_t_nan]))
-    return rmse
+    return mean(diff2[ds_t_nan])
 end
 
 """
@@ -70,6 +69,6 @@ function lossfn(mh::MultiHeadNN, ds_p, (ds_t, ds_t_nan), ps, st)
             nkeys += 1
         end
     end
-    rmse = sqrt(loss / nkeys)          
+    rmse = loss / nkeys      
     return rmse
 end

@@ -29,24 +29,26 @@ target_names2 = [:BD, :SOCconc, :CF, :SOCdensity]
 names_cov = Symbol.(names(df_d))[4:end-1]
 ds_all = to_keyedArray(df_d);
 ds_p = ds_all(names_cov);
- 
+ ds_t =  ds_all(target_names1)
+
 
 # mimic the one in BulkDensitySOC
 nfeatures = length(names_cov)
 p_dropout = 0.2
-NN = Lux.Chain(
-    Dense(nfeatures, 256, Lux.sigmoid),
+NN = Chain(
+    Dense(nfeatures, 256, sigmoid), 
     Dropout(p_dropout),
-    Dense(256, 128, Lux.sigmoid),
+    Dense(256, 128, sigmoid),       
     Dropout(p_dropout),
-    Dense(128, 64, Lux.sigmoid),
+    Dense(128,  64, sigmoid),       
     Dropout(p_dropout),
-    Dense(64, 32, Lux.sigmoid),
+    Dense( 64,  32, sigmoid),       
     Dropout(p_dropout),
-    Dense(32, 3, Lux.sigmoid) # output SOCconc, CF, BD
+    Dense( 32,   3),   # raw
+    x -> cat(x[1:1, :], sigmoid.(x[2:3, :]); dims=1)  # BD stays the same, SOCconc and CF are sigmoid  
 )
-ds_t =  ds_all(target_names1)
-result = train(NN, (ds_p, ds_t), (); nepochs=100, batchsize=32, opt=AdaMax(0.01))
+
+result = train(NN, (ds_p, ds_t), (); nepochs=100, batchsize=32, opt=AdaMax(0.01));
 
 # eval
 using AxisKeys
@@ -67,31 +69,38 @@ for k in target_names1
         true_vec, pred_vec;
         nbins     = (30, 30),
         cbar      = true,
-        xlab      = "True $k",
-        ylab      = "Predicted $k",
+        xlab      = "True",
+        ylab      = "Predicted",
         title     = "$k\nR2=$(round(r2, digits=3)),MAE=$(round(mae, digits=3)),bias=$(round(bias, digits=3))",
         color     = cgrad(:bamako, rev = true),
         normalize = false,
     )
     lims = extrema(vcat(true_vec, pred_vec))
-    Plots.plot!(plt, [lims[1], lims[2]], [lims[1], lims[2]];
-          color = :black, linewidth = 2, label = "1:1")
-
+    Plots.plot!(plt,
+        [lims[1], lims[2]], [lims[1], lims[2]];
+        color=:black, linewidth=2, label="1:1 line",
+        aspect_ratio=:equal, xlims=lims, ylims=lims
+    )
     savefig(plt, joinpath(@__DIR__,"eval/$(testid)_accuracy_$(k)_val.png"))
 end
+
 # check BD vs SOCconc
 BD_pred = vec(y_pred(:BD))    
 SOCconc_pred  = vec(y_pred(:SOCconc))
+bd_lims = extrema(BD_pred)      
+soc_lims = extrema(SOCconc_pred)
 plt = histogram2d(
     BD_pred, SOCconc_pred;
     nbins      = (30, 30),
     cbar       = true,
     xlab       = "BD",
     ylab       = "SOCconc",
+    xlims=bd_lims, ylims=soc_lims,
     #title      = "SOCdensity-MTD\nR2=$(round(r2, digits=3)), MAE=$(round(mae, digits=3)), bias=$(round(bias, digits=3))",
     color      = cgrad(:bamako, rev=true),
-    normalize  = false
-)
+    normalize  = false,
+    size = (460, 400)
+)   
 savefig(plt, joinpath(@__DIR__, "./eval/$(testid)_BD.vs.SOCconc.png"))
 
 CF_pred = vec(y_pred(:CF))
@@ -115,6 +124,9 @@ plt = histogram2d(
     normalize  = false
 )
 lims = extrema(vcat(true_vec, pred_vec))
-Plots.plot!(plt, [lims[1], lims[2]], [lims[1], lims[2]];
-          color = :black, linewidth = 2, label = "1:1")
-savefig(plt, joinpath(@__DIR__,"eval/$(testid)_accuracy_SOCdensity_val.png"))
+Plots.plot!(plt,
+    [lims[1], lims[2]], [lims[1], lims[2]];
+    color=:black, linewidth=2, label="1:1 line",
+    aspect_ratio=:equal, xlims=lims, ylims=lims
+)
+savefig(plt, joinpath(@__DIR__,"eval/$(testid)_accuracy_SOCdensity_MTD.png"))
