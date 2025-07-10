@@ -81,6 +81,22 @@ lines!(ax, θ_pred, pFs, color=:red, label="FXW default", linewidth=2)
 axislegend(ax; position=:rt)
 fig
 
+h_values = sort(Array(ds_keyed(:h)))
+pF_values = sort(Array(ds_keyed(:pF)))
+
+θ_pred = mechfun(h_values, ca)
+
+GLMakie.activate!(inline=true)
+fig = Figure()
+ax = Makie.Axis(fig[1, 1], xlabel = "θ", ylabel = "pF")
+plot!(ax, ds_keyed(:θ), ds_keyed(:pF), label="data", color=(:grey25, 0.25))
+lines!(ax, θ_pred, pF_values, color=:red, label="FXW default")
+axislegend(ax; position=:rt)
+fig
+
+fig = Figure(size=(800, 600))
+opplot!(fig, Array(ds_keyed(:θ)), θ_pred, "Default", 1, 1)
+
 # =============================================================================
 # Global Parameter Training
 # =============================================================================
