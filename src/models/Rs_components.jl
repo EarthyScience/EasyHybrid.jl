@@ -30,10 +30,6 @@ function LuxCore.initialstates(::AbstractRNG, layer::Rs_components)
     return (; st)
 end
 
-function RbQ10(Rb, Q10, Temp, Tref)
-    @. Rb * Q10 ^(0.1f0 * (Temp - Tref))
-end
-
 """
     Rs_components(NN, predictors, forcing, targets, Q10)(ds_k)
 
@@ -52,12 +48,11 @@ function (hm::Rs_components)(ds_k, ps, st::NamedTuple)
     Rb_root = out[2,:]
     Rb_myc = out[3,:]
 
-    R_het = RbQ10(Rb_het, ps.Q10_het, x[1,:], 15.f0) # TODO out of memory error here	
-    #R_het = Rb_het .* ps.Q10_het .^(0.1f0 * (x .- 15.0f0))
-    R_root = RbQ10(Rb_root, ps.Q10_root, x[1,:], 15.f0)
-    R_myc = RbQ10(Rb_myc, ps.Q10_myc, x[1,:], 15.f0)
+    R_het = mRbQ10(Rb_het, ps.Q10_het, x[1,:], 15.f0)	
+    R_root = mRbQ10(Rb_root, ps.Q10_root, x[1,:], 15.f0)
+    R_myc = mRbQ10(Rb_myc, ps.Q10_myc, x[1,:], 15.f0)
 
-    R_soil = R_het  + R_root + R_myc
+    R_soil = R_het .+ R_root .+ R_myc
 
     return (; R_soil, R_het, R_root, R_myc), (; Rb_het, Rb_root, Rb_myc, st)
 end

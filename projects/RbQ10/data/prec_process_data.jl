@@ -1,8 +1,6 @@
-using CSV
 using Dates
-using DataFrames
 
-dfall=CSV.read("projects/RsoilComponents/data/RESP_07_08_09_10_filled.csv", DataFrame, normalizenames=true, missingstring="NA") # /Net/Groups/BGI/scratch/bahrens/DataHeinemeyerRh
+dfall=CSV.read(joinpath(@__DIR__, "RESP_07_08_09_10_filled.csv"), DataFrame, normalizenames=true, missingstring="NA") # /Net/Groups/BGI/scratch/bahrens/DataHeinemeyerRh
 
 dfall.timesteps = map(eachrow(dfall)) do r
     dlist = (r.year,r.month,r.day,r.hour)
@@ -43,4 +41,8 @@ end
 
 rename!(dfall, :s_rtot => :R_soil, :s_rr => :R_root, :s_rmyc => :R_myc, :s_rh => :R_het) #
 
+dfall.R_soil[dfall.R_soil.<0.0] .= NaN
+dfall.R_root[dfall.R_root.<0.0] .= NaN
+dfall.R_myc[dfall.R_myc.<0.0] .= NaN
+dfall.R_het[dfall.R_het.<0.0] .= NaN
 

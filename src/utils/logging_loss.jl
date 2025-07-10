@@ -32,11 +32,11 @@ Arguments:
 """
 function lossfn(HM::LuxCore.AbstractLuxContainerLayer, x, (y_t, y_nan), ps, st, logging::LoggingLoss)
     targets = HM.targets
-    ŷ, y, y_nan = get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
+    ŷ, y, y_nan, st = get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
     if logging.train_mode
-        return compute_loss(ŷ, y, y_nan, targets, logging.training_loss, logging.agg)
+        return compute_loss(ŷ, y, y_nan, targets, logging.training_loss, logging.agg), st
     else
-        return compute_loss(ŷ, y, y_nan, targets, logging.loss_types, logging.agg)
+        return compute_loss(ŷ, y, y_nan, targets, logging.loss_types, logging.agg), st
     end
 end
 
@@ -45,10 +45,10 @@ end
 Get predictions and targets from the hybrid model and return them along with the NaN mask.
 """
 function get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
-    ŷ, st = HM(x, ps, st)
+    ŷ, st = HM(x, ps, st) #TODO the output st can contain more than st, e.g. Rb is that what we want?
     y = y_t(HM.targets)
     y_nan = y_nan(HM.targets)
-    return (ŷ, y, y_nan)
+    return (ŷ, y, y_nan, (st=st.st,)) #TODO has to be done otherwise e.g. Rb is passed as a st and messes up the training
 end
 function compute_loss(ŷ, y, y_nan, targets, training_loss::Symbol, agg::Function)
     losses = [loss_fn(ŷ[k], y(k), y_nan(k), Val(training_loss)) for k in targets]
