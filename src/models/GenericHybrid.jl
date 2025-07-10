@@ -165,7 +165,7 @@ function (m::HybridModel15)(ds_k, ps, st)
     #println(typeof(values(a)))
 
     # 6) physics
-    y_pred = m.mech_fun(x, a.θ_s, a.h_r, a.h_0, a.log_α, a.log_nm1, a.log_m)
+    y_pred = m.mech_fun(x; a...)
 
     out = (;θ = y_pred, a = a)
 
