@@ -37,7 +37,29 @@ df_out = DataFrame()
 nfeatures = length(names_cov)
 p_dropout = 0.2
 
-NN = Chain(
+# tailor activation at output for each target
+const OUT_ACT = Dict(
+    :BD         => :identity,     
+    :SOCconc    => :sigmoid_01,  #[0, 1] range  
+    :CF         => :sigmoid_01,         
+    :SOCdensity => :sigmoid_01           
+)
+function plug_head(outname::Symbol)
+    last_width = 32          # width of penultimate layer
+    act = OUT_ACT[outname]
+    #
+    if act == :identity          # BD
+        return Dense(last_width, 1)                     
+    elseif act == :sigmoid_01    # SOCconc, CF and SOCdensity
+        return Dense(last_width, 1, sigmoid)  
+    else
+        error("Unknown activation for $outname")
+    end
+end
+
+for (i, tname) in enumerate(target_names)
+    y = ds_all([tname])
+    NN = Chain(
         Dense(nfeatures, 256, sigmoid),
         Dropout(p_dropout),
         Dense(256, 128, sigmoid),
@@ -46,11 +68,9 @@ NN = Chain(
         Dropout(p_dropout),
         Dense(64, 32, sigmoid),
         Dropout(p_dropout),
-        Dense(32, 1, sigmoid) # univariate
+        plug_head(tname)  # plug the head for the target
     )
 
-for (i, tname) in enumerate(target_names)
-    y = ds_all([tname])
     result = train(NN, (ds_p, y), (); nepochs=100, batchsize=32, opt=AdaMax(0.01))
 
     y_val_true = vec(result[:y_val])
@@ -81,7 +101,11 @@ for (i, tname) in enumerate(target_names)
         normalize  = false
     )
     lims = extrema(vcat(y_val_true, y_val_pred))
-    Plots.plot!(plt, [lims[1], lims[2]], [lims[1], lims[2]]; color=:black, linewidth=2, label="1:1 line")
+    Plots.plot!(plt,
+        [lims[1], lims[2]], [lims[1], lims[2]];
+        color=:black, linewidth=2, label="1:1 line",
+        aspect_ratio=:equal, xlims=lims, ylims=lims
+    )
     savefig(plt, joinpath(@__DIR__, "./eval/$(testid)_accuracy_$(tname).png"))
 end
 
@@ -107,18 +131,26 @@ plt = histogram2d(
     normalize  = false
 )
 lims = extrema(vcat(true_SOCdensity, pred_SOCdensity))
-Plots.plot!(plt, [lims[1], lims[2]], [lims[1], lims[2]]; color=:black, linewidth=2, label="1:1 line")
+Plots.plot!(plt,
+    [lims[1], lims[2]], [lims[1], lims[2]];
+    color=:black, linewidth=2, label="1:1 line",
+    aspect_ratio=:equal, xlims=lims, ylims=lims
+)
 savefig(plt, joinpath(@__DIR__, "./eval/$(testid)_accuracy_SOCdensity_MTD.png"))
 
 # check BD vs SOCconc
+bd_lims = extrema(skipmissing(df_out[:, "pred_BD"]))      
+soc_lims = extrema(skipmissing(df_out[:, "pred_SOCconc"]))
 plt = histogram2d(
     df_out[:, "pred_BD"], df_out[:, "pred_SOCconc"];
     nbins      = (30, 30),
     cbar       = true,
     xlab       = "BD",
     ylab       = "SOCconc",
+    xlims=bd_lims, ylims=soc_lims,
     #title      = "SOCdensity-MTD\nR2=$(round(r2, digits=3)), MAE=$(round(mae, digits=3)), bias=$(round(bias, digits=3))",
     color      = cgrad(:bamako, rev=true),
-    normalize  = false
-)
+    normalize  = false,
+    size = (460, 400)
+)   
 savefig(plt, joinpath(@__DIR__, "./eval/$(testid)_BD.vs.SOCconc.png"))

@@ -92,4 +92,22 @@ df[:, names_cov] .= (df[:, names_cov] .- means') ./ stds'
 
 println(size(df))
 
-CSV.write(joinpath(@__DIR__, "data/lucas_preprocessed.csv"), df)
+# CSV.write(joinpath(@__DIR__, "data/lucas_preprocessed.csv"), df)
+
+
+# plot BD vs SOCconc
+bd_lims = extrema(skipmissing(df[:, "BD"]))      
+soc_lims = extrema(skipmissing(df[:, "SOCconc"]))
+plt = histogram2d(
+    df[:, "BD"], df[:, "SOCconc"];
+    nbins      = (30, 30),
+    cbar       = true,
+    xlab       = "BD",
+    ylab       = "SOCconc",
+    xlims=bd_lims, ylims=soc_lims,
+    #title      = "SOCdensity-MTD\nR2=$(round(r2, digits=3)), MAE=$(round(mae, digits=3)), bias=$(round(bias, digits=3))",
+    color      = cgrad(:bamako, rev=true),
+    normalize  = false,
+    size = (460, 400)
+)   
+savefig(plt, joinpath(@__DIR__, "./eval/00_truth_BD.vs.SOCconc.png"))
