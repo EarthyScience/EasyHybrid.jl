@@ -25,7 +25,7 @@ function constructHybridModel8(
 )
     all_names = collect(keys(params.table.axes[1]))
     @assert all(n in all_names for n in nn_names) "nn_names ⊆ param_names"
-    NN = Chain(Dense(length(predictors), 64, sigmoid), Dense(64, 128, sigmoid), Dense(128, length(nn_names), sigmoid))
+    NN = Chain(Dense(length(predictors), 64, tanh), Dense(64, 128, tanh), Dense(128, length(nn_names), tanh))
     fixed_names = [ n for n in all_names if !(n in [nn_names..., global_names...]) ]
     return HybridModel15(NN, predictors, forcing, targets, mech_fun, params, nn_names, global_names, fixed_names)
 end
