@@ -62,13 +62,37 @@ parameters = (
 parameter_container = build_parameters(parameters, FXWParams)
 
 # =============================================================================
-# Model Functions
+# Mechanistic Model and helper functions
 # =============================================================================
+# Modified FX model by Wang et al. (2018) 
+function mFXW_theta(h, θ_s, h_r, h_0, α, n, m)
 
-# load lengthy mechanistic model
-include("mechanistic_model.jl")
+    # Arguments:
+    #   h    :: Pressure head [L] 
+    #   θ_s  :: Saturated water content [L3 L-3]
+    #   h_r  :: Pressure head corresponding to the residual water content [L]
+    #   h_0  :: Pressure head at zero water content [L]
+    #   α, n, m :: Shape parameters [L-3, -, -]
 
-# generate function with parameters as keyword arguments -> needed for hybrid model
+    # Correction factor C_f(h)
+    C_f = @. 1.f0 - log(1.f0 + h / h_r) / log(1.f0 + h_0 / h_r)
+    
+    # Gamma function Γ(h)
+    Γ = @. (log(exp(1.f0) + abs(α * h)^n))^(-m)
+    
+    # Effective saturation S_e(h)
+    S_e = @. C_f * Γ
+    
+    # Volumetric water content θ(h), Soil water retention curve
+    θ = θ_s .* S_e
+
+    return θ
+end
+
+# generate function with parameters as keyword arguments 
+# -> needed for hybrid model, 
+# log_α, log_nm1, log_m are log transformed parameters for better training across orders of magnitude
+
 function mechanistic_model(h; θ_s, h_r, h_0, log_α, log_nm1, log_m)
     return mFXW_theta(h, θ_s, h_r, h_0, exp.(log_α), exp.(log_nm1) .+ 1, exp.(log_m))
 end
