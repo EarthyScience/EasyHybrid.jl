@@ -35,7 +35,7 @@ df = copy(df_o)
 df.h = 10 .^ df.pF # convert pF to cm
 
 # Rename :WC to :θ in the DataFrame
-df.θ = df.WC # keep at % scale - seems like better training, better gradients?
+df.θ = df.WC ./ 100.0 # TODO keep at % scale - seems like better training, better gradients?
 
 ds_keyed = to_keyedArray(Float32.(df))
 
@@ -70,7 +70,7 @@ include("mechanistic_model.jl")
 
 # generate function with parameters as keyword arguments -> needed for hybrid model
 function mechanistic_model(h; θ_s, h_r, h_0, log_α, log_nm1, log_m)
-    return mFXW_theta(h, θ_s, h_r, h_0, exp.(log_α), exp.(log_nm1) .+ 1, exp.(log_m)) * 100.0 # scale to %
+    return mFXW_theta(h, θ_s, h_r, h_0, exp.(log_α), exp.(log_nm1) .+ 1, exp.(log_m))
 end
 
 function mechanistic_model(h, params::AbstractHybridModel)
