@@ -40,7 +40,7 @@ function lossfn(HM::LuxCore.AbstractLuxContainerLayer, x, (y_t, y_nan), ps, st, 
     end
 end
 
-function lossfn(HM::HybridModel15, x, (y_t, y_nan), ps, st, logging::LoggingLoss)
+function lossfn(HM::HybridModel, x, (y_t, y_nan), ps, st, logging::LoggingLoss)
     targets = HM.targets
     ŷ, y, y_nan = get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
     if logging.train_mode

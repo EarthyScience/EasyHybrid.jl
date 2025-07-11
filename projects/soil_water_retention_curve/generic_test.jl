@@ -29,34 +29,35 @@ ds_keyed = to_keyedArray(Float32.(df))
 # Parameter Structure Definition
 # =============================================================================
 
-struct FXWParams6 <: AbstractHybridModel
-    hybrid::EasyHybrid.HybridModel6
+struct FXWParams <: AbstractHybridModel # name your ParameterContainer to your liking
+    hybrid::EasyHybrid.ParameterContainer
 end
 
-paras = (
-    # "columns" are: default, lower, upper 
-    θ_s = (0.396f0,     0.302f0,     0.700f0),     # Saturated water content [cm³/cm³]
-    h_r = (1500.0f0,   1500.0f0,    1500.0f0),    # Pressure head at residual water content [cm]
-    h_0 = (6.3f6,    6.3f6,     6.3f6),     # Pressure head at zero water content [cm]
-    log_α   = (log(0.048f0), log(0.01f0), log(7.874f0)),     # Shape parameter [cm⁻¹] 
-    log_nm1   = (log(3.302f0 - 1), log(1.100f0 - 1), log(20.000f0 - 1)),     # Shape parameter [-]
-    log_m   = (log(0.199f0),    log(0.100f0),     log(2.000f0)),     # Shape parameter [-]
+# construct a named tuple of parameters with tuples of (default, lower, upper)
+parameters = (
+    #            default                  lower                     upper                description
+    θ_s      = ( 0.396f0,                 0.302f0,                  0.700f0 ),           # Saturated water content [cm³/cm³]
+    h_r      = ( 1500.0f0,                1500.0f0,                 1500.0f0 ),          # Pressure head at residual water content [cm]
+    h_0      = ( 6.3f6,                   6.3f6,                    6.3f6 ),             # Pressure head at zero water content [cm]
+    log_α    = ( log(0.048f0),            log(0.01f0),              log(7.874f0) ),      # Shape parameter [cm⁻¹] 
+    log_nm1  = ( log(3.302f0 - 1),        log(1.100f0 - 1),         log(20.000f0 - 1) ), # Shape parameter [-]
+    log_m    = ( log(0.199f0),            log(0.100f0),             log(2.000f0) ),      # Shape parameter [-]
 )
 
-typeof(FXWParams6)
+typeof(FXWParams)
 
-function construct_hybrid(paras::NamedTuple, f::DataType)
-    ca = EasyHybrid.HybridModel6(paras)
+function construct_hybrid(parameters::NamedTuple, f::DataType)
+    ca = EasyHybrid.ParameterContainer(parameters)
     return f(ca)
 end
 
-pms = construct_hybrid(paras, FXWParams6)
+parameter_container = construct_hybrid(parameters, FXWParams)
 
 function default(p::AbstractHybridModel)
     p.hybrid.table[:, :default]
 end
 
-default(pms)
+default(parameter_container)
 
 
 # =============================================================================
@@ -64,20 +65,20 @@ default(pms)
 # =============================================================================
 
 # Explicit parameter method
-mechfun(h; θ_s, h_r, h_0, log_α, log_nm1, log_m) = mFXW_theta(h, θ_s, h_r, h_0, exp.(log_α), exp.(log_nm1) .+ 1, exp.(log_m)) * 100.0 # scale to %
+mechanistic_model(h; θ_s, h_r, h_0, log_α, log_nm1, log_m) = mFXW_theta(h, θ_s, h_r, h_0, exp.(log_α), exp.(log_nm1) .+ 1, exp.(log_m)) * 100.0 # scale to %
 
-mechfun(h, params::AbstractHybridModel) = mechfun(h; values(default(params))...)
+mechanistic_model(h, params::AbstractHybridModel) = mechanistic_model(h; values(default(params))...)
 
 
 # =============================================================================
-# Default Model Bahviour
+# Default Model Behaviour
 # =============================================================================
 pFs = vec(collect(range(-1.0, 7, length=100))) .|> Float32
 
 h_values = sort(Array(ds_keyed(:h)))
 pF_values = sort(Array(ds_keyed(:pF)))
 
-θ_pred = mechfun(h_values, pms)
+θ_pred = mechanistic_model(h_values, parameter_container)
 
 GLMakie.activate!(inline=true)
 fig = Figure()
@@ -88,7 +89,7 @@ axislegend(ax; position=:rt)
 fig
 
 fig = Figure(size=(800, 600))
-opplot!(fig, Array(ds_keyed(:θ)), θ_pred, "Default", 1, 1)
+plot_pred_vs_obs!(fig, Array(ds_keyed(:θ)), θ_pred, "Default", 1, 1)
 
 # =============================================================================
 # Global Parameter Training
@@ -97,32 +98,32 @@ targets = [:θ]
 forcing = [:h]
 
 # Build hybrid model with global parameters only
-hm = constructHybridModel8(
+hybrid_model = constructHybridModel(
     [],               # predictors
     forcing,          # forcing
     targets,          # target
-    mechfun,          # physics function
-    pms,               # parameter defaults and bounds of mechanistic model
+    mechanistic_model,          # mechanistic model
+    parameter_container,               # parameter defaults and bounds of mechanistic model
     [],               # nn_names
     [:θ_s, :log_α, :log_nm1, :log_m]  # global_names
 )
 
-fieldnames(typeof(hm))
+fieldnames(typeof(hybrid_model))
 
-hm.mech_fun
+hybrid_model.mechanistic_model
 
-ps = LuxCore.initialparameters(Random.default_rng(), hm)
-st = LuxCore.initialstates(Random.default_rng(), hm)
+ps = LuxCore.initialparameters(Random.default_rng(), hybrid_model)
+st = LuxCore.initialstates(Random.default_rng(), hybrid_model)
 
-hm(ds_keyed, ps, st)
+hybrid_model(ds_keyed, ps, st)
 
-tout = train(hm, ds_keyed, (); nepochs=100, batchsize=512, opt=AdaGrad(0.01), file_name = "tout.jld2", training_loss=:nse, loss_types=[:mse, :nse])
+tout = train(hybrid_model, ds_keyed, (); nepochs=100, batchsize=512, opt=AdaGrad(0.01), file_name = "tout.jld2", training_loss=:nse, loss_types=[:mse, :nse])
 
 θ_pred1 = tout.val_obs_pred[!, Symbol("θ_pred")]
 θ_obs1 = tout.val_obs_pred[!, :θ]
 
 using GLMakie
-opplot!(fig, θ_pred1, θ_obs1, "Global parameters", 2, 1)
+plot_pred_vs_obs!(fig, θ_pred1, θ_obs1, "Global parameters", 2, 1)
 
 
 # =============================================================================
@@ -131,22 +132,22 @@ opplot!(fig, θ_pred1, θ_obs1, "Global parameters", 2, 1)
 predictors = [:BD, :OC, :clay, :silt, :sand]
 
 # Build hybrid model with neural network
-hm2 = constructHybridModel8(
+hybrid_model_nn = constructHybridModel(
     predictors,                                 # predictors
     forcing,                                    # forcing
     targets,                                    # targets
-    mechfun,                                    # physics function
-    pms,                                         # parameter bounds
-    [:θ_s, :log_α, :log_nm1, :log_m],           # nn_names
+    mechanistic_model,                                    # mechanistic model
+    parameter_container,                                         # parameter bounds
+    [:θ_s, :log_α, :log_nm1, :log_m],           # neural_param_names
     []                                          # global_names
 )
 
-ps = LuxCore.initialparameters(Random.default_rng(), hm2)
-st = LuxCore.initialstates(Random.default_rng(), hm2)
+ps = LuxCore.initialparameters(Random.default_rng(), hybrid_model_nn)
+st = LuxCore.initialstates(Random.default_rng(), hybrid_model_nn)
 
-hm2(ds_keyed, ps, st)
+hybrid_model_nn(ds_keyed, ps, st)
 
-tout2 = train(hm2, ds_keyed, (); nepochs=100, batchsize=512, opt=AdaGrad(0.01), file_name = "tout2.jld2", training_loss=:nse, loss_types=[:mse, :nse])
+tout2 = train(hybrid_model_nn, ds_keyed, (); nepochs=100, batchsize=512, opt=AdaGrad(0.01), file_name = "tout2.jld2", training_loss=:nse, loss_types=[:mse, :nse])
 
 # =============================================================================
 # Results Visualization
@@ -155,7 +156,7 @@ tout2 = train(hm2, ds_keyed, (); nepochs=100, batchsize=512, opt=AdaGrad(0.01), 
 θ_pred2 = tout2.val_obs_pred[!, Symbol(string(:θ, "_pred"))]
 θ_obs2 = tout2.val_obs_pred[!, :θ]
 
-opplot!(fig, θ_pred2, θ_obs2, "Neural parameters", 1, 2)
+plot_pred_vs_obs!(fig, θ_pred2, θ_obs2, "Neural parameters", 1, 2)
 
 
 
