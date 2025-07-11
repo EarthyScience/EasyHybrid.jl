@@ -19,7 +19,7 @@ df = copy(df_o)
 df.h = 10 .^ df.pF
 
 # Rename :WC to :θ in the DataFrame
-df.θ = df.WC ./ 100.0# make it larger an rescale in hybrid model as well - better gradients?
+df.θ = df.WC # make at % scale - seems like better training, better gradients?
 
 df
 
@@ -64,7 +64,7 @@ default(pms)
 # =============================================================================
 
 # Explicit parameter method
-mechfun(h; θ_s, h_r, h_0, log_α, log_nm1, log_m) = mFXW_theta(h, θ_s, h_r, h_0, exp.(log_α), exp.(log_nm1) .+ 1, exp.(log_m)) # scale to %
+mechfun(h; θ_s, h_r, h_0, log_α, log_nm1, log_m) = mFXW_theta(h, θ_s, h_r, h_0, exp.(log_α), exp.(log_nm1) .+ 1, exp.(log_m)) * 100.0 # scale to %
 
 mechfun(h, params::AbstractHybridModel) = mechfun(h; values(default(params))...)
 
