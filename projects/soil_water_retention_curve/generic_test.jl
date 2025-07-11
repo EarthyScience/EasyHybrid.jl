@@ -8,21 +8,36 @@ Pkg.instantiate()
 
 using EasyHybrid
 using GLMakie
+import EasyHybrid: poplot, poplot!
 using Statistics
 using ComponentArrays
 
+# =============================================================================
+# Data Source Information
+# =============================================================================
+# Source:
+#   Norouzi S, Pesch C, Arthur E et al. (2025)
+#   "Physics‐Informed Neural Networks for Estimating a Continuous Form of the Soil Water Retention Curve From Basic Soil Properties."
+#   Water Resources Research, 61.
+#
+# Dataset:
+#   Norouzi, S., Pesch, C., Arthur, E., Norgaard, T., Greve, M. H., Iversen, B. V., & de Jonge, L. W. (2024).
+#   Input dataset for estimating continuous soil water retention curves using physics‐informed [Dataset]. Neural Networks.
+#   https://doi.org/10.5281/ZENODO.14041446
+#
+# Local Path (MPI-BGC server):
+#   /Net/Groups/BGI/scratch/bahrens/data_Norouzi/Norouzi_et_al_2024_WRR_Final.csv
+# =============================================================================
 # Load and preprocess data
 @__DIR__
-# /Net/Groups/BGI/scratch/bahrens/data_Norouzi/Norouzi_et_al_2024_WRR_Final.csv"
+
 df_o = CSV.read(joinpath(@__DIR__, "./data/Norouzi_et_al_2024_WRR_Final.csv"), DataFrame, normalizenames=true)
 
 df = copy(df_o)
-df.h = 10 .^ df.pF
+df.h = 10 .^ df.pF # convert pF to cm
 
 # Rename :WC to :θ in the DataFrame
-df.θ = df.WC # make at % scale - seems like better training, better gradients?
-
-df
+df.θ = df.WC # keep at % scale - seems like better training, better gradients?
 
 ds_keyed = to_keyedArray(Float32.(df))
 
@@ -45,27 +60,14 @@ parameters = (
     log_m    = ( log(0.199f0),            log(0.100f0),             log(2.000f0) ),      # Shape parameter [-]
 )
 
-typeof(FXWParams)
 
-function construct_hybrid(parameters::NamedTuple, f::DataType)
-    ca = EasyHybrid.ParameterContainer(parameters)
-    return f(ca)
-end
-
-parameter_container = construct_hybrid(parameters, FXWParams)
-
-function default(p::AbstractHybridModel)
-    p.hybrid.table[:, :default]
-end
-
-default(parameter_container)
-
+parameter_container = build_parameters(parameters, FXWParams)
 
 # =============================================================================
 # Model Functions
 # =============================================================================
 
-# Explicit parameter method
+# generate function with parameters as keyword arguments -> needed for hybrid model
 function mechanistic_model(h; θ_s, h_r, h_0, log_α, log_nm1, log_m)
     return mFXW_theta(h, θ_s, h_r, h_0, exp.(log_α), exp.(log_nm1) .+ 1, exp.(log_m)) * 100.0 # scale to %
 end
@@ -74,27 +76,23 @@ function mechanistic_model(h, params::AbstractHybridModel)
     return mechanistic_model(h; values(default(params))...)
 end
 
-
 # =============================================================================
 # Default Model Behaviour
 # =============================================================================
-pFs = vec(collect(range(-1.0, 7, length=100))) .|> Float32
-
 h_values = sort(Array(ds_keyed(:h)))
 pF_values = sort(Array(ds_keyed(:pF)))
 
 θ_pred = mechanistic_model(h_values, parameter_container)
 
-GLMakie.activate!(inline=true)
-fig = Figure()
-ax = Makie.Axis(fig[1, 1], xlabel = "θ", ylabel = "pF")
+GLMakie.activate!(inline=false)
+fig_swrc = Figure()
+ax = Makie.Axis(fig_swrc[1, 1], xlabel = "θ", ylabel = "pF")
 plot!(ax, ds_keyed(:θ), ds_keyed(:pF), label="data", color=(:grey25, 0.25))
 lines!(ax, θ_pred, pF_values, color=:red, label="FXW default")
 axislegend(ax; position=:rt)
-fig
+fig_swrc
 
-fig = Figure(size=(800, 600))
-EasyHybrid.plot_pred_vs_obs!(fig, Array(ds_keyed(:θ)), θ_pred, "Default", 1, 1)
+fig_po = poplot(Array(ds_keyed(:θ)), θ_pred, "Default")
 
 # =============================================================================
 # Global Parameter Training
@@ -113,22 +111,12 @@ hybrid_model = constructHybridModel(
     [:θ_s, :log_α, :log_nm1, :log_m]  # global_names
 )
 
-fieldnames(typeof(hybrid_model))
-
-hybrid_model.mechanistic_model
-
-ps = LuxCore.initialparameters(Random.default_rng(), hybrid_model)
-st = LuxCore.initialstates(Random.default_rng(), hybrid_model)
-
-hybrid_model(ds_keyed, ps, st)
-
 tout = train(hybrid_model, ds_keyed, (); nepochs=100, batchsize=512, opt=AdaGrad(0.01), file_name = "tout.jld2", training_loss=:nse, loss_types=[:mse, :nse])
 
 θ_pred1 = tout.val_obs_pred[!, Symbol("θ_pred")]
 θ_obs1 = tout.val_obs_pred[!, :θ]
 
-using GLMakie
-EasyHybrid.plot_pred_vs_obs!(fig, θ_pred1, θ_obs1, "Global parameters", 2, 1)
+poplot!(fig_po, θ_pred1, θ_obs1, "Global parameters", 2, 1)
 
 
 # =============================================================================
@@ -147,11 +135,6 @@ hybrid_model_nn = constructHybridModel(
     []                                          # global_names
 )
 
-ps = LuxCore.initialparameters(Random.default_rng(), hybrid_model_nn)
-st = LuxCore.initialstates(Random.default_rng(), hybrid_model_nn)
-
-hybrid_model_nn(ds_keyed, ps, st)
-
 tout2 = train(hybrid_model_nn, ds_keyed, (); nepochs=100, batchsize=512, opt=AdaGrad(0.01), file_name = "tout2.jld2", training_loss=:nse, loss_types=[:mse, :nse])
 
 # =============================================================================
@@ -161,7 +144,7 @@ tout2 = train(hybrid_model_nn, ds_keyed, (); nepochs=100, batchsize=512, opt=Ada
 θ_pred2 = tout2.val_obs_pred[!, Symbol(string(:θ, "_pred"))]
 θ_obs2 = tout2.val_obs_pred[!, :θ]
 
-plot_pred_vs_obs!(fig, θ_pred2, θ_obs2, "Neural parameters", 1, 2)
+poplot!(fig_po, θ_pred2, θ_obs2, "Neural parameters", 1, 2)
 
 
 

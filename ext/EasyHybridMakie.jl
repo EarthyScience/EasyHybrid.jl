@@ -47,23 +47,15 @@ Create a scatter plot comparing predicted vs observed values with performance me
 # Returns
 - Updates the axis with the plot and adds modeling efficiency to title
 """
-function EasyHybrid.plot_pred_vs_obs(ax, pred, obs, title_prefix)
-    ss_res = sum((obs .- pred).^2)
-    ss_tot = sum((obs .- mean(obs)).^2)
-    modeling_efficiency = 1 - ss_res / ss_tot
+function EasyHybrid.poplot(pred, obs, title_prefix)
 
-    ax.title = "$title_prefix\nModeling Efficiency: $(round(modeling_efficiency, digits=3))"
-    ax.xlabel = "Predicted θ"
-    ax.ylabel = "Observed θ"
-    ax.aspect = 1
+    fig = Makie.Figure()
+    ax = Makie.Axis(fig[1, 1])
 
-    Makie.scatter!(ax, pred, obs, color=:purple, alpha=0.6, markersize=8)
+    EasyHybrid.plot_pred_vs_obs!(ax, pred, obs, title_prefix)
 
-    max_val = max(maximum(obs), maximum(pred))
-    min_val = min(minimum(obs), minimum(pred))
-    Makie.lines!(ax, [min_val, max_val], [min_val, max_val], color=:black, linestyle=:dash, linewidth=1, label="1:1 line")
+    return fig
 
-    Makie.axislegend(ax; position=:lt)
 end
 
 """
@@ -82,10 +74,29 @@ Add a prediction vs observed plot to a figure at the specified position.
 # Returns
 - Updated figure with the new plot
 """
-function EasyHybrid.plot_pred_vs_obs!(fig, pred, obs, title_prefix, row::Int, col::Int)
+function EasyHybrid.poplot!(fig, pred, obs, title_prefix, row::Int, col::Int)
     ax = Makie.Axis(fig[row, col])
-    EasyHybrid.plot_pred_vs_obs(ax, pred, obs, title_prefix)
+    EasyHybrid.plot_pred_vs_obs!(ax, pred, obs, title_prefix)
     return fig
+end
+
+function EasyHybrid.plot_pred_vs_obs!(ax, pred, obs, title_prefix)
+    ss_res = sum((obs .- pred).^2)
+    ss_tot = sum((obs .- mean(obs)).^2)
+    modeling_efficiency = 1 - ss_res / ss_tot
+
+    ax.title = "$title_prefix\nModeling Efficiency: $(round(modeling_efficiency, digits=3))"
+    ax.xlabel = "Predicted θ"
+    ax.ylabel = "Observed θ"
+    ax.aspect = 1
+
+    Makie.scatter!(ax, pred, obs, color=:purple, alpha=0.6, markersize=8)
+
+    max_val = max(maximum(obs), maximum(pred))
+    min_val = min(minimum(obs), minimum(pred))
+    Makie.lines!(ax, [min_val, max_val], [min_val, max_val], color=:black, linestyle=:dash, linewidth=1, label="1:1 line")
+
+    Makie.axislegend(ax; position=:lt)
 end
 
 function __init__()

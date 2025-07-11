@@ -85,14 +85,8 @@ display(parameter_container)  # or just parameter_container
 - The table shows parameter names as row labels and bound types as column headers
 - Default alignment is right-aligned for all columns
 """
-function Base.display(io::IO, parameter_container::ParameterContainer)
-    PrettyTables.pretty_table(
-        io,
-        parameter_container.table;
-        header     = collect(keys(parameter_container.table.axes[2])),
-        row_labels = collect(keys(parameter_container.table.axes[1])),
-        alignment  = :r
-    )
+function Base.display(parameter_container::T) where T <: AbstractHybridModel
+    display_parameter_bounds(parameter_container)
 end
 
 """
@@ -107,11 +101,41 @@ Legacy function for displaying parameter bounds with custom alignment.
 # Returns
 - Displays a formatted table using PrettyTables.jl
 """
-function display_parameter_bounds(parameter_container::ParameterContainer; alignment=:r)
+function display_parameter_bounds(parameter_container::T; alignment=:r) where {T <: AbstractHybridModel}
+    table = parameter_container.hybrid.table
     PrettyTables.pretty_table(
-        parameter_container.table;
-        header     = collect(keys(parameter_container.table.axes[2])),
-        row_labels = collect(keys(parameter_container.table.axes[1])),
+        table;  
+        header     = collect(keys(table.axes[2])),
+        row_labels = collect(keys(table.axes[1])),
         alignment  = alignment
     )
+end
+
+"""
+    build_parameters(parameters::NamedTuple, f::DataType) -> AbstractHybridModel
+
+Constructs a parameter container from a named tuple of parameter bounds and wraps it in a user-defined subtype of `AbstractHybridModel`.
+
+# Arguments
+- `parameters::NamedTuple`: Named tuple where each entry is a tuple of (default, lower, upper) bounds for a parameter.
+- `f::DataType`: A constructor for a subtype of `AbstractHybridModel` that takes a `ParameterContainer` as its argument.
+
+# Returns
+- An instance of the user-defined `AbstractHybridModel` subtype containing the parameter container.
+"""
+function build_parameters(parameters::NamedTuple, f::DataType)
+    ca = EasyHybrid.ParameterContainer(parameters)
+    return f(ca)
+end
+
+function Base.display(hm::HybridModel)
+    display(hm.NN)
+    
+    println("global parameters: ", hm.global_param_names)
+    println("neural parameters: ", hm.neural_param_names)
+    println("fixed parameters: ", hm.fixed_param_names)
+
+    println("parameter defaults and bounds:")
+    display(hm.parameters)
+
 end
