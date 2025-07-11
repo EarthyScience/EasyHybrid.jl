@@ -29,8 +29,6 @@ using ComponentArrays
 #   /Net/Groups/BGI/scratch/bahrens/data_Norouzi/Norouzi_et_al_2024_WRR_Final.csv
 # =============================================================================
 # Load and preprocess data
-@__DIR__
-
 df_o = CSV.read(joinpath(@__DIR__, "./data/Norouzi_et_al_2024_WRR_Final.csv"), DataFrame, normalizenames=true)
 
 df = copy(df_o)
@@ -45,7 +43,8 @@ ds_keyed = to_keyedArray(Float32.(df))
 # Parameter Structure Definition
 # =============================================================================
 
-struct FXWParams <: AbstractHybridModel # name your ParameterContainer to your liking
+# name your ParameterContainer to your liking
+struct FXWParams <: AbstractHybridModel 
     hybrid::EasyHybrid.ParameterContainer
 end
 
@@ -59,7 +58,6 @@ parameters = (
     log_nm1  = ( log(3.302f0 - 1),        log(1.100f0 - 1),         log(20.000f0 - 1) ), # Shape parameter [-]
     log_m    = ( log(0.199f0),            log(0.100f0),             log(2.000f0) ),      # Shape parameter [-]
 )
-
 
 parameter_container = build_parameters(parameters, FXWParams)
 
