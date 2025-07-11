@@ -1,4 +1,22 @@
 export display_parameter_bounds
+export build_parameters
+
+"""
+    build_parameters(parameters::NamedTuple, f::DataType) -> AbstractHybridModel
+
+Constructs a parameter container from a named tuple of parameter bounds and wraps it in a user-defined subtype of `AbstractHybridModel`.
+
+# Arguments
+- `parameters::NamedTuple`: Named tuple where each entry is a tuple of (default, lower, upper) bounds for a parameter.
+- `f::DataType`: A constructor for a subtype of `AbstractHybridModel` that takes a `ParameterContainer` as its argument.
+
+# Returns
+- An instance of the user-defined `AbstractHybridModel` subtype containing the parameter container.
+"""
+function build_parameters(parameters::NamedTuple, f::DataType)
+    ca = EasyHybrid.ParameterContainer(parameters)
+    return f(ca)
+end
 
 """
     build_parameter_matrix(parameter_defaults_and_bounds::NamedTuple)
@@ -111,22 +129,7 @@ function display_parameter_bounds(parameter_container::T; alignment=:r) where {T
     )
 end
 
-"""
-    build_parameters(parameters::NamedTuple, f::DataType) -> AbstractHybridModel
 
-Constructs a parameter container from a named tuple of parameter bounds and wraps it in a user-defined subtype of `AbstractHybridModel`.
-
-# Arguments
-- `parameters::NamedTuple`: Named tuple where each entry is a tuple of (default, lower, upper) bounds for a parameter.
-- `f::DataType`: A constructor for a subtype of `AbstractHybridModel` that takes a `ParameterContainer` as its argument.
-
-# Returns
-- An instance of the user-defined `AbstractHybridModel` subtype containing the parameter container.
-"""
-function build_parameters(parameters::NamedTuple, f::DataType)
-    ca = EasyHybrid.ParameterContainer(parameters)
-    return f(ca)
-end
 
 function Base.display(hm::HybridModel)
     display(hm.NN)

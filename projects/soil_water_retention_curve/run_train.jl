@@ -67,6 +67,9 @@ parameter_container = build_parameters(parameters, FXWParams)
 # Model Functions
 # =============================================================================
 
+# load lengthy mechanistic model
+include("mechanistic_model.jl")
+
 # generate function with parameters as keyword arguments -> needed for hybrid model
 function mechanistic_model(h; θ_s, h_r, h_0, log_α, log_nm1, log_m)
     return mFXW_theta(h, θ_s, h_r, h_0, exp.(log_α), exp.(log_nm1) .+ 1, exp.(log_m)) * 100.0 # scale to %
@@ -145,10 +148,5 @@ tout2 = train(hybrid_model_nn, ds_keyed, (); nepochs=100, batchsize=512, opt=Ada
 θ_obs2 = tout2.val_obs_pred[!, :θ]
 
 poplot!(fig_po, θ_pred2, θ_obs2, "Neural parameters", 1, 2)
-
-
-
-
-
 
 
