@@ -13,6 +13,7 @@ using ComponentArrays
 
 # Load and preprocess data
 @__DIR__
+# /Net/Groups/BGI/scratch/data_Norouzi/Norouzi_et_al_2024_WRR_Final.csv"
 df_o = CSV.read(joinpath(@__DIR__, "./data/Norouzi_et_al_2024_WRR_Final.csv"), DataFrame, normalizenames=true)
 
 df = copy(df_o)
@@ -89,7 +90,7 @@ axislegend(ax; position=:rt)
 fig
 
 fig = Figure(size=(800, 600))
-plot_pred_vs_obs!(fig, Array(ds_keyed(:θ)), θ_pred, "Default", 1, 1)
+EasyHybrid.plot_pred_vs_obs!(fig, Array(ds_keyed(:θ)), θ_pred, "Default", 1, 1)
 
 # =============================================================================
 # Global Parameter Training
@@ -123,7 +124,7 @@ tout = train(hybrid_model, ds_keyed, (); nepochs=100, batchsize=512, opt=AdaGrad
 θ_obs1 = tout.val_obs_pred[!, :θ]
 
 using GLMakie
-plot_pred_vs_obs!(fig, θ_pred1, θ_obs1, "Global parameters", 2, 1)
+EasyHybrid.plot_pred_vs_obs!(fig, θ_pred1, θ_obs1, "Global parameters", 2, 1)
 
 
 # =============================================================================
