@@ -84,7 +84,7 @@ Add a prediction vs observed plot to a figure at the specified position.
 """
 function EasyHybrid.plot_pred_vs_obs!(fig, pred, obs, title_prefix, row::Int, col::Int)
     ax = Makie.Axis(fig[row, col])
-    plot_pred_vs_obs(ax, pred, obs, title_prefix)
+    EasyHybrid.plot_pred_vs_obs(ax, pred, obs, title_prefix)
     return fig
 end
 

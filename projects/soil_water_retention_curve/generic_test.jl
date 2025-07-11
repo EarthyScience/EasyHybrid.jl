@@ -13,7 +13,7 @@ using ComponentArrays
 
 # Load and preprocess data
 @__DIR__
-# /Net/Groups/BGI/scratch/data_Norouzi/Norouzi_et_al_2024_WRR_Final.csv"
+# /Net/Groups/BGI/scratch/bahrens/data_Norouzi/Norouzi_et_al_2024_WRR_Final.csv"
 df_o = CSV.read(joinpath(@__DIR__, "./data/Norouzi_et_al_2024_WRR_Final.csv"), DataFrame, normalizenames=true)
 
 df = copy(df_o)
@@ -66,9 +66,13 @@ default(parameter_container)
 # =============================================================================
 
 # Explicit parameter method
-mechanistic_model(h; θ_s, h_r, h_0, log_α, log_nm1, log_m) = mFXW_theta(h, θ_s, h_r, h_0, exp.(log_α), exp.(log_nm1) .+ 1, exp.(log_m)) * 100.0 # scale to %
+function mechanistic_model(h; θ_s, h_r, h_0, log_α, log_nm1, log_m)
+    return mFXW_theta(h, θ_s, h_r, h_0, exp.(log_α), exp.(log_nm1) .+ 1, exp.(log_m)) * 100.0 # scale to %
+end
 
-mechanistic_model(h, params::AbstractHybridModel) = mechanistic_model(h; values(default(params))...)
+function mechanistic_model(h, params::AbstractHybridModel)
+    return mechanistic_model(h; values(default(params))...)
+end
 
 
 # =============================================================================
