@@ -49,5 +49,6 @@ include("utils/logging_loss.jl")
 include("utils/loss_fn.jl")
 include("train.jl")
 include("utils/helpers_for_HybridModel.jl")
+include("plotrecipes.jl")
 
 end

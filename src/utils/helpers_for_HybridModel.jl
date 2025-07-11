@@ -1,4 +1,3 @@
-using Makie
 export display_parameter_bounds
 
 """
