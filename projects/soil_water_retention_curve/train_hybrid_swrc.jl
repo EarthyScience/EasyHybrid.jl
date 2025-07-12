@@ -2,9 +2,14 @@
 # Setup and Data Loading
 # =============================================================================
 using Pkg
-Pkg.activate("projects/soil_water_retention_curve")
+project_path = "projects/soil_water_retention_curve"
+Pkg.activate(project_path)
 Pkg.develop(path=pwd())
-Pkg.instantiate()
+# Only instantiate if Manifest.toml is missing
+manifest_path = joinpath(project_path, "Manifest.toml")
+if !isfile(manifest_path)
+    Pkg.instantiate()
+end
 
 using EasyHybrid
 using GLMakie
