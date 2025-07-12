@@ -59,7 +59,7 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
                     LoggingLoss(training_loss=training_loss, agg=agg)), ps)
                 grads = backtrace(l)[1]
                 Optimisers.update!(opt_state, ps, grads)
-                st = l[2]
+                st = l[2].st
             end
         end
         save_ps_st!(file_name, hybridModel, ps, st, save_ps, epoch)
