@@ -16,6 +16,7 @@ using GLMakie
 import EasyHybrid: poplot, poplot!
 using Statistics
 using ComponentArrays
+using AxisKeys
 
 # =============================================================================
 # Data Source Information
@@ -91,7 +92,7 @@ function mFXW_theta(h, θ_s, h_r, h_0, α, n, m)
     # Volumetric water content θ(h), Soil water retention curve
     θ = θ_s .* S_e
 
-    return θ
+    return (; θ, S_e, C_f, Γ)
 end
 
 # generate function with parameters as keyword arguments 
@@ -102,9 +103,21 @@ function mechanistic_model(h; θ_s, h_r, h_0, log_α, log_nm1, log_m)
     return mFXW_theta(h, θ_s, h_r, h_0, exp.(log_α), exp.(log_nm1) .+ 1, exp.(log_m))
 end
 
+# KeyedArray version needed for hybrid model
+function mechanistic_model(forcing_data::KeyedArray; kwargs...)
+    h = vec(forcing_data([:h]))  # Extract h from forcing data
+    return mechanistic_model(h; kwargs...)
+end
+
 function mechanistic_model(h, params::AbstractHybridModel)
     return mechanistic_model(h; values(default(params))...)
 end
+
+function mechanistic_model(forcing_data::KeyedArray, params::AbstractHybridModel)
+    return mechanistic_model(forcing_data; values(default(params))...)
+end
+
+
 
 # =============================================================================
 # Default Model Behaviour
@@ -112,7 +125,7 @@ end
 h_values = sort(Array(ds_keyed(:h)))
 pF_values = sort(Array(ds_keyed(:pF)))
 
-θ_pred = mechanistic_model(h_values, parameter_container)
+θ_pred = mechanistic_model(h_values, parameter_container).θ
 
 GLMakie.activate!(inline=false)
 fig_swrc = Figure()
@@ -138,10 +151,11 @@ hybrid_model = constructHybridModel(
     mechanistic_model,          # mechanistic model
     parameter_container,               # parameter defaults and bounds of mechanistic model
     [],               # nn_names
-    [:θ_s, :log_α, :log_nm1, :log_m]  # global_names
+    [:θ_s, :log_α, :log_nm1, :log_m],  # global_names
+    scale_nn_outputs=false
 )
 
-tout = train(hybrid_model, ds_keyed, (); nepochs=100, batchsize=512, opt=AdaGrad(0.01), file_name = "tout.jld2", training_loss=:nse, loss_types=[:mse, :nse])
+tout = train(hybrid_model, ds_keyed, (); nepochs=10, batchsize=512, opt=AdaGrad(0.01), file_name = "tout.jld2", training_loss=:nse, loss_types=[:mse, :nse])
 
 θ_pred1 = tout.val_obs_pred[!, Symbol("θ_pred")]
 θ_obs1 = tout.val_obs_pred[!, :θ]
@@ -162,10 +176,11 @@ hybrid_model_nn = constructHybridModel(
     mechanistic_model,                                    # mechanistic model
     parameter_container,                                         # parameter bounds
     [:θ_s, :log_α, :log_nm1, :log_m],           # neural_param_names
-    []                                          # global_names
+    [],                                          # global_names
+    scale_nn_outputs=true
 )
 
-tout2 = train(hybrid_model_nn, ds_keyed, (); nepochs=100, batchsize=512, opt=AdaGrad(0.01), file_name = "tout2.jld2", training_loss=:nse, loss_types=[:mse, :nse])
+tout2 = train(hybrid_model_nn, ds_keyed, (); nepochs=10, batchsize=512, opt=AdaGrad(0.01), file_name = "tout2.jld2", training_loss=:nse, loss_types=[:mse, :nse])
 
 # =============================================================================
 # Results Visualization

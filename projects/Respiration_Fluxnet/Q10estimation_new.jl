@@ -168,8 +168,8 @@ neural_param_names = collect(keys(predictors))
 # Define global parameters (none for this model, Q10 is fixed)
 global_param_names = [:Q10]
 
-# Create the hybrid model using the generic constructor directly
-hybrid_model = constructMultiNNHybridModel(
+# Create the hybrid model using the unified constructor
+hybrid_model = constructHybridModel(
     predictors,
     forcing_FluxPartModel,
     target_FluxPartModel,
@@ -185,7 +185,7 @@ hybrid_model = constructMultiNNHybridModel(
 # =============================================================================
 
 # Train FluxPartModel
-out_FluxPart = train(hybrid_model, ds_keyed_FluxPartModel, (); nepochs=100, batchsize=512, opt=AdamW(0.01), loss_types=[:mse, :nse], training_loss=:mse);
+out_FluxPart = train(hybrid_model, ds_keyed_FluxPartModel, (); nepochs=10, batchsize=512, opt=AdamW(0.01), loss_types=[:mse, :nse], training_loss=:mse);
 
 # =============================================================================
 # Results Visualization
