@@ -1,3 +1,8 @@
+using Pkg
+Pkg.activate("projects/RbQ10")
+Pkg.develop(path=pwd())
+Pkg.instantiate()
+
 using CSV, DataFrames
 using Dates
 using GLMakie

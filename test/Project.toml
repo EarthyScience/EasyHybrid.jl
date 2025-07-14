@@ -1,9 +1,4 @@
 [deps]
-Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
-DataFrameMacros = "75880514-38bc-4a95-a458-c2aea5a3a702"
-DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 EasyHybrid = "61bb816a-e6af-4913-ab9e-91bff2e122e3"
 Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
-Lux = "b2108857-7c20-44ae-9111-449ecde12c47"
-Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

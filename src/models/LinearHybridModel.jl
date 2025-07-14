@@ -22,7 +22,7 @@ function LinearHybridModel(predictors::AbstractArray{Symbol}, forcing::AbstractA
 
     in_dim = length(predictors)
     #ch = nn_chain(in_dim, out_dim, neurons)
-    ch = Chain(Dense(in_dim, neurons), Dense(neurons, out_dim))
+    ch = Flux.Chain(Flux.Dense(in_dim, neurons), Flux.Dense(neurons, out_dim))
     LinearHybridModel(ch, predictors, forcing, b)
 end
 

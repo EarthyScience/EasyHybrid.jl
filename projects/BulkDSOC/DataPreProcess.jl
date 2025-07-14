@@ -1,17 +1,17 @@
 using Revise
 using EasyHybrid
-using Lux
-using Optimisers
-using GLMakie
-using Random
-using LuxCore
-using CSV, DataFrames
 using EasyHybrid.MLUtils
-using Statistics
 
 # ? move the `csv` file into the `BulkDSOC/data` folder (create folder)
 df_o = CSV.read(joinpath(@__DIR__, "./data/lucas_overlaid.csv"), DataFrame, normalizenames=true)
 println(size(df_o))
+
+coords = collect(zip(df_o.lat, df_o.lon))
+
+using Rasters
+
+zarr_path = "/Net/Groups/BGI/scratch/HYCO/npp.zarr/"
+data = Raster(zarr_path)
 
 # t clean covariates
 names_cov = Symbol.(names(df_o))[19:end]

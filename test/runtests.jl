@@ -1,11 +1,6 @@
 using EasyHybrid
 using Test
-using Chain: @chain
-using DataFrames
-using DataFrameMacros
-using Flux
-using Lux
-using Random
+import Flux
 
 dk = gen_linear_data()
 dk_twos = gen_linear_data_2outputs()

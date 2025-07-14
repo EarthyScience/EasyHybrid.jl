@@ -1,5 +1,6 @@
 #### Data handling
 export select_predictors, to_keyedArray, split_data
+export toDataFrame
 
 # Make vec each entry of NamedTuple (since broadcast ist reserved)
 """
@@ -117,4 +118,24 @@ function split_data(df::DataFrame, target, xvars, seqID; f=0.8, batchsize=32, sh
     data_v = (; x, y)
     valloader = Flux.DataLoader(data_v; batchsize=size(x, 3), shuffle=false, partial=false)
     return trainloader, valloader, trainall
+end
+
+function toDataFrame(ka)
+    data_array = Array(ka')
+    df = DataFrame(data_array, ka.row)
+    df.index = ka.col
+    return df
+end
+
+function toDataFrame(ka, target_names)
+    data = [getproperty(ka, t_name) for t_name in target_names]
+    
+    if length(target_names) == 1
+        # For single target, convert to vector and create DataFrame with one column
+        data_vector = vec(vec(data...))
+        return DataFrame(string(target_names[1]) * "_pred" => data_vector)
+    else
+        # For multiple targets, create DataFrame with multiple columns
+        return DataFrame(data, string.(target_names) .* "_pred")
+    end
 end
