@@ -128,17 +128,3 @@ function display_parameter_bounds(parameter_container::T; alignment=:r) where {T
         alignment  = alignment
     )
 end
-
-
-
-function Base.display(hm::HybridModel)
-    display(hm.NN)
-    
-    println("global parameters: ", hm.global_param_names)
-    println("neural parameters: ", hm.neural_param_names)
-    println("fixed parameters: ", hm.fixed_param_names)
-
-    println("parameter defaults and bounds:")
-    display(hm.parameters)
-
-end
