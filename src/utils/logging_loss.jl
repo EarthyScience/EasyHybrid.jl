@@ -50,10 +50,12 @@ function lossfn(HM::Union{SingleNNHybridModel, MultiNNHybridModel}, x, (y_t, y_n
     end
 end
 
+
+
 """
     lossfn(mh::MultiHeadNN, ds, y, ps, st)
 """
-function lossfn(mh::MultiHeadNN, ds_p, (ds_t, ds_t_nan), ps, st)
+function lossfn(mh::MultiHeadNN, ds_p, (ds_t, ds_t_nan), ps, st, logging::LoggingLoss)
     ŷ, _ = mh(ds_p, ps, st)     
 
     loss  = 0.0
@@ -68,6 +70,28 @@ function lossfn(mh::MultiHeadNN, ds_p, (ds_t, ds_t_nan), ps, st)
     end
     rmse = loss / nkeys      
     return rmse
+end
+
+"""
+    lossfn(NN::NaiveNN, ds, y, ps, st)
+"""
+function lossfn(NN::Lux.Chain, ds_p, (ds_t, ds_t_nan), ps, st, logging::LoggingLoss)
+    
+    println(typeof(ds_t))
+    println(typeof(ds_t_nan))
+
+    ŷ, st = LuxCore.apply(NN, ds_p, ps, st) 
+    y = ds_t 
+    y_nan = ds_t_nan
+    targets = [:target]
+
+    ŷ = (target = ŷ)
+
+    if logging.train_mode
+        return compute_loss(ŷ, y, y_nan, targets, logging.training_loss, logging.agg), st
+    else
+        return compute_loss(ŷ, y, y_nan, targets, logging.loss_types, logging.agg), st
+    end
 end
 
 """
