@@ -1,4 +1,4 @@
-export HybridModel, SingleNNHybridModel, MultiNNHybridModel, constructHybridModel, scale_single_param, AbstractHybridModel, build_hybrid, ParameterContainer, default, lower, upper, hard_sigmoid
+export SingleNNHybridModel, MultiNNHybridModel, constructHybridModel, scale_single_param, AbstractHybridModel, build_hybrid, ParameterContainer, default, lower, upper, hard_sigmoid
 
 # Import necessary components for neural networks
 using Lux: BatchNorm
@@ -54,9 +54,6 @@ struct MultiNNHybridModel
     fixed_param_names  :: Vector{Symbol}
     scale_nn_outputs  :: Bool
 end
-
-# Type alias for backward compatibility
-const HybridModel = Union{SingleNNHybridModel, MultiNNHybridModel}
 
 # Unified constructor that dispatches based on predictors type
 function constructHybridModel(
