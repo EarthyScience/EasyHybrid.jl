@@ -1,4 +1,5 @@
 export lossfn
+using Lux
 
 """
     lossfn(lhm::LinearHM, ds, (y, no_nan), ps, st)
@@ -39,4 +40,35 @@ function lossfn(HM::BulkDensitySOC, ds_p, (ds_t, ds_t_nan), ps, st)
         loss += mean(abs2, (ŷ[k][y_nan(k)] .- y(k)[y_nan(k)]))
     end    
     return loss
+end
+
+"""
+    lossfn(NN::NaiveNN, ds, y, ps, st)
+"""
+function lossfn(NN::Lux.Chain, ds_p, (ds_t, ds_t_nan), ps, st)
+    ŷ, _ = NN(ds_p, ps, st) 
+    y = Matrix(ds_t) 
+
+    diff2 = (ŷ .- y).^2
+    return mean(diff2[ds_t_nan])
+end
+
+"""
+    lossfn(mh::MultiHeadNN, ds, y, ps, st)
+"""
+function lossfn(mh::MultiHeadNN, ds_p, (ds_t, ds_t_nan), ps, st)
+    ŷ, _ = mh(ds_p, ps, st)     
+
+    loss  = 0.0
+    nkeys = 0
+    for k in 1:size(ŷ,1)        
+        idx = ds_t_nan[k, :]              
+        nk  = count(idx)
+        if nk > 0
+            loss += mean((ŷ[k,idx] .- ds_t[k,idx]).^2)
+            nkeys += 1
+        end
+    end
+    rmse = loss / nkeys      
+    return rmse
 end

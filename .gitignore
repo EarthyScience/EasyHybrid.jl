@@ -6,3 +6,4 @@ Manifest.toml
 .DS_Store
 *.csv
 .*nc
+/projects/BulkDSOC/eval/

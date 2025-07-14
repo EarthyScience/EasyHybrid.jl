@@ -69,11 +69,12 @@ df = df_o[:, [:bulk_density_fe, :soc, :coarse_vol, names_cov...]]
 
 # ? match target_names
 rename!(df, :bulk_density_fe => :BD, :soc => :SOCconc, :coarse_vol => :CF) # rename as in hybrid model
+# BD g/cm3, SOCconc g/kg, CF [0,1]
 
 df[:, :SOCconc] .= df[:, :SOCconc] ./ 1000 # convert to fraction
 
 # ? calculate SOC density
-df[!,:SOCdensity] = df.BD .* df.SOCconc .* (1 .- df.CF) # TODO: check units
+df[!,:SOCdensity] = df.BD .* df.SOCconc .* (1 .- df.CF) # SOCdensity ton/m3
 target_names = [:BD, :SOCconc, :CF, :SOCdensity]
 # df[:, target_names] = replace.(df[:, target_names], missing => NaN) # replace missing with NaN
 
@@ -91,4 +92,22 @@ df[:, names_cov] .= (df[:, names_cov] .- means') ./ stds'
 
 println(size(df))
 
-CSV.write(joinpath(@__DIR__, "data/lucas_preprocessed.csv"), df)
+# CSV.write(joinpath(@__DIR__, "data/lucas_preprocessed.csv"), df)
+
+
+# plot BD vs SOCconc
+bd_lims = extrema(skipmissing(df[:, "BD"]))      
+soc_lims = extrema(skipmissing(df[:, "SOCconc"]))
+plt = histogram2d(
+    df[:, "BD"], df[:, "SOCconc"];
+    nbins      = (30, 30),
+    cbar       = true,
+    xlab       = "BD",
+    ylab       = "SOCconc",
+    xlims=bd_lims, ylims=soc_lims,
+    #title      = "SOCdensity-MTD\nR2=$(round(r2, digits=3)), MAE=$(round(mae, digits=3)), bias=$(round(bias, digits=3))",
+    color      = cgrad(:bamako, rev=true),
+    normalize  = false,
+    size = (460, 400)
+)   
+savefig(plt, joinpath(@__DIR__, "./eval/00_truth_BD.vs.SOCconc.png"))
