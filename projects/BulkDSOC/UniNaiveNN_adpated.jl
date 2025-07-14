@@ -40,9 +40,9 @@ p_dropout = 0.2
 # tailor activation at output for each target
 const OUT_ACT = Dict(
     :BD         => :identity,     
-    :SOCconc    => :sigmoid_01,  #[0, 1] range  
-    :CF         => :sigmoid_01,         
-    :SOCdensity => :sigmoid_01           
+    :SOCconc    => :identity,  #[0, 1] range  
+    :CF         => :identity,         
+    :SOCdensity => :identity           
 )
 function plug_head(outname::Symbol)
     last_width = 32          # width of penultimate layer
@@ -60,18 +60,15 @@ end
 for (i, tname) in enumerate(target_names)
     y = ds_all([tname])
     NN = Chain(
-        Dense(nfeatures, 256, sigmoid),
-        Dropout(p_dropout),
-        Dense(256, 128, sigmoid),
-        Dropout(p_dropout),
-        Dense(128, 64, sigmoid),
-        Dropout(p_dropout),
-        Dense(64, 32, sigmoid),
-        Dropout(p_dropout),
+        Dense(nfeatures, 256, relu),
+        Dense(256, 128, relu),
+        Dense(128, 64, relu),
+        Dense(64, 32, relu),
         plug_head(tname)  # plug the head for the target
     )
 
-    result = train(NN, (ds_p, y), (); nepochs=100, batchsize=32, opt=AdaMax(0.01))
+    println("training $tname")
+    result = train(NN, (ds_p, y), (); nepochs=100, batchsize=512, opt=AdamW(0.01), shuffleobs=true)
 
     y_val_true = vec(result[:y_val])
     y_val_pred = vec(result[:ŷ_val])

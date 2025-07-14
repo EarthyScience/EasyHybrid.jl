@@ -3,9 +3,9 @@ export train
 """
     train(hybridModel, data; nepochs=200, batchsize=10, opt=Adam(0.01))
 """
-function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0.01))
+function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0.01), shuffleobs = false)
     # ? split training and validation data
-    (x_train, y_train), (x_val, y_val) = splitobs(data; at=0.8, shuffle=false)
+    (x_train, y_train), (x_val, y_val) = splitobs(data; at=0.8, shuffle=shuffleobs)
     train_loader = DataLoader((x_train, y_train), batchsize=batchsize, shuffle=true);
     # ? setup model
     ps, st = LuxCore.setup(Random.default_rng(), hybridModel)
