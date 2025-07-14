@@ -16,6 +16,8 @@ using Statistics
 using Plots
 # using StatsBase
 
+import Flux
+
 # 01 - univariate naive NN
 testid = "01_univariate"
 
@@ -26,9 +28,11 @@ df_d = dropmissing(df) # complete SOCD
 # BD g/cm3 [0,2.2], SOCconc [0,1], CF [0,1], SOCdensity ton/m3
 target_names = [:BD, :SOCconc, :CF, :SOCdensity]
 names_cov = Symbol.(names(df_d))[4:end-1]
+#names_cov = Symbol.(names(df_d))[end-40:end-1]
 ds_all = to_keyedArray(df_d);
 ds_p = ds_all(names_cov);
 ds_t =  ds_all(target_names)
+ds_t = Flux.normalise(ds_t)
 
 # store predicted matrix
 df_out = DataFrame()
@@ -45,7 +49,7 @@ const OUT_ACT = Dict(
     :SOCdensity => :identity           
 )
 function plug_head(outname::Symbol)
-    last_width = 32          # width of penultimate layer
+    last_width = 16          # width of penultimate layer
     act = OUT_ACT[outname]
     #
     if act == :identity          # BD
@@ -58,17 +62,15 @@ function plug_head(outname::Symbol)
 end
 
 for (i, tname) in enumerate(target_names)
-    y = ds_all([tname])
+    y = ds_t([tname])
     NN = Chain(
-        Dense(nfeatures, 256, relu),
-        Dense(256, 128, relu),
-        Dense(128, 64, relu),
-        Dense(64, 32, relu),
+        Dense(nfeatures, 32, tanh),
+        Dense(32, 16, tanh),
         plug_head(tname)  # plug the head for the target
     )
 
     println("training $tname")
-    result = train(NN, (ds_p, y), (); nepochs=100, batchsize=512, opt=AdamW(0.01), shuffleobs=true)
+    result = train(NN, (ds_p, y), (); nepochs=100, batchsize=512, opt=AdamW(0.0001, (0.9, 0.999), 0.01), shuffleobs=true)
 
     y_val_true = vec(result[:y_val])
     y_val_pred = vec(result[:ŷ_val])
