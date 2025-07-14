@@ -3,14 +3,9 @@ Pkg.activate("projects/BulkDSOC")
 Pkg.develop(path=pwd())
 Pkg.instantiate()
 
-using Revise
 using EasyHybrid
-using Lux
-using Optimisers
 using GLMakie
 using Random
-using LuxCore
-using CSV, DataFrames
 using EasyHybrid.MLUtils
 using Statistics
 using Plots
@@ -69,8 +64,10 @@ for (i, tname) in enumerate(target_names)
         plug_head(tname)  # plug the head for the target
     )
 
+    println(typeof(NN))
+
     println("training $tname")
-    result = train(NN, (ds_p, y), (); nepochs=100, batchsize=512, opt=AdamW(0.0001, (0.9, 0.999), 0.01), shuffleobs=true)
+    result = train(NN, (ds_p, y), (); nepochs=100, batchsize=512, opt=AdamW(0.0001, (0.9, 0.999), 0.01))
 
     y_val_true = vec(result[:y_val])
     y_val_pred = vec(result[:ŷ_val])
