@@ -64,14 +64,23 @@ function constructHybridModel(
     parameters,
     neural_param_names,
     global_param_names;
-    scale_nn_outputs = true
+    hidden_layers::Union{Vector{Int}, Chain} = [32, 32],
+    activation = tanh,
+    scale_nn_outputs = true,
+    input_batchnorm = false
 )
     all_names = pnames(parameters)
     @assert all(n in all_names for n in neural_param_names) "neural_param_names ⊆ param_names"
     
     # if empty predictors do not construct NN
     if length(predictors) > 0
-        NN = Chain(Dense(length(predictors), 64, tanh), Dense(64, 128, tanh), Dense(128, length(neural_param_names), tanh))
+
+        in_dim  = length(predictors)
+        out_dim = length(targets)
+    
+        NN = prepare_hidden_chain(hidden_layers, in_dim, out_dim;
+                                  activation = activation,
+                                  input_batchnorm = input_batchnorm)
     else
         NN = Chain()
     end
@@ -89,7 +98,10 @@ function constructHybridModel(
     parameters,
     neural_param_names,
     global_param_names;
-    scale_nn_outputs = true
+    hidden_layers::Union{Vector{Int}, Chain, NamedTuple} = [32, 32],
+    activation::Union{Function, NamedTuple} = tanh,
+    scale_nn_outputs = true,
+    input_batchnorm = false
 )
     all_names = pnames(parameters)
     @assert all(n in all_names for n in neural_param_names) "neural_param_names ⊆ param_names"
@@ -101,12 +113,23 @@ function constructHybridModel(
     NNs = NamedTuple()
     for (nn_name, preds) in pairs(predictors)
         # Create a simple NN for each predictor set
-        nn = Chain(
-            BatchNorm(length(preds), affine=false),
-            Dense(length(preds), 15, sigmoid), 
-            Dense(15, 15, sigmoid), 
-            Dense(15, 1, x -> x^2)  # Output 1 parameter per NN with positive activation
-        )
+        in_dim  = length(preds)
+        out_dim = 1
+        if hidden_layers isa NamedTuple
+            if activation isa NamedTuple
+                nn = prepare_hidden_chain(hidden_layers[nn_name], in_dim, out_dim;
+                                          activation = activation[nn_name],
+                                          input_batchnorm = input_batchnorm)
+            else
+                nn = prepare_hidden_chain(hidden_layers[nn_name], in_dim, out_dim;
+                                          activation = activation,
+                                          input_batchnorm = input_batchnorm)
+            end
+        else
+            nn = prepare_hidden_chain(hidden_layers, in_dim, out_dim;
+                                      activation = activation,
+                                      input_batchnorm = input_batchnorm)
+        end
         NNs = merge(NNs, NamedTuple{(nn_name,), Tuple{typeof(nn)}}((nn,)))
     end
     

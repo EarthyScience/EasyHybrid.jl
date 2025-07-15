@@ -13,12 +13,26 @@ struct SingleNNModel
 end
 
 """
-    prepare_hidden_chain(hidden_layers, in_dim, out_dim; activation)
+    prepare_hidden_chain(hidden_layers, in_dim, out_dim; activation, input_batchnorm=false)
 
-Turn `hidden_layers` (either a `Vector{Int}` or a `Chain` of hidden layers)
-into a full `Chain` of
+Construct a neural network `Chain` for use in NN models.
 
-    Dense(in_dim, h₁) → …hidden… → Dense(hₖ, out_dim)
+# Arguments
+- `hidden_layers::Union{Vector{Int}, Chain}`: 
+    - If a `Vector{Int}`, specifies the sizes of each hidden layer. 
+      For example, `[32, 16]` creates two hidden layers with 32 and 16 units, respectively.
+    - If a `Chain`, the user provides a pre-built chain of hidden layers (excluding input/output layers).
+- `in_dim::Int`: Number of input features (input dimension).
+- `out_dim::Int`: Number of output features (output dimension).
+- `activation`: Activation function to use in hidden layers (default: `tanh`).
+- `input_batchnorm::Bool`: If `true`, applies a `BatchNorm` layer to the input (default: `false`).
+
+# Returns
+- A `Chain` object representing the full neural network, with the following structure:
+    - Optional input batch normalization (if `input_batchnorm=true`)
+    - Input layer: `Dense(in_dim, h₁, activation)` where `h₁` is the first hidden size
+    - Hidden layers: either user-supplied `Chain` or constructed from `hidden_layers`
+    - Output layer: `Dense(hₖ, out_dim)` where `hₖ` is the last hidden size
 
 where `h₁` is the first hidden size and `hₖ` the last.
 """
@@ -26,16 +40,16 @@ function prepare_hidden_chain(
     hidden_layers::Union{Vector{Int}, Chain},
     in_dim::Int,
     out_dim::Int;
-    activation = tanh
+    activation = tanh,
+    input_batchnorm = false # apply batchnorm to input as an easy way for normalization
 )
     if hidden_layers isa Chain
         # user gave a chain of hidden layers only
         first_h = hidden_layers[1].out_dims
         last_h  = hidden_layers[end].out_dims
-        println(first_h)
-        println(last_h)
 
         return Chain(
+            input_batchnorm ? BatchNorm(in_dim, affine=false) : identity,
             Dense(in_dim, first_h, activation),
             hidden_layers,
             Dense(last_h, out_dim)
@@ -48,6 +62,7 @@ function prepare_hidden_chain(
             Chain((Dense(hs[i], hs[i+1], activation) for i in 1:length(hs)-1)...) :
             identity
         return Chain(
+            input_batchnorm ? BatchNorm(in_dim, affine=false) : identity,
             Dense(in_dim, hs[1], activation),
             hidden_chain,
             Dense(hs[end], out_dim)
@@ -67,13 +82,15 @@ function constructNNModel(
     targets::Vector{Symbol};
     hidden_layers::Union{Vector{Int}, Chain} = [32, 16, 16],
     activation = tanh,
-    scale_nn_outputs::Bool = true
+    scale_nn_outputs::Bool = true,
+    input_batchnorm = false
 )
     in_dim  = length(predictors)
     out_dim = length(targets)
 
     NN = prepare_hidden_chain(hidden_layers, in_dim, out_dim;
-                              activation = activation)
+                              activation = activation,
+                              input_batchnorm = input_batchnorm)
 
     return SingleNNModel(NN, predictors, targets, scale_nn_outputs)
 end

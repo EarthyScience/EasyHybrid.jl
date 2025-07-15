@@ -45,7 +45,7 @@ for (i, tname) in enumerate(target_names)
 
     ps, st = LuxCore.setup(Random.default_rng(), model)
     # Training using EasyHybrid's train function
-    result = train(model, (ds_p, y), (); nepochs=100, batchsize=512, opt=AdamW(0.0001, (0.9, 0.999), 0.01), training_loss=:nse, loss_types=[:mse, :nse], shuffleobs=false)
+    result = train(model, (ds_p, y), (); nepochs=100, batchsize=512, opt=AdamW(0.0001, (0.9, 0.999), 0.01), training_loss=:nse, loss_types=[:mse, :nse], shuffleobs=true)
 
     y_val_true = vec(result.val_obs_pred[!, tname])
     y_val_pred = vec(result.val_obs_pred[!, Symbol(string(tname, "_pred"))])
