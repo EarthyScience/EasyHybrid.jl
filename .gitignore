@@ -11,3 +11,7 @@ node_modules/
 package-lock.json
 Manifest.toml
 *_tmp
+*.pdf
+*.pptx
+*.nc
+*.png
