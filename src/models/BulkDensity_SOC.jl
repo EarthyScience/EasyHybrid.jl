@@ -49,7 +49,7 @@ end
 function (hm::BulkDensitySOC)(ds_p, ps, st::NamedTuple)
     p = ds_p(hm.predictors)
     
-    out, st = LuxCore.apply(hm.NN, p, ps.ps, st.st)
+    out, stSOC = LuxCore.apply(hm.NN, p, ps.ps, st.st)
 
     SOCconc = out[1, :] .* 0.6f0 #TODO has to be a ratio 
     CF = out[2, :]
@@ -61,5 +61,5 @@ function (hm::BulkDensitySOC)(ds_p, ps, st::NamedTuple)
     
     SOCdensity = @. SOCconc * BD * (1 - CF)
 
-    return (; SOCconc, CF, BD, SOCdensity, mBD), (; mBD, st) # removed oBD from here since its logged via ps.oBD
+    return (; SOCconc, CF, BD, SOCdensity, mBD), (; st = (; st = stSOC)) # removed oBD from here since its logged via ps.oBD
 end

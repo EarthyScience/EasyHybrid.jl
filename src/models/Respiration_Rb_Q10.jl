@@ -63,12 +63,12 @@ function (hm::RespirationRbQ10)(ds_k, ps, st::NamedTuple)
     # x = Array(x_forcing) # don't propagate names after this
     @show size(x)
     # x = x[:, 8 , :]
-    Rb, st = LuxCore.apply(hm.NN, p, ps.ps, st.st) #! NN(αᵢ(t)) ≡ Rb(T(t), M(t))
+    Rb, stQ10 = LuxCore.apply(hm.NN, p, ps.ps, st.st) #! NN(αᵢ(t)) ≡ Rb(T(t), M(t))
     # @show size(Rb)
     # @show size(x)
     # @show size(p)
     #TODO output name flexible - could be R_soil, heterotrophic, autotrophic, etc.
     R_soil = mRbQ10(Rb, ps.Q10, x, 15.0f0) # ? should 15°C be the reference temperature also an input variable?
 
-    return (; R_soil), (; Rb, st)
+    return (; R_soil, Rb), (; st = (; st = stQ10))
 end

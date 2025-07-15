@@ -32,10 +32,10 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     # ? initial losses
     is_no_nan_t = .!isnan.(y_train)
     is_no_nan_v = .!isnan.(y_val)
-    l_init_train = lossfn(hybridModel, x_train, (y_train, is_no_nan_t), ps, st,
-        LoggingLoss(train_mode=false, loss_types=loss_types, training_loss=training_loss, agg=agg))
-    l_init_val = lossfn(hybridModel, x_val, (y_val, is_no_nan_v), ps, st,
-        LoggingLoss(train_mode=false, loss_types=loss_types, training_loss=training_loss, agg=agg))
+    l_init_train = lossfn(hybridModel, x_train, (y_train, is_no_nan_t), ps, LuxCore.testmode(st),
+        LoggingLoss(train_mode=false, loss_types=loss_types, training_loss=training_loss, agg=agg))[1]
+    l_init_val = lossfn(hybridModel, x_val, (y_val, is_no_nan_v), ps, LuxCore.testmode(st),
+        LoggingLoss(train_mode=false, loss_types=loss_types, training_loss=training_loss, agg=agg))[1]
 
     train_history = [l_init_train]
     val_history = [l_init_val]
@@ -55,9 +55,11 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
             # ? check NaN indices before going forward, and pass filtered `x, y`.
             is_no_nan = .!isnan.(y)
             if length(is_no_nan)>0 # ! be careful here, multivariate needs fine tuning
-                grads = Zygote.gradient((ps) -> lossfn(hybridModel, x, (y, is_no_nan), ps, st,
-                    LoggingLoss(training_loss=training_loss, agg=agg)), ps)[1]
+                l, backtrace = Zygote.pullback((ps) -> lossfn(hybridModel, x, (y, is_no_nan), ps, st,
+                    LoggingLoss(training_loss=training_loss, agg=agg)), ps)
+                grads = backtrace(l)[1]
                 Optimisers.update!(opt_state, ps, grads)
+                st =(; l[2].st...)
             end
         end
         save_ps_st!(file_name, hybridModel, ps, st, save_ps, epoch)
@@ -66,10 +68,10 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
         tmp_e = NamedTuple{save_ps}(ps_values)
         push!(ps_history, tmp_e)
 
-        l_train = lossfn(hybridModel, x_train,  (y_train, is_no_nan_t), ps, st,
-            LoggingLoss(train_mode=false, loss_types=loss_types, training_loss=training_loss, agg=agg))
-        l_val = lossfn(hybridModel, x_val, (y_val, is_no_nan_v), ps, st,
-            LoggingLoss(train_mode=false, loss_types=loss_types, training_loss=training_loss, agg=agg))
+        l_train = lossfn(hybridModel, x_train,  (y_train, is_no_nan_t), ps, LuxCore.testmode(st),
+            LoggingLoss(train_mode=false, loss_types=loss_types, training_loss=training_loss, agg=agg))[1]
+        l_val = lossfn(hybridModel, x_val, (y_val, is_no_nan_v), ps, LuxCore.testmode(st),
+            LoggingLoss(train_mode=false, loss_types=loss_types, training_loss=training_loss, agg=agg))[1]
         save_train_val_loss!(file_name, l_train, "training_loss", epoch)
         save_train_val_loss!(file_name, l_val, "validation_loss", epoch)
         
@@ -96,8 +98,8 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
 
     # ? save final evaluation or best at best validation value
 
-    ŷ_train, αst_train = hybridModel(x_train, ps, st)
-    ŷ_val, αst_val = hybridModel(x_val, ps, st)
+    ŷ_train, αst_train = hybridModel(x_train, ps, LuxCore.testmode(st))
+    ŷ_val, αst_val = hybridModel(x_val, ps, LuxCore.testmode(st))
     save_predictions!(file_name, ŷ_train, αst_train, "training")
     save_predictions!(file_name, ŷ_val, αst_val, "validation")
 
@@ -161,12 +163,28 @@ function prepare_data(hm, data)
     else
         targets = hm.targets
         predictors_forcing = Symbol[]
-        if hasproperty(hm, :predictors)
-            push!(predictors_forcing, hm.predictors...)
+
+        # Collect all predictors and forcing variables by checking property names
+        for prop in propertynames(hm)
+            if occursin("predictors", string(prop))
+                val = getproperty(hm, prop)
+                if isa(val, NamedTuple)
+                    append!(predictors_forcing, unique(vcat(values(val)...)))
+                elseif isa(val, AbstractVector)
+                    append!(predictors_forcing, val)
+                end
+            end
         end
-        if hasproperty(hm, :forcing)
-            push!(predictors_forcing, hm.forcing...)
+        for prop in propertynames(hm)
+            if occursin("forcing", string(prop))
+                val = getproperty(hm, prop)
+                if isa(val, AbstractVector)
+                    append!(predictors_forcing, val)
+                end
+            end
         end
+        predictors_forcing = unique(predictors_forcing)
+        
         if isempty(predictors_forcing)
             @warn "Note that you don't have predictors or forcing variables."
         end

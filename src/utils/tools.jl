@@ -129,6 +129,13 @@ end
 
 function toDataFrame(ka, target_names)
     data = [getproperty(ka, t_name) for t_name in target_names]
-    data = length(target_names)==1 ? data[1]' : data
-    return DataFrame(data, string.(target_names) .* "_pred")
+    
+    if length(target_names) == 1
+        # For single target, convert to vector and create DataFrame with one column
+        data_vector = vec(vec(data...))
+        return DataFrame(string(target_names[1]) * "_pred" => data_vector)
+    else
+        # For multiple targets, create DataFrame with multiple columns
+        return DataFrame(data, string.(target_names) .* "_pred")
+    end
 end
