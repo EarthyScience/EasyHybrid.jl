@@ -296,7 +296,6 @@ end
 # Forward pass for MultiNNHybridModel (optimized, no branching)
 function (m::MultiNNHybridModel)(ds_k, ps, st)
     
-    forcing_data = ds_k(m.forcing)
     parameters = m.parameters
 
     # 2) Scale global parameters (handle empty case)
