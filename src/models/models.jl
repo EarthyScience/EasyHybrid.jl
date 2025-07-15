@@ -14,5 +14,5 @@ include("BulkDensity_SOC.jl")
 include("Rs_components.jl")
 include("simple_Rb_Q10_PBM.jl")
 include("GenericHybridModel.jl")
-
+include("NNModels.jl")
 include("MultiHeadNN.jl")

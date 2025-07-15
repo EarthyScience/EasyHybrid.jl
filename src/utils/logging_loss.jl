@@ -40,7 +40,7 @@ function lossfn(HM::LuxCore.AbstractLuxContainerLayer, x, (y_t, y_nan), ps, st, 
     end
 end
 
-function lossfn(HM::Union{SingleNNHybridModel, MultiNNHybridModel}, x, (y_t, y_nan), ps, st, logging::LoggingLoss)
+function lossfn(HM::Union{SingleNNHybridModel, MultiNNHybridModel, SingleNNModel, MultiNNModel}, x, (y_t, y_nan), ps, st, logging::LoggingLoss)
     targets = HM.targets
     ŷ, y, y_nan, st = get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
     if logging.train_mode
@@ -77,21 +77,12 @@ end
 """
 function lossfn(NN::Lux.Chain, ds_p, (ds_t, ds_t_nan), ps, st, logging::LoggingLoss)
     
-    println(typeof(ds_t))
-    println(typeof(ds_t_nan))
+    ŷ, _ = NN(ds_p, ps, st) 
+    y = Matrix(ds_t) 
 
-    ŷ, st = LuxCore.apply(NN, ds_p, ps, st) 
-    y = ds_t 
-    y_nan = ds_t_nan
-    targets = [:target]
-
-    ŷ = (target = ŷ)
-
-    if logging.train_mode
-        return compute_loss(ŷ, y, y_nan, targets, logging.training_loss, logging.agg), st
-    else
-        return compute_loss(ŷ, y, y_nan, targets, logging.loss_types, logging.agg), st
-    end
+    diff2 = (ŷ .- y).^2
+    return mean(diff2[ds_t_nan])
+    
 end
 
 """
