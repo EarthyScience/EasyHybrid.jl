@@ -99,7 +99,7 @@ function (m::SingleNNModel)(ds_k, ps, st)
     scaled_nn_params = NamedTuple(zip(m.targets, scaled_nn_vals))
 
     out = (; scaled_nn_params...)
-    st_new = (; st = st_NN.st)
+    st_new = (; st = st_NN)
     return out, (; st = st_new)
 end
 

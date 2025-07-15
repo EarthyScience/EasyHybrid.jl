@@ -33,14 +33,21 @@ df_out = DataFrame()
 nfeatures = length(names_cov)
 p_dropout = 0.2
 
-#for (i, tname) in enumerate(target_names)
-tname = :BD
+for (i, tname) in enumerate(target_names)
+
     y = ds_t([tname])
     # Use EasyHybrid's constructNNModel
     predictors = names_cov
     targets = [tname]
     neural_param_names = [tname]
-    model = EasyHybrid.constructNNModel(predictors, targets, neural_param_names; scale_nn_outputs=false)
+    model = EasyHybrid.constructNNModel(predictors, targets; scale_nn_outputs=false)
+
+    st = LuxCore.initialstates(Random.default_rng(), model)
+    ps = LuxCore.initialparameters(Random.default_rng(), model)
+    
+    ps, st = LuxCore.setup(Random.default_rng(), model)
+    println(typeof(ps))
+    println(typeof(st))
 
     # Training using EasyHybrid's train function
     result = train(model, (ds_p, y), (); nepochs=100, batchsize=512, opt=AdamW(0.0001, (0.9, 0.999), 0.01))
@@ -71,6 +78,7 @@ tname = :BD
         aspect_ratio=:equal, xlims=lims, ylims=lims
     )
     savefig(plt, joinpath(@__DIR__, "./eval/$(testid)_accuracy_$(tname).png"))
+
 end
 
 df_out[:,"pred_calc_SOCdensity"] = df_out[:,"pred_SOCconc"] .* df_out[:,"pred_BD"] .* (1 .- df_out[:,"pred_CF"])
