@@ -59,7 +59,7 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
                     LoggingLoss(training_loss=training_loss, agg=agg)), ps)
                 grads = backtrace(l)[1]
                 Optimisers.update!(opt_state, ps, grads)
-                st = l[2]
+                st =(; l[2].st...)
             end
         end
         save_ps_st!(file_name, hybridModel, ps, st, save_ps, epoch)
@@ -163,18 +163,28 @@ function prepare_data(hm, data)
     else
         targets = hm.targets
         predictors_forcing = Symbol[]
-        # Check for any property that contains "predictors" in its name
+
+        # Collect all predictors and forcing variables by checking property names
         for prop in propertynames(hm)
             if occursin("predictors", string(prop))
-                push!(predictors_forcing, getproperty(hm, prop)...)
-            end
-        end 
-        # Check for any property that contains "forcing" in its name
-        for prop in propertynames(hm)
-            if occursin("forcing", string(prop))
-                push!(predictors_forcing, getproperty(hm, prop)...)
+                val = getproperty(hm, prop)
+                if isa(val, NamedTuple)
+                    append!(predictors_forcing, unique(vcat(values(val)...)))
+                elseif isa(val, AbstractVector)
+                    append!(predictors_forcing, val)
+                end
             end
         end
+        for prop in propertynames(hm)
+            if occursin("forcing", string(prop))
+                val = getproperty(hm, prop)
+                if isa(val, AbstractVector)
+                    append!(predictors_forcing, val)
+                end
+            end
+        end
+        predictors_forcing = unique(predictors_forcing)
+        
         if isempty(predictors_forcing)
             @warn "Note that you don't have predictors or forcing variables."
         end

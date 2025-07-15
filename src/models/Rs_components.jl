@@ -42,7 +42,7 @@ function (hm::Rs_components)(ds_k, ps, st::NamedTuple)
     p = ds_k(hm.predictors)
     x = Array(ds_k(hm.forcing)) # don't propagate names after this
     
-    out, st = LuxCore.apply(hm.NN, p, ps.ps, st.st)
+    out, stRs = LuxCore.apply(hm.NN, p, ps.ps, st.st)
     
     Rb_het = out[1,:]
     Rb_root = out[2,:]
@@ -54,5 +54,5 @@ function (hm::Rs_components)(ds_k, ps, st::NamedTuple)
 
     R_soil = R_het .+ R_root .+ R_myc
 
-    return (; R_soil, R_het, R_root, R_myc), (; Rb_het, Rb_root, Rb_myc, st)
+    return (; R_soil, R_het, R_root, R_myc), (; st = (; st = stRs))
 end

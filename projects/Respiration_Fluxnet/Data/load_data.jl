@@ -36,7 +36,7 @@ function load_fluxnet_nc(path; timevar="date", timedim="time", soildim = "depth"
         # -- pick up time-series vars by matching the time dimension --------
         temporal = filter(name -> begin
             v = ds[name]
-            dnames = dimnames(v)
+            dnames = NCDatasets.dimnames(v)
             length(dnames) == 1 && dnames[1] == timedim
         end, keys(ds))
         df = DataFrame(time = times)
@@ -48,7 +48,7 @@ function load_fluxnet_nc(path; timevar="date", timedim="time", soildim = "depth"
         scalars = Dict{Symbol,Any}()
         for name in keys(ds)
             v      = ds[name]
-            dnames = dimnames(v)
+            dnames = NCDatasets.dimnames(v)
             if isempty(dnames) ||
                (length(dnames) == 1 && dnames[1] != timedim && length(v[:]) == 1)
                 scalars[Symbol(name)] = isempty(dnames) ? v[] : v[:][1]
@@ -59,7 +59,7 @@ function load_fluxnet_nc(path; timevar="date", timedim="time", soildim = "depth"
         profiles = Dict{Symbol,Vector}()
         for name in keys(ds)
             v      = ds[name]
-            dnames = dimnames(v)
+            dnames = NCDatasets.dimnames(v)
             if length(dnames) == 1 && dnames[1] != timedim && length(v[:]) > 1
                 profiles[Symbol(name)] = v[:]
             end
@@ -67,7 +67,7 @@ function load_fluxnet_nc(path; timevar="date", timedim="time", soildim = "depth"
 
         profiles = filter(name -> begin
             v = ds[name]
-            dnames = dimnames(v)
+            dnames = NCDatasets.dimnames(v)
             length(dnames) == 1 && dnames[1] == soildim
         end, keys(ds))
         dfsoil = DataFrame(depth = ds[soilvar][:])
