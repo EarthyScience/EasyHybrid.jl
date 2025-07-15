@@ -21,7 +21,7 @@ end
 
 # Constructor for SingleNNModel
 function constructNNModel(
-    predictors::Vector,
+    predictors::Vector{Symbol},
     targets;
     scale_nn_outputs = true
 )
@@ -88,22 +88,18 @@ end
 # Forward pass for SingleNNModel
 function (m::SingleNNModel)(ds_k, ps, st)
     predictors = ds_k(m.predictors)
-    if !isempty(m.targets)
-        nn_out, st_NN = LuxCore.apply(m.NN, predictors, ps.ps, st.st)
-        nn_cols = eachrow(nn_out)
-        nn_params = NamedTuple(zip(m.targets, nn_cols))
-        if m.scale_nn_outputs
-            scaled_nn_vals = Tuple(hard_sigmoid(nn_params[name]) for name in m.targets)
-        else
-            scaled_nn_vals = Tuple(nn_params[name] for name in m.targets)
-        end
-        scaled_nn_params = NamedTuple(zip(m.targets, scaled_nn_vals))
+    nn_out, st_NN = LuxCore.apply(m.NN, predictors, ps.ps, st.st)
+    nn_cols = eachrow(nn_out)
+    nn_params = NamedTuple(zip(m.targets, nn_cols))
+    if m.scale_nn_outputs
+        scaled_nn_vals = Tuple(hard_sigmoid(nn_params[name]) for name in m.targets)
     else
-        scaled_nn_params = NamedTuple()
-        st_NN = st.st
+        scaled_nn_vals = Tuple(nn_params[name] for name in m.targets)
     end
+    scaled_nn_params = NamedTuple(zip(m.targets, scaled_nn_vals))
+
     out = (; scaled_nn_params...)
-    st_new = (; st = st_NN)
+    st_new = (; st = st_NN.st)
     return out, (; st = st_new)
 end
 
