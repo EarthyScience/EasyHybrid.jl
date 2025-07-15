@@ -40,8 +40,10 @@ for (i, tname) in enumerate(target_names)
     predictors = names_cov
     targets = [tname]
     neural_param_names = [tname]
-    model = EasyHybrid.constructNNModel(predictors, targets; scale_nn_outputs=false)
+    #model = EasyHybrid.constructNNModel(predictors, targets; hidden_layers=[32, 16], scale_nn_outputs=false)
+    model = EasyHybrid.constructNNModel(predictors, targets; hidden_layers=Chain(Dense(32, 32, tanh), Dense(32, 16, tanh)), scale_nn_outputs=false)
 
+    ps, st = LuxCore.setup(Random.default_rng(), model)
     # Training using EasyHybrid's train function
     result = train(model, (ds_p, y), (); nepochs=100, batchsize=512, opt=AdamW(0.0001, (0.9, 0.999), 0.01), training_loss=:nse, loss_types=[:mse, :nse], shuffleobs=false)
 

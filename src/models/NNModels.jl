@@ -6,12 +6,79 @@ using ..EasyHybrid: hard_sigmoid
 # Pure Neural Network Models (no mechanistic component)
 
 struct SingleNNModel
-    NN              :: Chain
-    predictors      :: Vector{Symbol}
-    targets         :: Vector{Symbol}
-    scale_nn_outputs  :: Bool
+    NN               :: Chain
+    predictors       :: Vector{Symbol}
+    targets          :: Vector{Symbol}
+    scale_nn_outputs :: Bool
 end
 
+"""
+    prepare_hidden_chain(hidden_layers, in_dim, out_dim; activation)
+
+Turn `hidden_layers` (either a `Vector{Int}` or a `Chain` of hidden layers)
+into a full `Chain` of
+
+    Dense(in_dim, h₁) → …hidden… → Dense(hₖ, out_dim)
+
+where `h₁` is the first hidden size and `hₖ` the last.
+"""
+function prepare_hidden_chain(
+    hidden_layers::Union{Vector{Int}, Chain},
+    in_dim::Int,
+    out_dim::Int;
+    activation = tanh
+)
+    if hidden_layers isa Chain
+        # user gave a chain of hidden layers only
+        first_h = hidden_layers[1].out_dims
+        last_h  = hidden_layers[end].out_dims
+        println(first_h)
+        println(last_h)
+
+        return Chain(
+            Dense(in_dim, first_h, activation),
+            hidden_layers,
+            Dense(last_h, out_dim)
+        )
+    else
+        # user gave a vector of hidden‐layer sizes
+        hs = hidden_layers
+        # build the hidden‐to‐hidden part
+        hidden_chain = length(hs) > 1 ? 
+            Chain((Dense(hs[i], hs[i+1], activation) for i in 1:length(hs)-1)...) :
+            identity
+        return Chain(
+            Dense(in_dim, hs[1], activation),
+            hidden_chain,
+            Dense(hs[end], out_dim)
+        )
+    end
+end
+
+"""
+    constructNNModel(predictors, targets; hidden_layers, activation, scale_nn_outputs)
+
+Main constructor: `hidden_layers` can be either
+  • a `Vector{Int}` of sizes, or
+  • a `Chain` of hidden-layer `Dense` blocks.
+"""
+function constructNNModel(
+    predictors::Vector{Symbol},
+    targets::Vector{Symbol};
+    hidden_layers::Union{Vector{Int}, Chain} = [32, 16, 16],
+    activation = tanh,
+    scale_nn_outputs::Bool = true
+)
+    in_dim  = length(predictors)
+    out_dim = length(targets)
+
+    NN = prepare_hidden_chain(hidden_layers, in_dim, out_dim;
+                              activation = activation)
+
+    return SingleNNModel(NN, predictors, targets, scale_nn_outputs)
+end
+
+# MultiNNModel remains as before
 struct MultiNNModel
     NNs             :: NamedTuple
     predictors      :: NamedTuple
@@ -19,21 +86,6 @@ struct MultiNNModel
     scale_nn_outputs  :: Bool
 end
 
-# Constructor for SingleNNModel
-function constructNNModel(
-    predictors::Vector{Symbol},
-    targets;
-    scale_nn_outputs = true
-)
-    NN = Chain(
-        Dense(length(predictors), 32, tanh),
-        Dense(32, 16, tanh),
-        Dense(16, length(targets))
-    )
-    return SingleNNModel(NN, predictors, targets, scale_nn_outputs)
-end
-
-# Constructor for MultiNNModel
 function constructNNModel(
     predictors::NamedTuple,
     targets;
