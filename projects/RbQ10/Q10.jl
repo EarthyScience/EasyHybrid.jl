@@ -11,6 +11,10 @@ using EasyHybrid
 using GLMakie
 using AlgebraOfGraphics
 
+# Local Path (MPI-BGC server):
+#   /Net/Groups/BGI/scratch/bahrens/DataHeinemeyerRh/RESP_07_08_09_10_filled.csv
+# =============================================================================
+
 script_dir = @__DIR__
 include(joinpath(script_dir, "data", "prec_process_data.jl"))
 
@@ -133,5 +137,5 @@ with_theme(theme_light()) do
 end
 
 # ? Rb
-lines(out.αst_train.Rb[:])
-lines!(ds_p_f(:moisture_filled)[:])
+# lines(out.αst_train.Rb[:])
+# lines!(ds_p_f(:moisture_filled)[:])

@@ -64,7 +64,7 @@ dta = (ds_p_f, ds_t, ds_t_nan)
 dataloader = DataLoader((x_train, y_train, nan_train), batchsize=512, shuffle=true);
 
 # wrap loss function to get arguments as required by Optimization.jl
-ls2 = (p, data) -> EasyHybrid.lossfn(RbQ10, data[1], (data[2], data[3]), p, st, LoggingLoss())
+ls2 = (p, data) -> EasyHybrid.lossfn(RbQ10, data[1], (data[2], data[3]), p, st, LoggingLoss())[1]
 
 # convert to Float64 for optimization
 ps_ca = ComponentArray(ps) .|> Float64
@@ -94,7 +94,7 @@ opt_prob = remake(opt_prob; u0=res_adam.u, p = dta) # TODO implemnt minibatch - 
 res_lbfgs = solve(opt_prob, Optimization.LBFGS(); callback, maxiters=200)
 ls2(res_lbfgs.u, dta)
 
-import Plots as pl
-pl.plot(Q10s; xlabel = "epoch", ylabel="Q10", title="Q10 during training")
+
+lines(Q10s; axis = (; xlabel = "epoch", ylabel="Q10", title="Q10 during training"))
 
 res_lbfgs.u.Q10

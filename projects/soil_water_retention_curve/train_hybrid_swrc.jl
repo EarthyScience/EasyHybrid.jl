@@ -155,7 +155,7 @@ hybrid_model = constructHybridModel(
     scale_nn_outputs=false
 )
 
-tout = train(hybrid_model, ds_keyed, (); nepochs=10, batchsize=512, opt=AdaGrad(0.01), file_name = "tout.jld2", training_loss=:nse, loss_types=[:mse, :nse])
+tout = train(hybrid_model, ds_keyed, (); nepochs=100, batchsize=256, opt=AdaGrad(0.01), file_name = "tout.jld2", training_loss=:nse, loss_types=[:mse, :nse])
 
 θ_pred1 = tout.val_obs_pred[!, Symbol("θ_pred")]
 θ_obs1 = tout.val_obs_pred[!, :θ]
@@ -180,7 +180,7 @@ hybrid_model_nn = constructHybridModel(
     scale_nn_outputs=true
 )
 
-tout2 = train(hybrid_model_nn, ds_keyed, (); nepochs=10, batchsize=512, opt=AdaGrad(0.01), file_name = "tout2.jld2", training_loss=:nse, loss_types=[:mse, :nse])
+tout2 = train(hybrid_model_nn, ds_keyed, (); nepochs=100, batchsize=256, opt=AdaGrad(0.01), file_name = "tout2.jld2", training_loss=:nse, loss_types=[:mse, :nse])
 
 # =============================================================================
 # Results Visualization

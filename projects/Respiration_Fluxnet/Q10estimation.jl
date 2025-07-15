@@ -108,7 +108,7 @@ ds_t_nan = .!isnan.(ds_t)
 ls = EasyHybrid.lossfn(RbQ10_model, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss())
 
 # Train RbQ10 model
-out_RbQ10 = train(RbQ10_model, ds_keyed_reco, (:Q10,); nepochs=100, batchsize=512, opt=AdaGrad(0.01))
+out_RbQ10 = train(RbQ10_model, ds_keyed_reco, (:Q10,); nepochs=10, batchsize=512, opt=AdaGrad(0.01))
 
 # Plot training results for RbQ10
 fig_RbQ10 = Figure(size=(1200, 600))
