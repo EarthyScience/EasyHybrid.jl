@@ -25,7 +25,11 @@ function constructNNModel(
     targets;
     scale_nn_outputs = true
 )
-    NN = Chain(Dense(length(predictors), 64, tanh), Dense(64, 128, tanh), Dense(128, length(targets), tanh))
+    NN = Chain(
+        Dense(length(predictors), 32, tanh),
+        Dense(32, 16, tanh),
+        Dense(16, length(targets))
+    )
     return SingleNNModel(NN, predictors, targets, scale_nn_outputs)
 end
 

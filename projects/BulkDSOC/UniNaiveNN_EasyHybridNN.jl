@@ -42,18 +42,11 @@ for (i, tname) in enumerate(target_names)
     neural_param_names = [tname]
     model = EasyHybrid.constructNNModel(predictors, targets; scale_nn_outputs=false)
 
-    st = LuxCore.initialstates(Random.default_rng(), model)
-    ps = LuxCore.initialparameters(Random.default_rng(), model)
-    
-    ps, st = LuxCore.setup(Random.default_rng(), model)
-    println(typeof(ps))
-    println(typeof(st))
-
     # Training using EasyHybrid's train function
-    result = train(model, (ds_p, y), (); nepochs=100, batchsize=512, opt=AdamW(0.0001, (0.9, 0.999), 0.01))
+    result = train(model, (ds_p, y), (); nepochs=100, batchsize=512, opt=AdamW(0.0001, (0.9, 0.999), 0.01), training_loss=:nse, loss_types=[:mse, :nse], shuffleobs=false)
 
-    y_val_true = vec(result[:y_val])
-    y_val_pred = vec(result[:ŷ_val])
+    y_val_true = vec(result.val_obs_pred[!, tname])
+    y_val_pred = vec(result.val_obs_pred[!, Symbol(string(tname, "_pred"))])
     df_out[!, "true_$(tname)"] = y_val_true
     df_out[!, "pred_$(tname)"] = y_val_pred
     ss_res = sum((y_val_true .- y_val_pred).^2)
@@ -81,6 +74,7 @@ for (i, tname) in enumerate(target_names)
 
 end
 
+# TODO undo the z-transformation
 df_out[:,"pred_calc_SOCdensity"] = df_out[:,"pred_SOCconc"] .* df_out[:,"pred_BD"] .* (1 .- df_out[:,"pred_CF"])
 true_SOCdensity = df_out[:, "true_SOCdensity"]
 pred_SOCdensity = df_out[:, "pred_calc_SOCdensity"]
