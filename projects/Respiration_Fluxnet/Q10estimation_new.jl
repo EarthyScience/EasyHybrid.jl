@@ -177,7 +177,10 @@ hybrid_model = constructHybridModel(
     parameter_container,
     neural_param_names,
     global_param_names,
-    scale_nn_outputs=false
+    scale_nn_outputs=false,
+    hidden_layers = [15, 15],
+    activation = sigmoid,
+    input_batchnorm = true
 )
 
 # =============================================================================
@@ -189,7 +192,7 @@ ps_st = (ps, st)
 ps_st2 = deepcopy(ps_st)
 
 # Train FluxPartModel
-out_FluxPart = train(hybrid_model, ds_keyed_FluxPartModel, (); nepochs=30, batchsize=512, opt=AdamW(0.01), loss_types=[:mse, :r2], training_loss=:mse, ps_st=ps_st, random_seed=123);
+out_FluxPart = train(hybrid_model, ds_keyed_FluxPartModel, (); nepochs=30, batchsize=512, opt=AdamW(0.01), loss_types=[:mse, :r2], training_loss=:mse, random_seed=123);
 
 # =============================================================================
 # train hybrid FluxPartModel_Q10_Lux model on NEE to get Q10, GPP, and Reco
@@ -209,15 +212,16 @@ dropmissing!(sdf)
 
 ds_keyed_FluxPartModel = to_keyedArray(Float32.(sdf))
 
-NNRb = Chain(BatchNorm(length(predictors_Rb_FluxPartModel), affine=false), Dense(length(predictors_Rb_FluxPartModel), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
-NNRUE = Chain(BatchNorm(length(predictors_RUE_FluxPartModel), affine=false), Dense(length(predictors_RUE_FluxPartModel), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
+NNRb = Chain(BatchNorm(length(predictors_Rb_FluxPartModel), affine=false), Dense(length(predictors_Rb_FluxPartModel), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1))
+NNRUE = Chain(BatchNorm(length(predictors_RUE_FluxPartModel), affine=false), Dense(length(predictors_RUE_FluxPartModel), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1))
 
-FluxPart = FluxPartModelQ10Lux(NNRUE, NNRb, predictors_RUE_FluxPartModel, predictors_Rb_FluxPartModel, forcing_FluxPartModel, target_FluxPartModel, 1.5f0)
+Q10start = collect(scale_single_param("Q10", ps_st2[1].Q10, parameter_container))[1]
+FluxPart = FluxPartModelQ10Lux(NNRUE, NNRb, predictors_RUE_FluxPartModel, predictors_Rb_FluxPartModel, forcing_FluxPartModel, target_FluxPartModel, Q10start)
 
-ps_st2[1].Q10 .= collect(scale_single_param("Q10", ps_st2[1].Q10, parameter_container))[1]
+ps_st2[1].Q10 .= Q10start
 
 # Train FluxPartModel
-out_FluxPart = train(FluxPart, ds_keyed_FluxPartModel, (:Q10,); nepochs=30, batchsize=512, opt=AdamW(0.01), loss_types=[:mse, :r2], training_loss=:mse, ps_st=ps_st2, random_seed=123);
+out_FluxPart = train(FluxPart, ds_keyed_FluxPartModel, (:Q10,); nepochs=30, batchsize=512, opt=AdamW(0.01), loss_types=[:mse, :r2], training_loss=:mse, random_seed=123);
 
 # =============================================================================
 # Results Visualization

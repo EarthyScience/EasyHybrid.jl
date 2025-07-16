@@ -58,8 +58,8 @@ function (hm::FluxPartModelQ10Lux)(ds_k, ps, st::NamedTuple)
     forcing_data = ds_k(hm.forcing) # don't propagate names after this
     sw_in = Array(forcing_data([:SW_IN]))  # SW_IN
     ta = Array(forcing_data([:TA]))     # TA
-    
-    # Apply neural networks
+
+
     RUE, st_RUE = LuxCore.apply(hm.RUE_NN, RUE_input, ps.RUE, st.RUE) # TODO could be simplified if we move diagnostics out of the tuple with st
     Rb, st_Rb = LuxCore.apply(hm.Rb_NN, Rb_input, ps.Rb, st.Rb)
     

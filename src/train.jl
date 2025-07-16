@@ -22,6 +22,10 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     data_ = prepare_data(hybridModel, data)
     # all the KeyedArray thing!
 
+    if !isnothing(random_seed)
+        Random.seed!(random_seed)
+    end
+
     # ? split training and validation data
     (x_train, y_train), (x_val, y_val) = splitobs(data_; at=0.8, shuffle=shuffleobs)
     train_loader = DataLoader((x_train, y_train), batchsize=batchsize, shuffle=true);
@@ -30,10 +34,6 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
         ps, st = LuxCore.setup(Random.default_rng(), hybridModel)
     else
         ps, st = ps_st
-    end
-
-    if !isnothing(random_seed)
-        Random.seed!(random_seed)
     end
 
     opt_state = Optimisers.setup(opt, ps)
