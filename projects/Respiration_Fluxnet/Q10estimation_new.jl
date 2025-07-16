@@ -187,7 +187,33 @@ hybrid_model = constructHybridModel(
 ps, st = LuxCore.setup(Random.default_rng(), hybrid_model)
 @profview out = hybrid_model(ds_keyed_FluxPartModel, ps, st)
 # Train FluxPartModel
-out_FluxPart = train(hybrid_model, ds_keyed_FluxPartModel, (); nepochs=100, batchsize=512, opt=AdamW(0.01), loss_types=[:mse, :nse], training_loss=:mse);
+out_FluxPart = train(hybrid_model, ds_keyed_FluxPartModel, (); nepochs=30, batchsize=512, opt=AdamW(0.01));
+
+# =============================================================================
+# train hybrid FluxPartModel_Q10_Lux model on NEE to get Q10, GPP, and Reco
+# =============================================================================
+
+target_FluxPartModel = [:NEE]
+forcing_FluxPartModel = [:SW_IN, :TA]
+
+predictors_Rb_FluxPartModel = [:SWC_shallow, :P, :WS, :sine_dayofyear, :cos_dayofyear]
+predictors_RUE_FluxPartModel = [:TA, :P, :WS, :SWC_shallow, :VPD, :SW_IN_POT, :dSW_IN_POT, :dSW_IN_POT_DAY]
+
+df[!, predictors_RUE_FluxPartModel]
+
+# select columns and drop rows with any NaN values
+sdf = copy(df[!, unique([predictors_Rb_FluxPartModel...,predictors_RUE_FluxPartModel..., forcing_FluxPartModel..., target_FluxPartModel...])])
+dropmissing!(sdf)
+
+ds_keyed_FluxPartModel = to_keyedArray(Float32.(sdf))
+
+NNRb = Chain(BatchNorm(length(predictors_Rb_FluxPartModel), affine=false), Dense(length(predictors_Rb_FluxPartModel), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
+NNRUE = Chain(BatchNorm(length(predictors_RUE_FluxPartModel), affine=false), Dense(length(predictors_RUE_FluxPartModel), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
+
+FluxPart = FluxPartModelQ10Lux(NNRUE, NNRb, predictors_RUE_FluxPartModel, predictors_Rb_FluxPartModel, forcing_FluxPartModel, target_FluxPartModel, 1.5f0)
+
+# Train FluxPartModel
+out_FluxPart = train(FluxPart, ds_keyed_FluxPartModel, (:Q10,); nepochs=30, batchsize=512, opt=AdamW(0.01));
 
 # =============================================================================
 # Results Visualization
