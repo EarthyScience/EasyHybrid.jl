@@ -185,9 +185,11 @@ hybrid_model = constructHybridModel(
 # =============================================================================
 
 ps, st = LuxCore.setup(Random.default_rng(), hybrid_model)
-@profview out = hybrid_model(ds_keyed_FluxPartModel, ps, st)
+ps_st = (ps, st)
+ps_st2 = deepcopy(ps_st)
+
 # Train FluxPartModel
-out_FluxPart = train(hybrid_model, ds_keyed_FluxPartModel, (); nepochs=30, batchsize=512, opt=AdamW(0.01));
+out_FluxPart = train(hybrid_model, ds_keyed_FluxPartModel, (); nepochs=30, batchsize=512, opt=AdamW(0.01), loss_types=[:mse, :r2], training_loss=:mse, ps_st=ps_st, random_seed=123);
 
 # =============================================================================
 # train hybrid FluxPartModel_Q10_Lux model on NEE to get Q10, GPP, and Reco
@@ -207,13 +209,15 @@ dropmissing!(sdf)
 
 ds_keyed_FluxPartModel = to_keyedArray(Float32.(sdf))
 
-NNRb = Chain(BatchNorm(length(predictors_Rb_FluxPartModel), affine=false), Dense(length(predictors_Rb_FluxPartModel), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
-NNRUE = Chain(BatchNorm(length(predictors_RUE_FluxPartModel), affine=false), Dense(length(predictors_RUE_FluxPartModel), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
+NNRb = Chain(Dense(length(predictors_Rb_FluxPartModel), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
+NNRUE = Chain(Dense(length(predictors_RUE_FluxPartModel), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
 
 FluxPart = FluxPartModelQ10Lux(NNRUE, NNRb, predictors_RUE_FluxPartModel, predictors_Rb_FluxPartModel, forcing_FluxPartModel, target_FluxPartModel, 1.5f0)
 
+ps_st2[1].Q10 .= collect(scale_single_param("Q10", ps_st2[1].Q10, parameter_container))[1]
+
 # Train FluxPartModel
-out_FluxPart = train(FluxPart, ds_keyed_FluxPartModel, (:Q10,); nepochs=30, batchsize=512, opt=AdamW(0.01));
+out_FluxPart = train(FluxPart, ds_keyed_FluxPartModel, (:Q10,); nepochs=30, batchsize=512, opt=AdamW(0.01), ps_st=ps_st2, random_seed=123);
 
 # =============================================================================
 # Results Visualization

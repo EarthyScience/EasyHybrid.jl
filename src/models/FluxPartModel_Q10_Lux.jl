@@ -22,13 +22,13 @@ end
 function LuxCore.initialparameters(::AbstractRNG, layer::FluxPartModelQ10Lux)
     ps_RUE, _ = LuxCore.setup(Random.default_rng(), layer.RUE_NN)
     ps_Rb, _ = LuxCore.setup(Random.default_rng(), layer.Rb_NN)
-    return (; RUE_ps = ps_RUE, Rb_ps = ps_Rb, Q10 = layer.Q10)
+    return (; RUE = ps_RUE, Rb = ps_Rb, Q10 = layer.Q10)
 end
 
 function LuxCore.initialstates(::AbstractRNG, layer::FluxPartModelQ10Lux)
     _, st_RUE = LuxCore.setup(Random.default_rng(), layer.RUE_NN)
     _, st_Rb = LuxCore.setup(Random.default_rng(), layer.Rb_NN)
-    return (; RUE_st = st_RUE, Rb_st = st_Rb)
+    return (; RUE = st_RUE, Rb = st_Rb)
 end
 
 """
@@ -60,8 +60,8 @@ function (hm::FluxPartModelQ10Lux)(ds_k, ps, st::NamedTuple)
     ta = Array(forcing_data([:TA]))     # TA
     
     # Apply neural networks
-    RUE, st_RUE = LuxCore.apply(hm.RUE_NN, RUE_input, ps.RUE_ps, st.RUE_st) # TODO could be simplified if we move diagnostics out of the tuple with st
-    Rb, st_Rb = LuxCore.apply(hm.Rb_NN, Rb_input, ps.Rb_ps, st.Rb_st)
+    RUE, st_RUE = LuxCore.apply(hm.RUE_NN, RUE_input, ps.RUE, st.RUE) # TODO could be simplified if we move diagnostics out of the tuple with st
+    Rb, st_Rb = LuxCore.apply(hm.Rb_NN, Rb_input, ps.Rb, st.Rb)
     
     # Scale outputs
     RUE_scaled = 1.0f0 .* RUE
@@ -73,7 +73,7 @@ function (hm::FluxPartModelQ10Lux)(ds_k, ps, st::NamedTuple)
     NEE = RECO .- GPP
     
     # Update states
-    new_st = (; RUE_st = st_RUE, Rb_st = st_Rb)
+    new_st = (; RUE = st_RUE, Rb = st_Rb)
     
     return (; NEE, RUE = RUE_scaled, Rb = Rb_scaled, GPP, RECO), (; st = new_st)
 end
