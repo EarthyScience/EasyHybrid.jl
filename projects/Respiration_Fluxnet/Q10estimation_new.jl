@@ -217,7 +217,7 @@ FluxPart = FluxPartModelQ10Lux(NNRUE, NNRb, predictors_RUE_FluxPartModel, predic
 ps_st2[1].Q10 .= collect(scale_single_param("Q10", ps_st2[1].Q10, parameter_container))[1]
 
 # Train FluxPartModel
-out_FluxPart = train(FluxPart, ds_keyed_FluxPartModel, (:Q10,); nepochs=30, batchsize=512, opt=AdamW(0.01), ps_st=ps_st2, random_seed=123);
+out_FluxPart = train(FluxPart, ds_keyed_FluxPartModel, (:Q10,); nepochs=30, batchsize=512, opt=AdamW(0.01), loss_types=[:mse, :r2], training_loss=:mse, ps_st=ps_st2, random_seed=123);
 
 # =============================================================================
 # Results Visualization
