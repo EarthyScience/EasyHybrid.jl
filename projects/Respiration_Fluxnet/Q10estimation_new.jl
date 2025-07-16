@@ -187,7 +187,7 @@ hybrid_model = constructHybridModel(
 ps, st = LuxCore.setup(Random.default_rng(), hybrid_model)
 @profview out = hybrid_model(ds_keyed_FluxPartModel, ps, st)
 # Train FluxPartModel
-@profview out_FluxPart = train(hybrid_model, ds_keyed_FluxPartModel, (); nepochs=10, batchsize=512, opt=AdamW(0.01), loss_types=[:mse, :nse], training_loss=:mse);
+out_FluxPart = train(hybrid_model, ds_keyed_FluxPartModel, (); nepochs=100, batchsize=512, opt=AdamW(0.01), loss_types=[:mse, :nse], training_loss=:mse);
 
 # =============================================================================
 # Results Visualization
