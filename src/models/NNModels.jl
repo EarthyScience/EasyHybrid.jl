@@ -51,7 +51,7 @@ function prepare_hidden_chain(
         return Chain(
             input_batchnorm ? BatchNorm(in_dim, affine=false) : identity,
             Dense(in_dim, first_h, activation),
-            hidden_layers,
+            hidden_layers.layers...,    
             Dense(last_h, out_dim)
         )
     else
@@ -64,7 +64,7 @@ function prepare_hidden_chain(
         return Chain(
             input_batchnorm ? BatchNorm(in_dim, affine=false) : identity,
             Dense(in_dim, hs[1], activation),
-            hidden_chain,
+            hidden_chain.layers...,
             Dense(hs[end], out_dim)
         )
     end
