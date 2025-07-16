@@ -318,13 +318,7 @@ end
 
 # Forward pass for MultiNNHybridModel (optimized, no branching)
 function (m::MultiNNHybridModel)(ds_k, ps, st)
-    # 1) Get features for each neural network
-    nn_inputs = NamedTuple()
-    for (nn_name, predictors) in pairs(m.predictors)
-        nn_inputs = merge(nn_inputs, NamedTuple{(nn_name,), Tuple{typeof(ds_k(predictors))}}((ds_k(predictors),)))
-    end
     
-    forcing_data = ds_k(m.forcing)
     parameters = m.parameters
 
     # 2) Scale global parameters (handle empty case)
@@ -343,7 +337,8 @@ function (m::MultiNNHybridModel)(ds_k, ps, st)
     nn_states = NamedTuple()
     
     for (nn_name, nn) in pairs(m.NNs)
-        nn_out, st_nn = LuxCore.apply(nn, nn_inputs[nn_name], ps[nn_name], st[nn_name])
+        predictors = m.predictors[nn_name]
+        nn_out, st_nn = LuxCore.apply(nn, ds_k(predictors), ps[nn_name], st[nn_name])
         nn_outputs = merge(nn_outputs, NamedTuple{(nn_name,), Tuple{typeof(nn_out)}}((nn_out,)))
         nn_states = merge(nn_states, NamedTuple{(nn_name,), Tuple{typeof(st_nn)}}((st_nn,)))
     end
@@ -351,8 +346,7 @@ function (m::MultiNNHybridModel)(ds_k, ps, st)
     # 4) Scale neural network parameters using the mapping
     scaled_nn_params = NamedTuple()
     for (nn_name, param_name) in zip(keys(m.NNs), m.neural_param_names)
-        nn_output = nn_outputs[nn_name]
-        nn_cols = eachrow(nn_output)
+        nn_cols = eachrow(nn_outputs[nn_name])
         
         # Create parameter for this NN
         nn_param = NamedTuple{(param_name,), Tuple{typeof(nn_cols[1])}}((nn_cols[1],))
@@ -381,7 +375,7 @@ function (m::MultiNNHybridModel)(ds_k, ps, st)
     all_params = merge(scaled_nn_params, global_params, fixed_params)
 
     # 6) Apply mechanistic model
-    y_pred = m.mechanistic_model(forcing_data; all_params...)
+    y_pred = m.mechanistic_model(ds_k(m.forcing); all_params...)
 
     out = (;y_pred..., parameters = all_params, nn_outputs = nn_outputs)
 
