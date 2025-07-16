@@ -31,7 +31,7 @@ end
 struct SingleNNHybridModel
     NN              :: Chain
     predictors      :: Vector{Symbol}
-    forcing         :: Vector{Symbol}
+    forcing         :: NTuple{N,Symbol} where N
     targets         :: Vector{Symbol}
     mechanistic_model :: Function
     parameters      :: AbstractHybridModel
@@ -45,7 +45,7 @@ end
 struct MultiNNHybridModel
     NNs             :: NamedTuple
     predictors      :: NamedTuple
-    forcing         :: Vector{Symbol}
+    forcing         :: NTuple{N,Symbol} where N
     targets         :: Vector{Symbol}
     mechanistic_model :: Function
     parameters      :: AbstractHybridModel
@@ -262,7 +262,7 @@ end
 function (m::SingleNNHybridModel)(ds_k, ps, st)
     # 1) get features
     predictors = ds_k(m.predictors) 
-    forcing_data = ds_k(m.forcing)
+
     parameters = m.parameters
 
     # 2) scale global parameters (handle empty case)
@@ -305,10 +305,19 @@ function (m::SingleNNHybridModel)(ds_k, ps, st)
         fixed_params = NamedTuple()
     end
 
-    all_params = merge(scaled_nn_params, global_params, fixed_params)
+    # 5) unpack forcing data
+    display(ds_k)
+    println(m.forcing)
+    forcing_data = unpack_keyedarray(ds_k, m.forcing)
 
-    # 5) physics
-    y_pred = m.mechanistic_model(forcing_data; all_params...)
+    display(forcing_data)
+
+    # 6) merge all parameters
+    all_params = merge(scaled_nn_params, global_params, fixed_params)
+    all_kwargs = merge(forcing_data, all_params)
+
+    # 7) physics
+    y_pred = m.mechanistic_model(; all_kwargs...)
 
     out = (;y_pred..., parameters = all_params)
     st_new = (; st = st_NN, fixed = st.fixed)
@@ -319,6 +328,8 @@ end
 # Forward pass for MultiNNHybridModel (optimized, no branching)
 function (m::MultiNNHybridModel)(ds_k, ps, st)
     
+    display(ds_k)   
+
     parameters = m.parameters
 
     # 2) Scale global parameters (handle empty case)
@@ -374,8 +385,15 @@ function (m::MultiNNHybridModel)(ds_k, ps, st)
 
     all_params = merge(scaled_nn_params, global_params, fixed_params)
 
-    # 6) Apply mechanistic model
-    y_pred = m.mechanistic_model(ds_k(m.forcing); all_params...)
+    # 6) unpack forcing data
+    println(typeof(m.forcing))
+    display(ds_k)
+    forcing_data = unpack_keyedarray(ds_k, m.forcing)
+    println(typeof(forcing_data))
+    all_kwargs = merge(forcing_data, all_params)
+    
+    # 7) Apply mechanistic model
+    y_pred = m.mechanistic_model(; all_kwargs...)
 
     out = (;y_pred..., parameters = all_params, nn_outputs = nn_outputs)
 
@@ -388,6 +406,7 @@ end
 function Base.display(hm::SingleNNHybridModel)
     println("Neural Network: ", hm.NN)
     println("Predictors: ", hm.predictors)
+    println("Forcing: ", hm.forcing)
     println("neural parameters: ", hm.neural_param_names)
     println("global parameters: ", hm.global_param_names)
     println("fixed parameters: ", hm.fixed_param_names)
@@ -406,7 +425,7 @@ function Base.display(hm::MultiNNHybridModel)
     for (name, preds) in pairs(hm.predictors)
         println("  $name: ", preds)
     end
-    
+    println("Forcing: ", hm.forcing)
     println("neural parameters: ", hm.neural_param_names)
     println("global parameters: ", hm.global_param_names)
     println("fixed parameters: ", hm.fixed_param_names)
