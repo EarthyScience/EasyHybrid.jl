@@ -209,8 +209,8 @@ dropmissing!(sdf)
 
 ds_keyed_FluxPartModel = to_keyedArray(Float32.(sdf))
 
-NNRb = Chain(Dense(length(predictors_Rb_FluxPartModel), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
-NNRUE = Chain(Dense(length(predictors_RUE_FluxPartModel), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
+NNRb = Chain(BatchNorm(length(predictors_Rb_FluxPartModel), affine=false), Dense(length(predictors_Rb_FluxPartModel), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
+NNRUE = Chain(BatchNorm(length(predictors_RUE_FluxPartModel), affine=false), Dense(length(predictors_RUE_FluxPartModel), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
 
 FluxPart = FluxPartModelQ10Lux(NNRUE, NNRb, predictors_RUE_FluxPartModel, predictors_Rb_FluxPartModel, forcing_FluxPartModel, target_FluxPartModel, 1.5f0)
 

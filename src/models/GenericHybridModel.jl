@@ -102,6 +102,7 @@ function constructHybridModel(
     for (nn_name, preds) in pairs(predictors)
         # Create a simple NN for each predictor set
         nn = Chain(
+            BatchNorm(length(preds), affine=false),
             Dense(length(preds), 15, sigmoid), 
             Dense(15, 15, sigmoid), 
             Dense(15, 1, x -> x^2)  # Output 1 parameter per NN with positive activation
