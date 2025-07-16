@@ -177,7 +177,9 @@ hybrid_model_nn = constructHybridModel(
     parameter_container,                                         # parameter bounds
     [:θ_s, :log_α, :log_nm1, :log_m],           # neural_param_names
     [],                                          # global_names
-    scale_nn_outputs=true
+    scale_nn_outputs=true,
+    hidden_layers = [32, 32],
+    activation = tanh
 )
 
 tout2 = train(hybrid_model_nn, ds_keyed, (); nepochs=100, batchsize=256, opt=AdaGrad(0.01), file_name = "tout2.jld2", training_loss=:nse, loss_types=[:mse, :nse])

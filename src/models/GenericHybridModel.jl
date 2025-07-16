@@ -76,7 +76,7 @@ function constructHybridModel(
     if length(predictors) > 0
 
         in_dim  = length(predictors)
-        out_dim = length(targets)
+        out_dim = length(neural_param_names)
     
         NN = prepare_hidden_chain(hidden_layers, in_dim, out_dim;
                                   activation = activation,
