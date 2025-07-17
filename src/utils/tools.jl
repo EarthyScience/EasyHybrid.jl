@@ -1,6 +1,6 @@
 #### Data handling
 export select_predictors, to_keyedArray, split_data
-export toDataFrame
+export toDataFrame, unpack_keyedarray
 
 # Make vec each entry of NamedTuple (since broadcast ist reserved)
 """
@@ -138,4 +138,83 @@ function toDataFrame(ka, target_names)
         # For multiple targets, create DataFrame with multiple columns
         return DataFrame(data, string.(target_names) .* "_pred")
     end
+end
+
+# =============================================================================
+# KeyedArray unpacking functions
+# =============================================================================
+
+"""
+unpack_keyedarray(ka::KeyedArray, variables::Vector{Symbol})
+Extract specified variables from a KeyedArray and return them as a NamedTuple of vectors.
+
+# Arguments:
+- `ka`: The KeyedArray to unpack
+- `variables`: Vector of symbols representing the variables to extract
+
+# Returns:
+- NamedTuple with variable names as keys and vectors as values
+
+# Example:
+```julia
+# Extract SW_IN and TA from a KeyedArray
+data = unpack_keyedarray(ds_keyed, [:SW_IN, :TA])
+sw_in = data.SW_IN
+ta = data.TA
+```
+"""
+function unpack_keyedarray(ka::KeyedArray, variables::Vector{Symbol})
+    vals = [vec(ka([var])) for var in variables]
+    return (; zip(variables, vals)...)
+end
+
+function unpack_keyedarray(ka::KeyedArray, variables::NTuple{N,Symbol}) where N
+    vals = ntuple(i->vec(ka([variables[i]])), N)
+    return NamedTuple{variables}(vals)
+end
+
+"""
+unpack_keyedarray(ka::KeyedArray)
+Extract all variables from a KeyedArray and return them as a NamedTuple of vectors.
+
+# Arguments:
+- `ka`: The KeyedArray to unpack
+
+# Returns:
+- NamedTuple with all variable names as keys and vectors as values
+
+# Example:
+```julia
+# Extract all variables from a KeyedArray
+data = unpack_keyedarray(ds_keyed)
+# Access individual variables
+sw_in = data.SW_IN
+ta = data.TA
+nee = data.NEE
+```
+"""
+function unpack_keyedarray(ka::KeyedArray)
+    variables = Symbol.(axiskeys(ka)[1])  # Get all variable names from first dimension
+    return unpack_keyedarray(ka, variables)
+end
+
+"""
+unpack_keyedarray(ka::KeyedArray, variable::Symbol)
+Extract a single variable from a KeyedArray and return it as a vector.
+
+# Arguments:
+- `ka`: The KeyedArray to unpack
+- `variable`: Symbol representing the variable to extract
+
+# Returns:
+- Vector containing the variable data
+
+# Example:
+```julia
+# Extract just SW_IN from a KeyedArray
+sw_in = unpack_keyedarray(ds_keyed, :SW_IN)
+```
+"""
+function unpack_keyedarray(ka::KeyedArray, variable::Symbol)
+    return vec(ka([variable]))
 end

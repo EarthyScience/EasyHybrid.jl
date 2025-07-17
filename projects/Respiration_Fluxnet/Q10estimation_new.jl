@@ -3,10 +3,10 @@
 # =============================================================================
 using Pkg
 Pkg.activate("projects/Respiration_Fluxnet")
-Pkg.develop(path=pwd())
 
 manifest_path = joinpath(pwd(), "Manifest.toml")
 if !isfile(manifest_path)
+    Pkg.develop(path=pwd())
     Pkg.instantiate()
 end
 
@@ -93,11 +93,11 @@ parameter_container = build_parameters(parameters, FluxPartParams)
 # Mechanistic Model Definition
 # =============================================================================
 
-function flux_part_mechanistic_model(sw_in, ta; RUE, Rb, Q10)
+function flux_part_mechanistic_model(;SW_IN, TA, RUE, Rb, Q10)
     # -------------------------------------------------------------------------
     # Arguments:
-    #   sw_in   : Incoming shortwave radiation
-    #   ta      : Air temperature
+    #   SW_IN     : Incoming shortwave radiation
+    #   TA      : Air temperature
     #   RUE     : Radiation Use Efficiency
     #   Rb      : Basal respiration
     #   Q10     : Temperature sensitivity 
@@ -109,34 +109,47 @@ function flux_part_mechanistic_model(sw_in, ta; RUE, Rb, Q10)
     # -------------------------------------------------------------------------
 
     # Calculate fluxes
-    GPP = sw_in .* RUE ./ 12.011f0  # µmol/m²/s
-    RECO = Rb .* Q10 .^ (0.1f0 .* (ta .- 15.0f0))
+    GPP = SW_IN .* RUE ./ 12.011f0  # µmol/m²/s
+    RECO = Rb .* Q10 .^ (0.1f0 .* (TA .- 15.0f0))
     NEE = RECO .- GPP
     
     return (;NEE, RECO, GPP)
 end
 
-# KeyedArray version needed for hybrid model
-function flux_part_mechanistic_model(forcing_data::KeyedArray; RUE, Rb, Q10)
-    sw_in = vec(forcing_data([:SW_IN]))  # SW_IN
-    ta = vec(forcing_data([:TA]))     # TA
-    return flux_part_mechanistic_model(sw_in, ta; RUE, Rb, Q10)
+function dispatch_on_keyedarray(f)
+    function new_f end  # Create a new generic function
+
+    function new_f(forcing_data::KeyedArray, parameter_container::AbstractHybridModel)
+        forcing = unpack_keyedarray(forcing_data, [:SW_IN, :TA])
+        f(;forcing..., values(default(parameter_container))...)
+    end
+
+    function new_f(;kwargs...)
+        f(;kwargs...)
+    end
+
+    return new_f
 end
 
-function flux_part_mechanistic_model(forcing_data::KeyedArray, parameter_container::FluxPartParams)
-    return flux_part_mechanistic_model(forcing_data; values(default(parameter_container))...)
-end
+rtz = Symbol.(axiskeys(ds_keyed_FluxPartModel)[1])
+ert = unpack_keyedarray(ds_keyed_FluxPartModel, rtz)	
 
+unpack_keyedarray(ds_keyed_FluxPartModel, forcing_FluxPartModel)
+
+ds_keyed_FluxPartModel([:SW_IN])
+
+fff = dispatch_on_keyedarray(flux_part_mechanistic_model)
+fff(ds_keyed_FluxPartModel, parameter_container)
 
 
 # =============================================================================
 # Plot with defaults
 # =============================================================================
 
-o_def = flux_part_mechanistic_model(ds_keyed_FluxPartModel, parameter_container)
+o_def = fff(ds_keyed_FluxPartModel, parameter_container)
 
-using GLMakie
-GLMakie.activate!(inline=false)
+using WGLMakie
+#WGLMakie.activate!(inline=false)
 fig = Figure()
 ax = Makie.Axis(fig[1, 1], title="NEE", xlabel="Time", ylabel="NEE")
 lines!(ax, ds_keyed_FluxPartModel(:NEE))
@@ -148,7 +161,6 @@ lines!(ax, o_def.RECO)
 lines!(ax, -o_def.GPP)
 linkxaxes!(filter(x -> x isa Makie.Axis, fig.content)...)
 
-fig
 
 
 # =============================================================================
@@ -190,6 +202,12 @@ hybrid_model = constructHybridModel(
 ps, st = LuxCore.setup(Random.default_rng(), hybrid_model)
 ps_st = (ps, st)
 ps_st2 = deepcopy(ps_st)
+
+hybrid_model(ds_keyed_FluxPartModel, ps, st)
+
+dp, dt = EasyHybrid.prepare_data(hybrid_model, ds_keyed_FluxPartModel)
+
+dp
 
 # Train FluxPartModel
 out_FluxPart = train(hybrid_model, ds_keyed_FluxPartModel, (); nepochs=30, batchsize=512, opt=AdamW(0.01), loss_types=[:mse, :r2], training_loss=:mse, random_seed=123, ps_st=ps_st);

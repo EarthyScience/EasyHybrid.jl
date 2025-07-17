@@ -12,7 +12,7 @@ if !isfile(manifest_path)
 end
 
 using EasyHybrid
-using GLMakie
+using WGLMakie
 import EasyHybrid: poplot, poplot!
 using Statistics
 using ComponentArrays
@@ -103,6 +103,10 @@ function mechanistic_model(h; θ_s, h_r, h_0, log_α, log_nm1, log_m)
     return mFXW_theta(h, θ_s, h_r, h_0, exp.(log_α), exp.(log_nm1) .+ 1, exp.(log_m))
 end
 
+function mechanistic_model(;h, θ_s, h_r, h_0, log_α, log_nm1, log_m)
+    return mFXW_theta(h, θ_s, h_r, h_0, exp.(log_α), exp.(log_nm1) .+ 1, exp.(log_m))
+end
+
 # KeyedArray version needed for hybrid model
 function mechanistic_model(forcing_data::KeyedArray; kwargs...)
     h = vec(forcing_data([:h]))  # Extract h from forcing data
@@ -127,7 +131,7 @@ pF_values = sort(Array(ds_keyed(:pF)))
 
 θ_pred = mechanistic_model(h_values, parameter_container).θ
 
-GLMakie.activate!(inline=false)
+#GLMakie.activate!(inline=false)
 fig_swrc = Figure()
 ax = Makie.Axis(fig_swrc[1, 1], xlabel = "θ", ylabel = "pF")
 plot!(ax, ds_keyed(:θ), ds_keyed(:pF), label="data", color=(:grey25, 0.25))
@@ -160,7 +164,7 @@ tout = train(hybrid_model, ds_keyed, (); nepochs=100, batchsize=256, opt=AdaGrad
 θ_pred1 = tout.val_obs_pred[!, Symbol("θ_pred")]
 θ_obs1 = tout.val_obs_pred[!, :θ]
 
-poplot!(fig_po, θ_pred1, θ_obs1, "Global parameters", 2, 1)
+poplot(θ_pred1, θ_obs1, "Global parameters")
 
 
 # =============================================================================
@@ -191,6 +195,6 @@ tout2 = train(hybrid_model_nn, ds_keyed, (); nepochs=100, batchsize=256, opt=Ada
 θ_pred2 = tout2.val_obs_pred[!, Symbol(string(:θ, "_pred"))]
 θ_obs2 = tout2.val_obs_pred[!, :θ]
 
-poplot!(fig_po, θ_pred2, θ_obs2, "Neural parameters", 1, 2)
+poplot(θ_pred2, θ_obs2, "Neural parameters")
 
 

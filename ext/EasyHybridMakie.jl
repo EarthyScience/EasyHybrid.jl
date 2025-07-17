@@ -99,6 +99,33 @@ function EasyHybrid.plot_pred_vs_obs!(ax, pred, obs, title_prefix)
     Makie.axislegend(ax; position=:lt)
 end
 
+function EasyHybrid.plot_loss(loss)
+    fig = Makie.Figure()
+    ax = Makie.Axis(fig[1, 1]; yscale=log10, xlabel = "epoch", ylabel="loss")
+    Makie.lines!(ax, loss; color = :grey25,label="Training Loss")
+    on(loss) do _
+        autolimits!(ax)
+    end
+    display(fig; title="EasyHybrid.jl", focus_on_show = true)
+end
+
+function EasyHybrid.plot_loss!(loss)
+    if nameof(Makie.current_backend()) == :WGLMakie # TODO for our CPU cluster - alternatives?
+        sleep(2.0) 
+    end
+    ax = Makie.current_axis()
+    Makie.lines!(ax, loss; color = :tomato, label="Validation Loss")
+    Makie.axislegend(ax; position=:rt)
+end
+
+function EasyHybrid.to_obs(o)
+    Makie.Observable(o)
+end
+
+function EasyHybrid.to_point2f(i, p)
+    Makie.Point2f(i, p)
+end
+
 function __init__()
     @debug "setting theme_easy_hybrid"
     # hybrid_latex = merge(theme_easy_hybrid(), theme_latexfonts())
