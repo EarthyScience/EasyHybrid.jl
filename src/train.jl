@@ -18,7 +18,7 @@ Train a hybrid model using the provided data and save the training process to a 
 - `agg`: The aggregation function to apply to the computed losses (default: `sum`).
 """
 function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0.01),
-    file_name=nothing, loss_types=[:mse, :r2], training_loss=:mse, agg=sum, ps_st = nothing, random_seed=nothing, shuffleobs = false)
+    file_name=nothing, loss_types=[:mse, :r2], training_loss=:mse, agg=sum, ps_st = nothing, random_seed=nothing, shuffleobs = false, yscale=log10)
     #! check if the EasyHybridMakie extension is loaded.
     ext = Base.get_extension(@__MODULE__, :EasyHybridMakie)
     if ext === nothing
@@ -67,7 +67,7 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     end
 
     if !isnothing(ext)
-        EasyHybrid.plot_loss(train_h_obs)
+        EasyHybrid.plot_loss(train_h_obs, yscale)
         EasyHybrid.plot_loss!(val_h_obs)
     end
     # track physical parameters

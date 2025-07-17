@@ -99,9 +99,9 @@ function EasyHybrid.plot_pred_vs_obs!(ax, pred, obs, title_prefix)
     Makie.axislegend(ax; position=:lt)
 end
 
-function EasyHybrid.plot_loss(loss)
+function EasyHybrid.plot_loss(loss, yscale)
     fig = Makie.Figure()
-    ax = Makie.Axis(fig[1, 1]; yscale=log10, xlabel = "epoch", ylabel="loss")
+    ax = Makie.Axis(fig[1, 1]; yscale=yscale, xlabel = "epoch", ylabel="loss")
     Makie.lines!(ax, loss; color = :grey25,label="Training Loss")
     on(loss) do _
         autolimits!(ax)
