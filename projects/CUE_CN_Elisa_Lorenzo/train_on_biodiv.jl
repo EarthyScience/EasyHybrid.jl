@@ -58,8 +58,8 @@ end
 mean_Resp = Float32(mean(sdf[!, :Resp]))
 mean_MinN = Float32(mean(sdf[!, :MinN]))
 
-sdf[!, :Resp] .= sdf[!, :Resp] ./ mean_Resp
-sdf[!, :MinN] .= sdf[!, :MinN] ./ mean_MinN
+sdf[!, :Resp] .= sdf[!, :Resp] #./ mean_Resp
+sdf[!, :MinN] .= sdf[!, :MinN] #./ mean_MinN
 
 mean(sdf[!, :Resp])
 mean(sdf[!, :MinN])
@@ -77,29 +77,30 @@ parameters = (
     gamma0 = (0.5f-2,     1f-3,   0.1f0),  
     CUE = (0.3f0,     1f-3,   1f0),  
     CNmic = (6f0,     1f0,   20f0),  
+    scale = (1f0,     1f-3,   1f3),  
 )
 
 parameter_container = build_parameters(parameters, CUECNParams)
 
-function CUE_CN(; CS, CB, CN_CS, k0, gamma0, CUE, CNmic)
+function CUE_CN(; CS, CB, CN_CS, k0, gamma0, CUE, CNmic, scale)
 
     # Calculate respiration
-    Resp = (1.0f0 .- CUE) .* k0 .* CS .* CB .^ gamma0 ./ mean_Resp
+    Resp = (1.0f0 .- CUE) .* k0 .* CS .* CB .^ gamma0 .* scale
     # Calculate mineralization
-    MinN = k0 .* CS .* CB .^ gamma0 .* (1.0f0 ./ CN_CS .- CUE ./ CNmic) ./ mean_MinN  
+    MinN = k0 .* CS .* CB .^ gamma0 .* (1.0f0 ./ CN_CS .- CUE ./ CNmic)  
     
 
     # Return results
-    return (; Resp, MinN, CUE, CNmic, k0, gamma0)
+    return (; Resp, MinN, CUE, CNmic, k0, gamma0, scale)
 
 end   
 
 # -----------------------------------------------------------------------------
 # Neural parameters
 # -----------------------------------------------------------------------------
-neural_param_names = [:CUE, :CNmic, :k0, :gamma0]
-global_param_names = []
-targets = [:Resp]
+neural_param_names = [:CUE, :CNmic]
+global_param_names = [:scale, :k0, :gamma0]
+targets = [:Resp, :MinN]
 
 hybrid_model = constructHybridModel(
     predictors,
@@ -110,7 +111,7 @@ hybrid_model = constructHybridModel(
     neural_param_names,
     global_param_names,
     scale_nn_outputs = true,
-    hidden_layers = [128, 32],
+    hidden_layers = [256, 128, 64, 32],
     activation = tanh,
     input_batchnorm = true
 )
@@ -119,7 +120,7 @@ out = train(
     hybrid_model,
     ds_keyed,
     ();
-    nepochs        = 100,
+    nepochs        = 1000,
     batchsize      = 32,
     opt            = AdamW(0.01),
     loss_types     = [:mse, :nse],
