@@ -67,8 +67,8 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     end
 
     if !isnothing(ext)
-        ax = EasyHybrid.plot_loss(train_h_obs)
-        EasyHybrid.plot_loss!(ax, val_h_obs)
+        EasyHybrid.plot_loss(train_h_obs)
+        EasyHybrid.plot_loss!(val_h_obs)
     end
     # track physical parameters
     ps_values_init = [copy(getproperty(ps, e)[1]) for e in save_ps]

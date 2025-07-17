@@ -109,12 +109,12 @@ function EasyHybrid.plot_loss(loss)
     display(fig; title="EasyHybrid.jl", focus_on_show = true)
 end
 
-function EasyHybrid.plot_loss!(ax, loss)
+function EasyHybrid.plot_loss!(loss)
     if nameof(Makie.current_backend()) == :WGLMakie # TODO for our CPU cluster - alternatives?
         sleep(2.0) 
     end
     ax = Makie.current_axis()
-    Makie.lines!(ax, loss; color = :blue, label="Validation Loss")
+    Makie.lines!(ax, loss; color = :tomato, label="Validation Loss")
     Makie.axislegend(ax; position=:rt)
 end
 
