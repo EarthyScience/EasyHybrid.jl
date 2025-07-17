@@ -111,3 +111,18 @@ plt = histogram2d(
     size = (460, 400)
 )   
 savefig(plt, joinpath(@__DIR__, "./eval/00_truth_BD.vs.SOCconc.png"))
+
+# check distribution of BD, SOCconc, CF
+for col in ["BD", "SOCconc", "CF"]
+    values = log10.(df[:, col])
+    histogram(
+        values;
+        bins = 50,
+        xlabel = col,
+        ylabel = "Frequency",
+        title = "Histogram of $col",
+        lw = 1,
+        legend = false
+    )
+    savefig(joinpath(@__DIR__, "./eval/histogram_$col.png"))
+end

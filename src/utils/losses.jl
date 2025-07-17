@@ -45,12 +45,26 @@ end
 """
     lossfn(NN::NaiveNN, ds, y, ps, st)
 """
+function l2sum(x)
+    s = 0.0
+    for v in values(x)
+        if isa(v, AbstractArray)
+            if ndims(v) > 1 || size(v, 1) > 1  # only weights
+                s += sum(abs2, v)
+            end
+        elseif isa(v, NamedTuple)
+            s += l2sum(v)
+        end
+    end
+    return s
+end
 function lossfn(NN::Lux.Chain, ds_p, (ds_t, ds_t_nan), ps, st)
     ŷ, _ = NN(ds_p, ps, st) 
     y = Matrix(ds_t) 
-
     diff2 = (ŷ .- y).^2
-    return mean(diff2[ds_t_nan])
+    mse = mean(diff2[ds_t_nan])
+
+    return mse #+ 0.0001 * l2sum(ps)
 end
 
 """

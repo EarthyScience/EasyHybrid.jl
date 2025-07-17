@@ -20,35 +20,44 @@ using Plots
 testid = "02_multivariate"
 
 # input
-df = CSV.read(joinpath(@__DIR__, "./data/lucas_preprocessed.csv"), DataFrame, normalizenames=true)
-df_d = dropmissing(df) # complete SOCD
+df = CSV.read(joinpath(@__DIR__, "./data/lucas_preprocessed.csv"), DataFrame, normalizenames=true);
+df_d = dropmissing(df); # complete SOCD
 
 # BD g/cm3 [0,2.2], SOCconc [0,1], CF [0,1], SOCdensity ton/m3
-target_names1 = [:BD, :SOCconc, :CF]
-target_names2 = [:BD, :SOCconc, :CF, :SOCdensity]
-names_cov = Symbol.(names(df_d))[4:end-1]
+target_names1 = [:BD, :SOCconc, :CF];
+target_names2 = [:BD, :SOCconc, :CF, :SOCdensity];
+names_cov = Symbol.(names(df_d))[4:end-1];
 ds_all = to_keyedArray(df_d);
 ds_p = ds_all(names_cov);
- ds_t =  ds_all(target_names1)
-
+ds_t =  ds_all(target_names1);
 
 # mimic the one in BulkDensitySOC
-nfeatures = length(names_cov)
-p_dropout = 0.2
+nfeatures = length(names_cov);
+p_dropout = 0.2;
 NN = Chain(
     Dense(nfeatures, 256, sigmoid), 
-    Dropout(p_dropout),
+    # Dropout(p_dropout),
     Dense(256, 128, sigmoid),       
-    Dropout(p_dropout),
+    # Dropout(p_dropout),
     Dense(128,  64, sigmoid),       
-    Dropout(p_dropout),
+    # Dropout(p_dropout),
     Dense( 64,  32, sigmoid),       
-    Dropout(p_dropout),
+    # Dropout(p_dropout),
     Dense( 32,   3),   # raw
     x -> cat(x[1:1, :], sigmoid.(x[2:3, :]); dims=1)  # BD stays the same, SOCconc and CF are sigmoid  
-)
+);
 
 result = train(NN, (ds_p, ds_t), (); nepochs=100, batchsize=32, opt=AdaMax(0.01));
+
+# converge
+train_loss = result.train_history
+val_loss   = result.val_history
+epochs = 0:length(train_loss)-1
+Plots.plot(epochs, train_loss; label = "Train Loss", lw=2, yscale = :log10)
+Plots.plot!(epochs, val_loss;   label = "Validation Loss", lw=2, yscale = :log10)
+Plots.xlabel!("Epoch")
+Plots.ylabel!("Loss")
+savefig(joinpath(@__DIR__, "./eval/$(testid)_converge.png"));
 
 # eval
 using AxisKeys
@@ -65,17 +74,20 @@ for k in target_names1
     mae    = mean(abs.(pred_vec .- true_vec))
     bias   = mean(pred_vec .- true_vec)
 
+    log_true = log10.(true_vec)
+    log_pred = log10.(pred_vec)
+
     plt = histogram2d(
-        true_vec, pred_vec;
+        log_true, log_pred;
         nbins     = (30, 30),
         cbar      = true,
         xlab      = "True",
         ylab      = "Predicted",
         title     = "$k\nR2=$(round(r2, digits=3)),MAE=$(round(mae, digits=3)),bias=$(round(bias, digits=3))",
         color     = cgrad(:bamako, rev = true),
-        normalize = false,
+        normalize = false
     )
-    lims = extrema(vcat(true_vec, pred_vec))
+    lims = extrema(vcat(log_true, log_pred))
     Plots.plot!(plt,
         [lims[1], lims[2]], [lims[1], lims[2]];
         color=:black, linewidth=2, label="1:1 line",
