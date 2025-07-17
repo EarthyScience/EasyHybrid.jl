@@ -194,7 +194,7 @@ out = train(
     ds_keyed,
     ();
     nepochs        = 100,
-    batchsize      = 32,
+    batchsize      = 128,
     opt            = AdamW(0.01),
     loss_types     = [:mse, :nse],
     training_loss  = :nse,
@@ -205,7 +205,7 @@ out = train(
 
 θ_pred = out.val_obs_pred[!, Symbol(string(:CUE, "_pred"))]
 θ_obs = out.val_obs_pred[!, :CUE]
-EasyHybrid.poplot(θ_pred, θ_obs, "Neural parameters")
+EasyHybrid.poplot(θ_pred, θ_obs, "CUE")
 
 θ_pred = out.val_obs_pred[!, Symbol(string(:Growth, "_pred"))]
 θ_obs = out.val_obs_pred[!, :Growth]
