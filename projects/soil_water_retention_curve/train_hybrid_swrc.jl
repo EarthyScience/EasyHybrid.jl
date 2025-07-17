@@ -103,6 +103,10 @@ function mechanistic_model(h; θ_s, h_r, h_0, log_α, log_nm1, log_m)
     return mFXW_theta(h, θ_s, h_r, h_0, exp.(log_α), exp.(log_nm1) .+ 1, exp.(log_m))
 end
 
+function mechanistic_model(;h, θ_s, h_r, h_0, log_α, log_nm1, log_m)
+    return mFXW_theta(h, θ_s, h_r, h_0, exp.(log_α), exp.(log_nm1) .+ 1, exp.(log_m))
+end
+
 # KeyedArray version needed for hybrid model
 function mechanistic_model(forcing_data::KeyedArray; kwargs...)
     h = vec(forcing_data([:h]))  # Extract h from forcing data
