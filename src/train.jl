@@ -60,8 +60,15 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
         p = EasyHybrid.to_point2f(0, l_value)
         EasyHybrid.to_obs([p])
     end
+    val_h_obs = if !isnothing(ext)
+        l_value_val = getproperty(getproperty(l_init_val, training_loss), Symbol("$agg"))
+        p_val = EasyHybrid.to_point2f(0, l_value_val)
+        EasyHybrid.to_obs([p_val])
+    end
+
     if !isnothing(ext)
-        EasyHybrid.plot_loss(train_h_obs)
+        ax = EasyHybrid.plot_loss(train_h_obs)
+        EasyHybrid.plot_loss!(ax, val_h_obs)
     end
     # track physical parameters
     ps_values_init = [copy(getproperty(ps, e)[1]) for e in save_ps]
@@ -107,6 +114,10 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
             new_p = EasyHybrid.to_point2f(epoch, l_value)
             push!(train_h_obs[], new_p)
             notify(train_h_obs) 
+            l_value_val = getproperty(getproperty(l_val, training_loss), Symbol("$agg"))
+            new_p_val = EasyHybrid.to_point2f(epoch, l_value_val)
+            push!(val_h_obs[], new_p_val)
+            notify(val_h_obs) 
         end
 
         _headers, paddings = header_and_paddings(getproperty(l_init_train, training_loss))
