@@ -161,7 +161,6 @@ lines!(ax, o_def.RECO)
 lines!(ax, -o_def.GPP)
 linkxaxes!(filter(x -> x isa Makie.Axis, fig.content)...)
 
-fig
 
 
 # =============================================================================

@@ -199,24 +199,20 @@ function prepare_data(hm, data)
         for prop in propertynames(hm)
             if occursin("predictors", string(prop))
                 val = getproperty(hm, prop)
-                if isa(val, Tuple)
-                    append!(predictors_forcing, unique(vcat(values(val)...)))
-                elseif isa(val, AbstractVector)
+                if isa(val, AbstractVector)
                     append!(predictors_forcing, val)
+                elseif isa(val, Union{NamedTuple, Tuple})
+                    append!(predictors_forcing, unique(vcat(values(val)...)))
                 end
             end
         end
         for prop in propertynames(hm)
             if occursin("forcing", string(prop))
                 val = getproperty(hm, prop)
-                println(val)
-                println(typeof(val))
-                if isa(val, Tuple)
-                    println(val)
-                    println(unique(vcat(values(val)...)))
-                    append!(predictors_forcing, unique(vcat(values(val)...)))
-                elseif isa(val, AbstractVector)
+                if isa(val, AbstractVector)
                     append!(predictors_forcing, val)
+                elseif isa(val, Union{Tuple, NamedTuple})
+                    append!(predictors_forcing, unique(vcat(values(val)...)))
                 end
             end
         end
