@@ -124,7 +124,8 @@ out = train(
     loss_types     = [:mse, :nse],
     training_loss  = :nse,
     yscale         = identity,
-    agg            = mean
+    agg            = mean,
+    shuffleobs     = true
 )
 
 # =============================================================================
@@ -185,7 +186,7 @@ hybrid_model = constructHybridModel(
     scale_nn_outputs = true,
     hidden_layers    = [16, 8],
     activation       = sigmoid,
-    input_batchnorm  = true,
+    input_batchnorm  = true
 )
 
 out = train(
@@ -198,5 +199,19 @@ out = train(
     loss_types     = [:mse, :nse],
     training_loss  = :nse,
     yscale         = identity,
-    agg            = mean
+    agg            = mean,
+    shuffleobs     = true
 )
+
+θ_pred = out.val_obs_pred[!, Symbol(string(:CUE, "_pred"))]
+θ_obs = out.val_obs_pred[!, :CUE]
+EasyHybrid.poplot(θ_pred, θ_obs, "Neural parameters")
+
+θ_pred = out.val_obs_pred[!, Symbol(string(:Growth, "_pred"))]
+θ_obs = out.val_obs_pred[!, :Growth]
+EasyHybrid.poplot(θ_pred, θ_obs, "Growth")
+
+θ_pred = out.val_obs_pred[!, Symbol(string(:Respiration, "_pred"))]
+θ_obs = out.val_obs_pred[!, :Respiration]
+EasyHybrid.poplot(θ_pred, θ_obs, "Respiration")
+
