@@ -42,7 +42,7 @@ df = copy(site.timeseries[!, Not(:time, :date)])
 
 # Select target and forcing variables and predictors
 target_FluxPartModel = [:NEE]
-forcing_FluxPartModel = (:SW_IN, :TA)
+forcing_FluxPartModel = [:SW_IN, :TA]
 
 # Define predictors as NamedTuple - this automatically determines neural parameter names
 predictors = (Rb = [:SWC_shallow, :P, :WS, :sine_dayofyear, :cos_dayofyear], 

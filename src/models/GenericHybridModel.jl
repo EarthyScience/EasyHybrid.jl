@@ -31,7 +31,7 @@ end
 struct SingleNNHybridModel
     NN              :: Chain
     predictors      :: Vector{Symbol}
-    forcing         :: NTuple{N,Symbol} where N
+    forcing         :: Vector{Symbol}
     targets         :: Vector{Symbol}
     mechanistic_model :: Function
     parameters      :: AbstractHybridModel
@@ -45,7 +45,7 @@ end
 struct MultiNNHybridModel
     NNs             :: NamedTuple
     predictors      :: NamedTuple
-    forcing         :: NTuple{N,Symbol} where N
+    forcing         :: Vector{Symbol}
     targets         :: Vector{Symbol}
     mechanistic_model :: Function
     parameters      :: AbstractHybridModel
@@ -306,11 +306,7 @@ function (m::SingleNNHybridModel)(ds_k, ps, st)
     end
 
     # 5) unpack forcing data
-    display(ds_k)
-    println(m.forcing)
     forcing_data = unpack_keyedarray(ds_k, m.forcing)
-
-    display(forcing_data)
 
     # 6) merge all parameters
     all_params = merge(scaled_nn_params, global_params, fixed_params)
@@ -327,8 +323,6 @@ end
 
 # Forward pass for MultiNNHybridModel (optimized, no branching)
 function (m::MultiNNHybridModel)(ds_k, ps, st)
-    
-    display(ds_k)   
 
     parameters = m.parameters
 
@@ -386,10 +380,8 @@ function (m::MultiNNHybridModel)(ds_k, ps, st)
     all_params = merge(scaled_nn_params, global_params, fixed_params)
 
     # 6) unpack forcing data
-    println(typeof(m.forcing))
-    display(ds_k)
+
     forcing_data = unpack_keyedarray(ds_k, m.forcing)
-    println(typeof(forcing_data))
     all_kwargs = merge(forcing_data, all_params)
     
     # 7) Apply mechanistic model
