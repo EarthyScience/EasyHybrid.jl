@@ -69,7 +69,7 @@ for h in hidden_configs, bs in batch_sizes, lr in lrs, act in activations
         nn,
         ka,                 
         ();
-        nepochs = 200,
+        nepochs = 20,
         batchsize = bs,
         opt = AdamW(lr),
         training_loss = :mse,
@@ -79,14 +79,10 @@ for h in hidden_configs, bs in batch_sizes, lr in lrs, act in activations
     )
 
     # metrics
-    best_epoch = argmax([vh.r2.sum for vh in result.val_history])
+    best_epoch = argmax(map(vh -> vh.r2.sum, result.val_history)) # flatten then arg
     best_val = result.val_history[best_epoch]
 
-    vh = result.val_history[1]
-    @show vh
-    @show vh.r2
-
-    push!(results, (h, bs, lr, act, best_val.r2, best_val.mse, best_epoch))
+    push!(results, (h, bs, lr, act,best_val.r2.sum,best_val.mse.sum,best_epoch[1]))
 end
 
 
