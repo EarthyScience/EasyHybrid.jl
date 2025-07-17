@@ -262,7 +262,8 @@ end
 function (m::SingleNNHybridModel)(ds_k, ps, st)
     # 1) get features
     predictors = ds_k(m.predictors) 
-    forcing_data = ds_k(m.forcing)
+    #forcing_data = ds_k(m.forcing)
+    #println(m.forcing)
     parameters = m.parameters
 
     # 2) scale global parameters (handle empty case)
@@ -308,7 +309,7 @@ function (m::SingleNNHybridModel)(ds_k, ps, st)
     all_params = merge(scaled_nn_params, global_params, fixed_params)
 
     # 5) physics
-    y_pred = m.mechanistic_model(forcing_data; all_params...)
+    y_pred = m.mechanistic_model(; all_params...)
 
     out = (;y_pred..., parameters = all_params)
     st_new = (; st = st_NN, fixed = st.fixed)
