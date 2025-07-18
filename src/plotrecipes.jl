@@ -14,3 +14,5 @@ function plot_loss end
 function plot_loss! end
 function to_obs end
 function to_point2f end
+
+function dashboard end

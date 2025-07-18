@@ -98,6 +98,25 @@ function EasyHybrid.plot_pred_vs_obs!(ax, pred, obs, title_prefix)
     Makie.axislegend(ax; position=:lt)
 end
 
+function EasyHybrid.dashboard(loss_train, loss_val, ŷ_train, y_train, ŷ_val, y_val, yscale, targets)
+    fig = Makie.Figure(; size=(900, 600))
+    ax1 = Makie.Axis(fig[1, 1]; yscale=yscale, xlabel = "epoch", ylabel="loss")
+    Makie.lines!(ax1, loss_train; color = :grey25,label="training")
+    Makie.lines!(ax1, loss_val; color = :tomato, label="validation")
+    Makie.Legend(fig[1, 1, Top()], ax1; orientation=:horizontal, halign=:right)
+    # predictions vs observations
+    ax2 = Makie.Axis(fig[2, 1])
+    Makie.series!(ax2, y_train; color = [:grey25], labels = string.(targets), linewidth=0.65)
+    Makie.series!(ax2, ŷ_train; color = [:tomato], labels = "pred_" .* string.(targets), linewidth=1)
+    Makie.Legend(fig[2, 1, Top()], ax2; orientation=:horizontal, halign=:right)
+
+    on(loss_train) do _
+        autolimits!(ax1)
+    end
+
+    display(fig; title="EasyHybrid.jl", focus_on_show = true)
+end
+
 function EasyHybrid.plot_loss(loss, yscale)
     fig = Makie.Figure()
     ax = Makie.Axis(fig[1, 1]; yscale=yscale, xlabel = "epoch", ylabel="loss")

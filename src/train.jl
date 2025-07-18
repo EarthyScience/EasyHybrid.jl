@@ -45,12 +45,17 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     opt_state = Optimisers.setup(opt, ps)
 
     # ? initial losses
+    target_names = hybridModel.targets
+
     is_no_nan_t = .!isnan.(y_train)
     is_no_nan_v = .!isnan.(y_val)
-    l_init_train = lossfn(hybridModel, x_train, (y_train, is_no_nan_t), ps, LuxCore.testmode(st),
-        LoggingLoss(train_mode=false, loss_types=loss_types, training_loss=training_loss, agg=agg))[1]
-    l_init_val = lossfn(hybridModel, x_val, (y_val, is_no_nan_v), ps, LuxCore.testmode(st),
-        LoggingLoss(train_mode=false, loss_types=loss_types, training_loss=training_loss, agg=agg))[1]
+    l_init_train, _, init_ŷ_train = lossfn(hybridModel, x_train, (y_train, is_no_nan_t), ps, LuxCore.testmode(st),
+        LoggingLoss(train_mode=false, loss_types=loss_types, training_loss=training_loss, agg=agg))
+    l_init_val, _, init_ŷ_val = lossfn(hybridModel, x_val, (y_val, is_no_nan_v), ps, LuxCore.testmode(st),
+        LoggingLoss(train_mode=false, loss_types=loss_types, training_loss=training_loss, agg=agg))
+    
+    # @show size(init_ŷ_train[hybridModel.targets[1]])
+    # @show size(y_train(hybridModel.targets))
 
     train_history = [l_init_train]
     val_history = [l_init_val]
@@ -66,10 +71,20 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
         EasyHybrid.to_obs([p_val])
     end
 
-    if !isnothing(ext)
-        EasyHybrid.plot_loss(train_h_obs, yscale)
-        EasyHybrid.plot_loss!(val_h_obs)
+    ŷ_train_obs = if !isnothing(ext)
+        EasyHybrid.to_obs(init_ŷ_train[hybridModel.targets[1]])
     end
+
+    if !isnothing(ext)
+        EasyHybrid.dashboard(train_h_obs, val_h_obs, ŷ_train_obs, y_train, init_ŷ_val, y_val, yscale, target_names)
+    end
+    
+    # if !isnothing(ext)
+    #     EasyHybrid.plot_loss(train_h_obs, yscale)
+    #     EasyHybrid.plot_loss!(val_h_obs)
+    # end
+
+
     # track physical parameters
     ps_values_init = [copy(getproperty(ps, e)[1]) for e in save_ps]
     ps_init = NamedTuple{save_ps}(ps_values_init)
@@ -99,10 +114,11 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
         tmp_e = NamedTuple{save_ps}(ps_values)
         push!(ps_history, tmp_e)
 
-        l_train = lossfn(hybridModel, x_train,  (y_train, is_no_nan_t), ps, LuxCore.testmode(st),
-            LoggingLoss(train_mode=false, loss_types=loss_types, training_loss=training_loss, agg=agg))[1]
-        l_val = lossfn(hybridModel, x_val, (y_val, is_no_nan_v), ps, LuxCore.testmode(st),
-            LoggingLoss(train_mode=false, loss_types=loss_types, training_loss=training_loss, agg=agg))[1]
+        l_train, _, current_ŷ_train = lossfn(hybridModel, x_train,  (y_train, is_no_nan_t), ps, LuxCore.testmode(st),
+            LoggingLoss(train_mode=false, loss_types=loss_types, training_loss=training_loss, agg=agg))
+        l_val, _, current_ŷ_val = lossfn(hybridModel, x_val, (y_val, is_no_nan_v), ps, LuxCore.testmode(st),
+            LoggingLoss(train_mode=false, loss_types=loss_types, training_loss=training_loss, agg=agg))
+
         save_train_val_loss!(file_name, l_train, "training_loss", epoch)
         save_train_val_loss!(file_name, l_val, "validation_loss", epoch)
         
@@ -117,7 +133,10 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
             l_value_val = getproperty(getproperty(l_val, training_loss), Symbol("$agg"))
             new_p_val = EasyHybrid.to_point2f(epoch, l_value_val)
             push!(val_h_obs[], new_p_val)
-            notify(val_h_obs) 
+            notify(val_h_obs)
+            # predictions
+            new_ŷ_train_value = current_ŷ_train[hybridModel.targets[1]]
+            ŷ_train_obs[] = new_ŷ_train_value
         end
 
         _headers, paddings = header_and_paddings(getproperty(l_init_train, training_loss))
