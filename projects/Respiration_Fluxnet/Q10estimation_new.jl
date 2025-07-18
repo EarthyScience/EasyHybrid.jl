@@ -2,9 +2,10 @@
 # Setup and Data Loading
 # =============================================================================
 using Pkg
-Pkg.activate("projects/Respiration_Fluxnet")
+project_path = "projects/Respiration_Fluxnet"
+Pkg.activate(project_path)
 
-manifest_path = joinpath(pwd(), "Manifest.toml")
+manifest_path = joinpath(project_path, "Manifest.toml")
 if !isfile(manifest_path)
     Pkg.develop(path=pwd())
     Pkg.instantiate()
@@ -13,6 +14,7 @@ end
 # start using the package
 using EasyHybrid
 using AxisKeys
+using WGLMakie
 
 include("Data/load_data.jl")
 
@@ -23,7 +25,7 @@ include("Data/load_data.jl")
 # copy data to data/data20240123/ from here /Net/Groups/BGI/work_4/scratch/jnelson/4Sinikka/data20240123
 # or adjust the path to /Net/Groups/BGI/work_4/scratch/jnelson/4Sinikka/data20240123 + FluxNetSite
 
-site = load_fluxnet_nc(joinpath(@__DIR__, "Data", "data20240123", "US-SRG.nc"), timevar="date")
+site = load_fluxnet_nc(joinpath(project_path, "Data", "data20240123", "US-SRG.nc"), timevar="date")
 
 site.timeseries.dayofyear = dayofyear.(site.timeseries.time)
 site.timeseries.sine_dayofyear = sin.(site.timeseries.dayofyear)
@@ -131,25 +133,14 @@ function dispatch_on_keyedarray(f)
     return new_f
 end
 
-rtz = Symbol.(axiskeys(ds_keyed_FluxPartModel)[1])
-ert = unpack_keyedarray(ds_keyed_FluxPartModel, rtz)	
-
-unpack_keyedarray(ds_keyed_FluxPartModel, forcing_FluxPartModel)
-
-ds_keyed_FluxPartModel([:SW_IN])
-
-fff = dispatch_on_keyedarray(flux_part_mechanistic_model)
-fff(ds_keyed_FluxPartModel, parameter_container)
-
+mech_model = dispatch_on_keyedarray(flux_part_mechanistic_model)
 
 # =============================================================================
 # Plot with defaults
 # =============================================================================
 
-o_def = fff(ds_keyed_FluxPartModel, parameter_container)
+o_def = mech_model(ds_keyed_FluxPartModel, parameter_container)
 
-using WGLMakie
-#WGLMakie.activate!(inline=false)
 fig = Figure()
 ax = Makie.Axis(fig[1, 1], title="NEE", xlabel="Time", ylabel="NEE")
 lines!(ax, ds_keyed_FluxPartModel(:NEE))
@@ -160,7 +151,6 @@ ax = Makie.Axis(fig[2, 1], title="RECO, GPP", xlabel="Time", ylabel="RECO, GPP")
 lines!(ax, o_def.RECO)
 lines!(ax, -o_def.GPP)
 linkxaxes!(filter(x -> x isa Makie.Axis, fig.content)...)
-
 
 
 # =============================================================================
@@ -185,7 +175,7 @@ hybrid_model = constructHybridModel(
     predictors,
     forcing_FluxPartModel,
     target_FluxPartModel,
-    flux_part_mechanistic_model,
+    mech_model,
     parameter_container,
     neural_param_names,
     global_param_names,
@@ -210,7 +200,7 @@ dp, dt = EasyHybrid.prepare_data(hybrid_model, ds_keyed_FluxPartModel)
 dp
 
 # Train FluxPartModel
-out_FluxPart = train(hybrid_model, ds_keyed_FluxPartModel, (); nepochs=30, batchsize=512, opt=AdamW(0.01), loss_types=[:mse, :r2], training_loss=:mse, random_seed=123, ps_st=ps_st);
+out_FluxPart = train(hybrid_model, ds_keyed_FluxPartModel, (); nepochs=30, batchsize=512, opt=AdamW(0.01), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, ps_st=ps_st, yscale = identity);
 
 # =============================================================================
 # train hybrid FluxPartModel_Q10_Lux model on NEE to get Q10, GPP, and Reco
@@ -225,14 +215,11 @@ FluxPart = FluxPartModelQ10Lux(NNRUE, NNRb, predictors.RUE, predictors.Rb, forci
 ps_st2[1].Q10 .= Q10start
 
 # Train FluxPartModel
-out_FluxPart = train(FluxPart, ds_keyed_FluxPartModel, (:Q10,); nepochs=30, batchsize=512, opt=AdamW(0.01), loss_types=[:mse, :r2], training_loss=:mse, random_seed=123, ps_st=ps_st2);
+out_FluxPart = train(FluxPart, ds_keyed_FluxPartModel, (:Q10,); nepochs=30, batchsize=512, opt=AdamW(0.01), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, ps_st=ps_st2, yscale = identity);
 
 # =============================================================================
 # Results Visualization
 # =============================================================================
-
-using GLMakie
-GLMakie.activate!(inline=false)
 
 # Plot training results for FluxPartModel
 fig_FluxPart = Figure(size=(1200, 600))
@@ -240,7 +227,7 @@ ax_train = Makie.Axis(fig_FluxPart[1, 1], title="FluxPartModel (New) - Training 
 lines!(ax_train, out_FluxPart.val_obs_pred[!, Symbol(string(:NEE, "_pred"))], color=:orangered, label="prediction")
 lines!(ax_train, out_FluxPart.val_obs_pred[!, :NEE], color=:dodgerblue, label="observation")
 axislegend(ax_train; position=:lt)
-fig_FluxPart
+
 
 # Plot the NEE predictions as scatter plot
 fig_NEE = Figure(size=(800, 600))
@@ -268,4 +255,3 @@ min_val = min(minimum(nee_obs), minimum(nee_pred))
 lines!(ax_NEE, [min_val, max_val], [min_val, max_val], color=:black, linestyle=:dash, linewidth=1, label="1:1 line")
 
 axislegend(ax_NEE; position=:lt)
-fig_NEE
