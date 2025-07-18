@@ -5,6 +5,8 @@ tmp_*
 Manifest.toml
 .DS_Store
 *.csv
+*.nc
+/projects/BulkDSOC/eval/
 
 build/
 node_modules/
@@ -15,3 +17,4 @@ Manifest.toml
 *.pptx
 *.nc
 *.png
+*.xlsx

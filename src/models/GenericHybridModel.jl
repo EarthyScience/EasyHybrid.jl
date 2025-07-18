@@ -64,14 +64,23 @@ function constructHybridModel(
     parameters,
     neural_param_names,
     global_param_names;
-    scale_nn_outputs = true
+    hidden_layers::Union{Vector{Int}, Chain} = [32, 32],
+    activation = tanh,
+    scale_nn_outputs = true,
+    input_batchnorm = false
 )
     all_names = pnames(parameters)
     @assert all(n in all_names for n in neural_param_names) "neural_param_names ⊆ param_names"
     
     # if empty predictors do not construct NN
     if length(predictors) > 0
-        NN = Chain(Dense(length(predictors), 64, tanh), Dense(64, 128, tanh), Dense(128, length(neural_param_names), tanh))
+
+        in_dim  = length(predictors)
+        out_dim = length(neural_param_names)
+    
+        NN = prepare_hidden_chain(hidden_layers, in_dim, out_dim;
+                                  activation = activation,
+                                  input_batchnorm = input_batchnorm)
     else
         NN = Chain()
     end
@@ -89,7 +98,10 @@ function constructHybridModel(
     parameters,
     neural_param_names,
     global_param_names;
-    scale_nn_outputs = true
+    hidden_layers::Union{Vector{Int}, Chain, NamedTuple} = [32, 32],
+    activation::Union{Function, NamedTuple} = tanh,
+    scale_nn_outputs = true,
+    input_batchnorm = false
 )
     all_names = pnames(parameters)
     @assert all(n in all_names for n in neural_param_names) "neural_param_names ⊆ param_names"
@@ -101,12 +113,23 @@ function constructHybridModel(
     NNs = NamedTuple()
     for (nn_name, preds) in pairs(predictors)
         # Create a simple NN for each predictor set
-        nn = Chain(
-            BatchNorm(length(preds), affine=false),
-            Dense(length(preds), 15, sigmoid), 
-            Dense(15, 15, sigmoid), 
-            Dense(15, 1, x -> x^2)  # Output 1 parameter per NN with positive activation
-        )
+        in_dim  = length(preds)
+        out_dim = 1
+        if hidden_layers isa NamedTuple
+            if activation isa NamedTuple
+                nn = prepare_hidden_chain(hidden_layers[nn_name], in_dim, out_dim;
+                                          activation = activation[nn_name],
+                                          input_batchnorm = input_batchnorm)
+            else
+                nn = prepare_hidden_chain(hidden_layers[nn_name], in_dim, out_dim;
+                                          activation = activation,
+                                          input_batchnorm = input_batchnorm)
+            end
+        else
+            nn = prepare_hidden_chain(hidden_layers, in_dim, out_dim;
+                                      activation = activation,
+                                      input_batchnorm = input_batchnorm)
+        end
         NNs = merge(NNs, NamedTuple{(nn_name,), Tuple{typeof(nn)}}((nn,)))
     end
     
@@ -239,7 +262,7 @@ end
 function (m::SingleNNHybridModel)(ds_k, ps, st)
     # 1) get features
     predictors = ds_k(m.predictors) 
-    forcing_data = ds_k(m.forcing)
+
     parameters = m.parameters
 
     # 2) scale global parameters (handle empty case)
@@ -282,10 +305,15 @@ function (m::SingleNNHybridModel)(ds_k, ps, st)
         fixed_params = NamedTuple()
     end
 
-    all_params = merge(scaled_nn_params, global_params, fixed_params)
+    # 5) unpack forcing data
+    forcing_data = unpack_keyedarray(ds_k, m.forcing)
 
-    # 5) physics
-    y_pred = m.mechanistic_model(forcing_data; all_params...)
+    # 6) merge all parameters
+    all_params = merge(scaled_nn_params, global_params, fixed_params)
+    all_kwargs = merge(forcing_data, all_params)
+
+    # 7) physics
+    y_pred = m.mechanistic_model(; all_kwargs...)
 
     out = (;y_pred..., parameters = all_params)
     st_new = (; st = st_NN, fixed = st.fixed)
@@ -295,13 +323,7 @@ end
 
 # Forward pass for MultiNNHybridModel (optimized, no branching)
 function (m::MultiNNHybridModel)(ds_k, ps, st)
-    # 1) Get features for each neural network
-    nn_inputs = NamedTuple()
-    for (nn_name, predictors) in pairs(m.predictors)
-        nn_inputs = merge(nn_inputs, NamedTuple{(nn_name,), Tuple{typeof(ds_k(predictors))}}((ds_k(predictors),)))
-    end
-    
-    forcing_data = ds_k(m.forcing)
+
     parameters = m.parameters
 
     # 2) Scale global parameters (handle empty case)
@@ -320,7 +342,8 @@ function (m::MultiNNHybridModel)(ds_k, ps, st)
     nn_states = NamedTuple()
     
     for (nn_name, nn) in pairs(m.NNs)
-        nn_out, st_nn = LuxCore.apply(nn, nn_inputs[nn_name], ps[nn_name], st[nn_name])
+        predictors = m.predictors[nn_name]
+        nn_out, st_nn = LuxCore.apply(nn, ds_k(predictors), ps[nn_name], st[nn_name])
         nn_outputs = merge(nn_outputs, NamedTuple{(nn_name,), Tuple{typeof(nn_out)}}((nn_out,)))
         nn_states = merge(nn_states, NamedTuple{(nn_name,), Tuple{typeof(st_nn)}}((st_nn,)))
     end
@@ -328,8 +351,7 @@ function (m::MultiNNHybridModel)(ds_k, ps, st)
     # 4) Scale neural network parameters using the mapping
     scaled_nn_params = NamedTuple()
     for (nn_name, param_name) in zip(keys(m.NNs), m.neural_param_names)
-        nn_output = nn_outputs[nn_name]
-        nn_cols = eachrow(nn_output)
+        nn_cols = eachrow(nn_outputs[nn_name])
         
         # Create parameter for this NN
         nn_param = NamedTuple{(param_name,), Tuple{typeof(nn_cols[1])}}((nn_cols[1],))
@@ -357,8 +379,13 @@ function (m::MultiNNHybridModel)(ds_k, ps, st)
 
     all_params = merge(scaled_nn_params, global_params, fixed_params)
 
-    # 6) Apply mechanistic model
-    y_pred = m.mechanistic_model(forcing_data; all_params...)
+    # 6) unpack forcing data
+
+    forcing_data = unpack_keyedarray(ds_k, m.forcing)
+    all_kwargs = merge(forcing_data, all_params)
+    
+    # 7) Apply mechanistic model
+    y_pred = m.mechanistic_model(; all_kwargs...)
 
     out = (;y_pred..., parameters = all_params, nn_outputs = nn_outputs)
 
@@ -371,6 +398,7 @@ end
 function Base.display(hm::SingleNNHybridModel)
     println("Neural Network: ", hm.NN)
     println("Predictors: ", hm.predictors)
+    println("Forcing: ", hm.forcing)
     println("neural parameters: ", hm.neural_param_names)
     println("global parameters: ", hm.global_param_names)
     println("fixed parameters: ", hm.fixed_param_names)
@@ -389,7 +417,7 @@ function Base.display(hm::MultiNNHybridModel)
     for (name, preds) in pairs(hm.predictors)
         println("  $name: ", preds)
     end
-    
+    println("Forcing: ", hm.forcing)
     println("neural parameters: ", hm.neural_param_names)
     println("global parameters: ", hm.global_param_names)
     println("fixed parameters: ", hm.fixed_param_names)

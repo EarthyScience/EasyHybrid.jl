@@ -77,7 +77,6 @@ Add a prediction vs observed plot to a figure at the specified position.
 function EasyHybrid.poplot!(fig, pred, obs, title_prefix, row::Int, col::Int)
     ax = Makie.Axis(fig[row, col])
     EasyHybrid.plot_pred_vs_obs!(ax, pred, obs, title_prefix)
-    return fig
 end
 
 function EasyHybrid.plot_pred_vs_obs!(ax, pred, obs, title_prefix)
@@ -97,6 +96,33 @@ function EasyHybrid.plot_pred_vs_obs!(ax, pred, obs, title_prefix)
     Makie.lines!(ax, [min_val, max_val], [min_val, max_val], color=:black, linestyle=:dash, linewidth=1, label="1:1 line")
 
     Makie.axislegend(ax; position=:lt)
+end
+
+function EasyHybrid.plot_loss(loss, yscale)
+    fig = Makie.Figure()
+    ax = Makie.Axis(fig[1, 1]; yscale=yscale, xlabel = "epoch", ylabel="loss")
+    Makie.lines!(ax, loss; color = :grey25,label="Training Loss")
+    on(loss) do _
+        autolimits!(ax)
+    end
+    display(fig; title="EasyHybrid.jl", focus_on_show = true)
+end
+
+function EasyHybrid.plot_loss!(loss)
+    if nameof(Makie.current_backend()) == :WGLMakie # TODO for our CPU cluster - alternatives?
+        sleep(2.0) 
+    end
+    ax = Makie.current_axis()
+    Makie.lines!(ax, loss; color = :tomato, label="Validation Loss")
+    Makie.axislegend(ax; position=:rt)
+end
+
+function EasyHybrid.to_obs(o)
+    Makie.Observable(o)
+end
+
+function EasyHybrid.to_point2f(i, p)
+    Makie.Point2f(i, p)
 end
 
 function __init__()
