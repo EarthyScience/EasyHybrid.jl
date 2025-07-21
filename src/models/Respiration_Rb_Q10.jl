@@ -14,7 +14,7 @@ struct RespirationRbQ10{D, T1, T2, T3, T4} <: LuxCore.AbstractLuxContainerLayer{
     targets
     Q10
     function RespirationRbQ10(NN::D, predictors::T1, forcing::T2, targets::T3, Q10::T4) where {D, T1, T2, T3, T4}
-        new{D, T1, T2, T3, T4}(NN, collect(predictors), collect(targets), collect(forcing), [Q10])
+        new{D, T1, T2, T3, T4}(NN, collect(predictors), collect(forcing), collect(targets), [Q10])
     end
 end
 

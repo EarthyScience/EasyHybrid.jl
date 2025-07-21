@@ -98,7 +98,7 @@ ds_keyed_reco = to_keyedArray(Float32.(sdf))
 NN_RbQ10 = Chain(BatchNorm(length(predictors_RbQ10), affine = false), Dense(length(predictors_RbQ10), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1, x -> x^2))
 
 # Instantiate RespirationRbQ10 model
-RbQ10_model = RespirationRbQ10(NN_RbQ10, predictors_RbQ10, (target_RbQ10,), (forcing_RbQ10,), 1.5f0)
+RbQ10_model = RespirationRbQ10(NN_RbQ10, predictors_RbQ10, (forcing_RbQ10,), (target_RbQ10,), 1.5f0)
 
 # ? test lossfn
 ps, st = LuxCore.setup(Random.default_rng(), RbQ10_model)

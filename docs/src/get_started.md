@@ -30,7 +30,7 @@ struct YourHybridModelName{D, T1, T2, T3, T4} <: LuxCore.AbstractLuxContainerLay
   targets
   α
   function YourHybridModelName(NN::D, predictors::T1, forcing::T2, targets::T3, α::T4) where {D, T1, T2, T3, T4}
-      new{D, T1, T2, T3, T4}(NN, collect(predictors), collect(targets), collect(forcing), [α])
+      new{D, T1, T2, T3, T4}(NN, collect(predictors), collect(forcing), collect(targets), [α])
   end
 end
 ```
@@ -76,30 +76,10 @@ function (hm::YourHybridModelName)(dataset_keyed, ps, st)
   # equation! this is where you should focus, your model!
   ŷ = β .* ps.α .^(0.1f0 * (x .- 15.0f0)) # [!code warning]
 
-  return (; ŷ), (; β, st) # always output predictions and states as two tuples
+  return (; your_target_name_variable=ŷ), (; β, st = (; st)) # always output predictions and states as two tuples
 end
 ```
 
 ## Loss function
 
 We provide a generic loss function, if you need further adjustments then define a specific one for your hybrid model.
-
-::: details define a custom loss
-
-What is your approach for optimization?
-
-```julia
-function lossfn(HM::YourHybridModelName, ds_p, (ds_t, ds_t_nan), ps, st)
-  targets = HM.targets
-  ŷ, _ = HM(ds_p, ps, st)
-  y = ds_t(targets)
-  y_nan = ds_t_nan(targets)
-
-  loss = 0.0
-  for k in targets
-      loss += mean(abs2, (ŷ[k][y_nan(k)] .- y(k)[y_nan(k)]))
-  end
-  return loss
-end
-```
-:::
