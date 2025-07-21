@@ -118,24 +118,27 @@ function flux_part_mechanistic_model(;SW_IN, TA, RUE, Rb, Q10)
     return (;NEE, RECO, GPP)
 end
 
-mech_model = dispatch_on_keyedarray(flux_part_mechanistic_model)
+mech_model = construct_dispatch_functions(flux_part_mechanistic_model)
+
+o1 = mech_model(ds_keyed_FluxPartModel, parameter_container, [:SW_IN, :TA])
+o2 = mech_model(df, parameter_container, [:SW_IN, :TA])
 
 # =============================================================================
 # Plot with defaults
 # =============================================================================
 
-o_def = mech_model(ds_keyed_FluxPartModel, parameter_container)
-
-using WGLMakie
 fig = Figure()
+if nameof(Makie.current_backend()) == :WGLMakie # TODO for our CPU cluster - alternatives?
+    sleep(2.0) 
+end
 ax = Makie.Axis(fig[1, 1], title="NEE", xlabel="Time", ylabel="NEE")
-lines!(ax, ds_keyed_FluxPartModel(:NEE))
-lines!(ax, o_def.NEE)
+lines!(ax, df[!, :NEE])
+lines!(ax, o1.NEE)
 hidexdecorations!(ax)
 
 ax = Makie.Axis(fig[2, 1], title="RECO, GPP", xlabel="Time", ylabel="RECO, GPP")
-lines!(ax, o_def.RECO)
-lines!(ax, -o_def.GPP)
+lines!(ax, o1.RECO)
+lines!(ax, -o1.GPP)
 linkxaxes!(filter(x -> x isa Makie.Axis, fig.content)...)
 
 
