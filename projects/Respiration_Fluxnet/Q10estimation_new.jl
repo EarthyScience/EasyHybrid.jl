@@ -118,21 +118,6 @@ function flux_part_mechanistic_model(;SW_IN, TA, RUE, Rb, Q10)
     return (;NEE, RECO, GPP)
 end
 
-function dispatch_on_keyedarray(f)
-    function new_f end  # Create a new generic function
-
-    function new_f(forcing_data::KeyedArray, parameter_container::AbstractHybridModel)
-        forcing = unpack_keyedarray(forcing_data, [:SW_IN, :TA])
-        f(;forcing..., values(default(parameter_container))...)
-    end
-
-    function new_f(;kwargs...)
-        f(;kwargs...)
-    end
-
-    return new_f
-end
-
 mech_model = dispatch_on_keyedarray(flux_part_mechanistic_model)
 
 # =============================================================================
@@ -165,9 +150,6 @@ target_FluxPartModel
 # recall predictors
 predictors
 
-# Neural parameter names are automatically determined from predictor names
-neural_param_names = collect(keys(predictors))
-
 # Define global parameters (none for this model, Q10 is fixed)
 global_param_names = [:Q10]
 
@@ -178,7 +160,6 @@ hybrid_model = constructHybridModel(
     target_FluxPartModel,
     mech_model,
     parameter_container,
-    neural_param_names,
     global_param_names,
     scale_nn_outputs=false,
     hidden_layers = [15, 15],
