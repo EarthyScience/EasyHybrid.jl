@@ -141,6 +141,7 @@ mech_model = dispatch_on_keyedarray(flux_part_mechanistic_model)
 
 o_def = mech_model(ds_keyed_FluxPartModel, parameter_container)
 
+using WGLMakie
 fig = Figure()
 ax = Makie.Axis(fig[1, 1], title="NEE", xlabel="Time", ylabel="NEE")
 lines!(ax, ds_keyed_FluxPartModel(:NEE))
@@ -200,7 +201,7 @@ dp, dt = EasyHybrid.prepare_data(hybrid_model, ds_keyed_FluxPartModel)
 dp
 
 # Train FluxPartModel
-out_FluxPart = train(hybrid_model, ds_keyed_FluxPartModel, (); nepochs=30, batchsize=512, opt=AdamW(0.01), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, ps_st=ps_st, yscale = identity);
+out_FluxPart = train(hybrid_model, df, (); nepochs=30, batchsize=512, opt=AdamW(0.01), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, ps_st=ps_st, yscale = identity);
 
 # =============================================================================
 # train hybrid FluxPartModel_Q10_Lux model on NEE to get Q10, GPP, and Reco
