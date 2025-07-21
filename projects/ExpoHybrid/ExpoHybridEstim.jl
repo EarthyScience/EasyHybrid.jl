@@ -2,9 +2,10 @@
 # Setup and Data Loading
 # =============================================================================
 using Pkg
-Pkg.activate("projects/ExpoHybrid.jl")
+project_path = "projects/ExpoHybrid"
+Pkg.activate(project_path)
 
-manifest_path = joinpath(pwd(), "Manifest.toml")
+manifest_path = joinpath(project_path, "Manifest.toml")
 if !isfile(manifest_path)
     Pkg.develop(path=pwd())
     Pkg.instantiate()
@@ -12,8 +13,8 @@ end
 
 # start using the package
 using EasyHybrid
-using AxisKeys
-using DataFrameMacros
+using EasyHybrid.AxisKeys
+using EasyHybrid.DataFrameMacros
 using GLMakie, AlgebraOfGraphics
 using Chain: @chain as @c
 
@@ -97,6 +98,11 @@ df = DataFrame(; T, SM, SM_fac, Resp0, Resp, Resp_obs)
 # =============================================================================
 # Targets, Forcing and Predictors definition
 # =============================================================================
+parameters = (
+    #       default lower  upper 
+    k =     (0.01f0, 0.0f0, 0.2f0),   # Exponent
+    Resp0 = (2.0f0, 0.0f0, 100.0f0),  # Basal respiration [μmol/m²/s]
+)
 
 # Select target and forcing variables and predictors
 targets = [:Resp_obs]
