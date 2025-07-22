@@ -68,7 +68,7 @@ function constructHybridModel(
     global_param_names;
     hidden_layers::Union{Vector{Int}, Chain} = [32, 32],
     activation = tanh,
-    scale_nn_outputs = true,
+    scale_nn_outputs = false,
     input_batchnorm = false
 )
     all_names = pnames(parameters)
@@ -101,7 +101,7 @@ function constructHybridModel(
     global_param_names;
     hidden_layers::Union{Vector{Int}, Chain, NamedTuple} = [32, 32],
     activation::Union{Function, NamedTuple} = tanh,
-    scale_nn_outputs = true,
+    scale_nn_outputs = false,
     input_batchnorm = false,
     start_from_default = true
 )
