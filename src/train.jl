@@ -1,4 +1,19 @@
-export train
+export train, TrainResults
+
+# beneficial for plotting based on type TrainResults?
+struct TrainResults
+    train_history
+    val_history
+    ps_history
+    train_obs_pred
+    val_obs_pred
+    train_diffs
+    val_diffs
+    αst_train
+    αst_val
+    ps
+    st
+end
 
 """
     train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0.01), file_name=nothing, loss_types=[:mse, :mae], training_loss=:mse, agg=sum)
@@ -16,9 +31,13 @@ Train a hybrid model using the provided data and save the training process to a 
 - `loss_types`: A vector of loss types to compute during training (default: `[:mse, :mae]`).
 - `training_loss`: The loss type to use during training (default: `:mse`).
 - `agg`: The aggregation function to apply to the computed losses (default: `sum`).
+- `train_from`: A tuple of physical parameters and state to start training from or an output of `train` (default: nothing-> new training).
+- `random_seed`: The random seed to use for training (default: nothing-> no seed).
+- `shuffleobs`: Whether to shuffle the training data (default: false).
+- `yscale`: The scale to apply to the y-axis (default: `log10`).
 """
 function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0.01),
-    file_name=nothing, loss_types=[:mse, :r2], training_loss=:mse, agg=sum, ps_st = nothing, random_seed=nothing, shuffleobs = false, yscale=log10)
+    file_name=nothing, loss_types=[:mse, :r2], training_loss=:mse, agg=sum, train_from = nothing, random_seed=nothing, shuffleobs = false, yscale=log10)
     #! check if the EasyHybridMakie extension is loaded.
     ext = Base.get_extension(@__MODULE__, :EasyHybridMakie)
     if ext === nothing
@@ -36,10 +55,10 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     (x_train, y_train), (x_val, y_val) = splitobs(data_; at=0.8, shuffle=shuffleobs)
     train_loader = DataLoader((x_train, y_train), batchsize=batchsize, shuffle=true);
 
-    if isnothing(ps_st)
+    if isnothing(train_from)
         ps, st = LuxCore.setup(Random.default_rng(), hybridModel)
     else
-        ps, st = ps_st
+        ps, st = get_ps_st(train_from)
     end
 
     opt_state = Optimisers.setup(opt, ps)
@@ -166,8 +185,19 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     val_diffs = !isempty(set_diff) ? NamedTuple{Tuple(set_diff)}([getproperty(ŷ_val, e) for e in set_diff]) : nothing
 
     # TODO: save/output metrics
-
-    return (; train_history, val_history, ps_history, train_obs_pred, val_obs_pred, train_diffs, val_diffs, αst_train, αst_val, ps, st)
+    return TrainResults(
+        train_history,
+        val_history,
+        ps_history,
+        train_obs_pred,
+        val_obs_pred,
+        train_diffs,
+        val_diffs,
+        αst_train,
+        αst_val,
+        ps,
+        st
+    )
 end
 
 function styled_values(nt; digits=5, color=nothing, paddings=nothing)
@@ -268,4 +298,12 @@ function prepare_data(hm, data::KeyedArray)
 
 function prepare_data(hm, data::Tuple)
     return data
+end
+
+function get_ps_st(train_from::TrainResults)
+    return train_from.ps, train_from.st
+end
+
+function get_ps_st(train_from::Tuple)
+    return train_from
 end
