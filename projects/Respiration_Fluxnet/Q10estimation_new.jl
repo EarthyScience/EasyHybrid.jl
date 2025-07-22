@@ -157,7 +157,7 @@ ps_st2 = deepcopy(ps_st)
 hybrid_model(ds_keyed_FluxPartModel, ps, st)
 
 # Train FluxPartModel
-out_Generic = train(hybrid_model, df, (); nepochs=30, batchsize=512, opt=AdamW(0.01), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, ps_st=ps_st, yscale = identity);
+out_Generic = train(hybrid_model, df, (); nepochs=30, batchsize=512, opt=AdamW(0.01), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, train_from=ps_st, yscale = identity);
 
 # =============================================================================
 # train hybrid FluxPartModel_Q10_Lux model on NEE to get Q10, GPP, and Reco
@@ -171,7 +171,7 @@ FluxPart = FluxPartModelQ10Lux(NNRUE, NNRb, predictors.RUE, predictors.Rb, forci
 ps_st2[1].Q10 .= Q10start
 
 # Train FluxPartModel
-out_Individual = train(FluxPart, ds_keyed_FluxPartModel, (:Q10,); nepochs=30, batchsize=512, opt=AdamW(0.01), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, ps_st=ps_st2, yscale = identity);
+out_Individual = train(FluxPart, ds_keyed_FluxPartModel, (:Q10,); nepochs=30, batchsize=512, opt=AdamW(0.01), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, train_from=ps_st2, yscale = identity);
 
 # =============================================================================
 # Results Visualization
