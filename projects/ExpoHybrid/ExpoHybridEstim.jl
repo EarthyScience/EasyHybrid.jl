@@ -18,61 +18,21 @@ using EasyHybrid.DataFrameMacros
 using GLMakie, AlgebraOfGraphics
 using Chain: @chain as @c
 
+struct ExpoHybParams <: AbstractHybridModel 
+    hybrid::EasyHybrid.ParameterContainer
+end
 
-function fit_df(df, mech_model; glob_params=[:k], from_result=nothing, 
-    parameters = (
+parameters = (
     #            default                  lower                     upper                description
     k      = ( 0.01f0,                  0.0f0,                   0.2f0 ),            # Exponent
-    Resp0       = ( 2.0f0,                  0.0f0,                   100.0f0 ),            # Basal respiration [μmol/m²/s]
-),  targets=[:Resp_obs], forcings=[:T], predictors=(Resp0=[:SM]), 
-    nepochs=300, batchsize=64, opt=AdamW(0.1), loss_types=[:mse, :r2], training_loss=:mse, random_seed=123)
-    
-    all_predictor_cols = unique(vcat(values(predictors)...))
-    col_to_select = unique([all_predictor_cols..., forcings..., targets...])
-    neural_param_names = collect(keys(predictors))
-    parameter_container = build_parameters(parameters, ExpoHybParams)
+    Resp0  = ( 2.0f0,                   0.0f0,                   8.0f0 ),          # Basal respiration [μmol/m²/s]
+)
 
-# select columns and drop rows with any NaN values
-# !!!MR this is not the best idea, e.g. targets could be missing partially
-    sdf = copy(df[!, col_to_select])
-    dropmissing!(sdf)
-## !!!MR Not clear if this is needed after dropmissing... (maybe disallowmissing! is needed?)
-## MR: shorter: mapcols(col -> replace!(col, missing => NaN), df; cols = names(df, Union{Missing, Real}));
-    for col in names(sdf)
-        T = eltype(sdf[!, col])
-        if T <: Union{Missing, Real} || T <: Real
-            sdf[!, col] = Float64.(coalesce.(sdf[!, col], NaN))
-        end
-    end
+targets = [:Resp_obs]
+forcings = [:T]
+predictors = (Resp0=[:SM],)
 
-    ds_keyed = to_keyedArray(Float32.(sdf))
-
-    hybrid_model = constructHybridModel(
-        predictors,
-        forcings,
-        targets,
-        mech_model,
-        parameter_container,
-        neural_param_names,
-        glob_params,
-        scale_nn_outputs=false,
-        hidden_layers = [8, 8],
-        activation = sigmoid,
-        input_batchnorm = true
-    )
-
-    # Fit the model to the DataFrame
-    if from_result !== nothing
-        ps, st = from_result.result.ps, from_result.result.st
-    else
-        ps, st = LuxCore.setup(Random.default_rng(), hybrid_model)
-    end
-    ps_st = (ps, st)
-    #hm = model(ds_keyed, ps, st)
-    dp, dt = EasyHybrid.prepare_data(hybrid_model, ds_keyed)
-    result = train(hybrid_model, ds_keyed, (); nepochs, batchsize, opt, loss_types, training_loss, random_seed, ps_st=ps_st)
-    return (; hybrid_model, result)
-end
+parameter_container = build_parameters(parameters, ExpoHybParams)
 
 ### Create synthetic data: Resp = Resp0 * exp(k*T); Resp0 = f(SM)
 ##
@@ -94,22 +54,6 @@ df = DataFrame(; T, SM, SM_fac, Resp0, Resp, Resp_obs)
 #scatter!(df.T, df.Resp, label="Synthetic Respiration", color=:red)
 # scatter(df.SM, df.SM_fac, label="Observed Respiration", color=:blue, markersize=3)
 
-##
-# =============================================================================
-# Targets, Forcing and Predictors definition
-# =============================================================================
-parameters = (
-    #       default lower  upper 
-    k =     (0.01f0, 0.0f0, 0.2f0),   # Exponent
-    Resp0 = (2.0f0, 0.0f0, 100.0f0),  # Basal respiration [μmol/m²/s]
-)
-
-# Select target and forcing variables and predictors
-targets = [:Resp_obs]
-forcings = [:T]
-# Define predictors as NamedTuple - this automatically determines neural parameter names
-predictors = (; Resp0 = [:SM])
-#predictors = [:SM]
 # Define global parameters (none for this model, Q10 is fixed)
 global_param_names = [:k]
 
@@ -145,6 +89,22 @@ function Expo_resp_model(;T, Resp0, k)
     return (;Resp_obs, Resp0)
 end    
 
+hybrid_model = constructHybridModel(
+    predictors,
+    forcings,
+    targets,
+    Expo_resp_model,
+    parameter_container,
+    global_param_names,
+    scale_nn_outputs=false,
+    hidden_layers = [16, 16],
+    activation = sigmoid,
+    input_batchnorm = true
+)
+
+out =  train(hybrid_model, df, (); nepochs=300, batchsize=64, opt=AdamW(0.01, (0.9, 0.999), 0.01), loss_types=[:mse, :nse], training_loss=:nse, random_seed=123, yscale = identity)
+
+EasyHybrid.poplot(out.val_obs_pred[!, :Resp_obs], out.val_obs_pred[!, :Resp_obs_pred], "Respiration Predictions vs Observations")
 
 result=fit_df(df, Expo_resp_model; 
     glob_params=global_param_names, 

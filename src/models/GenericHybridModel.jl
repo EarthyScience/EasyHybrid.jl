@@ -243,31 +243,20 @@ pnames(p::AbstractHybridModel) = keys(p.hybrid.table.axes[1])
 """
     scale_single_param(name, raw_val, parameters)
 
-Scale a single parameter using the hard sigmoid scaling function.
+Scale a single parameter using the sigmoid scaling function.
 """
 function scale_single_param(name, raw_val, hm::AbstractHybridModel)
     ℓ = lower(hm)[name]
     u = upper(hm)[name]
-    return ℓ .+ (u .- ℓ) .* hard_sigmoid.(raw_val)
-end
-
-"""
-    scale_single_param_hard(name, raw_val, parameters)
-
-Scale a single parameter using the hard sigmoid scaling function.
-"""
-function scale_single_param_hard(name, raw_val, hm::AbstractHybridModel)
-    ℓ = lower(hm)[name]
-    u = upper(hm)[name]
-    return ℓ .+ (u .- ℓ) .* hard_sigmoid.(raw_val)
+    return ℓ .+ (u .- ℓ) .* sigmoid.(raw_val)
 end
 
 inv_sigmoid(y) = log.(y ./ (1 .- y))
 
-"""
-    scale_single_param_default(name, raw_val, parameters)
+""" 
+    scale_single_param_minmax(name, hm::AbstractHybridModel)
 
-Scale a single parameter using the hard sigmoid scaling function.
+Scale a single parameter using the minmax scaling function.
 """
 function scale_single_param_minmax(name, hm::AbstractHybridModel)
     ℓ = lower(hm)[name]
