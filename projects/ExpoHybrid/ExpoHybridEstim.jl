@@ -96,7 +96,7 @@ hybrid_model = constructHybridModel(
     Expo_resp_model,
     parameter_container,
     global_param_names,
-    scale_nn_outputs=false,
+    scale_nn_outputs=true,
     hidden_layers = [16, 16],
     activation = sigmoid,
     input_batchnorm = true
