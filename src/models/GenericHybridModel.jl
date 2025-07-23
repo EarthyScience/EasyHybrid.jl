@@ -39,6 +39,7 @@ struct SingleNNHybridModel
     global_param_names :: Vector{Symbol}
     fixed_param_names  :: Vector{Symbol}
     scale_nn_outputs  :: Bool
+    start_from_default :: Bool
 end
 
 # Multi-NN Hybrid Model Structure (optimized for performance)
@@ -53,6 +54,7 @@ struct MultiNNHybridModel
     global_param_names :: Vector{Symbol}
     fixed_param_names  :: Vector{Symbol}
     scale_nn_outputs  :: Bool
+    start_from_default :: Bool
 end
 
 # Unified constructor that dispatches based on predictors type
@@ -66,7 +68,7 @@ function constructHybridModel(
     global_param_names;
     hidden_layers::Union{Vector{Int}, Chain} = [32, 32],
     activation = tanh,
-    scale_nn_outputs = true,
+    scale_nn_outputs = false,
     input_batchnorm = false
 )
     all_names = pnames(parameters)
@@ -87,7 +89,7 @@ function constructHybridModel(
     
     fixed_param_names = [ n for n in all_names if !(n in [neural_param_names..., global_param_names...]) ]
     
-    return SingleNNHybridModel(NN, predictors, forcing, targets, mechanistic_model, parameters, neural_param_names, global_param_names, fixed_param_names, scale_nn_outputs)
+    return SingleNNHybridModel(NN, predictors, forcing, targets, mechanistic_model, parameters, neural_param_names, global_param_names, fixed_param_names, scale_nn_outputs, start_from_default)
 end
 
 function constructHybridModel(
@@ -96,19 +98,15 @@ function constructHybridModel(
     targets,
     mechanistic_model,
     parameters,
-    neural_param_names,
     global_param_names;
     hidden_layers::Union{Vector{Int}, Chain, NamedTuple} = [32, 32],
     activation::Union{Function, NamedTuple} = tanh,
-    scale_nn_outputs = true,
-    input_batchnorm = false
+    scale_nn_outputs = false,
+    input_batchnorm = false,
+    start_from_default = true
 )
     all_names = pnames(parameters)
-    @assert all(n in all_names for n in neural_param_names) "neural_param_names ⊆ param_names"
-    
-    # Check that predictor names match neural parameter names
-    @assert collect(keys(predictors)) == neural_param_names "predictor names must match neural parameter names"
-    
+    neural_param_names = collect(keys(predictors))
     # Create neural networks based on predictors
     NNs = NamedTuple()
     for (nn_name, preds) in pairs(predictors)
@@ -135,7 +133,7 @@ function constructHybridModel(
     
     fixed_param_names = [ n for n in all_names if !(n in [neural_param_names..., global_param_names...]) ]
     
-    return MultiNNHybridModel(NNs, predictors, forcing, targets, mechanistic_model, parameters, neural_param_names, global_param_names, fixed_param_names, scale_nn_outputs)
+    return MultiNNHybridModel(NNs, predictors, forcing, targets, mechanistic_model, parameters, neural_param_names, global_param_names, fixed_param_names, scale_nn_outputs, start_from_default)
 end
 
 
@@ -171,9 +169,16 @@ function LuxCore.initialparameters(rng::AbstractRNG, m::MultiNNHybridModel)
     
     # Then append each global parameter as a 1-vector of Float32
     if !isempty(m.global_param_names)
-        for g in m.global_param_names
-            random_val = rand(rng, Float32)
-            nt = merge(nt, NamedTuple{(g,), Tuple{Vector{Float32}}}(([random_val],)))
+        if m.start_from_default
+            for g in m.global_param_names
+                default_val = scale_single_param_minmax(g, m.parameters)
+                nt = merge(nt, NamedTuple{(g,), Tuple{Vector{Float32}}}(([Float32(default_val)],)))
+            end
+        else
+            for g in m.global_param_names
+                random_val = rand(rng, Float32)
+                nt = merge(nt, NamedTuple{(g,), Tuple{Vector{Float32}}}(([random_val],)))
+            end
         end
     end
     
@@ -238,24 +243,27 @@ pnames(p::AbstractHybridModel) = keys(p.hybrid.table.axes[1])
 """
     scale_single_param(name, raw_val, parameters)
 
-Scale a single parameter using the hard sigmoid scaling function.
+Scale a single parameter using the sigmoid scaling function.
 """
 function scale_single_param(name, raw_val, hm::AbstractHybridModel)
     ℓ = lower(hm)[name]
     u = upper(hm)[name]
-    return ℓ .+ (u .- ℓ) .* hard_sigmoid.(raw_val)
+    return ℓ .+ (u .- ℓ) .* sigmoid.(raw_val)
 end
 
-"""
-    scale_single_param_hard(name, raw_val, parameters)
+inv_sigmoid(y) = log.(y ./ (1 .- y))
 
-Scale a single parameter using the hard sigmoid scaling function.
+""" 
+    scale_single_param_minmax(name, hm::AbstractHybridModel)
+
+Scale a single parameter using the minmax scaling function.
 """
-function scale_single_param_hard(name, raw_val, hm::AbstractHybridModel)
+function scale_single_param_minmax(name, hm::AbstractHybridModel)
     ℓ = lower(hm)[name]
     u = upper(hm)[name]
-    return ℓ .+ (u .- ℓ) .* hard_sigmoid.(raw_val)
+    return inv_sigmoid.((default(hm)[name] .- ℓ) ./ (u .- ℓ)) 
 end
+
 
 # ───────────────────────────────────────────────────────────────────────────
 # Forward pass for SingleNNHybridModel (optimized, no branching)

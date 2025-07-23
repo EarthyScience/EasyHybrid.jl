@@ -9,7 +9,7 @@ struct RbQ10_2p{T2, T3, T4} <: LuxCore.AbstractLuxContainerLayer{(:forcing, :tar
     Q10
     Rb
     function RbQ10_2p(forcing::T2, targets::T3, Q10::T4, Rb::T4) where {T2, T3, T4}
-        new{T2, T3, T4}(collect(targets), collect(forcing), [Q10], [Rb])
+        new{T2, T3, T4}(collect(forcing), collect(targets), [Q10], [Rb])
     end
 end
 

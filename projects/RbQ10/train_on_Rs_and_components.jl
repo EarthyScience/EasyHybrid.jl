@@ -26,7 +26,7 @@ println("Training RbQ10 model...")
 # Define neural network
 NN = Chain(Dense(2, 15, relu), Dense(15, 15, relu), Dense(15, 1));
 # instantiate Hybrid Model
-RbQ10 = RespirationRbQ10(NN, (:moisture_filled, :rgpot2), target_names, forcing_names, 2.5f0)
+RbQ10 = RespirationRbQ10(NN, (:moisture_filled, :rgpot2), forcing_names, target_names, 2.5f0)
 # train model
 o_Rsonly = train(RbQ10, ds_keyed, (:Q10, ); nepochs=10, batchsize=512, opt=Adam(0.01), file_name = "o_Rsonly.jld2");
 
@@ -59,7 +59,7 @@ println("Training Rs_components model...")
 # Three respiration components
 NN = Lux.Chain(Dense(2, 15, Lux.sigmoid), Dense(15, 15, Lux.sigmoid), Dense(15, 3, x -> x^2));
 target_names = [:R_soil, :R_root, :R_myc, :R_het]
-Rsc = Rs_components(NN, (:rgpot2, :moisture_filled), target_names, (:cham_temp_filled,), 2.5f0, 2.5f0, 2.5f0)
+Rsc = Rs_components(NN, (:rgpot2, :moisture_filled), (:cham_temp_filled,), target_names, 2.5f0, 2.5f0, 2.5f0)
 
 o_Rscomponents = train(Rsc, ds_keyed, (:Q10_het, :Q10_myc, :Q10_root, ); nepochs=10, batchsize=512, opt=Adam(0.01), file_name = "o_Rscomponents.jld2");
 
