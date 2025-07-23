@@ -117,6 +117,42 @@ function EasyHybrid.plot_loss!(loss)
     Makie.axislegend(ax; position=:rt)
 end
 
+function EasyHybrid.train_board(train_loss, val_loss, train_pred, train_obs, val_pred, val_obs, yscale)
+    
+    fig=Makie.Figure(resolution=(1600,900))
+    scat1 = Makie.Axis(fig[1, 1:2], title="Training -- y: observed, x modelled")
+    scat2 = Makie.Axis(fig[1, 3:4], title="Validation -- y: observed, x: modelled")
+    line = Makie.Axis(fig[2, 1:2], yscale=yscale, ylabel="loss")
+    lineZoom = Makie.Axis(fig[2,3:4], ylabel="Loss (zoomed on x)")
+
+
+    Makie.lines!(line, train_loss; color = :grey25, label="Training Loss")
+    Makie.lines!(line, val_loss; color = :tomato, label="Validation Loss")
+    
+    zoomindex = @lift(max(1, length($train_loss) - 100))
+    train_loss_zoomed = @lift($train_loss[$zoomindex:end])
+    val_loss_zoomed = @lift($val_loss[$zoomindex:end])
+
+    on(train_loss) do _
+        autolimits!(line); autolimits!(lineZoom)
+    end
+    
+
+    Makie.lines!(lineZoom, train_loss_zoomed; color = :grey25, label="Training Loss (log scale)")
+    Makie.lines!(lineZoom, val_loss_zoomed; color = :tomato, label="Validation Loss (log scale)")
+    
+    Makie.scatter!(scat1, train_pred, train_obs, color=:blue, alpha=0.6, markersize=8, label="Training Data")
+    Makie.lines!(scat1, @lift(sort($train_obs)), @lift(sort($train_obs)), color=:black, linestyle=:dash, linewidth=1)  # y = x line
+
+    Makie.scatter!(scat2, val_pred, val_obs, color=:red, alpha=0.6, markersize=8, label="Validation Data")
+    Makie.lines!(scat2, @lift(sort($val_obs)), @lift(sort($val_obs)), color=:black, linestyle=:dash, linewidth=1)  # y = x line
+    #EasyHybrid.plot_pred_vs_obs!(ax2, train_pred[], train_obs[], "Predictions vs Observations")
+    on(train_pred) do _
+        autolimits!(scat1); autolimits!(scat2)
+    end
+    display(fig;focus_on_show = true)
+end
+
 function EasyHybrid.to_obs(o)
     Makie.Observable(o)
 end

@@ -66,11 +66,6 @@ global_param_names = [:k]
 # Parameter container for the mechanistic model
 # =============================================================================
 
-# Parameter structure for FluxPartModel
-struct ExpoHybParams <: AbstractHybridModel 
-    hybrid::EasyHybrid.ParameterContainer
-end
-##
 # =============================================================================
 # Mechanistic Model Definition
 # =============================================================================
@@ -107,6 +102,7 @@ hybrid_model = constructHybridModel(
 )
 
 out =  train(hybrid_model, df, (); nepochs=300, batchsize=64, opt=AdamW(0.01, (0.9, 0.999), 0.01), loss_types=[:mse, :nse], training_loss=:nse, random_seed=123, yscale = identity)
+
 
 EasyHybrid.poplot(out.val_obs_pred[!, :Resp_obs], out.val_obs_pred[!, :Resp_obs_pred], "Respiration Predictions vs Observations")
 

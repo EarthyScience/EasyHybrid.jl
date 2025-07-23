@@ -85,10 +85,27 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
         EasyHybrid.to_obs([p_val])
     end
 
+    # initial predictions for scatter plot obs versus model
+    ŷ_train = hybridModel(x_train, ps, LuxCore.testmode(st))[1][1]
+    ŷ_val = hybridModel(x_val, ps, LuxCore.testmode(st))[1][1]
+
+    
     if !isnothing(ext)
+        #fig=Figure(resolution=(1200, 600))
         EasyHybrid.plot_loss(train_h_obs, yscale)
         EasyHybrid.plot_loss!(val_h_obs)
     end
+
+    if !isnothing(ext)
+         ŷ_train_obs = EasyHybrid.to_obs(ŷ_train)
+         ŷ_val_obs = EasyHybrid.to_obs(ŷ_val)
+         y_train_obs = EasyHybrid.to_obs(y_train |> vec)
+         y_val_obs = EasyHybrid.to_obs(y_val |> vec)
+         EasyHybrid.train_board(train_h_obs, val_h_obs, ŷ_train_obs, y_train_obs, ŷ_val_obs, y_val_obs, yscale)
+    end
+
+
+
     # track physical parameters
     ps_values_init = [copy(getproperty(ps, e)[1]) for e in save_ps]
     ps_init = NamedTuple{save_ps}(ps_values_init)
@@ -136,7 +153,17 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
             l_value_val = getproperty(getproperty(l_val, training_loss), Symbol("$agg"))
             new_p_val = EasyHybrid.to_point2f(epoch, l_value_val)
             push!(val_h_obs[], new_p_val)
+
+            ŷ_train = hybridModel(x_train, ps, LuxCore.testmode(st))[1][1]
+            ŷ_val = hybridModel(x_val, ps, LuxCore.testmode(st))[1][1]
+
+            ŷ_train_obs[] = ŷ_train
+            ŷ_val_obs[] = ŷ_val
+
+
             notify(val_h_obs) 
+            notify(ŷ_train_obs)
+
         end
 
         _headers, paddings = header_and_paddings(getproperty(l_init_train, training_loss))
