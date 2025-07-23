@@ -1,4 +1,19 @@
-export train
+export train, TrainResults
+
+# beneficial for plotting based on type TrainResults?
+struct TrainResults
+    train_history
+    val_history
+    ps_history
+    train_obs_pred
+    val_obs_pred
+    train_diffs
+    val_diffs
+    αst_train
+    αst_val
+    ps
+    st
+end
 
 """
     train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0.01), file_name=nothing, loss_types=[:mse, :mae], training_loss=:mse, agg=sum)
@@ -16,9 +31,13 @@ Train a hybrid model using the provided data and save the training process to a 
 - `loss_types`: A vector of loss types to compute during training (default: `[:mse, :mae]`).
 - `training_loss`: The loss type to use during training (default: `:mse`).
 - `agg`: The aggregation function to apply to the computed losses (default: `sum`).
+- `train_from`: A tuple of physical parameters and state to start training from or an output of `train` (default: nothing-> new training).
+- `random_seed`: The random seed to use for training (default: nothing-> no seed).
+- `shuffleobs`: Whether to shuffle the training data (default: false).
+- `yscale`: The scale to apply to the y-axis (default: `log10`).
 """
 function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0.01),
-    file_name=nothing, loss_types=[:mse, :r2], training_loss=:mse, agg=sum, ps_st = nothing, random_seed=nothing, shuffleobs = false, yscale=log10)
+    file_name=nothing, loss_types=[:mse, :r2], training_loss=:mse, agg=sum, train_from = nothing, random_seed=nothing, shuffleobs = false, yscale=log10)
     #! check if the EasyHybridMakie extension is loaded.
     ext = Base.get_extension(@__MODULE__, :EasyHybridMakie)
     if ext === nothing
@@ -36,10 +55,10 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     (x_train, y_train), (x_val, y_val) = splitobs(data_; at=0.8, shuffle=shuffleobs)
     train_loader = DataLoader((x_train, y_train), batchsize=batchsize, shuffle=true);
 
-    if isnothing(ps_st)
+    if isnothing(train_from)
         ps, st = LuxCore.setup(Random.default_rng(), hybridModel)
     else
-        ps, st = ps_st
+        ps, st = get_ps_st(train_from)
     end
 
     opt_state = Optimisers.setup(opt, ps)
@@ -166,8 +185,19 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     val_diffs = !isempty(set_diff) ? NamedTuple{Tuple(set_diff)}([getproperty(ŷ_val, e) for e in set_diff]) : nothing
 
     # TODO: save/output metrics
-
-    return (; train_history, val_history, ps_history, train_obs_pred, val_obs_pred, train_diffs, val_diffs, αst_train, αst_val, ps, st)
+    return TrainResults(
+        train_history,
+        val_history,
+        ps_history,
+        train_obs_pred,
+        val_obs_pred,
+        train_diffs,
+        val_diffs,
+        αst_train,
+        αst_val,
+        ps,
+        st
+    )
 end
 
 function styled_values(nt; digits=5, color=nothing, paddings=nothing)
@@ -199,10 +229,7 @@ Utility function to see if the data is already in the expected format or if furt
 
 Returns a tuple of KeyedArrays
 """
-function prepare_data(hm, data)
-    data = if isa(data, Tuple) # tuple of key arrays
-        return data
-    else
+function prepare_data(hm, data::KeyedArray)
         targets = hm.targets
         predictors_forcing = Symbol[]
 
@@ -237,4 +264,46 @@ function prepare_data(hm, data)
         end
         return (data(predictors_forcing), data(targets))
     end
+
+    function prepare_data(hm, data::DataFrame)
+        predictors = hm.predictors
+        forcing    = hm.forcing
+        targets     = hm.targets
+    
+        all_predictor_cols  = unique(vcat(values(predictors)...))
+        col_to_select       = unique([all_predictor_cols; forcing; targets])
+    
+        # subset to only the cols we care about
+        sdf = data[!, col_to_select]
+    
+        # Separate predictor/forcing vs. target columns
+        predforce_cols = setdiff(col_to_select, targets)
+        
+        # For each row, check if *any* predictor/forcing is missing
+        mask_missing_predforce = map(row -> any(ismissing, row), eachrow(sdf[:, predforce_cols]))
+        
+        # For each row, check if *at least one* target is present (i.e. not all missing)
+        mask_at_least_one_target = map(row -> any(!ismissing, row), eachrow(sdf[:, targets]))
+        
+        # Keep rows where predictors/forcings are *complete* AND there's some target present
+        keep = .!mask_missing_predforce .& mask_at_least_one_target
+        sdf = sdf[keep, col_to_select]
+    
+        mapcols(col -> replace!(col, missing => NaN), sdf; cols = names(sdf, Union{Missing, Real}))
+    
+        # Convert to Float32 and to your keyed array
+        ds_keyed = to_keyedArray(Float32.(sdf))
+        return prepare_data(hm, ds_keyed)
+    end
+
+function prepare_data(hm, data::Tuple)
+    return data
+end
+
+function get_ps_st(train_from::TrainResults)
+    return train_from.ps, train_from.st
+end
+
+function get_ps_st(train_from::Tuple)
+    return train_from
 end

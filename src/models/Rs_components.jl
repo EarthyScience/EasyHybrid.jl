@@ -15,7 +15,7 @@ struct Rs_components{D, T1, T2, T3, T4} <: LuxCore.AbstractLuxContainerLayer{(:N
     Q10_root
     Q10_myc
     function Rs_components(NN::D, predictors::T1, forcing::T2, targets::T3, Q10_het::T4, Q10_root::T4, Q10_myc::T4) where {D, T1, T2, T3, T4}
-        new{D, T1, T2, T3, T4}(NN, collect(predictors), collect(targets), collect(forcing), [Q10_het], [Q10_root], [Q10_myc])
+        new{D, T1, T2, T3, T4}(NN, collect(predictors), collect(forcing), collect(targets), [Q10_het], [Q10_root], [Q10_myc])
     end
 end
 
