@@ -108,7 +108,7 @@ hybrid_model = constructHybridModel(
 
 out =  train(hybrid_model, df, (); nepochs=300, batchsize=64, opt=AdamW(0.01, (0.9, 0.999), 0.01), loss_types=[:mse, :nse], training_loss=:nse, random_seed=123, yscale = identity)
 
-EasyHybrid.poplot(out.val_obs_pred[!, :Resp_obs], out.val_obs_pred[!, :Resp_obs_pred], "Respiration Predictions vs Observations")
+EasyHybrid.poplot(out)
 
 preds = hybrid_model(df .|> Float32 |> to_keyedArray, out.ps, out.st)[1]
 preds = NamedTuple{Symbol.(string.(keys(preds)[1:end-2]) .* "_pred")}(Tuple(preds)[1:end-2])
