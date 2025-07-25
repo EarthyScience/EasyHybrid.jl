@@ -36,8 +36,9 @@ Train a hybrid model using the provided data and save the training process to a 
 - `shuffleobs`: Whether to shuffle the training data (default: false).
 - `yscale`: The scale to apply to the y-axis (default: `log10`).
 """
-function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0.01),
-    file_name=nothing, loss_types=[:mse, :r2], training_loss=:mse, agg=sum, train_from = nothing, random_seed=nothing, shuffleobs = false, yscale=log10)
+function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0.01), patience=typemax(Int),
+    file_name=nothing, loss_types=[:mse, :r2], training_loss=:mse, agg=sum, train_from = nothing, 
+    random_seed=nothing, shuffleobs = false, yscale=log10)
     #! check if the EasyHybridMakie extension is loaded.
     ext = Base.get_extension(@__MODULE__, :EasyHybridMakie)
     if ext === nothing
@@ -110,6 +111,11 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     ps_values_init = [copy(getproperty(ps, e)[1]) for e in save_ps]
     ps_init = NamedTuple{save_ps}(ps_values_init)
     ps_history = [ps_init]
+
+    # For Early stopping
+    best_ps = deepcopy(ps_init) 
+    best_loss = l_init_val
+    cnt_patience = 0
     
     file_name = resolve_path(file_name)
     save_ps_st(file_name, hybridModel, ps, st, save_ps)
@@ -164,6 +170,17 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
             notify(val_h_obs) 
             notify(ŷ_train_obs)
 
+            if l_val < best_loss
+                best_loss = l_val
+                best_ps = deepcopy(tmp_e)
+                cnt_patience = 0
+            else
+                cnt_patience += 1
+            end
+            if cnt_patience >= patience
+                @info "Early stopping at epoch $epoch with best validation loss: $best_loss"
+                break
+            end
         end
 
         _headers, paddings = header_and_paddings(getproperty(l_init_train, training_loss))
