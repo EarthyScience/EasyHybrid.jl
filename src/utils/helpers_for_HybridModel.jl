@@ -1,5 +1,26 @@
-export display_parameter_bounds
-export build_parameters
+export display_parameter_bounds, build_parameters, construct_dispatch_functions
+
+function construct_dispatch_functions(f)
+    function new_f end  # Create a new generic function
+
+    println("constructing on KeyedArray function for $f")
+    function new_f(forcing_data::KeyedArray, parameter_container::AbstractHybridModel, forcing_names::Vector{Symbol})
+        forcing = unpack_keyedarray(forcing_data, forcing_names)
+        f(;forcing..., values(default(parameter_container))...)
+    end
+
+    function new_f(forcing_data::DataFrame, parameter_container::AbstractHybridModel, forcing_names::Vector{Symbol})
+        forcing = (; (name => forcing_data[!, name] for name in forcing_names)...)
+        f(;forcing..., values(default(parameter_container))...)
+    end
+
+    println("repeating kwargs style functions for $f (orignal function: $f)")
+    function new_f(;kwargs...)
+        f(;kwargs...)
+    end
+
+    return new_f
+end
 
 """
     build_parameters(parameters::NamedTuple, f::DataType) -> AbstractHybridModel
