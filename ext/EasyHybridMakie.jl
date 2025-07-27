@@ -182,125 +182,6 @@ function EasyHybrid.poplot!(results::EasyHybrid.TrainResults; target_cols=nothin
 end
 
 # =============================================================================
-# Comprehensive Training Analysis
-# =============================================================================
-
-"""
-    plot_training_overview(results::TrainResults; loss_type=:mse, param_names=nothing)
-
-Create a comprehensive overview of training results including loss evolution, parameter evolution, and prediction vs observation plots.
-
-# Arguments
-- `results`: TrainResults object from training
-- `loss_type`: Which loss type to plot for loss evolution (default: :mse)
-- `param_names`: Specific parameter names to plot (if nothing, plots all available)
-
-# Returns
-- Figure with comprehensive training overview
-"""
-function EasyHybrid.plot_training_overview(results::EasyHybrid.TrainResults; loss_type=:mse, param_names=nothing)
-    # Get available info
-    available_params = keys(results.ps_history[1])
-    params_to_plot = isnothing(param_names) ? collect(available_params) : param_names
-    n_params = length(params_to_plot)
-
-    # Layout: loss + params + poplots
-    base_height = 200
-    param_height = n_params > 0 ? 150 * ceil(Int, n_params / 2) : 0
-    poplot_height = 350
-    total_height = base_height + param_height + poplot_height
-
-    fig = Makie.Figure(size=(900, total_height))
-
-    current_row = 1
-
-    # 1. Loss Evolution (top section)
-    ax_loss = Makie.Axis(fig[current_row, 1:2]; yscale=log10, xlabel="Epoch", ylabel="Loss")
-    EasyHybrid.plot_loss!(ax_loss, results; loss_type=loss_type)
-    ax_loss.title = "Training Overview - Loss Evolution ($(uppercase(string(loss_type))))"
-    current_row += 1
-
-    # 2. Parameter Evolution
-    if n_params > 0
-        param_rows = ceil(Int, n_params / 2)
-        for i in 1:param_rows
-            for j in 1:2
-                param_idx = (i-1) * 2 + j
-                if param_idx <= n_params
-                    param = params_to_plot[param_idx]
-                    ax = Makie.Axis(fig[current_row + i - 1, j]; xlabel="Epoch", ylabel=string(param))
-                    EasyHybrid.plot_parameters!(ax, results, param)
-                    ax.title = "Parameter: $(param)"
-                end
-            end
-        end
-        current_row += param_rows
-    end
-
-    # 3. Prediction vs Observation Plots
-    # Extract target columns from training data
-    train_df = results.train_obs_pred
-    all_cols = names(train_df)
-    obs_cols = filter(col -> !endswith(col, "_pred"), all_cols)
-    
-    if !isempty(obs_cols)
-        target_cols = min(2, length(obs_cols))  # Show max 2 targets
-        
-        for (i, target) in enumerate(obs_cols[1:target_cols])
-            pred_col = target * "_pred"
-            col_pos = i
-            
-            if target in names(train_df) && pred_col in names(train_df)
-                ax = Makie.Axis(fig[current_row, col_pos]; xlabel="Predicted", ylabel="Observed", aspect=1)
-                
-                # Training data
-                train_mask = .!isnan.(train_df[!, target]) .& .!isnan.(train_df[!, pred_col])
-                if any(train_mask)
-                    train_obs = train_df[train_mask, target]
-                    train_pred = train_df[train_mask, pred_col]
-                    Makie.scatter!(ax, train_pred, train_obs; color=:steelblue, alpha=0.6, markersize=6, label="Training")
-                end
-                
-                # Validation data
-                val_df = results.val_obs_pred
-                if target in names(val_df) && pred_col in names(val_df)
-                    val_mask = .!isnan.(val_df[!, target]) .& .!isnan.(val_df[!, pred_col])
-                    if any(val_mask)
-                        val_obs = val_df[val_mask, target]
-                        val_pred = val_df[val_mask, pred_col]
-                        Makie.scatter!(ax, val_pred, val_obs; color=:tomato, alpha=0.6, markersize=6, label="Validation")
-                    end
-                end
-                
-                # 1:1 line
-                if any(train_mask) || (target in names(val_df) && pred_col in names(val_df) && any(.!isnan.(val_df[!, target]) .& .!isnan.(val_df[!, pred_col])))
-                    all_obs = vcat(
-                        any(train_mask) ? train_df[train_mask, target] : Float32[],
-                        (target in names(val_df) && pred_col in names(val_df)) ? val_df[.!isnan.(val_df[!, target]) .& .!isnan.(val_df[!, pred_col]), target] : Float32[]
-                    )
-                    all_pred = vcat(
-                        any(train_mask) ? train_df[train_mask, pred_col] : Float32[],
-                        (target in names(val_df) && pred_col in names(val_df)) ? val_df[.!isnan.(val_df[!, target]) .& .!isnan.(val_df[!, pred_col]), pred_col] : Float32[]
-                    )
-                    
-                    if !isempty(all_obs) && !isempty(all_pred)
-                        min_val = min(minimum(all_obs), minimum(all_pred))
-                        max_val = max(maximum(all_obs), maximum(all_pred))
-                        Makie.lines!(ax, [min_val, max_val], [min_val, max_val]; color=:black, linestyle=:dash, linewidth=1, label="1:1 line")
-                    end
-                end
-                
-                ax.title = "Pred vs Obs: $(target)"
-                if length(obs_cols) > 1
-                    Makie.axislegend(ax; position=:lt)
-                end
-            end
-        end
-    end
-
-    return fig
-end
-# =============================================================================
 # Convenience Methods for Direct Plot Creation
 # =============================================================================
 
@@ -442,6 +323,8 @@ function EasyHybrid.plot_loss!(ax::Makie.Axis, results::EasyHybrid.TrainResults;
         Makie.lines!(ax, epochs, val_losses; color=:tomato, label="Validation Loss", linewidth=2)
     end
     
+    Makie.axislegend(ax; position=:rt)
+
     return ax
 end
 
@@ -555,32 +438,34 @@ Create a comprehensive summary plot showing loss evolution and parameter evoluti
 # Returns
 - Figure with both loss and parameter plots
 """
-function EasyHybrid.plot_training_summary(results::EasyHybrid.TrainResults; loss_type=:mse, param_names=nothing)
+function EasyHybrid.plot_training_summary(results::EasyHybrid.TrainResults; loss_type=:mse, param_names=nothing, yscale=log10)
     # Get parameter info
     available_params = keys(results.ps_history[1])
     params_to_plot = isnothing(param_names) ? collect(available_params) : param_names
     n_params = length(params_to_plot)
-    
-    # Create layout: loss plot on top, parameters below
-    fig = Makie.Figure(size=(800, 200 + 150 * ceil(Int, n_params / 2)))
-    
+        
+    fig = EasyHybrid.poplot(results)
+
     # Loss plot
-    ax_loss = Makie.Axis(fig[1, 1:2]; yscale=log10, xlabel="Epoch", ylabel="Loss")
+    ax_loss = Makie.Axis(fig[2, 1:2]; yscale=yscale, xlabel="Epoch", ylabel="Loss")
     EasyHybrid.plot_loss!(ax_loss, results; loss_type=loss_type)
     ax_loss.title = "Training Summary - Loss Evolution"
+    Makie.hidexdecorations!(ax_loss)
     
     # Parameter plots
     epochs = 0:(length(results.ps_history)-1)
     
     for (i, param) in enumerate(params_to_plot)
-        row = 2 + ceil(Int, (i-1) / 2)
-        col = ((i - 1) % 2) + 1
+        row = i + 2
+        col = 1:2
         
         ax = Makie.Axis(fig[row, col]; xlabel="Epoch", ylabel=string(param))
         EasyHybrid.plot_parameters!(ax, results, param)
         ax.title = "Parameter: $(param)"
+
+        Makie.linkxaxes!(ax_loss, ax)
     end
-    
+
     return fig
 end
 

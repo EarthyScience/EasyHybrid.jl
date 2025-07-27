@@ -111,8 +111,7 @@ out =  train(hybrid_model, df, (:k,); nepochs=300, batchsize=64, opt=AdamW(0.01,
 EasyHybrid.poplot(out)
 EasyHybrid.plot_loss(out)
 EasyHybrid.plot_parameters(out)
-EasyHybrid.plot_training_summary(out) # TODO needs work 
-EasyHybrid.plot_training_overview(out) # TODO needs work 
+EasyHybrid.plot_training_summary(out, yscale=identity) # TODO needs work  
 # TODO plot parameters on scale of model
 
 preds = hybrid_model(df .|> Float32 |> to_keyedArray, out.ps, out.st)[1]
