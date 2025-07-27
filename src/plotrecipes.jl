@@ -22,12 +22,6 @@ function plot_parameters()
     @error("Please load `Makie.jl` and then call this function. If Makie is loaded, then you can't call `plot_parameters` with no arguments!")
 end
 
-
-
-function plot_training_overview()
-    @error("Please load `Makie.jl` and then call this function. If Makie is loaded, then you can't call `plot_training_overview` with no arguments!")
-end
-
 function plot_training_summary()
     @error("Please load `Makie.jl` and then call this function. If Makie is loaded, then you can't call `plot_training_summary` with no arguments!")
 end
