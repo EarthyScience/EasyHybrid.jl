@@ -113,18 +113,18 @@ val_obs     = (; (t => EasyHybrid.to_obs(y_val(t)) for t in target_names)...)
 
          # --- monitored parameters/state as Observables ---
     monitor_names = collect(save_ps)
-    train_monitor = (; (m => to_obs(getfield(ŷ_train, m))  for m in monitor_names)...)
-    val_monitor   = (; (m => to_obs(getfield(ŷ_val,   m))  for m in monitor_names)...)
+    train_monitor = (; (m => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, getfield(ŷ_train, m)[1])])  for m in monitor_names)...)
+    val_monitor   = (; (m => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, getfield(ŷ_val,   m)[1])])  for m in monitor_names)...)
 
     # launch multi-target + monitor dashboard
     EasyHybrid.train_board(
         train_h_obs, val_h_obs,
         train_preds, train_obs,
         val_preds, val_obs,
-        #train_monitor, val_monitor,
+        train_monitor, val_monitor,
         yscale;
         target_names=target_names,
-        #monitor_names=monitor_names
+        monitor_names=monitor_names
     )
 
     end
@@ -197,8 +197,8 @@ val_obs     = (; (t => EasyHybrid.to_obs(y_val(t)) for t in target_names)...)
             end
 
             for m in monitor_names
-                train_monitor[m][] = getfield(ŷ_train, m)
-                val_monitor[m][]   = getfield(ŷ_val,   m)
+                train_monitor[m][] = push!(train_monitor[m][], EasyHybrid.to_point2f(epoch, getfield(ŷ_train, m)[1]))
+                val_monitor[m][]   = push!(val_monitor[m][], EasyHybrid.to_point2f(epoch, getfield(ŷ_val,   m)[1]))
                 notify(train_monitor[m])
                 notify(val_monitor[m])
             end

@@ -217,69 +217,94 @@ function EasyHybrid.plot_loss!(loss)
     Makie.axislegend(ax; position=:rt)
 end
 
-"""
-    train_board(train_loss, val_loss, train_preds, train_obs, val_preds, val_obs, yscale; target_names)
+# =============================================================================
+# Multi‑Target Live Training Dashboard with Monitors
+# =============================================================================
 
-Create a live‐updating dashboard showing per‐target scatter plots for training and validation,
-and loss curves.
+"""
+    train_board(train_loss, val_loss,
+                train_preds, train_obs,
+                val_preds, val_obs,
+                train_monitor, val_monitor,
+                yscale;
+                target_names, monitor_names)
+
+Create a live‑updating dashboard showing per‑target scatter plots for training and validation,
+loss curves, and time‑series for additional monitored outputs.
 
 # Arguments
-- `train_loss`, `val_loss`: Observables holding loss history vectors
-- `train_preds`, `val_preds`: NamedTuples of Observables for predicted values per target
-- `train_obs`, `val_obs`: NamedTuples of Observables for observed values per target
-- `yscale`: Y‐axis scale function (e.g. `log10`)
-- `target_names`: Vector of target symbols to plot
+- `train_loss`, `val_loss`: Observables of loss history vectors
+- `train_preds`, `val_preds`: NamedTuples of Observables for per‑target predictions
+- `train_obs`, `val_obs`: NamedTuples of Observables for per‑target observations
+- `train_monitor`, `val_monitor`: NamedTuples of Observables for extra model outputs
+- `yscale`: Y‑axis scale function (e.g. `log10`)
+- `target_names`: Symbols of targets to plot
+- `monitor_names`: Symbols of extra outputs to monitor
 """
-function EasyHybrid.train_board(train_loss::Observable, val_loss::Observable,
-                     train_preds::NamedTuple, train_obs::NamedTuple,
-                     val_preds::NamedTuple, val_obs::NamedTuple,
-                     yscale; target_names::Vector{Symbol}=collect(keys(train_preds)), save_ps = nothing)
-    n_targets = length(target_names)
-    # one row per target + two rows for loss plots
-    fig = Makie.Figure(resolution = (400 * min(n_targets,3), 300 * (n_targets + 2)))
+function EasyHybrid.train_board(
+    train_loss::Observable, val_loss::Observable,
+    train_preds::NamedTuple,  train_obs::NamedTuple,
+    val_preds::NamedTuple,    val_obs::NamedTuple,
+    train_monitor::NamedTuple, val_monitor::NamedTuple,
+    yscale;
+    target_names::Vector{Symbol}=collect(keys(train_preds)),
+    monitor_names=collect(keys(train_monitor))
+)
+    n_targets  = length(target_names)
+    n_monitors = length(monitor_names)
+    total_rows = n_targets + 2 + n_monitors
 
-    # Per‐target scatter subplots
+    fig = Makie.Figure(resolution=(400*2, 300*total_rows))
+
+    # Per‑target scatter subplots
     for (i, t) in enumerate(target_names)
-        # Training scatter
         ax_tr = Makie.Axis(fig[i, 1]; title = "Training: $(t)", xlabel = "Predicted", ylabel = "Observed", aspect = 1)
         p_tr = getfield(train_preds, t)
         o_tr = getfield(train_obs, t)
-        Makie.scatter!(ax_tr, p_tr, o_tr; color = :blue, alpha = 0.6, markersize = 6)
+        Makie.scatter!(ax_tr, p_tr, o_tr; color = :grey25, alpha = 0.6, markersize = 6)
         Makie.lines!(ax_tr, @lift(sort($o_tr)), @lift(sort($o_tr)); color = :black, linestyle = :dash)
         on(p_tr) do _; autolimits!(ax_tr); end
 
-        # Validation scatter
         ax_val = Makie.Axis(fig[i, 2]; title = "Validation: $(t)", xlabel = "Predicted", ylabel = "Observed", aspect = 1)
         p_val = getfield(val_preds, t)
         o_val = getfield(val_obs, t)
-        Makie.scatter!(ax_val, p_val, o_val; color = :red, alpha = 0.6, markersize = 6)
+        Makie.scatter!(ax_val, p_val, o_val; color = :tomato, alpha = 0.6, markersize = 6)
         Makie.lines!(ax_val, @lift(sort($o_val)), @lift(sort($o_val)); color = :black, linestyle = :dash)
         on(p_val) do _; autolimits!(ax_val); end
     end
 
     # Loss evolution
     row_loss = n_targets + 1
-    ax_loss = Makie.Axis(fig[row_loss, 1:2]; yscale = yscale,
-                   xlabel = "Epoch", ylabel = "Loss", title = "Loss Evolution")
+    ax_loss = Makie.Axis(fig[row_loss, 1:2]; yscale = yscale, xlabel = "Epoch", ylabel = "Loss", title = "Loss Evolution")
     Makie.lines!(ax_loss, train_loss; color = :grey25, label = "Training Loss", linewidth = 2)
     Makie.lines!(ax_loss, val_loss;   color = :tomato, label = "Validation Loss", linewidth = 2)
     Makie.axislegend(ax_loss; position = :rt)
 
     # Zoomed loss last 100 epochs
     row_zoom = n_targets + 2
-    ax_zoom = Makie.Axis(fig[row_zoom, 1:2]; yscale = yscale,
-                   xlabel = "Epoch", ylabel = "Loss (Zoom)", title = "Zoomed Loss")
+    ax_zoom = Makie.Axis(fig[row_zoom, 1:2]; yscale = yscale, xlabel = "Epoch", ylabel = "Loss (Zoom)", title = "Zoomed Loss")
     zoom_idx = @lift(max(1, length($train_loss) - 100))
     tlz = @lift($train_loss[$zoom_idx:end])
     vlz = @lift($val_loss[$zoom_idx:end])
     Makie.lines!(ax_zoom, tlz; color = :grey25, label = "Training (Zoom)", linewidth = 2)
-    Makie.lines!(ax_zoom, vlz; color = :tomato, label = "Validation (Zoom)", linewidth = 2)
+    Makie.lines!(ax_zoom, vlz;   color = :tomato,  label = "Validation (Zoom)", linewidth = 2)
     Makie.axislegend(ax_zoom; position = :rt)
     on(train_loss) do _; autolimits!(ax_loss); autolimits!(ax_zoom); end
 
-    display(fig; focus_on_show = true)
-end
+    # Additional monitored outputs
+    for (j, m) in enumerate(monitor_names)
+        row = n_targets + 2 + j
+        ax_mt = Makie.Axis(fig[row, 1:2]; xlabel = "Epoch", ylabel = string(m), title = "Monitor: $(m)")
+        m_tr = getfield(train_monitor, m)
+        m_val = getfield(val_monitor, m)
+        Makie.lines!(ax_mt, m_tr; color = :grey25, linewidth = 2, label = "Training")
+        Makie.lines!(ax_mt, m_val; color = :tomato, linewidth = 2, linestyle = :dash, label = "Validation")
+        Makie.axislegend(ax_mt; position = :rt)
+        on(m_val) do _; autolimits!(ax_mt); end
+    end
 
+    Makie.display(fig; focus_on_show = true)
+end
 
 # =============================================================================
 # Generic Dispatch Methods for Loss and Parameter Plotting
