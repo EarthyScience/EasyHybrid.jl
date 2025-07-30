@@ -135,11 +135,11 @@ hybrid_model = constructHybridModel(
     mech_model,
     parameters,
     global_param_names,
-    scale_nn_outputs=false,
+    scale_nn_outputs=true,
     hidden_layers = [15, 15],
     activation = sigmoid,
     input_batchnorm = true,
-    start_from_default = true
+    start_from_default = false
 )
 
 # =============================================================================
@@ -152,6 +152,8 @@ ps_st2 = deepcopy(ps_st)
 
 # Train FluxPartModel
 out_Generic = train(hybrid_model, df, (); nepochs=30, batchsize=512, opt=AdamW(0.01), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, yscale = identity);
+
+EasyHybrid.poplot(out_Generic)
 
 # =============================================================================
 # train hybrid FluxPartModel_Q10_Lux model on NEE to get Q10, GPP, and Reco

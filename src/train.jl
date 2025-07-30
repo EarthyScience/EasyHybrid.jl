@@ -87,8 +87,8 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     end
 
     # initial predictions for scatter plot obs versus model
-    ŷ_train = hybridModel(x_train, ps, LuxCore.testmode(st))[1][1]
-    ŷ_val = hybridModel(x_val, ps, LuxCore.testmode(st))[1][1]
+    ŷ_train = hybridModel(x_train, ps, LuxCore.testmode(st))[1]
+    ŷ_val = hybridModel(x_val, ps, LuxCore.testmode(st))[1]
 
     
     if !isnothing(ext)
@@ -98,11 +98,35 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     end
 
     if !isnothing(ext)
-         ŷ_train_obs = EasyHybrid.to_obs(ŷ_train)
-         ŷ_val_obs = EasyHybrid.to_obs(ŷ_val)
-         y_train_obs = EasyHybrid.to_obs(y_train |> vec)
-         y_val_obs = EasyHybrid.to_obs(y_val |> vec)
-         EasyHybrid.train_board(train_h_obs, val_h_obs, ŷ_train_obs, y_train_obs, ŷ_val_obs, y_val_obs, yscale)
+         target_names = hybridModel.targets
+
+    @show typeof(ŷ_train)
+    @show typeof(ŷ_val)
+    @show typeof(y_train)
+    @show typeof(y_val)
+
+# build NamedTuples of Observables for preds and obs
+train_preds = (; (t => EasyHybrid.to_obs(getfield(ŷ_train, t)) for t in target_names)...)
+val_preds   = (; (t => EasyHybrid.to_obs(getfield(ŷ_val,   t)) for t in target_names)...)
+train_obs   = (; (t => EasyHybrid.to_obs(y_train(t)) for t in target_names)...)
+val_obs     = (; (t => EasyHybrid.to_obs(y_val(t)) for t in target_names)...)
+
+         # --- monitored parameters/state as Observables ---
+    monitor_names = collect(save_ps)
+    train_monitor = (; (m => to_obs(getfield(ŷ_train, m))  for m in monitor_names)...)
+    val_monitor   = (; (m => to_obs(getfield(ŷ_val,   m))  for m in monitor_names)...)
+
+    # launch multi-target + monitor dashboard
+    EasyHybrid.train_board(
+        train_h_obs, val_h_obs,
+        train_preds, train_obs,
+        val_preds, val_obs,
+        #train_monitor, val_monitor,
+        yscale;
+        target_names=target_names,
+        #monitor_names=monitor_names
+    )
+
     end
 
 
@@ -160,15 +184,26 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
             new_p_val = EasyHybrid.to_point2f(epoch, l_value_val)
             push!(val_h_obs[], new_p_val)
 
-            ŷ_train = hybridModel(x_train, ps, LuxCore.testmode(st))[1][1]
-            ŷ_val = hybridModel(x_val, ps, LuxCore.testmode(st))[1][1]
+            ŷ_train = hybridModel(x_train, ps, LuxCore.testmode(st))[1]
+            ŷ_val = hybridModel(x_val, ps, LuxCore.testmode(st))[1]
 
-            ŷ_train_obs[] = ŷ_train
-            ŷ_val_obs[] = ŷ_val
+            for t in target_names
+                # replace the array stored in the Observable:
+                train_preds[t][] = getfield(ŷ_train, t)
+                val_preds[t][]   = getfield(ŷ_val,   t)
+                # and notify Makie that it changed:
+                notify(train_preds[t])
+                notify(val_preds[t])
+            end
 
+            for m in monitor_names
+                train_monitor[m][] = getfield(ŷ_train, m)
+                val_monitor[m][]   = getfield(ŷ_val,   m)
+                notify(train_monitor[m])
+                notify(val_monitor[m])
+            end
 
             notify(val_h_obs) 
-            notify(ŷ_train_obs)
 
             if l_val < best_loss
                 best_loss = l_val
