@@ -87,7 +87,7 @@ function flux_part_mechanistic_model(;SW_IN, TA, RUE, Rb, Q10)
     RECO = Rb .* Q10 .^ (0.1f0 .* (TA .- 15.0f0))
     NEE = RECO .- GPP
     
-    return (;NEE, RECO, GPP, Q10)
+    return (;NEE, RECO, GPP, Q10, RUE)
 end
 
 mech_model = construct_dispatch_functions(flux_part_mechanistic_model)
@@ -151,7 +151,7 @@ ps_st = (ps, st)
 ps_st2 = deepcopy(ps_st)
 
 # Train FluxPartModel
-out_Generic = train(hybrid_model, df, (); nepochs=5, batchsize=512, opt=AdamW(0.01), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, yscale = identity, monitor_names=[:GPP, :Q10]);
+out_Generic = train(hybrid_model, df, (); nepochs=5, batchsize=512, opt=AdamW(0.01), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, yscale = identity, monitor_names=[:RUE, :Q10]);
 
 EasyHybrid.poplot(out_Generic)
 

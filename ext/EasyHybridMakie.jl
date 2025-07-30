@@ -298,23 +298,28 @@ function EasyHybrid.train_board(
         ax_mt = Makie.Axis(fig[row, 1:2]; xlabel = "Epoch", ylabel = string(m), title = "Monitor: $(m)")
         m_tr = getfield(train_monitor, m)
         m_val = getfield(val_monitor, m)
-        @show fieldnames(typeof(m_tr))	
-        @show fieldnames(typeof(m_val))
+
         if length(m_tr) > 1
             for (qi, q) in enumerate([0.25, 0.5, 0.75])
-                m_tr = getfield(m_tr, qi)
-                m_val = getfield(m_val, qi)
-                @show m_tr
-                @show m_val
-                Makie.lines!(ax_mt, m_tr; color = :grey25, linewidth = 2)
-                Makie.lines!(ax_mt, m_val; color = :tomato, linewidth = 2, linestyle = :dash)
+                m_tr_ex = getfield(m_tr, Symbol("q", string(Int(q*100))))
+                m_val_ex = getfield(m_val, Symbol("q", string(Int(q*100))))
+                #@show m_tr_ex
+                #@show m_val_ex
+                Makie.lines!(ax_mt, m_tr_ex; color = :grey25, linewidth = 2)
+                Makie.lines!(ax_mt, m_val_ex; color = :tomato, linewidth = 2, linestyle = :dash)
+                #Makie.axislegend(ax_mt; position = :rt)
+                on(m_val_ex) do _; autolimits!(ax_mt); end
             end
         else
-            Makie.lines!(ax_mt, m_tr; color = :grey25, linewidth = 2, label = "Training")
-            Makie.lines!(ax_mt, m_val; color = :tomato, linewidth = 2, linestyle = :dash, label = "Validation")
+            m_tr_ex = getfield(m_tr, :scalar)
+            m_val_ex = getfield(m_val, :scalar)
+            Makie.lines!(ax_mt, m_tr_ex; color = :grey25, linewidth = 2, label = "Training")
+            Makie.lines!(ax_mt, m_val_ex; color = :tomato, linewidth = 2, linestyle = :dash, label = "Validation")
+            #Makie.axislegend(ax_mt; position = :rt)
+            on(m_val_ex) do _; autolimits!(ax_mt); end
         end
-        Makie.axislegend(ax_mt; position = :rt)
-        on(m_val) do _; autolimits!(ax_mt); end
+        
+        
     end
 
     Makie.display(fig; focus_on_show = true)

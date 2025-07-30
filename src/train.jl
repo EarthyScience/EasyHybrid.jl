@@ -116,20 +116,22 @@ val_obs     = (; (t => EasyHybrid.to_obs(y_val(t)) for t in target_names)...)
     @show length(v)
     @show typeof(v)
     if length(v) > 1
-       (Symbol("q$q") => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, quantile(v, q))]) for q in [0.25, 0.5, 0.75])
+       (; (Symbol("q", string(Int(q*100))) => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, quantile(v, q))]) for q in [0.25, 0.5, 0.75])...)
     else
-      (Symbol("scalar") => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, v[1])]))
+      (; (Symbol("scalar") => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, v[1])])))
     end
   end for m in monitor_names)...)
 
     val_monitor = (; (m => begin
     v = vec(getfield(ŷ_val, m))
     if length(v) > 1
-       (Symbol("q$q") => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, quantile(v, q))]) for q in [0.25, 0.5, 0.75])
+       (; (Symbol("q", string(Int(q*100))) => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, quantile(v, q))]) for q in [0.25, 0.5, 0.75])...)
     else
-      (Symbol("scalar") => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, v[1])]))
+      (; Symbol("scalar") => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, v[1])]))
     end
   end for m in monitor_names)...)
+
+    @show train_monitor
 
     # launch multi-target + monitor dashboard
     EasyHybrid.train_board(
@@ -222,10 +224,10 @@ val_obs     = (; (t => EasyHybrid.to_obs(y_val(t)) for t in target_names)...)
             
                 if length(v_tr) > 1 
                     for q in [0.25, 0.5, 0.75]
-                        push!(val_monitor[m][Symbol("q$q")][], EasyHybrid.to_point2f(epoch, quantile(v_tr, q)))
-                        push!(train_monitor[m][Symbol("q$q")][], EasyHybrid.to_point2f(epoch, quantile(m_tr, q)))
-                        notify(val_monitor[m][Symbol("q$q")]) 
-                        notify(train_monitor[m][Symbol("q$q")]) 
+                        push!(val_monitor[m][Symbol("q", string(Int(q*100)))][], EasyHybrid.to_point2f(epoch, quantile(v_tr, q)))
+                        push!(train_monitor[m][Symbol("q", string(Int(q*100)))][], EasyHybrid.to_point2f(epoch, quantile(m_tr, q)))
+                        notify(val_monitor[m][Symbol("q", string(Int(q*100)))]) 
+                        notify(train_monitor[m][Symbol("q", string(Int(q*100)))]) 
                     end
                  else
                    push!(val_monitor[m][:scalar][], EasyHybrid.to_point2f(epoch, v_tr[1]))
