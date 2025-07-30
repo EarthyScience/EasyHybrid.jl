@@ -19,7 +19,7 @@ using XLSX
 # -----------------------------------------------------------------------------
 # Data Loading
 # -----------------------------------------------------------------------------
-data_file = joinpath(@__DIR__, "data", "GlobalCUE_18O_July2025.xlsx")
+data_file = joinpath(project_path, "data", "GlobalCUE_18O_July2025.xlsx")
 xf = DataFrame(XLSX.readtable(data_file, "Sheet2", infer_eltypes = true))
 
 # Print column names and types
@@ -58,17 +58,11 @@ ds_keyed = to_keyedArray(Float32.(sdf))
 # -----------------------------------------------------------------------------
 # Parameter Container for the Mechanistic Model
 # -----------------------------------------------------------------------------
-struct CUESimpleParams <: AbstractHybridModel
-    hybrid::EasyHybrid.ParameterContainer
-end
-
 parameters = (
     #   name     = (default,    lower,   upper)         # description
     Growth      = (500.0f0,      1f-5,   7000.0f0),       # Growth
     Respiration = (1200.0f0,     1f-5,   12000.0f0),      # Respiration
 )
-
-parameter_container = build_parameters(parameters, CUESimpleParams)
 
 function CUE_simple(; Growth, Respiration)
     CUE = Growth ./ (Respiration .+ Growth)
@@ -105,7 +99,7 @@ hybrid_model = constructHybridModel(
     forcing,
     targets,
     CUE_simple,
-    parameter_container,
+    parameters,
     neural_param_names,
     global_param_names;
     scale_nn_outputs = true,
@@ -144,10 +138,6 @@ predictors = [
 # -----------------------------------------------------------------------------
 # Parameter Container for the Mechanistic Model (Q10)
 # -----------------------------------------------------------------------------
-struct CUEQ10Params <: AbstractHybridModel
-    hybrid::EasyHybrid.ParameterContainer
-end
-
 parametersQ10 = (
     #    name           (default,   lower,    upper)         # description
     Growth         = (500.0f0,     1f-5,   7000.0f0),       # Growth
@@ -155,8 +145,6 @@ parametersQ10 = (
     Q10Growth      = (2.0f0,       1f0,   5.0f0),         # Q10Growth
     Q10Respiration = (2.0f0,       1f0,   5.0f0),         # Q10Respiration
 )
-
-parameter_containerQ10 = build_parameters(parametersQ10, CUEQ10Params)
 
 function fQ10(T, T_ref, Q10)
     return Q10 .* 0.1 .* (T .- T_ref)
@@ -180,7 +168,7 @@ hybrid_model = constructHybridModel(
     forcing,
     targets,
     CUE_Q10,
-    parameter_containerQ10,
+    parametersQ10,
     neural_param_names,
     global_param_names;
     scale_nn_outputs = true,

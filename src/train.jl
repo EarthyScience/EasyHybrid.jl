@@ -310,12 +310,41 @@ function prepare_data(hm, data::KeyedArray)
     end
 
     function prepare_data(hm, data::DataFrame)
-        predictors = hm.predictors
-        forcing    = hm.forcing
-        targets     = hm.targets
-    
-        all_predictor_cols  = unique(vcat(values(predictors)...))
-        col_to_select       = unique([all_predictor_cols; forcing; targets])
+        targets = hm.targets
+        predictors_forcing = Symbol[]
+
+        # Collect all predictors and forcing variables by checking property names
+        for prop in propertynames(hm)
+            if occursin("predictors", string(prop))
+                val = getproperty(hm, prop)
+                if isa(val, AbstractVector)
+                    append!(predictors_forcing, val)
+                elseif isa(val, Union{NamedTuple, Tuple})
+                    append!(predictors_forcing, unique(vcat(values(val)...)))
+                end
+            end
+        end
+        for prop in propertynames(hm)
+            if occursin("forcing", string(prop))
+                val = getproperty(hm, prop)
+                if isa(val, AbstractVector)
+                    append!(predictors_forcing, val)
+                elseif isa(val, Union{Tuple, NamedTuple})
+                    append!(predictors_forcing, unique(vcat(values(val)...)))
+                end
+            end
+        end
+        predictors_forcing = unique(predictors_forcing)
+        
+        if isempty(predictors_forcing)
+            @warn "Note that you don't have predictors or forcing variables."
+        end
+        if isempty(targets)
+            @warn "Note that you don't have target names."
+        end
+
+        all_predictor_cols  = unique(vcat(values(predictors_forcing)...))
+        col_to_select       = unique([all_predictor_cols; targets])
     
         # subset to only the cols we care about
         sdf = data[!, col_to_select]

@@ -14,7 +14,7 @@ end
 # start using the package
 using EasyHybrid
 using AxisKeys
-using WGLMakie
+using GLMakie
 
 include("Data/load_data.jl")
 
@@ -25,16 +25,19 @@ include("Data/load_data.jl")
 # copy data to data/data20240123/ from here /Net/Groups/BGI/work_4/scratch/jnelson/4Sinikka/data20240123
 # or adjust the path to /Net/Groups/BGI/work_4/scratch/jnelson/4Sinikka/data20240123 + FluxNetSite
 
-df = load_fluxnet_nc(joinpath(project_path, "Data", "data20240123", "US-SRG.nc"), timevar="date")
+fluxnet_data = load_fluxnet_nc(joinpath(project_path, "Data", "data20240123", "US-SRG.nc"), timevar="date")
 
-df.timeseries.dayofyear = dayofyear.(df.timeseries.time)
-df.timeseries.sine_dayofyear = sin.(df.timeseries.dayofyear)
-df.timeseries.cos_dayofyear = cos.(df.timeseries.dayofyear)
+fluxnet_data.timeseries.dayofyear = dayofyear.(fluxnet_data.timeseries.time)
+fluxnet_data.timeseries.sine_dayofyear = sin.(fluxnet_data.timeseries.dayofyear)
+fluxnet_data.timeseries.cos_dayofyear = cos.(fluxnet_data.timeseries.dayofyear)
 
 # explore data structure
-println(names(df.timeseries))
-println(df.scalars)
-println(names(df.profiles))
+println(names(fluxnet_data.timeseries))
+println(fluxnet_data.scalars)
+println(names(fluxnet_data.profiles))
+
+# select timeseries data
+df = fluxnet_data.timeseries
 
 # =============================================================================
 # Targets, Forcing and Predictors definition
@@ -52,11 +55,6 @@ predictors = (Rb = [:SWC_shallow, :P, :WS, :sine_dayofyear, :cos_dayofyear],
 # Parameter container for the mechanistic model
 # =============================================================================
 
-# Parameter structure for FluxPartModel
-struct FluxPartParams <: AbstractHybridModel 
-    hybrid::EasyHybrid.ParameterContainer
-end
-
 # Define parameter structure with bounds
 parameters = (
     #            default                  lower                     upper                description
@@ -64,9 +62,6 @@ parameters = (
     Rb       = ( 1.0f0,                  0.0f0,                   6.0f0 ),            # Basal respiration [μmol/m²/s]
     Q10      = ( 1.5f0,                  1.0f0,                   4.0f0 ),            # Temperature sensitivity factor [-]
 )
-
-parameter_container = build_parameters(parameters, FluxPartParams)
-
 
 # =============================================================================
 # Mechanistic Model Definition
@@ -97,7 +92,7 @@ end
 
 mech_model = construct_dispatch_functions(flux_part_mechanistic_model)
 
-out_test = mech_model(df, parameter_container, forcing_FluxPartModel)
+out_test = mech_model(df, parameters, forcing_FluxPartModel)
 
 # =============================================================================
 # Plot with defaults
@@ -138,12 +133,13 @@ hybrid_model = constructHybridModel(
     forcing_FluxPartModel,
     target_FluxPartModel,
     mech_model,
-    parameter_container,
+    parameters,
     global_param_names,
     scale_nn_outputs=false,
     hidden_layers = [15, 15],
     activation = sigmoid,
-    input_batchnorm = true
+    input_batchnorm = true,
+    start_from_default = true
 )
 
 # =============================================================================
@@ -154,10 +150,8 @@ ps, st = LuxCore.setup(Random.default_rng(), hybrid_model)
 ps_st = (ps, st)
 ps_st2 = deepcopy(ps_st)
 
-hybrid_model(ds_keyed_FluxPartModel, ps, st)
-
 # Train FluxPartModel
-out_Generic = train(hybrid_model, df, (); nepochs=30, batchsize=512, opt=AdamW(0.01), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, train_from=ps_st, yscale = identity);
+out_Generic = train(hybrid_model, df, (); nepochs=30, batchsize=512, opt=AdamW(0.01), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, yscale = identity);
 
 # =============================================================================
 # train hybrid FluxPartModel_Q10_Lux model on NEE to get Q10, GPP, and Reco
@@ -166,12 +160,14 @@ out_Generic = train(hybrid_model, df, (); nepochs=30, batchsize=512, opt=AdamW(0
 NNRb = Chain(BatchNorm(length(predictors.Rb), affine=false), Dense(length(predictors.Rb), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1))
 NNRUE = Chain(BatchNorm(length(predictors.Rb), affine=false), Dense(length(predictors.Rb), 15, sigmoid), Dense(15, 15, sigmoid), Dense(15, 1))
 
-FluxPart = FluxPartModelQ10Lux(NNRUE, NNRb, predictors.RUE, predictors.Rb, forcing_FluxPartModel, target_FluxPartModel, Q10start)
+FluxPart = FluxPartModelQ10Lux(NNRUE, NNRb, predictors.RUE, predictors.Rb, forcing_FluxPartModel, target_FluxPartModel, [1.5])
 
-ps_st2[1].Q10 .= Q10start
+ps_st2[1].Q10 .= [1.5]
+
+data_ = EasyHybrid.prepare_data(FluxPart, df)
 
 # Train FluxPartModel
-out_Individual = train(FluxPart, ds_keyed_FluxPartModel, (:Q10,); nepochs=30, batchsize=512, opt=AdamW(0.01), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, train_from=ps_st2, yscale = identity);
+out_Individual = train(FluxPart, df, (); nepochs=30, batchsize=512, opt=AdamW(0.01), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, train_from=ps_st2, yscale = identity);
 
 # =============================================================================
 # Results Visualization
