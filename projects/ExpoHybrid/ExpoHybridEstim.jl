@@ -85,7 +85,7 @@ function Expo_resp_model(;T, Resp0, k)
     # Calculate fluxes
     #k=0.07f0  # Fixed value for k
     Resp_obs = Resp0 .* exp.(k .* T)
-    return (;Resp_obs, Resp0)
+    return (;Resp_obs, Resp0, k)
 end    
 
 hybrid_model = constructHybridModel(
@@ -101,10 +101,14 @@ hybrid_model = constructHybridModel(
     input_batchnorm = true
 )
 
-out =  train(hybrid_model, df, (); nepochs=300, batchsize=64, opt=AdamW(0.01, (0.9, 0.999), 0.01), loss_types=[:mse, :nse], training_loss=:nse, random_seed=123, yscale = identity)
+out =  train(hybrid_model, df, (:k,); nepochs=300, batchsize=64, opt=AdamW(0.01, (0.9, 0.999), 0.01), loss_types=[:mse, :nse], training_loss=:nse, random_seed=123, yscale = identity)
 
 
-EasyHybrid.poplot(out.val_obs_pred[!, :Resp_obs], out.val_obs_pred[!, :Resp_obs_pred], "Respiration Predictions vs Observations")
+EasyHybrid.poplot(out)
+EasyHybrid.plot_loss(out)
+EasyHybrid.plot_parameters(out)
+EasyHybrid.plot_training_summary(out, yscale=identity) # TODO needs work  
+# TODO plot parameters on scale of model
 
 preds = hybrid_model(df .|> Float32 |> to_keyedArray, out.ps, out.st)[1]
 preds = NamedTuple{Symbol.(string.(keys(preds)[1:end-2]) .* "_pred")}(Tuple(preds)[1:end-2])
