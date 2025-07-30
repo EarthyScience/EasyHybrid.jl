@@ -151,7 +151,7 @@ ps_st = (ps, st)
 ps_st2 = deepcopy(ps_st)
 
 # Train FluxPartModel
-out_Generic = train(hybrid_model, df, (:Q10,); nepochs=30, batchsize=512, opt=AdamW(0.01), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, yscale = identity);
+out_Generic = train(hybrid_model, df, (); nepochs=5, batchsize=512, opt=AdamW(0.01), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, yscale = identity, monitor_names=[:GPP, :Q10]);
 
 EasyHybrid.poplot(out_Generic)
 

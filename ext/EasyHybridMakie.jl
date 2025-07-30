@@ -6,6 +6,7 @@ using Makie.Colors
 using DataFrames
 import Makie
 import EasyHybrid
+using Statistics
 
 include("HybridTheme.jl")
 
@@ -297,8 +298,21 @@ function EasyHybrid.train_board(
         ax_mt = Makie.Axis(fig[row, 1:2]; xlabel = "Epoch", ylabel = string(m), title = "Monitor: $(m)")
         m_tr = getfield(train_monitor, m)
         m_val = getfield(val_monitor, m)
-        Makie.lines!(ax_mt, m_tr; color = :grey25, linewidth = 2, label = "Training")
-        Makie.lines!(ax_mt, m_val; color = :tomato, linewidth = 2, linestyle = :dash, label = "Validation")
+        @show fieldnames(typeof(m_tr))	
+        @show fieldnames(typeof(m_val))
+        if length(m_tr) > 1
+            for (qi, q) in enumerate([0.25, 0.5, 0.75])
+                m_tr = getfield(m_tr, qi)
+                m_val = getfield(m_val, qi)
+                @show m_tr
+                @show m_val
+                Makie.lines!(ax_mt, m_tr; color = :grey25, linewidth = 2)
+                Makie.lines!(ax_mt, m_val; color = :tomato, linewidth = 2, linestyle = :dash)
+            end
+        else
+            Makie.lines!(ax_mt, m_tr; color = :grey25, linewidth = 2, label = "Training")
+            Makie.lines!(ax_mt, m_val; color = :tomato, linewidth = 2, linestyle = :dash, label = "Validation")
+        end
         Makie.axislegend(ax_mt; position = :rt)
         on(m_val) do _; autolimits!(ax_mt); end
     end

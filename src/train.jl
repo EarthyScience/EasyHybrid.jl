@@ -38,7 +38,7 @@ Train a hybrid model using the provided data and save the training process to a 
 """
 function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0.01), patience=typemax(Int),
     file_name=nothing, loss_types=[:mse, :r2], training_loss=:mse, agg=sum, train_from = nothing, 
-    random_seed=nothing, shuffleobs = false, yscale=log10)
+    random_seed=nothing, shuffleobs = false, yscale=log10, monitor_names=nothing)
     #! check if the EasyHybridMakie extension is loaded.
     ext = Base.get_extension(@__MODULE__, :EasyHybridMakie)
     if ext === nothing
@@ -100,11 +100,6 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     if !isnothing(ext)
          target_names = hybridModel.targets
 
-    @show typeof(ŷ_train)
-    @show typeof(ŷ_val)
-    @show typeof(y_train)
-    @show typeof(y_val)
-
 # build NamedTuples of Observables for preds and obs
 train_preds = (; (t => EasyHybrid.to_obs(getfield(ŷ_train, t)) for t in target_names)...)
 val_preds   = (; (t => EasyHybrid.to_obs(getfield(ŷ_val,   t)) for t in target_names)...)
@@ -112,9 +107,29 @@ train_obs   = (; (t => EasyHybrid.to_obs(y_train(t)) for t in target_names)...)
 val_obs     = (; (t => EasyHybrid.to_obs(y_val(t)) for t in target_names)...)
 
          # --- monitored parameters/state as Observables ---
-    monitor_names = collect(save_ps)
-    train_monitor = (; (m => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, getfield(ŷ_train, m)[1])])  for m in monitor_names)...)
-    val_monitor   = (; (m => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, getfield(ŷ_val,   m)[1])])  for m in monitor_names)...)
+    
+    #train_monitor = (; (m => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, getfield(ŷ_train, m)[1])])  for m in monitor_names)...)
+    #val_monitor   = (; (m => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, getfield(ŷ_val,   m)[1])])  for m in monitor_names)...)
+
+    train_monitor = (; (m => begin
+    v = vec(getfield(ŷ_train, m))
+    @show length(v)
+    @show typeof(v)
+    if length(v) > 1
+       (Symbol("q$q") => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, quantile(v, q))]) for q in [0.25, 0.5, 0.75])
+    else
+      (Symbol("scalar") => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, v[1])]))
+    end
+  end for m in monitor_names)...)
+
+    val_monitor = (; (m => begin
+    v = vec(getfield(ŷ_val, m))
+    if length(v) > 1
+       (Symbol("q$q") => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, quantile(v, q))]) for q in [0.25, 0.5, 0.75])
+    else
+      (Symbol("scalar") => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, v[1])]))
+    end
+  end for m in monitor_names)...)
 
     # launch multi-target + monitor dashboard
     EasyHybrid.train_board(
@@ -197,10 +212,30 @@ val_obs     = (; (t => EasyHybrid.to_obs(y_val(t)) for t in target_names)...)
             end
 
             for m in monitor_names
-                train_monitor[m][] = push!(train_monitor[m][], EasyHybrid.to_point2f(epoch, getfield(ŷ_train, m)[1]))
-                val_monitor[m][]   = push!(val_monitor[m][], EasyHybrid.to_point2f(epoch, getfield(ŷ_val,   m)[1]))
-                notify(train_monitor[m])
-                notify(val_monitor[m])
+                #train_monitor[m][] = push!(train_monitor[m][], EasyHybrid.to_point2f(epoch, getfield(ŷ_train, m)[1]))
+                #val_monitor[m][]   = push!(val_monitor[m][], EasyHybrid.to_point2f(epoch, getfield(ŷ_val,   m)[1]))
+                #notify(train_monitor[m])
+                #notify(val_monitor[m])
+
+                v_tr = getfield(ŷ_train, m)  
+                m_tr = getfield(ŷ_train, m)
+            
+                if length(v_tr) > 1 
+                    for q in [0.25, 0.5, 0.75]
+                        push!(val_monitor[m][Symbol("q$q")][], EasyHybrid.to_point2f(epoch, quantile(v_tr, q)))
+                        push!(train_monitor[m][Symbol("q$q")][], EasyHybrid.to_point2f(epoch, quantile(m_tr, q)))
+                        notify(val_monitor[m][Symbol("q$q")]) 
+                        notify(train_monitor[m][Symbol("q$q")]) 
+                    end
+                 else
+                   push!(val_monitor[m][:scalar][], EasyHybrid.to_point2f(epoch, v_tr[1]))
+                   push!(train_monitor[m][:scalar][], EasyHybrid.to_point2f(epoch, m_tr[1]))
+                   notify(val_monitor[m][:scalar])
+                   notify(train_monitor[m][:scalar])
+                 end
+
+
+
             end
 
             notify(val_h_obs) 
