@@ -12,7 +12,7 @@ if !isfile(manifest_path)
 end
 
 using EasyHybrid
-using WGLMakie
+using GLMakie
 import EasyHybrid: poplot, poplot!
 using Statistics
 using ComponentArrays
@@ -43,16 +43,9 @@ df.h = 10 .^ df.pF # convert pF to cm
 # Rename :WC to :θ in the DataFrame
 df.θ = df.WC ./ 100.0 # TODO keep at % scale - seems like better training, better gradients?
 
-ds_keyed = to_keyedArray(Float32.(df))
-
 # =============================================================================
 # Parameter Structure Definition
 # =============================================================================
-
-# name your ParameterContainer to your liking
-struct FXWParams <: AbstractHybridModel 
-    hybrid::EasyHybrid.ParameterContainer
-end
 
 # construct a named tuple of parameters with tuples of (default, lower, upper)
 parameters = (
@@ -64,8 +57,6 @@ parameters = (
     log_nm1  = ( log(3.302f0 - 1),        log(1.100f0 - 1),         log(20.000f0 - 1) ), # Shape parameter [-]
     log_m    = ( log(0.199f0),            log(0.100f0),             log(2.000f0) ),      # Shape parameter [-]
 )
-
-parameter_container = build_parameters(parameters, FXWParams)
 
 # =============================================================================
 # Mechanistic Model and helper functions
@@ -99,47 +90,29 @@ end
 # -> needed for hybrid model, 
 # log_α, log_nm1, log_m are log transformed parameters for better training across orders of magnitude
 
-function mechanistic_model(h; θ_s, h_r, h_0, log_α, log_nm1, log_m)
+function mFXW_theta_trans(;h, θ_s, h_r, h_0, log_α, log_nm1, log_m)
     return mFXW_theta(h, θ_s, h_r, h_0, exp.(log_α), exp.(log_nm1) .+ 1, exp.(log_m))
 end
 
-function mechanistic_model(;h, θ_s, h_r, h_0, log_α, log_nm1, log_m)
-    return mFXW_theta(h, θ_s, h_r, h_0, exp.(log_α), exp.(log_nm1) .+ 1, exp.(log_m))
-end
-
-# KeyedArray version needed for hybrid model
-function mechanistic_model(forcing_data::KeyedArray; kwargs...)
-    h = vec(forcing_data([:h]))  # Extract h from forcing data
-    return mechanistic_model(h; kwargs...)
-end
-
-function mechanistic_model(h, params::AbstractHybridModel)
-    return mechanistic_model(h; values(default(params))...)
-end
-
-function mechanistic_model(forcing_data::KeyedArray, params::AbstractHybridModel)
-    return mechanistic_model(forcing_data; values(default(params))...)
-end
-
-
+mechanistic_model = construct_dispatch_functions(mFXW_theta_trans)
 
 # =============================================================================
 # Default Model Behaviour
 # =============================================================================
-h_values = sort(Array(ds_keyed(:h)))
-pF_values = sort(Array(ds_keyed(:pF)))
+h_values = DataFrame(h = sort(Array(df[:,:h])))
+pF_values = sort(Array(df[:,:pF]))
 
-θ_pred = mechanistic_model(h_values, parameter_container).θ
+θ_pred = mechanistic_model(h_values, parameters, [:h]).θ
 
 #GLMakie.activate!(inline=false)
 fig_swrc = Figure()
 ax = Makie.Axis(fig_swrc[1, 1], xlabel = "θ", ylabel = "pF")
-plot!(ax, ds_keyed(:θ), ds_keyed(:pF), label="data", color=(:grey25, 0.25))
+plot!(ax, df[:,:θ], df[:,:pF], label="data", color=(:grey25, 0.25))
 lines!(ax, θ_pred, pF_values, color=:red, label="FXW default")
 axislegend(ax; position=:rt)
 fig_swrc
 
-fig_po = poplot(Array(ds_keyed(:θ)), θ_pred, "Default")
+fig_po = poplot(θ_pred, Array(df[:,:θ]), "Default")
 
 # =============================================================================
 # Global Parameter Training
@@ -153,18 +126,15 @@ hybrid_model = constructHybridModel(
     forcing,          # forcing
     targets,          # target
     mechanistic_model,          # mechanistic model
-    parameter_container,               # parameter defaults and bounds of mechanistic model
+    parameters,               # parameter defaults and bounds of mechanistic model
     [],               # nn_names
     [:θ_s, :log_α, :log_nm1, :log_m],  # global_names
     scale_nn_outputs=false
 )
 
-tout = train(hybrid_model, ds_keyed, (); nepochs=100, batchsize=256, opt=AdaGrad(0.01), file_name = "tout.jld2", training_loss=:nse, loss_types=[:mse, :nse])
+tout = train(hybrid_model, df, (); nepochs=100, batchsize=256, opt=AdaGrad(0.01), file_name = "tout.jld2", training_loss=:nse, loss_types=[:mse, :nse])
 
-θ_pred1 = tout.val_obs_pred[!, Symbol("θ_pred")]
-θ_obs1 = tout.val_obs_pred[!, :θ]
-
-poplot(θ_pred1, θ_obs1, "Global parameters")
+poplot(tout)
 
 
 # =============================================================================
@@ -178,7 +148,7 @@ hybrid_model_nn = constructHybridModel(
     forcing,                                    # forcing
     targets,                                    # targets
     mechanistic_model,                                    # mechanistic model
-    parameter_container,                                         # parameter bounds
+    parameters,                                         # parameter bounds
     [:θ_s, :log_α, :log_nm1, :log_m],           # neural_param_names
     [],                                          # global_names
     scale_nn_outputs=true,
@@ -186,15 +156,13 @@ hybrid_model_nn = constructHybridModel(
     activation = tanh
 )
 
-tout2 = train(hybrid_model_nn, ds_keyed, (); nepochs=100, batchsize=256, opt=AdaGrad(0.01), file_name = "tout2.jld2", training_loss=:nse, loss_types=[:mse, :nse])
+tout2 = train(hybrid_model_nn, df, (); nepochs=100, batchsize=256, opt=AdaGrad(0.01), file_name = "tout2.jld2", training_loss=:nse, loss_types=[:mse, :nse])
 
 # =============================================================================
 # Results Visualization
 # =============================================================================
 
-θ_pred2 = tout2.val_obs_pred[!, Symbol(string(:θ, "_pred"))]
-θ_obs2 = tout2.val_obs_pred[!, :θ]
+poplot(tout2)
 
-poplot(θ_pred2, θ_obs2, "Neural parameters")
 
 

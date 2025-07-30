@@ -153,11 +153,11 @@ function EasyHybrid.poplot!(results::EasyHybrid.TrainResults; target_cols=nothin
             
             # Filter out NaN values
             mask = .!isnan.(train_df[!, target]) .& .!isnan.(train_df[!, pred_col])
-            obs_vals = train_df[mask, target]
-            pred_vals = train_df[mask, pred_col]
+            obs = train_df[mask, target]
+            pred = train_df[mask, pred_col]
             
-            if length(obs_vals) > 0
-                EasyHybrid.poplot!(fig, obs_vals, pred_vals, "Training: $target", row, col)
+            if length(obs) > 0
+                EasyHybrid.poplot!(fig, pred, obs, "Training: $target", row, col)
                 plot_idx += 1
             end
         end
@@ -168,11 +168,11 @@ function EasyHybrid.poplot!(results::EasyHybrid.TrainResults; target_cols=nothin
             
             # Filter out NaN values
             mask = .!isnan.(val_df[!, target]) .& .!isnan.(val_df[!, pred_col])
-            obs_vals = val_df[mask, target]
-            pred_vals = val_df[mask, pred_col]
+            obs = val_df[mask, target]
+            pred = val_df[mask, pred_col]
             
-            if length(obs_vals) > 0
-                EasyHybrid.poplot!(fig, pred_vals, obs_vals, "Validation: $target", row, col)
+            if length(obs) > 0
+                EasyHybrid.poplot!(fig, pred, obs, "Validation: $target", row, col)
                 plot_idx += 1
             end
         end

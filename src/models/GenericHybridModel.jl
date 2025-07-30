@@ -75,7 +75,8 @@ function constructHybridModel(
     hidden_layers::Union{Vector{Int}, Chain} = [32, 32],
     activation = tanh,
     scale_nn_outputs = false,
-    input_batchnorm = false
+    input_batchnorm = false,
+    start_from_default = true
 )
     
     if !isa(parameters, AbstractHybridModel)
