@@ -22,10 +22,6 @@ using EasyHybrid.DataFrameMacros
 using GLMakie, AlgebraOfGraphics
 using Chain: @chain as @c
 
-struct ExpoHybParams <: AbstractHybridModel 
-    hybrid::EasyHybrid.ParameterContainer
-end
-
 parameters = (
     #            default                  lower                     upper                description
     k      = ( 0.01f0,                  0.0f0,                   0.2f0 ),            # Exponent
@@ -36,7 +32,6 @@ targets = [:Resp_obs]
 forcings = [:T]
 predictors = (Resp0=[:SM],)
 
-parameter_container = build_parameters(parameters, ExpoHybParams)
 
 ### Create synthetic data: Resp = Resp0 * exp(k*T); Resp0 = f(SM)
 ##
@@ -93,7 +88,7 @@ hybrid_model = constructHybridModel(
     forcings,
     targets,
     Expo_resp_model,
-    parameter_container,
+    parameters,
     global_param_names,
     scale_nn_outputs=false, # TODO true also works with good lower and upper bounds
     hidden_layers = [16, 16],

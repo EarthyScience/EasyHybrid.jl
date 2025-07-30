@@ -1,4 +1,5 @@
 export SingleNNHybridModel, MultiNNHybridModel, constructHybridModel, scale_single_param, AbstractHybridModel, build_hybrid, ParameterContainer, default, lower, upper, hard_sigmoid
+export HybridParams
 
 # Import necessary components for neural networks
 using Lux: BatchNorm
@@ -21,9 +22,14 @@ mutable struct ParameterContainer{NT<:NamedTuple, T} <: AbstractHybridModel
     end
 end
 
-function build_hybrid(paras::NamedTuple, f::DataType)
-    ca = EasyHybrid.ParameterContainer(paras)
-    return f(ca)
+"""
+    HybridParams{M<:Function}
+
+A little parametric stub for “the params of function `M`.”  
+All of your function‐based models become `HybridParams{typeof(f)}`.
+"""
+struct HybridParams{M<:Function} <: AbstractHybridModel
+    hybrid::ParameterContainer
 end
 
 # ───────────────────────────────────────────────────────────────────────────
@@ -71,6 +77,11 @@ function constructHybridModel(
     scale_nn_outputs = false,
     input_batchnorm = false
 )
+    
+    if !isa(parameters, AbstractHybridModel)
+        parameters = build_parameters(parameters, mechanistic_model)
+    end
+
     all_names = pnames(parameters)
     @assert all(n in all_names for n in neural_param_names) "neural_param_names ⊆ param_names"
     
@@ -105,6 +116,11 @@ function constructHybridModel(
     input_batchnorm = false,
     start_from_default = true
 )
+
+    if !isa(parameters, AbstractHybridModel)
+        parameters = build_parameters(parameters, mechanistic_model)
+    end
+
     all_names = pnames(parameters)
     neural_param_names = collect(keys(predictors))
     # Create neural networks based on predictors

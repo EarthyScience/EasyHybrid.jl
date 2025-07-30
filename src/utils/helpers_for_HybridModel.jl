@@ -39,6 +39,15 @@ function build_parameters(parameters::NamedTuple, f::DataType)
     return f(ca)
 end
 
+# the “core” build_parameters that knows how to turn a NamedTuple + a
+# subtype of AbstractHybridModel into an actual model instance:
+function build_parameters(params::NamedTuple, ::Type{P}) where {P<:AbstractHybridModel}
+    return P(EasyHybrid.ParameterContainer(params))
+end
+
+function build_parameters(params::NamedTuple, f::M) where {M<:Function}
+    return build_parameters(params, HybridParams{M})
+end
 """
     build_parameter_matrix(parameter_defaults_and_bounds::NamedTuple)
 
