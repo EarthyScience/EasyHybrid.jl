@@ -242,17 +242,18 @@ val_obs     = (; (t => EasyHybrid.to_obs(y_val(t)) for t in target_names)...)
 
             notify(val_h_obs) 
 
-            if l_val < best_loss
-                best_loss = l_val
-                best_ps = deepcopy(tmp_e)
-                cnt_patience = 0
-            else
-                cnt_patience += 1
-            end
-            if cnt_patience >= patience
-                @info "Early stopping at epoch $epoch with best validation loss: $best_loss"
-                break
-            end
+        end
+
+        if l_val < best_loss
+            best_loss = l_val
+            best_ps = deepcopy(tmp_e)
+            cnt_patience = 0
+        else
+            cnt_patience += 1
+        end
+        if cnt_patience >= patience
+            @info "Early stopping at epoch $epoch with best validation loss: $best_loss"
+            break
         end
 
         _headers, paddings = header_and_paddings(getproperty(l_init_train, training_loss))
