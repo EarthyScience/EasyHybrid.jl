@@ -38,7 +38,7 @@ Train a hybrid model using the provided data and save the training process to a 
 """
 function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0.01), patience=typemax(Int),
     file_name=nothing, loss_types=[:mse, :r2], training_loss=:mse, agg=sum, train_from = nothing, 
-    random_seed=nothing, shuffleobs = false, yscale=log10, monitor_names=nothing)
+    random_seed=nothing, shuffleobs = false, yscale=log10, monitor_names=[])
     #! check if the EasyHybridMakie extension is loaded.
     ext = Base.get_extension(@__MODULE__, :EasyHybridMakie)
     if ext === nothing
