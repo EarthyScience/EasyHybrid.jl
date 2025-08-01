@@ -75,59 +75,13 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     train_history = [l_init_train]
     val_history = [l_init_val]
 
-    train_h_obs = if !isnothing(ext)
-        l_value = getproperty(getproperty(l_init_train, training_loss), Symbol("$agg"))
-        p = EasyHybrid.to_point2f(0, l_value)
-        EasyHybrid.to_obs([p])
-    end
-    val_h_obs = if !isnothing(ext)
-        l_value_val = getproperty(getproperty(l_init_val, training_loss), Symbol("$agg"))
-        p_val = EasyHybrid.to_point2f(0, l_value_val)
-        EasyHybrid.to_obs([p_val])
-    end
-
-    # initial predictions for scatter plot obs versus model
-    ŷ_train = hybridModel(x_train, ps, LuxCore.testmode(st))[1]
-    ŷ_val = hybridModel(x_val, ps, LuxCore.testmode(st))[1]
-
+    # Initialize plotting observables if extension is loaded
     if !isnothing(ext)
-        target_names = hybridModel.targets
+        train_h_obs, val_h_obs, train_preds, val_preds, train_obs, val_obs, train_monitor, val_monitor = 
+            initialize_plotting_observables(ext, hybridModel, x_train, y_train, x_val, y_val, l_init_train, l_init_val, training_loss, agg, monitor_names, ps, st)
 
-        # build NamedTuples of Observables for preds and obs
-        train_preds = (; (t => EasyHybrid.to_obs(getfield(ŷ_train, t)) for t in target_names)...)
-        val_preds   = (; (t => EasyHybrid.to_obs(getfield(ŷ_val,   t)) for t in target_names)...)
-        train_obs   = (; (t => EasyHybrid.to_obs(y_train(t)) for t in target_names)...)
-        val_obs     = (; (t => EasyHybrid.to_obs(y_val(t)) for t in target_names)...)
-
-         # --- monitored parameters/state as Observables ---
-        train_monitor = (; (m => begin
-            v = vec(getfield(ŷ_train, m))
-            if length(v) > 1
-                (; (Symbol("q", string(Int(q*100))) => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, quantile(v, q))]) for q in [0.25, 0.5, 0.75])...)
-            else
-                (; (Symbol("scalar") => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, v[1])])))
-            end
-        end for m in monitor_names)...)
-
-        val_monitor = (; (m => begin
-            v = vec(getfield(ŷ_val, m))
-            if length(v) > 1
-                (; (Symbol("q", string(Int(q*100))) => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, quantile(v, q))]) for q in [0.25, 0.5, 0.75])...)
-                else
-                (; Symbol("scalar") => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, v[1])]))
-                end
-        end for m in monitor_names)...)
-
-        # launch multi-target + monitor dashboard
-        EasyHybrid.train_board(
-            train_h_obs, val_h_obs,
-            train_preds, train_obs,
-            val_preds, val_obs,
-            train_monitor, val_monitor,
-            yscale;
-            target_names=target_names,
-            monitor_names=monitor_names
-        )
+        # Launch dashboard if extension is loaded
+        launch_training_dashboard(ext, train_h_obs, val_h_obs, train_preds, train_obs, val_preds, val_obs, train_monitor, val_monitor, yscale, hybridModel.targets, monitor_names)
     end
 
     # track physical parameters
@@ -136,7 +90,8 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     ps_history = [ps_init]
 
     # For Early stopping
-    best_ps = deepcopy(ps_init) 
+    best_ps = deepcopy(ps)
+    best_st = deepcopy(st)
     best_loss = l_init_val
     cnt_patience = 0
     
@@ -174,57 +129,14 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
         push!(train_history, l_train)
         push!(val_history, l_val)
 
-        if !isnothing(ext)
-            l_value = getproperty(getproperty(l_train, training_loss), Symbol("$agg"))
-            new_p = EasyHybrid.to_point2f(epoch, l_value)
-            push!(train_h_obs[], new_p)
-            notify(train_h_obs) 
-            l_value_val = getproperty(getproperty(l_val, training_loss), Symbol("$agg"))
-            new_p_val = EasyHybrid.to_point2f(epoch, l_value_val)
-            push!(val_h_obs[], new_p_val)
-
-            ŷ_train = hybridModel(x_train, ps, LuxCore.testmode(st))[1]
-            ŷ_val = hybridModel(x_val, ps, LuxCore.testmode(st))[1]
-
-            for t in target_names
-                # replace the array stored in the Observable:
-                train_preds[t][] = getfield(ŷ_train, t)
-                val_preds[t][]   = getfield(ŷ_val,   t)
-                # and notify Makie that it changed:
-                notify(train_preds[t])
-                notify(val_preds[t])
-            end
-
-            for m in monitor_names
-
-                v_tr = getfield(ŷ_train, m)  
-                m_tr = getfield(ŷ_train, m)
-            
-                if length(v_tr) > 1 
-                    for q in [0.25, 0.5, 0.75]
-                        push!(val_monitor[m][Symbol("q", string(Int(q*100)))][], EasyHybrid.to_point2f(epoch, quantile(v_tr, q)))
-                        push!(train_monitor[m][Symbol("q", string(Int(q*100)))][], EasyHybrid.to_point2f(epoch, quantile(m_tr, q)))
-                        notify(val_monitor[m][Symbol("q", string(Int(q*100)))]) 
-                        notify(train_monitor[m][Symbol("q", string(Int(q*100)))]) 
-                    end
-                 else
-                   push!(val_monitor[m][:scalar][], EasyHybrid.to_point2f(epoch, v_tr[1]))
-                   push!(train_monitor[m][:scalar][], EasyHybrid.to_point2f(epoch, m_tr[1]))
-                   notify(val_monitor[m][:scalar])
-                   notify(train_monitor[m][:scalar])
-                 end
-
-
-
-            end
-
-            notify(val_h_obs) 
-
-        end
+        # Update plotting observables if extension is loaded
+        update_plotting_observables(ext, train_h_obs, val_h_obs, train_preds, val_preds, train_monitor, val_monitor, 
+            hybridModel, x_train, x_val, ps, st, l_train, l_val, training_loss, agg, epoch, monitor_names)
 
         if l_val < best_loss
             best_loss = l_val
-            best_ps = deepcopy(tmp_e)
+            best_ps = deepcopy(ps)
+            best_st = deepcopy(st)
             cnt_patience = 0
         else
             cnt_patience += 1
@@ -293,6 +205,123 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
         ps,
         st
     )
+end
+
+"""
+    initialize_plotting_observables(ext, hybridModel, x_train, y_train, x_val, y_val, l_init_train, l_init_val, training_loss, agg, monitor_names, ps, st)
+
+Initialize plotting observables for training visualization if the Makie extension is loaded.
+"""
+function initialize_plotting_observables(hybridModel, x_train, y_train, x_val, y_val, l_init_train, l_init_val, training_loss, agg, monitor_names, ps, st)
+
+    # Initialize loss history observables
+    l_value = getproperty(getproperty(l_init_train, training_loss), Symbol("$agg"))
+    p = EasyHybrid.to_point2f(0, l_value)
+    train_h_obs = EasyHybrid.to_obs([p])
+    
+    l_value_val = getproperty(getproperty(l_init_val, training_loss), Symbol("$agg"))
+    p_val = EasyHybrid.to_point2f(0, l_value_val)
+    val_h_obs = EasyHybrid.to_obs([p_val])
+
+    # Initial predictions for scatter plot obs versus model
+    ŷ_train = hybridModel(x_train, ps, LuxCore.testmode(st))[1]
+    ŷ_val = hybridModel(x_val, ps, LuxCore.testmode(st))[1]
+
+    target_names = hybridModel.targets
+
+    # build NamedTuples of Observables for preds and obs
+    train_preds = (; (t => EasyHybrid.to_obs(getfield(ŷ_train, t)) for t in target_names)...)
+    val_preds   = (; (t => EasyHybrid.to_obs(getfield(ŷ_val,   t)) for t in target_names)...)
+    train_obs   = (; (t => EasyHybrid.to_obs(y_train(t)) for t in target_names)...)
+    val_obs     = (; (t => EasyHybrid.to_obs(y_val(t)) for t in target_names)...)
+
+    # --- monitored parameters/state as Observables ---
+    train_monitor = (; (m => begin
+        v = vec(getfield(ŷ_train, m))
+        if length(v) > 1
+            (; (Symbol("q", string(Int(q*100))) => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, quantile(v, q))]) for q in [0.25, 0.5, 0.75])...)
+        else
+            (; (Symbol("scalar") => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, v[1])])))
+        end
+    end for m in monitor_names)...)
+
+    val_monitor = (; (m => begin
+        v = vec(getfield(ŷ_val, m))
+        if length(v) > 1
+            (; (Symbol("q", string(Int(q*100))) => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, quantile(v, q))]) for q in [0.25, 0.5, 0.75])...)
+            else
+            (; Symbol("scalar") => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, v[1])]))
+            end
+    end for m in monitor_names)...)
+
+    return train_h_obs, val_h_obs, train_preds, val_preds, train_obs, val_obs, train_monitor, val_monitor
+end
+
+"""
+    launch_training_dashboard(train_h_obs, val_h_obs, train_preds, train_obs, val_preds, val_obs, train_monitor, val_monitor, yscale, target_names, monitor_names)
+
+Launch the training dashboard if the Makie extension is loaded.
+"""
+function launch_training_dashboard(train_h_obs, val_h_obs, train_preds, train_obs, val_preds, val_obs, train_monitor, val_monitor, yscale, target_names, monitor_names)
+        # launch multi-target + monitor dashboard
+        EasyHybrid.train_board(
+            train_h_obs, val_h_obs,
+            train_preds, train_obs,
+            val_preds, val_obs,
+            train_monitor, val_monitor,
+            yscale;
+            target_names=target_names,
+            monitor_names=monitor_names
+        )
+end
+
+"""
+    update_plotting_observables(ext, train_h_obs, val_h_obs, train_preds, val_preds, train_monitor, val_monitor, hybridModel, x_train, x_val, ps, st, l_train, l_val, training_loss, agg, epoch, monitor_names)
+
+Update plotting observables during training if the Makie extension is loaded.
+"""
+function update_plotting_observables(ext, train_h_obs, val_h_obs, train_preds, val_preds, train_monitor, val_monitor, hybridModel, x_train, x_val, ps, st, l_train, l_val, training_loss, agg, epoch, monitor_names)
+    l_value = getproperty(getproperty(l_train, training_loss), Symbol("$agg"))
+    new_p = EasyHybrid.to_point2f(epoch, l_value)
+    push!(train_h_obs[], new_p)
+    notify(train_h_obs) 
+    l_value_val = getproperty(getproperty(l_val, training_loss), Symbol("$agg"))
+    new_p_val = EasyHybrid.to_point2f(epoch, l_value_val)
+    push!(val_h_obs[], new_p_val)
+
+    ŷ_train = hybridModel(x_train, ps, LuxCore.testmode(st))[1]
+    ŷ_val = hybridModel(x_val, ps, LuxCore.testmode(st))[1]
+
+    target_names = hybridModel.targets
+    for t in target_names
+        # replace the array stored in the Observable:
+        train_preds[t][] = getfield(ŷ_train, t)
+        val_preds[t][]   = getfield(ŷ_val,   t)
+        # and notify Makie that it changed:
+        notify(train_preds[t])
+        notify(val_preds[t])
+    end
+
+    for m in monitor_names
+        v_tr = getfield(ŷ_train, m)  
+        m_tr = getfield(ŷ_train, m)
+    
+        if length(v_tr) > 1 
+            for q in [0.25, 0.5, 0.75]
+                push!(val_monitor[m][Symbol("q", string(Int(q*100)))][], EasyHybrid.to_point2f(epoch, quantile(v_tr, q)))
+                push!(train_monitor[m][Symbol("q", string(Int(q*100)))][], EasyHybrid.to_point2f(epoch, quantile(m_tr, q)))
+                notify(val_monitor[m][Symbol("q", string(Int(q*100)))]) 
+                notify(train_monitor[m][Symbol("q", string(Int(q*100)))]) 
+            end
+         else
+           push!(val_monitor[m][:scalar][], EasyHybrid.to_point2f(epoch, v_tr[1]))
+           push!(train_monitor[m][:scalar][], EasyHybrid.to_point2f(epoch, m_tr[1]))
+           notify(val_monitor[m][:scalar])
+           notify(train_monitor[m][:scalar])
+         end
+    end
+
+    notify(val_h_obs) 
 end
 
 function styled_values(nt; digits=5, color=nothing, paddings=nothing)
