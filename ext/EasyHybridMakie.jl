@@ -253,12 +253,13 @@ function EasyHybrid.train_board(
 )
     n_targets  = length(target_names)
     n_monitors = length(monitor_names)
-    total_rows = n_targets + 2 + n_monitors
+    total_rows = max(n_targets, n_monitors)
 
-    fig = Makie.Figure(size=(500, 300*total_rows))
+    fig = Makie.Figure(size=(1400, 250*total_rows))
 
-    # Per‑target scatter subplots
+    # Columns 1-2: Per‑target scatter subplots (side by side)
     for (i, t) in enumerate(target_names)
+        # Training scatter plot
         ax_tr = Makie.Axis(fig[i, 1]; title = "Training: $(t)", xlabel = "Predicted", ylabel = "Observed", aspect = 1)
         p_tr = getfield(train_preds, t)
         o_tr = getfield(train_obs, t)
@@ -266,6 +267,7 @@ function EasyHybrid.train_board(
         Makie.lines!(ax_tr, @lift(sort($o_tr)), @lift(sort($o_tr)); color = :black, linestyle = :dash)
         on(p_tr) do _; autolimits!(ax_tr); end
 
+        # Validation scatter plot
         ax_val = Makie.Axis(fig[i, 2]; title = "Validation: $(t)", xlabel = "Predicted", ylabel = "Observed", aspect = 1)
         p_val = getfield(val_preds, t)
         o_val = getfield(val_obs, t)
@@ -274,16 +276,14 @@ function EasyHybrid.train_board(
         on(p_val) do _; autolimits!(ax_val); end
     end
 
-    # Loss evolution
-    row_loss = n_targets + 1
-    ax_loss = Makie.Axis(fig[row_loss, 1:2]; yscale = yscale, xlabel = "Epoch", ylabel = "Loss", title = "Loss Evolution")
+    # Columns 3-4: Loss evolution
+    ax_loss = Makie.Axis(fig[1, 3:4]; yscale = yscale, xlabel = "Epoch", ylabel = "Loss", title = "Loss Evolution")
     Makie.lines!(ax_loss, train_loss; color = :grey25, label = "Training Loss", linewidth = 2)
     Makie.lines!(ax_loss, val_loss;   color = :tomato, label = "Validation Loss", linewidth = 2)
     Makie.axislegend(ax_loss; position = :rt, nbanks = 2)
 
     # Zoomed loss last 100 epochs
-    row_zoom = n_targets + 2
-    ax_zoom = Makie.Axis(fig[row_zoom, 1:2]; yscale = yscale, xlabel = "Epoch", ylabel = "Loss (Zoom)", title = "Zoomed Loss")
+    ax_zoom = Makie.Axis(fig[2, 3:4]; yscale = yscale, xlabel = "Epoch", ylabel = "Loss (Zoom)", title = "Zoomed Loss")
     zoom_idx = @lift(max(1, length($train_loss) - 100))
     tlz = @lift($train_loss[$zoom_idx:end])
     vlz = @lift($val_loss[$zoom_idx:end])
@@ -292,10 +292,9 @@ function EasyHybrid.train_board(
     Makie.axislegend(ax_zoom; position = :rt, nbanks = 2)
     on(train_loss) do _; autolimits!(ax_loss); autolimits!(ax_zoom); end
 
-    # Additional monitored outputs
+    # Columns 5-6: Additional monitored outputs
     for (j, m) in enumerate(monitor_names)
-        row = n_targets + 2 + j
-        ax_mt = Makie.Axis(fig[row, 1:2]; xlabel = row == total_rows ? "Epoch" : "", ylabel = string(m), title = "Monitor: $(m)")
+        ax_mt = Makie.Axis(fig[j, 5:6]; xlabel = "Epoch", ylabel = string(m), title = "Monitor: $(m)")
         m_tr = getfield(train_monitor, m)
         m_val = getfield(val_monitor, m)
 
@@ -318,6 +317,34 @@ function EasyHybrid.train_board(
             Makie.linkxaxes!(ax_loss, ax_mt)
         end
         
+    end
+
+    # Columns 7-8: Additional monitored outputs (if needed)
+    if length(monitor_names) > 6
+        for (j, m) in enumerate(monitor_names[2:end])
+            ax_mt2 = Makie.Axis(fig[j, 7:8]; xlabel = "Epoch", ylabel = string(m), title = "Monitor: $(m)")
+            m_tr = getfield(train_monitor, m)
+            m_val = getfield(val_monitor, m)
+
+            if length(m_tr) > 1
+                for (qi, q) in enumerate([0.25, 0.5, 0.75])
+                    m_tr_ex = getfield(m_tr, Symbol("q", string(Int(q*100))))
+                    m_val_ex = getfield(m_val, Symbol("q", string(Int(q*100))))
+                    Makie.lines!(ax_mt2, m_tr_ex; color = :grey25, linewidth = 2)
+                    Makie.lines!(ax_mt2, m_val_ex; color = :tomato, linewidth = 2, linestyle = :dash)
+                    on(m_val_ex) do _; autolimits!(ax_mt2); end
+                    Makie.linkxaxes!(ax_loss, ax_mt2)
+                end
+            else
+                m_tr_ex = getfield(m_tr, :scalar)
+                m_val_ex = getfield(m_val, :scalar)
+                Makie.lines!(ax_mt2, m_tr_ex; color = :grey25, linewidth = 2, label = "Training")
+                Makie.lines!(ax_mt2, m_val_ex; color = :tomato, linewidth = 2, linestyle = :dash, label = "Validation")
+                on(m_val_ex) do _; autolimits!(ax_mt2); end
+                Makie.linkxaxes!(ax_loss, ax_mt2)
+            end
+            
+        end
     end
 
     Makie.display(fig; focus_on_show = true)

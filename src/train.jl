@@ -90,63 +90,45 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     ŷ_train = hybridModel(x_train, ps, LuxCore.testmode(st))[1]
     ŷ_val = hybridModel(x_val, ps, LuxCore.testmode(st))[1]
 
-    
     if !isnothing(ext)
-        #fig=Figure(resolution=(1200, 600))
-        EasyHybrid.plot_loss(train_h_obs, yscale)
-        EasyHybrid.plot_loss!(val_h_obs)
-    end
+        target_names = hybridModel.targets
 
-    if !isnothing(ext)
-         target_names = hybridModel.targets
-
-# build NamedTuples of Observables for preds and obs
-train_preds = (; (t => EasyHybrid.to_obs(getfield(ŷ_train, t)) for t in target_names)...)
-val_preds   = (; (t => EasyHybrid.to_obs(getfield(ŷ_val,   t)) for t in target_names)...)
-train_obs   = (; (t => EasyHybrid.to_obs(y_train(t)) for t in target_names)...)
-val_obs     = (; (t => EasyHybrid.to_obs(y_val(t)) for t in target_names)...)
+        # build NamedTuples of Observables for preds and obs
+        train_preds = (; (t => EasyHybrid.to_obs(getfield(ŷ_train, t)) for t in target_names)...)
+        val_preds   = (; (t => EasyHybrid.to_obs(getfield(ŷ_val,   t)) for t in target_names)...)
+        train_obs   = (; (t => EasyHybrid.to_obs(y_train(t)) for t in target_names)...)
+        val_obs     = (; (t => EasyHybrid.to_obs(y_val(t)) for t in target_names)...)
 
          # --- monitored parameters/state as Observables ---
-    
-    #train_monitor = (; (m => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, getfield(ŷ_train, m)[1])])  for m in monitor_names)...)
-    #val_monitor   = (; (m => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, getfield(ŷ_val,   m)[1])])  for m in monitor_names)...)
+        train_monitor = (; (m => begin
+            v = vec(getfield(ŷ_train, m))
+            if length(v) > 1
+                (; (Symbol("q", string(Int(q*100))) => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, quantile(v, q))]) for q in [0.25, 0.5, 0.75])...)
+            else
+                (; (Symbol("scalar") => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, v[1])])))
+            end
+        end for m in monitor_names)...)
 
-    train_monitor = (; (m => begin
-    v = vec(getfield(ŷ_train, m))
-    @show length(v)
-    @show typeof(v)
-    if length(v) > 1
-       (; (Symbol("q", string(Int(q*100))) => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, quantile(v, q))]) for q in [0.25, 0.5, 0.75])...)
-    else
-      (; (Symbol("scalar") => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, v[1])])))
+        val_monitor = (; (m => begin
+            v = vec(getfield(ŷ_val, m))
+            if length(v) > 1
+                (; (Symbol("q", string(Int(q*100))) => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, quantile(v, q))]) for q in [0.25, 0.5, 0.75])...)
+                else
+                (; Symbol("scalar") => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, v[1])]))
+                end
+        end for m in monitor_names)...)
+
+        # launch multi-target + monitor dashboard
+        EasyHybrid.train_board(
+            train_h_obs, val_h_obs,
+            train_preds, train_obs,
+            val_preds, val_obs,
+            train_monitor, val_monitor,
+            yscale;
+            target_names=target_names,
+            monitor_names=monitor_names
+        )
     end
-  end for m in monitor_names)...)
-
-    val_monitor = (; (m => begin
-    v = vec(getfield(ŷ_val, m))
-    if length(v) > 1
-       (; (Symbol("q", string(Int(q*100))) => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, quantile(v, q))]) for q in [0.25, 0.5, 0.75])...)
-    else
-      (; Symbol("scalar") => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, v[1])]))
-    end
-  end for m in monitor_names)...)
-
-    @show train_monitor
-
-    # launch multi-target + monitor dashboard
-    EasyHybrid.train_board(
-        train_h_obs, val_h_obs,
-        train_preds, train_obs,
-        val_preds, val_obs,
-        train_monitor, val_monitor,
-        yscale;
-        target_names=target_names,
-        monitor_names=monitor_names
-    )
-
-    end
-
-
 
     # track physical parameters
     ps_values_init = [copy(getproperty(ps, e)[1]) for e in save_ps]
@@ -214,10 +196,6 @@ val_obs     = (; (t => EasyHybrid.to_obs(y_val(t)) for t in target_names)...)
             end
 
             for m in monitor_names
-                #train_monitor[m][] = push!(train_monitor[m][], EasyHybrid.to_point2f(epoch, getfield(ŷ_train, m)[1]))
-                #val_monitor[m][]   = push!(val_monitor[m][], EasyHybrid.to_point2f(epoch, getfield(ŷ_val,   m)[1]))
-                #notify(train_monitor[m])
-                #notify(val_monitor[m])
 
                 v_tr = getfield(ŷ_train, m)  
                 m_tr = getfield(ŷ_train, m)
