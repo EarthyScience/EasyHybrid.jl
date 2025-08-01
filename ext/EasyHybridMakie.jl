@@ -253,9 +253,13 @@ function EasyHybrid.train_board(
 )
     n_targets  = length(target_names)
     n_monitors = length(monitor_names)
-    total_rows = max(n_targets, n_monitors)
+    total_rows = max(n_targets, n_monitors, 2)
 
-    fig = Makie.Figure(size=(1400, 250*total_rows))
+    if monitor_names == []
+        fig = Makie.Figure(size=(950, 250*total_rows))
+    else
+        fig = Makie.Figure(size=(1400, 250*total_rows))
+    end
 
     # Columns 1-2: Per‑target scatter subplots (side by side)
     for (i, t) in enumerate(target_names)
@@ -263,6 +267,8 @@ function EasyHybrid.train_board(
         ax_tr = Makie.Axis(fig[i, 1]; title = "Training: $(t)", xlabel = "Predicted", ylabel = "Observed", aspect = 1)
         p_tr = getfield(train_preds, t)
         o_tr = getfield(train_obs, t)
+        @show typeof(p_tr)
+        @show typeof(o_tr)
         Makie.scatter!(ax_tr, p_tr, o_tr; color = :grey25, alpha = 0.6, markersize = 6)
         Makie.lines!(ax_tr, @lift(sort($o_tr)), @lift(sort($o_tr)); color = :black, linestyle = :dash)
         on(p_tr) do _; autolimits!(ax_tr); end

@@ -78,10 +78,10 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     # Initialize plotting observables if extension is loaded
     if !isnothing(ext)
         train_h_obs, val_h_obs, train_preds, val_preds, train_obs, val_obs, train_monitor, val_monitor = 
-            initialize_plotting_observables(ext, hybridModel, x_train, y_train, x_val, y_val, l_init_train, l_init_val, training_loss, agg, monitor_names, ps, st)
+            initialize_plotting_observables(hybridModel, x_train, y_train, x_val, y_val, l_init_train, l_init_val, training_loss, agg, monitor_names, ps, st)
 
         # Launch dashboard if extension is loaded
-        launch_training_dashboard(ext, train_h_obs, val_h_obs, train_preds, train_obs, val_preds, val_obs, train_monitor, val_monitor, yscale, hybridModel.targets, monitor_names)
+        launch_training_dashboard(train_h_obs, val_h_obs, train_preds, train_obs, val_preds, val_obs, train_monitor, val_monitor, yscale, hybridModel.targets, monitor_names)
     end
 
     # track physical parameters
@@ -130,8 +130,10 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
         push!(val_history, l_val)
 
         # Update plotting observables if extension is loaded
-        update_plotting_observables(ext, train_h_obs, val_h_obs, train_preds, val_preds, train_monitor, val_monitor, 
+        if !isnothing(ext)
+            update_plotting_observables(train_h_obs, val_h_obs, train_preds, val_preds, train_monitor, val_monitor, 
             hybridModel, x_train, x_val, ps, st, l_train, l_val, training_loss, agg, epoch, monitor_names)
+        end
 
         if l_val < best_loss
             best_loss = l_val
@@ -230,8 +232,8 @@ function initialize_plotting_observables(hybridModel, x_train, y_train, x_val, y
     target_names = hybridModel.targets
 
     # build NamedTuples of Observables for preds and obs
-    train_preds = (; (t => EasyHybrid.to_obs(getfield(ŷ_train, t)) for t in target_names)...)
-    val_preds   = (; (t => EasyHybrid.to_obs(getfield(ŷ_val,   t)) for t in target_names)...)
+    train_preds = (; (t => EasyHybrid.to_obs(vec(getfield(ŷ_train, t))) for t in target_names)...)
+    val_preds   = (; (t => EasyHybrid.to_obs(vec(getfield(ŷ_val,   t))) for t in target_names)...)
     train_obs   = (; (t => EasyHybrid.to_obs(y_train(t)) for t in target_names)...)
     val_obs     = (; (t => EasyHybrid.to_obs(y_val(t)) for t in target_names)...)
 
@@ -280,7 +282,7 @@ end
 
 Update plotting observables during training if the Makie extension is loaded.
 """
-function update_plotting_observables(ext, train_h_obs, val_h_obs, train_preds, val_preds, train_monitor, val_monitor, hybridModel, x_train, x_val, ps, st, l_train, l_val, training_loss, agg, epoch, monitor_names)
+function update_plotting_observables(train_h_obs, val_h_obs, train_preds, val_preds, train_monitor, val_monitor, hybridModel, x_train, x_val, ps, st, l_train, l_val, training_loss, agg, epoch, monitor_names)
     l_value = getproperty(getproperty(l_train, training_loss), Symbol("$agg"))
     new_p = EasyHybrid.to_point2f(epoch, l_value)
     push!(train_h_obs[], new_p)
@@ -295,16 +297,16 @@ function update_plotting_observables(ext, train_h_obs, val_h_obs, train_preds, v
     target_names = hybridModel.targets
     for t in target_names
         # replace the array stored in the Observable:
-        train_preds[t][] = getfield(ŷ_train, t)
-        val_preds[t][]   = getfield(ŷ_val,   t)
+        train_preds[t][] = vec(getfield(ŷ_train, t))
+        val_preds[t][]   = vec(getfield(ŷ_val,   t))
         # and notify Makie that it changed:
         notify(train_preds[t])
         notify(val_preds[t])
     end
 
     for m in monitor_names
-        v_tr = getfield(ŷ_train, m)  
-        m_tr = getfield(ŷ_train, m)
+        v_tr = vec(getfield(ŷ_train, m))  
+        m_tr = vec(getfield(ŷ_train, m))
     
         if length(v_tr) > 1 
             for q in [0.25, 0.5, 0.75]
