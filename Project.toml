@@ -37,7 +37,7 @@ EasyHybridMakie = "Makie"
 [compat]
 AxisKeys = "0.2"
 CSV = "0.10.15"
-Chain = "0.6"
+Chain = "0.6, 1"
 ChainRulesCore = "1.25.1"
 ComponentArrays = "0.15.28"
 DataFrameMacros = "0.4"
