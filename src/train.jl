@@ -38,7 +38,7 @@ Train a hybrid model using the provided data and save the training process to a 
 """
 function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0.01), patience=typemax(Int),
     file_name=nothing, loss_types=[:mse, :r2], training_loss=:mse, agg=sum, train_from = nothing, 
-    random_seed=nothing, shuffleobs = false, yscale=log10, monitor_names=[])
+    random_seed=nothing, shuffleobs = false, yscale=log10, monitor_names=[], return_model=:best)
     #! check if the EasyHybridMakie extension is loaded.
     ext = Base.get_extension(@__MODULE__, :EasyHybridMakie)
     if ext === nothing
@@ -93,7 +93,12 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     best_ps = deepcopy(ps)
     best_st = deepcopy(st)
     best_loss = l_init_val
+    best_epoch = 0
     cnt_patience = 0
+    
+    # Initialize best_agg_loss for early stopping comparison
+    best_agg_loss = getproperty(best_loss[1], Symbol(agg))
+    current_agg_loss = best_agg_loss  # Initialize for potential use in final logging
     
     file_name = resolve_path(file_name)
     save_ps_st(file_name, hybridModel, ps, st, save_ps)
@@ -135,16 +140,21 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
             hybridModel, x_train, x_val, ps, st, l_train, l_val, training_loss, agg, epoch, monitor_names)
         end
 
-        if l_val < best_loss
-            best_loss = l_val
+        current_agg_loss = getproperty(l_val[1], Symbol(agg))
+        best_agg_loss = getproperty(best_loss[1], Symbol(agg))
+        
+        if current_agg_loss < best_agg_loss
+            best_agg_loss = current_agg_loss
             best_ps = deepcopy(ps)
             best_st = deepcopy(st)
             cnt_patience = 0
+            best_epoch = epoch
         else
             cnt_patience += 1
         end
         if cnt_patience >= patience
-            @info "Early stopping at epoch $epoch with best validation loss: $best_loss"
+            metric_name = first(keys(l_val))
+            @info "Early stopping at epoch $epoch with best validation loss wrt $metric_name: $best_loss"
             break
         end
 
@@ -167,6 +177,17 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     ps_history = WrappedTuples(ps_history)
 
     # ? save final evaluation or best at best validation value
+    if return_model == :best
+        ps, st = deepcopy(best_ps), deepcopy(best_st)
+        metric_name = first(keys(best_loss))
+        @info "Returning best model from epoch $best_epoch with best validation loss wrt $metric_name: $best_agg_loss"
+    elseif return_model == :final
+        metric_name = first(keys(l_val))
+        ps, st = deepcopy(ps), deepcopy(st)
+        @info "Returning final model from last of $nepochs epochs with validation loss: $current_agg_loss, the best validation loss was $best_agg_loss from epoch $best_epoch"
+    else
+        @warn "Invalid return_model: $return_model. Returning final model."
+    end
 
     ŷ_train, αst_train = hybridModel(x_train, ps, LuxCore.testmode(st))
     ŷ_val, αst_val = hybridModel(x_val, ps, LuxCore.testmode(st))
