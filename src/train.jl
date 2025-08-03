@@ -180,11 +180,11 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     if return_model == :best
         ps, st = deepcopy(best_ps), deepcopy(best_st)
         metric_name = first(keys(best_loss))
-        @info "Returning best model from epoch $best_epoch with best validation loss wrt $metric_name: $best_agg_loss"
+        @info "Returning best model from epoch $best_epoch of $nepochs epochs with best validation loss wrt $metric_name: $best_agg_loss"
     elseif return_model == :final
         metric_name = first(keys(l_val))
         ps, st = deepcopy(ps), deepcopy(st)
-        @info "Returning final model from last of $nepochs epochs with validation loss: $current_agg_loss, the best validation loss was $best_agg_loss from epoch $best_epoch"
+        @info "Returning final model from final of $nepochs epochs with validation loss: $current_agg_loss, the best validation loss was $best_agg_loss from epoch $best_epoch"
     else
         @warn "Invalid return_model: $return_model. Returning final model."
     end
