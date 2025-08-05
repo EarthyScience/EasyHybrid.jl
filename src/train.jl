@@ -410,7 +410,7 @@ function prepare_data(hm, data::KeyedArray)
     targets = hm.targets
     predictors, forcing = _collect_predictors_and_forcing(hm)
     _check_predictors_forcing_targets(predictors, forcing, targets)
-    return (data(predictors), data(forcing), data(targets))
+    return ((data(predictors), data(forcing)), data(targets))
 end
 
 function prepare_data(hm, data::DataFrame)
@@ -441,8 +441,8 @@ function prepare_data(hm, data::DataFrame)
     mapcols(col -> replace!(col, missing => NaN), sdf; cols = names(sdf, Union{Missing, Real}))
 
     # Convert to Float32 and to your keyed array
-    data_keyed = to_keyedArray(Float32.(sdf))
-    return (data_keyed(predictors), data_keyed(forcing), data_keyed(targets))
+    ds_keyed = to_keyedArray(Float32.(sdf))
+    return ((ds_keyed(predictors), ds_keyed(forcing)), ds_keyed(targets))
 end
 
 function prepare_data(hm, data::Tuple)
