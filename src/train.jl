@@ -373,105 +373,77 @@ Utility function to see if the data is already in the expected format or if furt
 
 # Arguments:
 - hm: The Hybrid Model
-- data: either a Tuple of KeyedArrays or a single KeyedArray.
+- data: either a Tuple of KeyedArrays, a single KeyedArray, or a DataFrame.
 
 Returns a tuple of KeyedArrays
 """
+function _collect_predictors_and_forcing(hm)
+    predictors = Symbol[]
+    forcing = Symbol[]
+    for prop in propertynames(hm)
+        prop_str = string(prop)
+        val = getproperty(hm, prop)
+        if occursin("predictors", prop_str)
+            if isa(val, AbstractVector)
+                append!(predictors, val)
+            elseif isa(val, Union{NamedTuple, Tuple})
+                append!(predictors, unique(vcat(values(val)...)))
+            end
+        elseif occursin("forcing", prop_str)
+            if isa(val, AbstractVector)
+                append!(forcing, val)
+            elseif isa(val, Union{NamedTuple, Tuple})
+                append!(forcing, unique(vcat(values(val)...)))
+            end
+        end
+    end
+    return (unique(predictors), unique(forcing))
+end
+
+function _check_predictors_forcing_targets(predictors, forcing, targets)
+    isempty(predictors) && @warn "No predictors variables."
+    isempty(forcing) && @warn "No forcing variables - is a hybrid model?"
+    isempty(targets) && @warn "No target names."
+end
+
 function prepare_data(hm, data::KeyedArray)
-        targets = hm.targets
-        predictors_forcing = Symbol[]
+    targets = hm.targets
+    predictors, forcing = _collect_predictors_and_forcing(hm)
+    _check_predictors_forcing_targets(predictors, forcing, targets)
+    return (data(predictors), data(forcing), data(targets))
+end
 
-        # Collect all predictors and forcing variables by checking property names
-        for prop in propertynames(hm)
-            if occursin("predictors", string(prop))
-                val = getproperty(hm, prop)
-                if isa(val, AbstractVector)
-                    append!(predictors_forcing, val)
-                elseif isa(val, Union{NamedTuple, Tuple})
-                    append!(predictors_forcing, unique(vcat(values(val)...)))
-                end
-            end
-        end
-        for prop in propertynames(hm)
-            if occursin("forcing", string(prop))
-                val = getproperty(hm, prop)
-                if isa(val, AbstractVector)
-                    append!(predictors_forcing, val)
-                elseif isa(val, Union{Tuple, NamedTuple})
-                    append!(predictors_forcing, unique(vcat(values(val)...)))
-                end
-            end
-        end
-        predictors_forcing = unique(predictors_forcing)
-        
-        if isempty(predictors_forcing)
-            @warn "Note that you don't have predictors or forcing variables."
-        end
-        if isempty(targets)
-            @warn "Note that you don't have target names."
-        end
-        return (data(predictors_forcing), data(targets))
-    end
+function prepare_data(hm, data::DataFrame)
+    targets = hm.targets
+    predictors, forcing = _collect_predictors_and_forcing(hm)
+    _check_predictors_forcing_targets(predictors, forcing, targets)
 
-    function prepare_data(hm, data::DataFrame)
-        targets = hm.targets
-        predictors_forcing = Symbol[]
+    all_predictor_cols = unique(vcat(values(predictors)...))
+    all_forcing_cols = unique(vcat(values(forcing)...))
+    col_to_select = unique([all_predictor_cols; all_forcing_cols; targets])
 
-        # Collect all predictors and forcing variables by checking property names
-        for prop in propertynames(hm)
-            if occursin("predictors", string(prop))
-                val = getproperty(hm, prop)
-                if isa(val, AbstractVector)
-                    append!(predictors_forcing, val)
-                elseif isa(val, Union{NamedTuple, Tuple})
-                    append!(predictors_forcing, unique(vcat(values(val)...)))
-                end
-            end
-        end
-        for prop in propertynames(hm)
-            if occursin("forcing", string(prop))
-                val = getproperty(hm, prop)
-                if isa(val, AbstractVector)
-                    append!(predictors_forcing, val)
-                elseif isa(val, Union{Tuple, NamedTuple})
-                    append!(predictors_forcing, unique(vcat(values(val)...)))
-                end
-            end
-        end
-        predictors_forcing = unique(predictors_forcing)
-        
-        if isempty(predictors_forcing)
-            @warn "Note that you don't have predictors or forcing variables."
-        end
-        if isempty(targets)
-            @warn "Note that you don't have target names."
-        end
+    # subset to only the cols we care about
+    sdf = data[!, col_to_select]
 
-        all_predictor_cols  = unique(vcat(values(predictors_forcing)...))
-        col_to_select       = unique([all_predictor_cols; targets])
-    
-        # subset to only the cols we care about
-        sdf = data[!, col_to_select]
-    
-        # Separate predictor/forcing vs. target columns
-        predforce_cols = setdiff(col_to_select, targets)
-        
-        # For each row, check if *any* predictor/forcing is missing
-        mask_missing_predforce = map(row -> any(ismissing, row), eachrow(sdf[:, predforce_cols]))
-        
-        # For each row, check if *at least one* target is present (i.e. not all missing)
-        mask_at_least_one_target = map(row -> any(!ismissing, row), eachrow(sdf[:, targets]))
-        
-        # Keep rows where predictors/forcings are *complete* AND there's some target present
-        keep = .!mask_missing_predforce .& mask_at_least_one_target
-        sdf = sdf[keep, col_to_select]
-    
-        mapcols(col -> replace!(col, missing => NaN), sdf; cols = names(sdf, Union{Missing, Real}))
-    
-        # Convert to Float32 and to your keyed array
-        ds_keyed = to_keyedArray(Float32.(sdf))
-        return prepare_data(hm, ds_keyed)
-    end
+    # Separate predictor/forcing vs. target columns
+    predforce_cols = setdiff(col_to_select, targets)
+
+    # For each row, check if *any* predictor/forcing is missing
+    mask_missing_predforce = map(row -> any(ismissing, row), eachrow(sdf[:, predforce_cols]))
+
+    # For each row, check if *at least one* target is present (i.e. not all missing)
+    mask_at_least_one_target = map(row -> any(!ismissing, row), eachrow(sdf[:, targets]))
+
+    # Keep rows where predictors/forcings are *complete* AND there's some target present
+    keep = .!mask_missing_predforce .& mask_at_least_one_target
+    sdf = sdf[keep, col_to_select]
+
+    mapcols(col -> replace!(col, missing => NaN), sdf; cols = names(sdf, Union{Missing, Real}))
+
+    # Convert to Float32 and to your keyed array
+    data_keyed = to_keyedArray(Float32.(sdf))
+    return (data_keyed(predictors), data_keyed(forcing), data_keyed(targets))
+end
 
 function prepare_data(hm, data::Tuple)
     return data
