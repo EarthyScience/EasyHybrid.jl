@@ -27,14 +27,17 @@ Train a hybrid model using the provided data and save the training process to a 
 - `nepochs`: Number of training epochs (default: 200).
 - `batchsize`: Size of the training batches (default: 10).
 - `opt`: The optimizer to use for training (default: Adam(0.01)).
+- `patience`: The number of epochs to wait before early stopping (default: `typemax(Int)`-> no early stopping).
 - `file_name`: The name of the file to save the training process (default: nothing-> "trained_model.jld2").
-- `loss_types`: A vector of loss types to compute during training (default: `[:mse, :mae]`).
+- `loss_types`: A vector of loss types to compute during training (default: `[:mse, :r2]`).
 - `training_loss`: The loss type to use during training (default: `:mse`).
 - `agg`: The aggregation function to apply to the computed losses (default: `sum`).
 - `train_from`: A tuple of physical parameters and state to start training from or an output of `train` (default: nothing-> new training).
 - `random_seed`: The random seed to use for training (default: nothing-> no seed).
 - `shuffleobs`: Whether to shuffle the training data (default: false).
 - `yscale`: The scale to apply to the y-axis (default: `log10`).
+- `monitor_names`: A vector of monitor names to track during training (default: `[]`).	
+- `return_model`: The model to return: `:best` for the best model, `:final` for the final model (default: `:best`).
 """
 function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0.01), patience=typemax(Int),
     file_name=nothing, loss_types=[:mse, :r2], training_loss=:mse, agg=sum, train_from = nothing, 
