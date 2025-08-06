@@ -17,4 +17,6 @@ Manifest.toml
 *.pptx
 *.nc
 *.png
+*.xlsx
+/projects/SOC_PBM/data/
 /projects/BulkDSOC/eval/

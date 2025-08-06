@@ -60,7 +60,7 @@ function prepare_hidden_chain(
         # build the hidden‐to‐hidden part
         hidden_chain = length(hs) > 1 ? 
             Chain((Dense(hs[i], hs[i+1], activation) for i in 1:length(hs)-1)...) :
-            identity
+            Chain()
         return Chain(
             input_batchnorm ? BatchNorm(in_dim, affine=false) : identity,
             Dense(in_dim, hs[1], activation),

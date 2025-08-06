@@ -1,4 +1,5 @@
 export SingleNNHybridModel, MultiNNHybridModel, constructHybridModel, scale_single_param, AbstractHybridModel, build_hybrid, ParameterContainer, default, lower, upper, hard_sigmoid
+export HybridParams
 
 # Import necessary components for neural networks
 using Lux: BatchNorm
@@ -21,9 +22,14 @@ mutable struct ParameterContainer{NT<:NamedTuple, T} <: AbstractHybridModel
     end
 end
 
-function build_hybrid(paras::NamedTuple, f::DataType)
-    ca = EasyHybrid.ParameterContainer(paras)
-    return f(ca)
+"""
+    HybridParams{M<:Function}
+
+A little parametric stub for “the params of function `M`.”  
+All of your function‐based models become `HybridParams{typeof(f)}`.
+"""
+struct HybridParams{M<:Function} <: AbstractHybridModel
+    hybrid::ParameterContainer
 end
 
 # ───────────────────────────────────────────────────────────────────────────
@@ -39,6 +45,7 @@ struct SingleNNHybridModel
     global_param_names :: Vector{Symbol}
     fixed_param_names  :: Vector{Symbol}
     scale_nn_outputs  :: Bool
+    start_from_default :: Bool
 end
 
 # Multi-NN Hybrid Model Structure (optimized for performance)
@@ -53,6 +60,7 @@ struct MultiNNHybridModel
     global_param_names :: Vector{Symbol}
     fixed_param_names  :: Vector{Symbol}
     scale_nn_outputs  :: Bool
+    start_from_default :: Bool
 end
 
 # Unified constructor that dispatches based on predictors type
@@ -66,9 +74,15 @@ function constructHybridModel(
     global_param_names;
     hidden_layers::Union{Vector{Int}, Chain} = [32, 32],
     activation = tanh,
-    scale_nn_outputs = true,
-    input_batchnorm = false
+    scale_nn_outputs = false,
+    input_batchnorm = false,
+    start_from_default = true
 )
+    
+    if !isa(parameters, AbstractHybridModel)
+        parameters = build_parameters(parameters, mechanistic_model)
+    end
+
     all_names = pnames(parameters)
     @assert all(n in all_names for n in neural_param_names) "neural_param_names ⊆ param_names"
     
@@ -87,7 +101,7 @@ function constructHybridModel(
     
     fixed_param_names = [ n for n in all_names if !(n in [neural_param_names..., global_param_names...]) ]
     
-    return SingleNNHybridModel(NN, predictors, forcing, targets, mechanistic_model, parameters, neural_param_names, global_param_names, fixed_param_names, scale_nn_outputs)
+    return SingleNNHybridModel(NN, predictors, forcing, targets, mechanistic_model, parameters, neural_param_names, global_param_names, fixed_param_names, scale_nn_outputs, start_from_default)
 end
 
 function constructHybridModel(
@@ -96,19 +110,20 @@ function constructHybridModel(
     targets,
     mechanistic_model,
     parameters,
-    neural_param_names,
     global_param_names;
     hidden_layers::Union{Vector{Int}, Chain, NamedTuple} = [32, 32],
     activation::Union{Function, NamedTuple} = tanh,
-    scale_nn_outputs = true,
-    input_batchnorm = false
+    scale_nn_outputs = false,
+    input_batchnorm = false,
+    start_from_default = true
 )
+
+    if !isa(parameters, AbstractHybridModel)
+        parameters = build_parameters(parameters, mechanistic_model)
+    end
+
     all_names = pnames(parameters)
-    @assert all(n in all_names for n in neural_param_names) "neural_param_names ⊆ param_names"
-    
-    # Check that predictor names match neural parameter names
-    @assert collect(keys(predictors)) == neural_param_names "predictor names must match neural parameter names"
-    
+    neural_param_names = collect(keys(predictors))
     # Create neural networks based on predictors
     NNs = NamedTuple()
     for (nn_name, preds) in pairs(predictors)
@@ -135,7 +150,7 @@ function constructHybridModel(
     
     fixed_param_names = [ n for n in all_names if !(n in [neural_param_names..., global_param_names...]) ]
     
-    return MultiNNHybridModel(NNs, predictors, forcing, targets, mechanistic_model, parameters, neural_param_names, global_param_names, fixed_param_names, scale_nn_outputs)
+    return MultiNNHybridModel(NNs, predictors, forcing, targets, mechanistic_model, parameters, neural_param_names, global_param_names, fixed_param_names, scale_nn_outputs, start_from_default)
 end
 
 
@@ -171,9 +186,16 @@ function LuxCore.initialparameters(rng::AbstractRNG, m::MultiNNHybridModel)
     
     # Then append each global parameter as a 1-vector of Float32
     if !isempty(m.global_param_names)
-        for g in m.global_param_names
-            random_val = rand(rng, Float32)
-            nt = merge(nt, NamedTuple{(g,), Tuple{Vector{Float32}}}(([random_val],)))
+        if m.start_from_default
+            for g in m.global_param_names
+                default_val = scale_single_param_minmax(g, m.parameters)
+                nt = merge(nt, NamedTuple{(g,), Tuple{Vector{Float32}}}(([Float32(default_val)],)))
+            end
+        else
+            for g in m.global_param_names
+                random_val = rand(rng, Float32)
+                nt = merge(nt, NamedTuple{(g,), Tuple{Vector{Float32}}}(([random_val],)))
+            end
         end
     end
     
@@ -238,31 +260,34 @@ pnames(p::AbstractHybridModel) = keys(p.hybrid.table.axes[1])
 """
     scale_single_param(name, raw_val, parameters)
 
-Scale a single parameter using the hard sigmoid scaling function.
+Scale a single parameter using the sigmoid scaling function.
 """
 function scale_single_param(name, raw_val, hm::AbstractHybridModel)
     ℓ = lower(hm)[name]
     u = upper(hm)[name]
-    return ℓ .+ (u .- ℓ) .* hard_sigmoid.(raw_val)
+    return ℓ .+ (u .- ℓ) .* sigmoid.(raw_val)
 end
 
-"""
-    scale_single_param_hard(name, raw_val, parameters)
+inv_sigmoid(y) = log.(y ./ (1 .- y))
 
-Scale a single parameter using the hard sigmoid scaling function.
+""" 
+    scale_single_param_minmax(name, hm::AbstractHybridModel)
+
+Scale a single parameter using the minmax scaling function.
 """
-function scale_single_param_hard(name, raw_val, hm::AbstractHybridModel)
+function scale_single_param_minmax(name, hm::AbstractHybridModel)
     ℓ = lower(hm)[name]
     u = upper(hm)[name]
-    return ℓ .+ (u .- ℓ) .* hard_sigmoid.(raw_val)
+    return inv_sigmoid.((default(hm)[name] .- ℓ) ./ (u .- ℓ)) 
 end
+
 
 # ───────────────────────────────────────────────────────────────────────────
 # Forward pass for SingleNNHybridModel (optimized, no branching)
 function (m::SingleNNHybridModel)(ds_k, ps, st)
     # 1) get features
     predictors = ds_k(m.predictors) 
-    forcing_data = ds_k(m.forcing)
+
     parameters = m.parameters
 
     # 2) scale global parameters (handle empty case)
@@ -305,10 +330,15 @@ function (m::SingleNNHybridModel)(ds_k, ps, st)
         fixed_params = NamedTuple()
     end
 
-    all_params = merge(scaled_nn_params, global_params, fixed_params)
+    # 5) unpack forcing data
+    forcing_data = unpack_keyedarray(ds_k, m.forcing)
 
-    # 5) physics
-    y_pred = m.mechanistic_model(forcing_data; all_params...)
+    # 6) merge all parameters
+    all_params = merge(scaled_nn_params, global_params, fixed_params)
+    all_kwargs = merge(forcing_data, all_params)
+
+    # 7) physics
+    y_pred = m.mechanistic_model(; all_kwargs...)
 
     out = (;y_pred..., parameters = all_params)
     st_new = (; st = st_NN, fixed = st.fixed)
@@ -318,7 +348,7 @@ end
 
 # Forward pass for MultiNNHybridModel (optimized, no branching)
 function (m::MultiNNHybridModel)(ds_k, ps, st)
-    
+
     parameters = m.parameters
 
     # 2) Scale global parameters (handle empty case)
@@ -374,8 +404,13 @@ function (m::MultiNNHybridModel)(ds_k, ps, st)
 
     all_params = merge(scaled_nn_params, global_params, fixed_params)
 
-    # 6) Apply mechanistic model
-    y_pred = m.mechanistic_model(ds_k(m.forcing); all_params...)
+    # 6) unpack forcing data
+
+    forcing_data = unpack_keyedarray(ds_k, m.forcing)
+    all_kwargs = merge(forcing_data, all_params)
+    
+    # 7) Apply mechanistic model
+    y_pred = m.mechanistic_model(; all_kwargs...)
 
     out = (;y_pred..., parameters = all_params, nn_outputs = nn_outputs)
 
@@ -388,6 +423,7 @@ end
 function Base.display(hm::SingleNNHybridModel)
     println("Neural Network: ", hm.NN)
     println("Predictors: ", hm.predictors)
+    println("Forcing: ", hm.forcing)
     println("neural parameters: ", hm.neural_param_names)
     println("global parameters: ", hm.global_param_names)
     println("fixed parameters: ", hm.fixed_param_names)
@@ -406,7 +442,7 @@ function Base.display(hm::MultiNNHybridModel)
     for (name, preds) in pairs(hm.predictors)
         println("  $name: ", preds)
     end
-    
+    println("Forcing: ", hm.forcing)
     println("neural parameters: ", hm.neural_param_names)
     println("global parameters: ", hm.global_param_names)
     println("fixed parameters: ", hm.fixed_param_names)

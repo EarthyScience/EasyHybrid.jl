@@ -41,7 +41,7 @@ axiskeys(ds)
 # Define neural network
 NN = Lux.Chain(Dense(3, 15, Lux.relu), Dense(15, 15, Lux.relu), Dense(15, 1));
 # instantiate Hybrid Model
-RbQ10 = RespirationRbQ10(NN, (:SW_POT_sm, :SW_POT_sm_diff, :Temp), (:R_soil, ), (:Temp,), 2.5f0) # ? do different initial Q10s
+RbQ10 = RespirationRbQ10(NN, (:SW_POT_sm, :SW_POT_sm_diff, :Temp), (:Temp,), (:R_soil, ), 2.5f0) # ? do different initial Q10s
 # train model
 out = train(RbQ10, ds, (:Q10, ); nepochs=10, batchsize=512, opt=Adam(0.01));
 
