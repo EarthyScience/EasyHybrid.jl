@@ -163,9 +163,16 @@ function LuxCore.initialparameters(rng::AbstractRNG, m::SingleNNHybridModel)
     
     # Then append each global parameter as a 1-vector of Float32
     if !isempty(m.global_param_names)
-        for g in m.global_param_names
-            random_val = rand(rng, Float32)
-            nt = merge(nt, NamedTuple{(g,), Tuple{Vector{Float32}}}(([random_val],)))
+        if m.start_from_default
+            for g in m.global_param_names
+                default_val = scale_single_param_minmax(g, m.parameters)
+                nt = merge(nt, NamedTuple{(g,), Tuple{Vector{Float32}}}(([Float32(default_val)],)))
+        end
+        else
+            for g in m.global_param_names
+                random_val = rand(rng, Float32)
+                nt = merge(nt, NamedTuple{(g,), Tuple{Vector{Float32}}}(([random_val],)))
+            end
         end
     end
     
