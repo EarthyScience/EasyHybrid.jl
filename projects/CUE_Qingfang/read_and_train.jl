@@ -15,6 +15,7 @@ end
 
 using DataFrames
 using XLSX
+using EasyHybrid
 
 # -----------------------------------------------------------------------------
 # Data Loading
@@ -61,13 +62,14 @@ fig1 = Figure()
 fig1
 
 ax1 = WGLMakie.Axis(fig1[1, 1], xlabel = "Growth", ylabel = "CUE")
-scatter!(ax1, o_def.Growth, o_def.CUE)
-scatter!(ax1, ds_keyed(:Growth), ds_keyed(:CUE), color = :red)
+scatter!(ax1, df[!, :Growth], o_def.CUE, label = "with function")
+scatter!(ax1, df[!, :Growth], df[!, :CUE], color = :red, label = "from data")
 # TODO: why some mismatches?
 
 ax2 = WGLMakie.Axis(fig1[2, 1], xlabel = "Respiration", ylabel = "CUE")
-scatter!(ax2, o_def.Respiration, o_def.CUE)
-scatter!(ax2, ds_keyed(:Respiration), ds_keyed(:CUE), color = :red)
+scatter!(ax2, df[!, :Respiration], o_def.CUE, label = "with function")
+scatter!(ax2, df[!, :Respiration], df[!, :CUE], color = :red, label = "from data")
+axislegend(ax1; position=:rt)
 
 # -----------------------------------------------------------------------------
 # Hybrid Model Construction and Training (Simple)
@@ -85,7 +87,7 @@ hybrid_model_simple = constructHybridModel(
     global_param_names;
     scale_nn_outputs = true,
     hidden_layers    = [15, 15],
-    activation       = sigmoid,
+    activation       = sigmoid, # tanh, relu, swish
     input_batchnorm  = true
 )
 
@@ -98,7 +100,7 @@ out_simple = train(
     opt            = AdamW(0.1, (0.9, 0.999), 0.01),
     loss_types     = [:nse, :mse],
     training_loss  = :nse,
-    yscale         = identity,
+    yscale         = identity, # log
     agg            = mean,
     shuffleobs     = true,
     patience       = 50
