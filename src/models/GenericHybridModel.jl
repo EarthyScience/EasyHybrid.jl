@@ -293,6 +293,8 @@ end
 # Forward pass for SingleNNHybridModel (optimized, no branching)
 function (m::SingleNNHybridModel)(data, ps, st)
 
+    predictors, forcing = data
+
     parameters = m.parameters
 
     # 2) scale global parameters (handle empty case)
@@ -308,7 +310,7 @@ function (m::SingleNNHybridModel)(data, ps, st)
 
     # 3) scale NN parameters (handle empty case)
     if !isempty(m.neural_param_names)
-        nn_out, st_NN = LuxCore.apply(m.NN, data[1], ps.ps, st.st)
+        nn_out, st_NN = LuxCore.apply(m.NN, predictors, ps.ps, st.st)
         nn_cols = eachrow(nn_out)
         nn_params   = NamedTuple(zip(m.neural_param_names, nn_cols))
         
@@ -336,7 +338,7 @@ function (m::SingleNNHybridModel)(data, ps, st)
     end
 
     # 5) unpack forcing data
-    forcing_data = unpack_keyedarray(data[2])
+    forcing_data = unpack_keyedarray(forcing)
 
     # 6) merge all parameters
     all_params = merge(scaled_nn_params, global_params, fixed_params)
@@ -353,6 +355,8 @@ end
 
 # Forward pass for MultiNNHybridModel (optimized, no branching)
 function (m::MultiNNHybridModel)(data, ps, st)
+
+    predictors, forcing = data
 
     parameters = m.parameters
 
@@ -373,7 +377,7 @@ function (m::MultiNNHybridModel)(data, ps, st)
     
     for (nn_name, nn) in pairs(m.NNs)
         predictor_names = m.predictors[nn_name]
-        nn_out, st_nn = LuxCore.apply(nn, data[1](predictor_names), ps[nn_name], st[nn_name])
+        nn_out, st_nn = LuxCore.apply(nn, predictors(predictor_names), ps[nn_name], st[nn_name])
         nn_outputs = merge(nn_outputs, NamedTuple{(nn_name,), Tuple{typeof(nn_out)}}((nn_out,)))
         nn_states = merge(nn_states, NamedTuple{(nn_name,), Tuple{typeof(st_nn)}}((st_nn,)))
     end
@@ -410,7 +414,7 @@ function (m::MultiNNHybridModel)(data, ps, st)
     all_params = merge(scaled_nn_params, global_params, fixed_params)
 
     # 6) unpack forcing data
-    forcing_data = unpack_keyedarray(data[2])
+    forcing_data = unpack_keyedarray(forcing)
     all_kwargs = merge(forcing_data, all_params)
     
     # 7) Apply mechanistic model
