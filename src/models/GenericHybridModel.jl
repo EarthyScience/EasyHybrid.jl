@@ -163,9 +163,16 @@ function LuxCore.initialparameters(rng::AbstractRNG, m::SingleNNHybridModel)
     
     # Then append each global parameter as a 1-vector of Float32
     if !isempty(m.global_param_names)
-        for g in m.global_param_names
-            random_val = rand(rng, Float32)
-            nt = merge(nt, NamedTuple{(g,), Tuple{Vector{Float32}}}(([random_val],)))
+        if m.start_from_default
+            for g in m.global_param_names
+                default_val = scale_single_param_minmax(g, m.parameters)
+                nt = merge(nt, NamedTuple{(g,), Tuple{Vector{Float32}}}(([Float32(default_val)],)))
+        end
+        else
+            for g in m.global_param_names
+                random_val = rand(rng, Float32)
+                nt = merge(nt, NamedTuple{(g,), Tuple{Vector{Float32}}}(([random_val],)))
+            end
         end
     end
     
@@ -417,36 +424,4 @@ function (m::MultiNNHybridModel)(ds_k, ps, st)
     st_new = (; nn_states..., fixed = st.fixed)
 
     return out, (; st = st_new)
-end
-
-# Display functions
-function Base.display(hm::SingleNNHybridModel)
-    println("Neural Network: ", hm.NN)
-    println("Predictors: ", hm.predictors)
-    println("Forcing: ", hm.forcing)
-    println("neural parameters: ", hm.neural_param_names)
-    println("global parameters: ", hm.global_param_names)
-    println("fixed parameters: ", hm.fixed_param_names)
-    println("scale NN outputs: ", hm.scale_nn_outputs)
-    println("parameter defaults and bounds:")
-    display(hm.parameters)
-end
-
-function Base.display(hm::MultiNNHybridModel)
-    println("Neural Networks:")
-    for (name, nn) in pairs(hm.NNs)
-        println("  $name: ", nn)
-    end
-    
-    println("Predictors:")
-    for (name, preds) in pairs(hm.predictors)
-        println("  $name: ", preds)
-    end
-    println("Forcing: ", hm.forcing)
-    println("neural parameters: ", hm.neural_param_names)
-    println("global parameters: ", hm.global_param_names)
-    println("fixed parameters: ", hm.fixed_param_names)
-    println("scale NN outputs: ", hm.scale_nn_outputs)
-    println("parameter defaults and bounds:")
-    display(hm.parameters)
 end

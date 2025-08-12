@@ -144,7 +144,6 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
         end
 
         current_agg_loss = getproperty(l_val[1], Symbol(agg))
-        best_agg_loss = getproperty(best_loss[1], Symbol(agg))
         
         if current_agg_loss < best_agg_loss
             best_agg_loss = current_agg_loss

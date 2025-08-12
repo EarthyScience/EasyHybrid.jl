@@ -33,8 +33,8 @@ dfall.rgpot2[dfall.rgpot2.<0.0] .= 0.0
 
 # Process numeric or missing-containing columns
 for col in names(dfall)
-    T = eltype(dfall[!, col])
-    if T <: Union{Missing, Real} || T <: Real
+    what_type = eltype(dfall[!, col])
+    if what_type <: Union{Missing, Real} || what_type <: Real
         dfall[!, col] = Float64.(coalesce.(dfall[!, col], NaN))
     end
 end
