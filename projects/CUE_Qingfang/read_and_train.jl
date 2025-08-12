@@ -15,6 +15,7 @@ end
 
 using DataFrames
 using XLSX
+using EasyHybrid
 
 # -----------------------------------------------------------------------------
 # Data Loading
@@ -61,13 +62,14 @@ fig1 = Figure()
 fig1
 
 ax1 = WGLMakie.Axis(fig1[1, 1], xlabel = "Growth", ylabel = "CUE")
-scatter!(ax1, o_def.Growth, o_def.CUE)
-scatter!(ax1, ds_keyed(:Growth), ds_keyed(:CUE), color = :red)
+scatter!(ax1, df[!, :Growth], o_def.CUE, label = "with function")
+scatter!(ax1, df[!, :Growth], df[!, :CUE], color = :red, label = "from data")
 # TODO: why some mismatches?
 
 ax2 = WGLMakie.Axis(fig1[2, 1], xlabel = "Respiration", ylabel = "CUE")
-scatter!(ax2, o_def.Respiration, o_def.CUE)
-scatter!(ax2, ds_keyed(:Respiration), ds_keyed(:CUE), color = :red)
+scatter!(ax2, df[!, :Respiration], o_def.CUE, label = "with function")
+scatter!(ax2, df[!, :Respiration], df[!, :CUE], color = :red, label = "from data")
+axislegend(ax1; position=:rt)
 
 # -----------------------------------------------------------------------------
 # Hybrid Model Construction and Training (Simple)
@@ -85,7 +87,7 @@ hybrid_model_simple = constructHybridModel(
     global_param_names;
     scale_nn_outputs = true,
     hidden_layers    = [15, 15],
-    activation       = sigmoid,
+    activation       = sigmoid, # tanh, relu, swish
     input_batchnorm  = true
 )
 
@@ -98,7 +100,7 @@ out_simple = train(
     opt            = AdamW(0.1, (0.9, 0.999), 0.01),
     loss_types     = [:nse, :mse],
     training_loss  = :nse,
-    yscale         = identity,
+    yscale         = identity, # log
     agg            = mean,
     shuffleobs     = true,
     patience       = 50
@@ -124,8 +126,8 @@ predictors = [
 # -----------------------------------------------------------------------------
 parametersQ10 = (
     #    name           (default,   lower,    upper)         # description
-    Growth         = (500.0f0,     1f-5,   7000.0f0),       # Growth
-    Respiration    = (1200.0f0,    1f-5,   12000.0f0),      # Respiration
+    Growth_Tref         = (500.0f0,     1f-5,   7000.0f0),       # Growth
+    Respiration_Tref    = (1200.0f0,    1f-5,   12000.0f0),      # Respiration
     Q10Growth      = (2.0f0,       1f0,   5.0f0),         # Q10Growth
     Q10Respiration = (2.0f0,       1f0,   5.0f0),         # Q10Respiration
 )
@@ -134,17 +136,17 @@ function fQ10(T, T_ref, Q10)
     return Q10 .* 0.1 .* (T .- T_ref)
 end
 
-function CUE_Q10(; MAT, Growth, Respiration, Q10Growth, Q10Respiration)
-    GrowthTemp      = Growth      .* fQ10(MAT, 15.f0, Q10Growth)
-    RespirationTemp = Respiration .* fQ10(MAT, 15.f0, Q10Respiration)
-    CUE = GrowthTemp ./ (RespirationTemp .+ GrowthTemp)
-    return (; CUE, Growth, Respiration, Q10Growth, Q10Respiration)
+function CUE_Q10(; MAT, Growth_Tref, Respiration_Tref, Q10Growth, Q10Respiration)
+    Growth      = Growth_Tref      .* fQ10(MAT, 15.f0, Q10Growth)
+    Respiration = Respiration_Tref .* fQ10(MAT, 15.f0, Q10Respiration)
+    CUE = Growth ./ (Respiration .+ Growth)
+    return (; CUE, Growth, Respiration, Q10Growth, Q10Respiration, Growth_Tref, Respiration_Tref)
 end
 
 # -----------------------------------------------------------------------------
 # Hybrid Model Construction and Training (Q10)
 # -----------------------------------------------------------------------------
-neural_param_names = [:Growth, :Respiration]
+neural_param_names = [:Growth_Tref, :Respiration_Tref]
 global_param_names = [:Q10Growth, :Q10Respiration]
 
 hybrid_model_Q10 = constructHybridModel(
@@ -168,7 +170,7 @@ out_Q10 = train(
     ();
     nepochs        = 1000,
     batchsize      = 64,
-    opt            = AdamW(0.01, (0.9, 0.999), 0.01),
+    opt            = AdamW(0.1, (0.9, 0.999), 0.01),
     loss_types     = [:nse, :mse],
     training_loss  = :nse,
     yscale         = identity,
@@ -179,3 +181,71 @@ out_Q10 = train(
 )
 
 EasyHybrid.poplot(out_Q10)
+
+
+
+
+neural_param_names = [:Growth_Tref, :Rm_Tref]
+global_param_names = [:a]
+
+targets   = [:CUE, :Growth, :Respiration]
+forcing   = [:MAT]
+predictors = [
+    :pH, :Clay, :Sand, :Silt, :TN, :CN, :MAP, :PET, :NPP
+]
+
+# -----------------------------------------------------------------------------
+# Parameter Container for the Mechanistic Model (Q10)
+# -----------------------------------------------------------------------------
+parametersQ10_Rm = (
+    #    name           (default,   lower,    upper)         # description
+    Growth_Tref         = (500.0f0,     1f-5,   7000.0f0),       # Growth
+    Rm_Tref    = (500.0f0,    1f-5,   12000.0f0),      # Respiration
+    Q10      = (2.0f0,       1f0,   5.0f0),         # Q10
+    a = (1.0f0, 0.01f0, 10.0f0) # scaling factor for Rg
+
+)
+
+
+function CUE_Q10_Rm(; MAT, Growth_Tref, Rm_Tref, a, Q10)
+    Growth      = Growth_Tref      .* fQ10(MAT, 15.f0, Q10)
+    Rg_Tref              = Growth .* a
+    Rg = Rg_Tref .* fQ10(MAT, 15.f0, Q10)
+    Rm = Rm_Tref .* fQ10(MAT, 15.f0, Q10)
+    Respiration = Rg_Tref .+ Rm_Tref
+    CUE = Growth ./ (Respiration .+ Growth)
+    return (; CUE, Growth, Respiration, Rg_Tref, Q10, Rm_Tref, a, Rm, Rg)
+end
+
+
+
+hybrid_model_Q10_Rm = constructHybridModel(
+    predictors,
+    forcing,
+    targets,
+    CUE_Q10_Rm,
+    parametersQ10_Rm,
+    neural_param_names,
+    global_param_names;
+    scale_nn_outputs = true,
+    hidden_layers    = [16, 8],
+    activation       = sigmoid,
+    input_batchnorm  = true,
+    start_from_default = true
+)
+
+out_Q10 = train(
+    hybrid_model_Q10_Rm,
+    df,
+    ();
+    nepochs        = 1000,
+    batchsize      = 64,
+    opt            = AdamW(0.01, (0.9, 0.999), 0.01),
+    loss_types     = [:nse, :mse],
+    training_loss  = :nse,
+    yscale         = identity,
+    agg            = mean,
+    shuffleobs     = true,
+    monitor_names  = [:a, :Rm],
+    patience       = 50
+)

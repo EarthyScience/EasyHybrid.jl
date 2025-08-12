@@ -425,35 +425,3 @@ function (m::MultiNNHybridModel)(ds_k, ps, st)
 
     return out, (; st = st_new)
 end
-
-# Display functions
-function Base.display(hm::SingleNNHybridModel)
-    println("Neural Network: ", hm.NN)
-    println("Predictors: ", hm.predictors)
-    println("Forcing: ", hm.forcing)
-    println("neural parameters: ", hm.neural_param_names)
-    println("global parameters: ", hm.global_param_names)
-    println("fixed parameters: ", hm.fixed_param_names)
-    println("scale NN outputs: ", hm.scale_nn_outputs)
-    println("parameter defaults and bounds:")
-    display(hm.parameters)
-end
-
-function Base.display(hm::MultiNNHybridModel)
-    println("Neural Networks:")
-    for (name, nn) in pairs(hm.NNs)
-        println("  $name: ", nn)
-    end
-    
-    println("Predictors:")
-    for (name, preds) in pairs(hm.predictors)
-        println("  $name: ", preds)
-    end
-    println("Forcing: ", hm.forcing)
-    println("neural parameters: ", hm.neural_param_names)
-    println("global parameters: ", hm.global_param_names)
-    println("fixed parameters: ", hm.fixed_param_names)
-    println("scale NN outputs: ", hm.scale_nn_outputs)
-    println("parameter defaults and bounds:")
-    display(hm.parameters)
-end
