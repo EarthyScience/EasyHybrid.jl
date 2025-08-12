@@ -1,0 +1,4 @@
+[deps]
+EasyHybrid = "61bb816a-e6af-4913-ab9e-91bff2e122e3"
+NCDatasets = "85f8d34a-cbdd-5861-8df4-14fed0d494ab"
+WGLMakie = "276b4fcb-3e11-5398-bf8b-a0c2d153d008"
