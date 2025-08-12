@@ -23,33 +23,9 @@ using EasyHybrid
 using NCDatasets
 
 # load data from bookchapter
+include("load_nc.jl")
 
-"""
-    load_timeseries_netcdf(path::AbstractString; timedim::AbstractString = "time") -> DataFrame
-
-Reads a NetCDF file where all data variables are 1D over the specified `timedim`
-and returns a tidy DataFrame with one row per time step.
-
-- Only includes variables whose sole dimension is `timedim`.
-- Does not attempt to parse or convert time units; all columns are read as-is.
-"""
-function load_timeseries_netcdf(path::AbstractString; timedim::AbstractString = "time")
-    ds = NCDataset(path, "r")
-    # Identify variables that are 1D over the specified time dimension
-    temporal_vars = filter(name -> begin
-        v = ds[name]
-        dnames = NCDatasets.dimnames(v)
-        length(dnames) == 1 && dnames[1] == timedim
-    end, keys(ds))
-    df = DataFrame()
-    for name in temporal_vars
-        df[!, Symbol(name)] = ds[name][:]
-    end
-    close(ds)
-    return df
-end
-
-ds = load_timeseries_netcdf("projects/book_chapter/data/Synthetic4BookChap.nc")
+ds = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc")
 
 # define Model
 RbQ10 = function(;ta, Q10, rb, tref = 15.0f0)
@@ -61,7 +37,7 @@ end
 
 parameters = (
     #            default                  lower                     upper                description
-    rb       = ( 1.0f0,                  0.0f0,                   6.0f0 ),            # Basal respiration [μmol/m²/s]
+    rb       = ( 3.0f0,                  0.0f0,                   13.0f0 ),            # Basal respiration [μmol/m²/s]
     Q10      = ( 2.0f0,                  1.0f0,                   4.0f0 ),            # Temperature sensitivity factor [-]
 )
 
@@ -87,7 +63,7 @@ hybrid_model = constructHybridModel(
 )
 
 using WGLMakie
-out = train(hybrid_model, ds, (); nepochs=100, batchsize=512, opt=RMSProp(0.001), monitor_names=[:rb, :Q10], yscale = identity, patience=30)
+out = train(hybrid_model, ds, (); nepochs=100, batchsize=512, opt=RMSProp(0.005), monitor_names=[:rb, :Q10], yscale = identity, patience=30)
 
 # What do you think? Close to the true value?
 out.train_diffs.Q10
