@@ -28,8 +28,8 @@ target_names = [:BD, :SOCconc, :CF, :SOCdensity];
 predictors = Symbol.(names(df))[4:end-1];
 
 # pre process targets function
-df = dropmissing(df);
-df .= Float32.(df);
+df_d = dropmissing(df_d);
+df_d .= Float32.(df_d);
 struct Scaler
     min::Float64
     max::Float64
@@ -51,13 +51,12 @@ function transform_targets!(df::DataFrame)
     
     return scalers
 end
-scalers = transform_targets!(df);
+scalers = transform_targets!(df_d);
 
-
-nepoch = 20;
 
 # store predicted matrix
-df_out = DataFrame()
+dfo = DataFrame[];
+
 for tname in target_names    
     # df_d = dropmissing!(df, subset=[tgt])
     ka = to_keyedArray(df_d)
@@ -73,82 +72,83 @@ for tname in target_names
 
     result = train(
         nn, ka, ();
-        nepochs = nepoch,
+        nepochs = 150,
         batchsize = 128,
         opt = AdamW(0.001),
         training_loss = :mse,
         loss_types = [:mse, :r2],
         shuffleobs = true,
-        file_name = nothing, # skip for now
-        random_seed = 42
-        )
-
-    # converge?
-    train_loss = map(l -> l.mse.sum, result.train_history)
-    val_loss   = map(l -> l.mse.sum, result.val_history)
-
-    epochs = 0:nepoch
-    Plots.plot(epochs, train_loss; label = "Train Loss", lw=2, yscale = :log10)
-    Plots.plot!(epochs, val_loss;   label = "Validation Loss", lw=2, yscale = :log10)
-    Plots.xlabel!("Epoch")
-    Plots.ylabel!("Loss")
-    title!("$(tname)")
-    savefig(joinpath(@__DIR__, "./eval/$(testid)_converge_$(tname).png"))
-
+        file_name = nothing,
+        random_seed = 42,
+        patience = 5  
+    )
+    
     # save pred to matrix
-    df_out[!, "true_$(tname)"] = result.val_obs_pred[!, tname]
-    df_out[!, "pred_$(tname)"] = result.val_obs_pred[!, "ŷ_$tname"]
-
- 
-    last_val = result.val_history[end]
-
-    # modelled SOCD
-    plt = histogram2d(
-        y_val_true, y_val_pred;
-        nbins      = (40, 40),
-        cbar       = true,
-        xlab       = "True",
-        ylab       = "Predicted",
-        title      = "$tname\nR2=$(round(last_val.r2.sum, digits=3)),MSE=$(round(last_val.mse.sum, digits=3))",
-        color      = cgrad(:bamako, rev=true),
-        normalize  = false
-    )
-    lims = extrema(vcat(y_val_true, y_val_pred))
-    Plots.plot!(plt,
-        [lims[1], lims[2]], [lims[1], lims[2]];
-        color=:black, linewidth=2, label="1:1 line",
-        aspect_ratio=:equal, xlims=lims, ylims=lims
-    )
-    savefig(plt, joinpath(@__DIR__, "./eval/$(testid)_accuracy_$(tname).png"))
-
+    # 
+    dft = result.val_obs_pred
+    rename!(dft, :index => Symbol("$(tname)_index"))
+    push!(dfo, dft)
 end
 
+df_out = reduce(hcat, dfo)
 
 # back transform
 function inverse_transform_targets!(df::DataFrame, scalers::Dict{Symbol, Scaler})
-    log_targets = [:CF, :SOCconc, :SOCdensity]
 
     for var in [:BD, :CF, :SOCconc, :SOCdensity]
         scaler = scalers[var]
-        target = Symbol("pred_$(var)")
-        y_scaled = df[!, target]
-        y_log = y_scaled .* (scaler.max - scaler.min) .+ scaler.min
-        if var in log_targets
-            df[!, target] .= (exp.(y_log) .- 1) ./ 1000
-        else
-            df[!, target] .= y_log
+        is_log = var in [:CF, :SOCconc, :SOCdensity]
+
+        for col in [var, Symbol("$(var)_pred")]
+            if col in names(df)
+                y_scaled = df[!, col]
+                y = y_scaled .* (scaler.max - scaler.min) .+ scaler.min
+                if is_log
+                    df[!, col] .= (exp.(y) .- 1) ./ 1000
+                else
+                    df[!, col] .= y
+                end
+            end
         end
     end
 end
 
-inverse_transform_targets!(df_out, scalers)
 
-# derived SOCD from predicted BD, SOCconc and CF
-df_out[:,"calc_pred_SOCdensity"] = df_out[:,"pred_SOCconc"] .* df_out[:,"pred_BD"] .* (1 .- df_out[:,"pred_CF"]) 
-sc =  scalers[:SOCdensity]
-calc_SOCdensity = (log.(df_out[:, "calc_pred_SOCdensity"] .* 1000 .+ 1) .- sc.min) ./ (sc.max - sc.min)
-true_SOCdensity = (log.(df_out[:, "true_SOCdensity"] .* 1000 .+ 1) .- sc.min) ./ (sc.max - sc.min)
- 
+#inverse_transform_targets!(df_out, scalers)
+
+for tname in target_names
+    y_val_true = df_out[:, tname]
+    y_val_pred = df_out[:, Symbol("$(tname)_pred")]
+
+    ss_res = sum((y_val_true .- y_val_pred).^2)
+    ss_tot = sum((y_val_true .- mean(y_val_true)).^2)
+    r2  = 1 - ss_res / ss_tot
+    mse = mean((y_val_true .- y_val_pred).^2)
+
+    plt = histogram2d(
+        y_val_true, y_val_pred;
+        nbins = (40, 40),
+        cbar = true,
+        xlab = "True",
+        ylab = "Predicted",
+        title = "$tname\nR²=$(round(r2, digits=3)), MSE=$(round(mse, digits=3))",
+        color = cgrad(:bamako, rev=true),
+        normalize = false
+    )
+    lims = extrema(vcat(y_val_true, y_val_pred))
+    Plots.plot!(plt,
+        [lims[1], lims[2]], [lims[1], lims[2]];
+        color = :black, linewidth = 2, label = "1:1 line",
+        aspect_ratio = :equal, xlims = lims, ylims = lims
+    )
+    savefig(plt, joinpath(@__DIR__, "./eval/$(testid)_accuracy_$(tname).png"))
+end
+
+
+# MTD, model then derive, derived SOCD from predicted BD, SOCconc and CF
+df_out[:,"calc_pred_SOCdensity"] = df_out[:,"SOCconc_pred"] .* df_out[:,"BD_pred"] .* (1 .- df_out[:,"CF_pred"]); 
+true_SOCdensity = df_out[:,"SOCdensity"];
+pred_SOCdensity = df_out[:,"calc_pred_SOCdensity"]; 
 ss_res = sum((true_SOCdensity .- pred_SOCdensity).^2)
 ss_tot = sum((true_SOCdensity .- mean(true_SOCdensity)).^2)
 r2 = 1 - ss_res / ss_tot

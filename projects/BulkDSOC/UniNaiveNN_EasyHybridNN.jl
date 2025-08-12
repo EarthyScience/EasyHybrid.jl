@@ -1,123 +1,149 @@
-project_path = "projects/BulkDSOC"
-Pkg.activate(project_path)
+using Pkg
+Pkg.activate("projects/BulkDSOC")
+Pkg.develop(path=pwd())
+Pkg.instantiate()
 
-# Only instantiate if Manifest.toml is missing
-manifest_path = joinpath(project_path, "Manifest.toml")
-if !isfile(manifest_path)
-    Pkg.develop(path = pwd())
-    Pkg.instantiate()
-end
+using AxisKeys
+using Revise
 using EasyHybrid
-using WGLMakie
+using Lux
+using Optimisers
+using GLMakie
 using Random
+using LuxCore
+using CSV, DataFrames
 using EasyHybrid.MLUtils
 using Statistics
 using Plots
-# using StatsBase
+using Flux
+using NNlib 
 
-import Flux
 
-# 01 - univariate naive NN using EasyHybrid's SingleNNModel
+targets = [:BD, :CF, :SOCconc, :SOCdensity]
+Random.seed!(42)
+raw = CSV.read(joinpath(@__DIR__, "data/lucas_preprocessed.csv"), DataFrame; normalizenames=true)
+results_dir = joinpath(@__DIR__, "eval")
 
-testid = "01_univariate_EasyHybridNN"
+# activations were saved as strings; map them back to functions
+const ACT = Dict(
+    "relu"  => relu,
+    "tanh"  => tanh,
+    "swish" => swish,
+    "gelu"  => gelu,
+)
 
-# input
-df = CSV.read(joinpath(@__DIR__, "./data/lucas_preprocessed.csv"), DataFrame, normalizenames=true)
-df_d = dropmissing(df) # complete SOCD
-
-target_names = [:BD, :SOCconc, :CF, :SOCdensity]
-names_cov = Symbol.(names(df_d))[4:end-1]
-ds_all = to_keyedArray(Float32.(df_d))
-ds_p = ds_all(names_cov)
-ds_t = ds_all(target_names)
-ds_t = Flux.normalise(ds_t)
-
-df_out = DataFrame()
-
-nfeatures = length(names_cov)
-p_dropout = 0.2
-
-for (i, tname) in enumerate(target_names)
-
-    y = ds_t([tname])
-    # Use EasyHybrid's constructNNModel
-    predictors = names_cov
-    targets = [tname]
-    neural_param_names = [tname]
-    model = EasyHybrid.constructNNModel(predictors, targets; hidden_layers=[32], scale_nn_outputs=false)
-    #model = EasyHybrid.constructNNModel(predictors, targets; hidden_layers=Chain(Dense(32, 32, tanh), Dense(32, 16, tanh)), scale_nn_outputs=false)
-
-    ps, st = LuxCore.setup(Random.default_rng(), model)
-    # Training using EasyHybrid's train function
-    result = train(model, (ds_p, y), (); nepochs=100, batchsize=512, opt=AdamW(0.0001, (0.9, 0.999), 0.01), training_loss=:nse, loss_types=[:mse, :nse], shuffleobs=true, yscale=identity)
-
-    y_val_true = vec(result.val_obs_pred[!, tname])
-    y_val_pred = vec(result.val_obs_pred[!, Symbol(string(tname, "_pred"))])
-    df_out[!, "true_$(tname)"] = y_val_true
-    df_out[!, "pred_$(tname)"] = y_val_pred
-    ss_res = sum((y_val_true .- y_val_pred).^2)
-    ss_tot = sum((y_val_true .- mean(y_val_true)).^2)
-    r2 = 1 - ss_res / ss_tot
-    mae = mean(abs.(y_val_pred .- y_val_true))
-    bias = mean(y_val_pred .- y_val_true)
-    plt = histogram2d(
-        y_val_true, y_val_pred;
-        nbins      = (30, 30),
-        cbar       = true,
-        xlab       = "True",
-        ylab       = "Predicted",
-        title      = "$tname\nR2=$(round(r2, digits=3)),MAE=$(round(mae, digits=3)),bias=$(round(bias, digits=3))",
-        color      = cgrad(:bamako, rev=true),
-        normalize  = false
-    )
-    lims = extrema(vcat(y_val_true, y_val_pred))
-    Plots.plot!(plt,
-        [lims[1], lims[2]], [lims[1], lims[2]];
-        color=:black, linewidth=2, label="1:1 line",
-        aspect_ratio=:equal, xlims=lims, ylims=lims
-    )
-    savefig(plt, joinpath(@__DIR__, "./eval/$(testid)_accuracy_$(tname).png"))
-
+# get hidden layers from results
+parse_hidden(s::AbstractString) = begin
+    s1 = strip(s, ['(', ')', ' '])
+    isempty(s1) && return Int[]
+    parse.(Int, split(s1, ','))
 end
 
-# TODO undo the z-transformation
-df_out[:,"pred_calc_SOCdensity"] = df_out[:,"pred_SOCconc"] .* df_out[:,"pred_BD"] .* (1 .- df_out[:,"pred_CF"])
-true_SOCdensity = df_out[:, "true_SOCdensity"]
-pred_SOCdensity = df_out[:, "pred_calc_SOCdensity"]
-ss_res = sum((true_SOCdensity .- pred_SOCdensity).^2)
-ss_tot = sum((true_SOCdensity .- mean(true_SOCdensity)).^2)
-r2 = 1 - ss_res / ss_tot
-mae = mean(abs.(pred_SOCdensity .- true_SOCdensity))
-bias = mean(pred_SOCdensity .- true_SOCdensity)
-plt = histogram2d(
-    true_SOCdensity, pred_SOCdensity;
-    nbins      = (30, 30),
-    cbar       = true,
-    xlab       = "True",
-    ylab       = "Predicted",
-    title      = "SOCdensity-MTD\nR2=$(round(r2, digits=3)), MAE=$(round(mae, digits=3)), bias=$(round(bias, digits=3))",
-    color      = cgrad(:bamako, rev=true),
-    normalize  = false
-)
-lims = extrema(vcat(true_SOCdensity, pred_SOCdensity))
-Plots.plot!(plt,
-    [lims[1], lims[2]], [lims[1], lims[2]];
-    color=:black, linewidth=2, label="1:1 line",
-    aspect_ratio=:equal, xlims=lims, ylims=lims
-)
-savefig(plt, joinpath(@__DIR__, "./eval/$(testid)_accuracy_SOCdensity_MTD.png"))
+# same preprocessing you used during search (keep min/max if you need back-transform)
+function preprocess!(df::DataFrame, target::Symbol)
+    df = dropmissing(df)
+    df .= Float32.(df)
 
-bd_lims = extrema(skipmissing(df_out[:, "pred_BD"]))      
-soc_lims = extrema(skipmissing(df_out[:, "pred_SOCconc"]))
-plt = histogram2d(
-    df_out[:, "pred_BD"], df_out[:, "pred_SOCconc"];
-    nbins      = (30, 30),
-    cbar       = true,
-    xlab       = "BD",
-    ylab       = "SOCconc",
-    xlims=bd_lims, ylims=soc_lims,
-    color      = cgrad(:bamako, rev=true),
-    normalize  = false,
-    size = (460, 400)
-)   
-savefig(plt, joinpath(@__DIR__, "./eval/$(testid)_BD.vs.SOCconc.png")) 
+    if target in [:SOCconc, :CF, :SOCdensity]
+        df[!, target] .= log.(df[!, target] .* 1000 .+ 1)
+    end
+
+    minv = minimum(df[!, target])
+    maxv = maximum(df[!, target])
+    df[!, target] = (df[!, target] .- minv) ./ (maxv - minv)
+
+    return df, minv, maxv
+end
+
+# pick best row by R² (descending), tie‑break lower MSE
+function best_row(df::DataFrame)
+    
+end
+
+
+
+# we’ll store predictions for BD/SOC relationship at the end
+pred_store = DataFrame()
+
+for tgt in targets
+    println("\n=== Finalizing target: $tgt ===")
+    df_res_path = joinpath(results_dir, "parameter_search_$(string(tgt)).csv")
+    @assert isfile(df_res_path) "Missing results CSV for $tgt at $df_res_path"
+
+    resdf = CSV.read(df_res_path, DataFrame)
+    row = sort(resdf, [:r2, :mse], rev = [true, false])[1, :]
+
+    hconf = parse_hidden(row.hidden_layers)
+    bs    = Int(row.batch_size)
+    lr    = Float64(row.learning_rate)
+    actf  = ACT[row.activation]
+
+    # prep data
+    df_d, minv, maxv = preprocess!(deepcopy(raw), tgt)
+    predictors = Symbol.(names(df_d))[4:end-1]  # same slice as before
+    ka = to_keyedArray(df_d)
+
+    # build model with best hyperparams
+    nn = EasyHybrid.constructNNModel(
+        predictors, [tgt];
+        hidden_layers = collect(hconf),
+        activation = actf,
+        scale_nn_outputs = false
+    )
+
+    # train “for real”
+    out_file = joinpath(results_dir, "trained_$(string(tgt)).jld2")
+    tr = train(
+        nn, ka, ();
+        nepochs = 300,                 # bump epochs a bit if you like
+        batchsize = bs,
+        opt = AdamW(lr),
+        training_loss = :mse,
+        loss_types = [:mse, :r2],
+        shuffleobs = true,
+        file_name = out_file           # saves TrainResults & params via EasyHybrid
+    )
+
+    # capture best validation metrics
+    val_r2s = map(vh -> vh.r2.sum, tr.val_history)
+    val_mses = map(vh -> vh.mse.sum, tr.val_history)
+    i_best = argmax(val_r2s)
+    println("Best epoch: ", i_best, "  R²=", val_r2s[i_best], "  MSE=", val_mses[i_best])
+    
+    # optional: store predictions for BD/SOC analysis on the full (preprocessed) data
+    # If EasyHybrid provides a predict, use it; otherwise adapt to your framework.
+    try
+        ŷ = EasyHybrid.predict(nn, ka)  # should return AxisKeys/NamedDims-like
+        df_pred = DataFrame(ŷ)
+        rename!(df_pred, names(df_pred) .=> (n->Symbol(string(n)*"_pred")).(names(df_pred)))
+        if isempty(pred_store)
+            pred_store = hcat(df_d[:, [:BD, :SOCconc, :CF, :SOCdensity]], df_pred; makeunique=true)
+        else
+            # add this target’s prediction column if not present
+            newcols = setdiff(names(df_pred), names(pred_store))
+            pred_store = hcat(pred_store, df_pred[:, newcols]; makeunique=true)
+        end
+    catch e
+        @warn "Prediction collection skipped for $tgt" error = e
+    end
+end
+
+# ---------------- BD–SOC relationship (quick look) ----------------
+# Run this block after all four models are trained AND predictions collected.
+if !isempty(pred_store)
+    # Choose SOC variable of interest (conc or density). Do both if available.
+    for socsym in (:SOCconc_pred, :SOCdensity_pred)
+        if hasproperty(pred_store, socsym) && hasproperty(pred_store, :BD_pred)
+            x = pred_store.BD_pred
+            y = getproperty(pred_store, socsym)
+            mask = .!(isnan.(x) .| isnan.(y))
+            r = cor(x[mask], y[mask])
+            println("Corr(BD_pred, $(String(socsym))) = ", r)
+
+            # quick scatter for sanity
+            scatter(x[mask], y[mask], title="BD vs $(String(socsym)) (predicted)",
+                    xlabel="BD_pred (scaled/log as trained)", ylabel=String(socsym))
+            png(joinpath(results_dir, "rel_BD_vs_$(String(socsym)).png"))
+        end
+    end
+end

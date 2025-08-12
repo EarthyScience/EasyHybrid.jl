@@ -20,125 +20,168 @@ using Plots
 testid = "02_multivariate"
 
 # input
-df = CSV.read(joinpath(@__DIR__, "./data/lucas_preprocessed.csv"), DataFrame, normalizenames=true);
-df_d = dropmissing(df); # complete SOCD
+raw = CSV.read(joinpath(@__DIR__, "./data/lucas_preprocessed.csv"), DataFrame, normalizenames=true);
+raw = dropmissing(raw);
+raw .= Float32.(raw);
+predictors = Symbol.(names(raw))[4:end-1];
 
-# BD g/cm3 [0,2.2], SOCconc [0,1], CF [0,1], SOCdensity ton/m3
-target_names1 = [:BD, :SOCconc, :CF];
-target_names2 = [:BD, :SOCconc, :CF, :SOCdensity];
-names_cov = Symbol.(names(df_d))[4:end-1];
-ds_all = to_keyedArray(df_d);
-ds_p = ds_all(names_cov);
-ds_t =  ds_all(target_names1);
+# parameter space
+nf = length(predictors)
+hidden_configs = [  
+    (256, 128, 64, 32, 16),
+    (256, 128, 64, 32),
+    (256, 128, 64),
+    (256, 128),
+    (128, 64, 32, 16),
+    (128, 64, 32),
+    (128, 64),
+    (64, 32, 16),
+    (64, 32),
+    (32, 16)
+];
+batch_sizes = [32, 64, 128, 256, 512];
+lrs = [1e-2, 1e-3, 1e-4];
+activations = [relu, tanh, swish, gelu];
 
-# mimic the one in BulkDensitySOC
-nfeatures = length(names_cov);
-p_dropout = 0.2;
-NN = Chain(
-    Dense(nfeatures, 256, sigmoid), 
-    # Dropout(p_dropout),
-    Dense(256, 128, sigmoid),       
-    # Dropout(p_dropout),
-    Dense(128,  64, sigmoid),       
-    # Dropout(p_dropout),
-    Dense( 64,  32, sigmoid),       
-    # Dropout(p_dropout),
-    Dense( 32,   3),   # raw
-    x -> cat(x[1:1, :], sigmoid.(x[2:3, :]); dims=1)  # BD stays the same, SOCconc and CF are sigmoid  
-);
+# preprocess, normalize targets
+df = deepcopy(raw)
+targets = [:BD, :CF, :SOCconc]
+all_targets  = [:BD, :CF, :SOCconc, :SOCdensity]
+for tgt in targets
+    if target in [:CF, :SOCconc, :SOCdensity]
+        df[!,tgt] = log.(df[!, tgt] .* 1000 .+ 1) 
+    end
+    (mn, mx) = MINMAX[tgt]
+    df[!, tgt] = (df[!, tgt] .- mn) ./ (mx - mn)
+end
+    
+for h in hidden_configs, bs in batch_sizes, lr in lrs, act in activations
+    println("Testing h=$h, bs=$bs, lr=$lr, activation=$act")
 
-result = train(NN, (ds_p, ds_t), (); nepochs=100, batchsize=32, opt=AdaMax(0.01));
-
-# converge
-train_loss = result.train_history
-val_loss   = result.val_history
-epochs = 0:length(train_loss)-1
-Plots.plot(epochs, train_loss; label = "Train Loss", lw=2, yscale = :log10)
-Plots.plot!(epochs, val_loss;   label = "Validation Loss", lw=2, yscale = :log10)
-Plots.xlabel!("Epoch")
-Plots.ylabel!("Loss")
-savefig(joinpath(@__DIR__, "./eval/$(testid)_converge.png"));
-
-# eval
-using AxisKeys
-y_true   = result.y_val  # key things
-y_pred = KeyedArray(result.ŷ_val, (target_names1, axes(y_true, 2)))
-
-for k in target_names1
-    true_vec = y_true(k) |> collect      
-    pred_vec = y_pred(k) |> collect
-
-    ss_res = sum((true_vec .- pred_vec).^2)
-    ss_tot = sum((true_vec .- mean(true_vec)).^2)
-    r2     = 1 - ss_res / ss_tot
-    mae    = mean(abs.(pred_vec .- true_vec))
-    bias   = mean(pred_vec .- true_vec)
-
-    log_true = log10.(true_vec)
-    log_pred = log10.(pred_vec)
-
-    plt = histogram2d(
-        log_true, log_pred;
-        nbins     = (30, 30),
-        cbar      = true,
-        xlab      = "True",
-        ylab      = "Predicted",
-        title     = "$k\nR2=$(round(r2, digits=3)),MAE=$(round(mae, digits=3)),bias=$(round(bias, digits=3))",
-        color     = cgrad(:bamako, rev = true),
-        normalize = false
+    nn = EasyHybrid.constructNNModel(
+        predictors, targets;
+        hidden_layers = collect(h),
+        activation = act,
+        scale_nn_outputs = true # since targets scaled
     )
-    lims = extrema(vcat(log_true, log_pred))
-    Plots.plot!(plt,
-        [lims[1], lims[2]], [lims[1], lims[2]];
-        color=:black, linewidth=2, label="1:1 line",
-        aspect_ratio=:equal, xlims=lims, ylims=lims
+
+    out_file = joinpath(results_dir, "$(testid)_model_$(string(tgt)).jld2")
+
+    result = train(
+        nn, ka, ();
+        nepochs = 200,
+        batchsize = bs,
+        opt = AdamW(lr),
+        training_loss = :mse,
+        loss_types = [:mse, :r2],
+        shuffleobs = true,
+        file_name = out_file,
+        random_seed=42,
+        patience = 5
     )
-    savefig(plt, joinpath(@__DIR__,"eval/$(testid)_accuracy_$(k)_val.png"))
+
+
+    best_epoch = argmax(map(vh -> vh.r2.sum, result.val_history))
+    best_val = result.val_history[best_epoch]
+    safe_r2 = isnan(best_val.r2.sum) ? -Inf : best_val.r2.sum
+
+    push!(results, (h, bs, lr, act, safe_r2, best_val.mse.sum, best_epoch[1]))
+    
 end
 
-# check BD vs SOCconc
-BD_pred = vec(y_pred(:BD))    
-SOCconc_pred  = vec(y_pred(:SOCconc))
-bd_lims = extrema(BD_pred)      
-soc_lims = extrema(SOCconc_pred)
-plt = histogram2d(
-    BD_pred, SOCconc_pred;
-    nbins      = (30, 30),
-    cbar       = true,
-    xlab       = "BD",
-    ylab       = "SOCconc",
-    xlims=bd_lims, ylims=soc_lims,
-    #title      = "SOCdensity-MTD\nR2=$(round(r2, digits=3)), MAE=$(round(mae, digits=3)), bias=$(round(bias, digits=3))",
-    color      = cgrad(:bamako, rev=true),
-    normalize  = false,
-    size = (460, 400)
-)   
-savefig(plt, joinpath(@__DIR__, "./eval/$(testid)_BD.vs.SOCconc.png"))
+# save results
+df_results = DataFrame(
+    hidden_layers = [string(r[1]) for r in results],
+    batch_size    = [r[2] for r in results],
+    learning_rate = [r[3] for r in results],
+    activation    = [string(r[4]) for r in results],
+    r2            = [r[5] for r in results],
+    mse           = [r[6] for r in results],
+    best_epoch    = [r[7] for r in results]
+)
+out_file = joinpath(results_dir, "$(testid)_parameter.search_$(string(tgt)).csv")
+CSV.write(out_file, df_results)
 
-CF_pred = vec(y_pred(:CF))
-SOCD_pred = SOCconc_pred .* BD_pred .* (1 .- CF_pred) 
-(_, _), (_, SOCD_true_val) = splitobs((ds_p, ds_all(:SOCdensity)); at = 0.8, shuffle = false)
-pred_vec = collect(SOCD_pred)   
-true_vec = vec(Array(SOCD_true_val))
-ss_res = sum((true_vec .- pred_vec).^2)
-ss_tot = sum((true_vec .- mean(true_vec)).^2)
-r2     = 1 - ss_res / ss_tot
-mae    = mean(abs.(pred_vec .- true_vec))
-bias   = mean(pred_vec .- true_vec)
+# get best
+row = sort(df_results, [:r2_sum, :mse_sum], rev=[true,false])[1, :]
+hconf = parse_hidden(row.hidden_layers)
+bs    = Int(row.batch_size)
+lr    = Float64(row.learning_rate)
+actf  = ACT[row.activation]
+nn_best = EasyHybrid.constructNNModel(
+    predictors, targets;
+    hidden_layers = collect(hconf),
+    activation = actf,
+    scale_nn_outputs = true,
+)
+
+final_outfile = joinpath(result_dir, "$(testid)_best.jld2")
+final = train(
+    nn_best, ka, ();
+    nepochs = 150,
+    batchsize = bs,
+    opt = AdamW(lr),
+    training_loss = :mse,
+    loss_types = [:mse, :r2],
+    shuffleobs = true,
+    file_name = final_outfile,
+    random_seed = 42,
+    patience = 10
+)
+
+# get validation
+dval = final.val_obs_pred
+val_idx = Int.(dval.index) 
+socd_obs  = raw.SOCdensity[val_idx] 
+
+(mnBD,mxBD) = MINMAX[:BD];       
+bd_pred_model  = dval.BD_pred .* (mxBD - mnBD) .+ mnBD
+(mnCF,mxCF) = MINMAX[:CF];       
+cf_pred_model  = dval.CF_pred .* (mxCF - mnCF) .+ mnCF
+(mnSC,mxSC) = MINMAX[:SOCconc];  
+sc_pred_model  = dval.SOCconc_pred .* (mxSC - mnSC) .+ mnSC
+
+bd_obs_model   = dval.BD .* (mxBDo - mnBDo) .+ mnBD
+cf_obs_model   = dval.CF .* (mxCFo - mnCFo) .+ mnCF
+sc_obs_model   = dval.SOCconc .* (mxSCo - mnSCo) .+ mnSC
+
+# back log
+cf_pred_raw = (exp.(cf_pred_model) .- 1) ./ 1000
+sc_pred_raw = (exp.(sc_pred_model) .- 1) ./ 1000
+bd_pred_raw = bd_pred_model
+
+cf_obs_raw  = (exp.(cf_obs_model)  .- 1) ./ 1000
+sc_obs_raw  = (exp.(sc_obs_model)  .- 1) ./ 1000
+bd_obs_raw  = bd_obs_model
+
+# BD VS SOCconc
 plt = histogram2d(
-    true_vec, pred_vec;
+    bd_pred_raw, sc_pred_raw;
+    nbins=(30,30), cbar=true,
+    xlab="BD (pred, raw)", ylab="SOCconc (pred, raw)",
+    normalize=false, size=(520,420)
+)
+savefig(joinpath(results_dir, "$(testid)_BD.vs.SOCconc.png"))
+
+# SOCdensity accuracy
+socd_pred = sc_pred_raw .* bd_pred_raw .* (1 .- cf_pred_raw)
+  
+mse(y,yhat) = mean((y .- yhat).^2)
+r2(y,yhat)  = 1 - sum((y.-yhat).^2) / sum((y .- mean(y)).^2)
+plt = histogram2d(
+    socd_obs, socd_pred;
     nbins      = (30, 30),
     cbar       = true,
     xlab       = "True",
     ylab       = "Predicted",
-    title      = "SOCdensity-MTD\nR2=$(round(r2, digits=3)), MAE=$(round(mae, digits=3)), bias=$(round(bias, digits=3))",
+    title      = "SOCdensity-MTD\nR2=$(round(r2, digits=3)), MSE=$(round(mse, digits=3))",
     color      = cgrad(:bamako, rev=true),
     normalize  = false
 )
-lims = extrema(vcat(true_vec, pred_vec))
+lims = extrema(vcat(true_SOCdensity, pred_SOCdensity))
 Plots.plot!(plt,
     [lims[1], lims[2]], [lims[1], lims[2]];
     color=:black, linewidth=2, label="1:1 line",
     aspect_ratio=:equal, xlims=lims, ylims=lims
 )
-savefig(plt, joinpath(@__DIR__,"eval/$(testid)_accuracy_SOCdensity_MTD.png"))
+savefig(plt, joinpath(@__DIR__, "./eval/$(testid)_accuracy_SOCdensity_MTD.png"))
