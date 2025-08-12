@@ -1,5 +1,7 @@
 export train, TrainResults
 
+using Statistics: mean, std, median
+
 # beneficial for plotting based on type TrainResults?
 struct TrainResults
     train_history
@@ -41,7 +43,7 @@ Train a hybrid model using the provided data and save the training process to a 
 """
 function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0.01), patience=typemax(Int),
     file_name=nothing, loss_types=[:mse, :r2], training_loss=:mse, agg=sum, train_from = nothing, 
-    random_seed=nothing, shuffleobs = false, yscale=log10, monitor_names=[], return_model=:best)
+    random_seed=nothing, shuffleobs = false, yscale=log10, monitor_names=[], return_model=:best, normalize_predictors=false)
     #! check if the EasyHybridMakie extension is loaded.
     ext = Base.get_extension(@__MODULE__, :EasyHybridMakie)
     if ext === nothing
@@ -57,6 +59,13 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
 
     # ? split training and validation data
     (x_train, y_train), (x_val, y_val) = splitobs(data_; at=0.8, shuffle=shuffleobs)
+
+    if normalize_predictors !== false	
+        x_train1, x_val1 = scale(x_train[1], x_val[1], normalize_predictors)
+        x_train = (x_train1, x_train[2:end]...)
+        x_val = (x_val1, x_val[2:end]...)
+    end
+
     train_loader = DataLoader((x_train, y_train), batchsize=batchsize, shuffle=true);
 
     if isnothing(train_from)
@@ -410,7 +419,7 @@ function prepare_data(hm, data::KeyedArray)
     targets = hm.targets
     predictors, forcing = _collect_predictors_and_forcing(hm)
     _check_predictors_forcing_targets(predictors, forcing, targets)
-    return ((data(predictors), data(forcing)), data(targets))
+    return prepare_data(hm, data, predictors, forcing, targets)
 end
 
 function prepare_data(hm, data::DataFrame)
@@ -442,11 +451,20 @@ function prepare_data(hm, data::DataFrame)
 
     # Convert to Float32 and to your keyed array
     ds_keyed = to_keyedArray(Float32.(sdf))
-    return ((ds_keyed(predictors), ds_keyed(forcing)), ds_keyed(targets))
+    return prepare_data(hm, ds_keyed, predictors, forcing, targets)
 end
 
 function prepare_data(hm, data::Tuple)
     return data
+end
+
+function prepare_data(hm::Union{SingleNNHybridModel, MultiNNHybridModel}, data::KeyedArray, predictors, forcing, targets)
+    return ((data(predictors), data(forcing)), data(targets))
+end
+
+function prepare_data(hm::LuxCore.AbstractLuxContainerLayer, data::KeyedArray, predictors, forcing, targets)
+    predictors_forcing = unique(vcat(predictors, forcing))  
+    return (data(predictors_forcing), data(targets))
 end
 
 function get_ps_st(train_from::TrainResults)
@@ -455,4 +473,24 @@ end
 
 function get_ps_st(train_from::Tuple)
     return train_from
+end
+
+function scale(x_train::KeyedArray, x_val::KeyedArray, method::Symbol)
+    if method == :zscore
+        row_center = mean(x_train, dims=:col)
+        row_scale = std(x_train, dims=:col)
+    elseif method == :minmax
+        row_center = minimum(x_train, dims=:col)
+        row_scale = maximum(x_train, dims=:col) - row_center
+    elseif method == :robust
+        row_center = median(x_train, dims=:col)
+        row_scale = mapslices(s -> quantile(vec(s), eltype(row_center)(0.75)) - quantile(vec(s), eltype(row_center)(0.25)),
+        x_train; dims = :col)
+    end
+
+    row_scale[row_scale .== 0] .= eltype(row_scale)(1e-6)
+    scaled_train = (x_train .- row_center) ./ row_scale
+    scaled_val = (x_val .- row_center) ./ row_scale
+
+    return scaled_train, scaled_val
 end
