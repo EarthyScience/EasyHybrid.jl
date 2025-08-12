@@ -227,7 +227,7 @@ end
                 train_preds, train_obs,
                 val_preds, val_obs,
                 train_monitor, val_monitor,
-                yscale;
+                yscale, zoom_epochs;
                 target_names, monitor_names)
 
 Create a live‑updating dashboard showing per‑target scatter plots for training and validation,
@@ -241,15 +241,16 @@ loss curves, and time‑series for additional monitored outputs.
 - `yscale`: Y‑axis scale function (e.g. `log10`)
 - `target_names`: Symbols of targets to plot
 - `monitor_names`: Symbols of extra outputs to monitor
+- `zoom_epochs`: Number of epochs to zoom in on loss curve
 """
 function EasyHybrid.train_board(
     train_loss::Observable, val_loss::Observable,
     train_preds::NamedTuple,  train_obs::NamedTuple,
     val_preds::NamedTuple,    val_obs::NamedTuple,
     train_monitor::NamedTuple, val_monitor::NamedTuple,
-    yscale;
+    yscale, zoom_epochs;
     target_names::Vector{Symbol}=collect(keys(train_preds)),
-    monitor_names=collect(keys(train_monitor))
+    monitor_names=collect(keys(train_monitor)),
 )
     n_targets  = length(target_names)
     n_monitors = length(monitor_names)
@@ -286,9 +287,9 @@ function EasyHybrid.train_board(
     Makie.lines!(ax_loss, val_loss;   color = :tomato, label = "Validation Loss", linewidth = 2)
     Makie.axislegend(ax_loss; position = :rt, nbanks = 2)
 
-    # Zoomed loss last 100 epochs
-    ax_zoom = Makie.Axis(fig[2, 3:4]; yscale = yscale, xlabel = "Epoch", ylabel = "Loss (Zoom)", title = "Zoomed Loss")
-    zoom_idx = @lift(max(1, length($train_loss) - 100))
+    # Zoomed loss in last zoom_epochs
+    ax_zoom = Makie.Axis(fig[2, 3:4]; yscale = yscale, xlabel = "Epoch", ylabel = "Loss (Zoom)", title = "Zoomed Loss on last $zoom_epochs epochs")
+    zoom_idx = @lift(max(1, length($train_loss) - zoom_epochs))
     tlz = @lift($train_loss[$zoom_idx:end])
     vlz = @lift($val_loss[$zoom_idx:end])
     Makie.lines!(ax_zoom, tlz; color = :grey25, label = "Training (Zoom)", linewidth = 2)

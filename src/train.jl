@@ -83,8 +83,9 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
         train_h_obs, val_h_obs, train_preds, val_preds, train_obs, val_obs, train_monitor, val_monitor = 
             initialize_plotting_observables(hybridModel, x_train, y_train, x_val, y_val, l_init_train, l_init_val, training_loss, agg, monitor_names, ps, st)
 
+        zoom_epochs = min(patience, 50)
         # Launch dashboard if extension is loaded
-        launch_training_dashboard(train_h_obs, val_h_obs, train_preds, train_obs, val_preds, val_obs, train_monitor, val_monitor, yscale, hybridModel.targets, monitor_names)
+        launch_training_dashboard(train_h_obs, val_h_obs, train_preds, train_obs, val_preds, val_obs, train_monitor, val_monitor, yscale, hybridModel.targets, monitor_names, zoom_epochs)
     end
 
     # track physical parameters
@@ -286,14 +287,14 @@ end
 
 Launch the training dashboard if the Makie extension is loaded.
 """
-function launch_training_dashboard(train_h_obs, val_h_obs, train_preds, train_obs, val_preds, val_obs, train_monitor, val_monitor, yscale, target_names, monitor_names)
+function launch_training_dashboard(train_h_obs, val_h_obs, train_preds, train_obs, val_preds, val_obs, train_monitor, val_monitor, yscale, target_names, monitor_names, zoom_epochs)
         # launch multi-target + monitor dashboard
         EasyHybrid.train_board(
             train_h_obs, val_h_obs,
             train_preds, train_obs,
             val_preds, val_obs,
             train_monitor, val_monitor,
-            yscale;
+            yscale, zoom_epochs;
             target_names=target_names,
             monitor_names=monitor_names
         )
