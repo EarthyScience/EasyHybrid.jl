@@ -7,18 +7,22 @@ using EasyHybrid
 using EasyHybrid.Printf
 using EasyHybrid.MLUtils
 
-df = CSV.read("projects/RbQ10/data/Rh_AliceHolt_forcing_filled.csv", DataFrame)
 
-df[!, :Temp] = df[!, :Temp] .- 273.15 # convert to Celsius
-# df = filter(:Respiration_heterotrophic => !isnan, df)
-rename!(df, :Respiration_heterotrophic => :Rh)  # rename as in hybrid model
+script_dir = @__DIR__
+include(joinpath(script_dir, "data", "prec_process_data.jl"))
 
-ds_keyed = to_keyedArray(Float64.(df)) # predictors + forcing
+# Common data preprocessing
+df = dfall[!, Not(:timesteps)]
+ds_keyed = to_keyedArray(Float32.(df))
+
+target_names = [:R_soil]
+forcing_names = [:cham_temp_filled]
+predictor_names = [:moisture_filled, :rgpot2]
 
 # Define neural network
-NN = Lux.Chain(Dense(2, 15, Lux.relu), Dense(15, 15, Lux.relu), Dense(15, 1));
+NN = Chain(Dense(2, 15, relu), Dense(15, 15, relu), Dense(15, 1));
 # instantiate Hybrid Model
-RbQ10 = RespirationRbQ10(NN, (:Rgpot, :Moist), (:Rh, ), (:Temp,), 2.5f0) # ? do different initial Q10s
+RbQ10 = RespirationRbQ10(NN, predictor_names, forcing_names, target_names, 2.5f0) # ? do different initial Q10s
 # Define neural network
 NN = Lux.Chain(Dense(2, 15, Lux.relu), Dense(15, 15, Lux.relu), Dense(15, 1));
 
@@ -44,7 +48,7 @@ ds_p_f, ds_t = EasyHybrid.prepare_data(RbQ10, ds_keyed)
 ds_t_nan = .!isnan.(ds_t)
 ls = EasyHybrid.lossfn(RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss(train_mode=false))
 
-ls2 = (p, data) -> EasyHybrid.lossfn(RbQ10, ds_p_f, (ds_t, ds_t_nan), p, st, LoggingLoss())
+ls2 = (p, data) -> EasyHybrid.lossfn(RbQ10, ds_p_f, (ds_t, ds_t_nan), p, st, LoggingLoss())[1]
 
 dta = (ds_p_f, ds_t, ds_t_nan)
 

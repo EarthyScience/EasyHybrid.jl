@@ -51,7 +51,7 @@ ps, st = LuxCore.setup(Random.default_rng(), BulkDSOC)
 # the Tuple `ds_p, ds_t` is later used for batching in the `dataloader`.
 ds_t_nan = .!isnan.(ds_t)
 
-ls = EasyHybrid.lossfn(BulkDSOC, ds_p, (ds_t, ds_t_nan), ps, st,  LoggingLoss(train_mode=false))
+ls = EasyHybrid.lossfn(BulkDSOC, ds_p, (ds_t, ds_t_nan), ps, LuxCore.testmode(st),  LoggingLoss(train_mode=false)) # testmode to switch of dropout
 
 println(length(names_cov))
 out = train(BulkDSOC, (ds_p, ds_t), (:oBD, ); nepochs=100, batchsize=32, opt=AdaMax(0.01));

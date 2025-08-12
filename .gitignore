@@ -5,6 +5,8 @@ tmp_*
 Manifest.toml
 .DS_Store
 *.csv
+*.nc
+/projects/BulkDSOC/eval/
 
 build/
 node_modules/
@@ -12,4 +14,12 @@ package-lock.json
 Manifest.toml
 *_tmp
 *.pdf
+<<<<<<< HEAD
 *.pptx
+=======
+*.pptx
+*.nc
+*.png
+*.xlsx
+/projects/SOC_PBM/data/
+>>>>>>> 9fe024f7b7587264ed149cb6e65bcf55379541d8

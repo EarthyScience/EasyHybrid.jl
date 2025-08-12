@@ -15,7 +15,7 @@ struct Rs_components{D, T1, T2, T3, T4} <: LuxCore.AbstractLuxContainerLayer{(:N
     Q10_root
     Q10_myc
     function Rs_components(NN::D, predictors::T1, forcing::T2, targets::T3, Q10_het::T4, Q10_root::T4, Q10_myc::T4) where {D, T1, T2, T3, T4}
-        new{D, T1, T2, T3, T4}(NN, collect(predictors), collect(targets), collect(forcing), [Q10_het], [Q10_root], [Q10_myc])
+        new{D, T1, T2, T3, T4}(NN, collect(predictors), collect(forcing), collect(targets), [Q10_het], [Q10_root], [Q10_myc])
     end
 end
 
@@ -30,10 +30,6 @@ function LuxCore.initialstates(::AbstractRNG, layer::Rs_components)
     return (; st)
 end
 
-function RbQ10(Rb, Q10, Temp, Tref)
-    @. Rb * Q10 ^(0.1f0 * (Temp - Tref))
-end
-
 """
     Rs_components(NN, predictors, forcing, targets, Q10)(ds_k)
 
@@ -46,18 +42,17 @@ function (hm::Rs_components)(ds_k, ps, st::NamedTuple)
     p = ds_k(hm.predictors)
     x = Array(ds_k(hm.forcing)) # don't propagate names after this
     
-    out, st = LuxCore.apply(hm.NN, p, ps.ps, st.st)
+    out, stRs = LuxCore.apply(hm.NN, p, ps.ps, st.st)
     
     Rb_het = out[1,:]
     Rb_root = out[2,:]
     Rb_myc = out[3,:]
 
-    R_het = RbQ10(Rb_het, ps.Q10_het, x[1,:], 15.f0) # TODO out of memory error here	
-    #R_het = Rb_het .* ps.Q10_het .^(0.1f0 * (x .- 15.0f0))
-    R_root = RbQ10(Rb_root, ps.Q10_root, x[1,:], 15.f0)
-    R_myc = RbQ10(Rb_myc, ps.Q10_myc, x[1,:], 15.f0)
+    R_het = mRbQ10(Rb_het, ps.Q10_het, x[1,:], 15.f0)	
+    R_root = mRbQ10(Rb_root, ps.Q10_root, x[1,:], 15.f0)
+    R_myc = mRbQ10(Rb_myc, ps.Q10_myc, x[1,:], 15.f0)
 
-    R_soil = R_het  + R_root + R_myc
+    R_soil = R_het .+ R_root .+ R_myc
 
-    return (; R_soil, R_het, R_root, R_myc), (; Rb_het, Rb_root, Rb_myc, st)
+    return (; R_soil, R_het, R_root, R_myc), (; st = (; st = stRs))
 end

@@ -1,0 +1,5 @@
+[deps]
+AlgebraOfGraphics = "cbdf2221-f076-402e-a563-3d30da359d67"
+Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
+EasyHybrid = "61bb816a-e6af-4913-ab9e-91bff2e122e3"
+GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
