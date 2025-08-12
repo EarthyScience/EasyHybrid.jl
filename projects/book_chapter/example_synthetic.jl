@@ -59,7 +59,9 @@ hybrid_model = constructHybridModel(
     neural_param_names,
     global_param_names,
     hidden_layers = [16, 16],
-    activation = tanh
+    activation = tanh,
+    scale_nn_outputs=true,
+    input_batchnorm = true
 )
 
 using WGLMakie
