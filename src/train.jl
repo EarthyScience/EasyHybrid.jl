@@ -22,7 +22,7 @@ Train a hybrid model using the provided data and save the training process to a 
 
 # Arguments:
 - `hybridModel`: The hybrid model to be trained.
-- `data`: The training data, either a tuple of KeyedArrays or a single KeyedArray.
+- `data`: The training data, either a single DataFrame, a single KeyedArray, or a tuple of KeyedArrays.
 - `save_ps`: A tuple of physical parameters to save during training.
 - `nepochs`: Number of training epochs (default: 200).
 - `batchsize`: Size of the training batches (default: 10).
@@ -99,8 +99,9 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     best_epoch = 0
     cnt_patience = 0
     
-    # Initialize best_agg_loss for early stopping comparison
-    best_agg_loss = getproperty(best_loss[1], Symbol(agg))
+    # Initialize best_agg_loss for early stopping comparison based on the first loss_types in [:mse, :r2]
+    best_agg_loss = getproperty(l_init_val[1], Symbol(agg))
+    val_metric_name = first(keys(l_init_val))
     current_agg_loss = best_agg_loss  # Initialize for potential use in final logging
     
     file_name = resolve_path(file_name)
@@ -156,7 +157,7 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
         end
         if cnt_patience >= patience
             metric_name = first(keys(l_val))
-            @info "Early stopping at epoch $epoch with best validation loss wrt $metric_name: $best_loss"
+            @info "Early stopping at epoch $epoch with best validation loss wrt $metric_name: $best_agg_loss"
             break
         end
 
@@ -181,12 +182,10 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     # ? save final evaluation or best at best validation value
     if return_model == :best
         ps, st = deepcopy(best_ps), deepcopy(best_st)
-        metric_name = first(keys(best_loss))
-        @info "Returning best model from epoch $best_epoch of $nepochs epochs with best validation loss wrt $metric_name: $best_agg_loss"
+        @info "Returning best model from epoch $best_epoch of $nepochs epochs with best validation loss wrt $val_metric_name: $best_agg_loss"
     elseif return_model == :final
-        metric_name = first(keys(l_val))
         ps, st = deepcopy(ps), deepcopy(st)
-        @info "Returning final model from final of $nepochs epochs with validation loss: $current_agg_loss, the best validation loss was $best_agg_loss from epoch $best_epoch"
+        @info "Returning final model from final of $nepochs epochs with validation loss: $current_agg_loss, the best validation loss was $best_agg_loss from epoch $best_epoch wrt $val_metric_name"
     else
         @warn "Invalid return_model: $return_model. Returning final model."
     end
