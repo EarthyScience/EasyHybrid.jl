@@ -1,4 +1,9 @@
 using Downloads
+using NCDatasets
+using DataFrames
+
+export load_timeseries_netcdf
+
 """
     load_timeseries_netcdf(path::AbstractString; timedim::AbstractString = "time") -> DataFrame
 

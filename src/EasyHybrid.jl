@@ -52,5 +52,6 @@ include("train.jl")
 include("utils/show_train.jl")
 include("utils/helpers_for_HybridModel.jl")
 include("plotrecipes.jl")
+include("utils/helpers_data_loading.jl")
 
 end
