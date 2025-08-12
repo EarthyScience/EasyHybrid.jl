@@ -1,5 +1,7 @@
 export train, TrainResults
 
+using Statistics: mean, std, median
+
 # beneficial for plotting based on type TrainResults?
 struct TrainResults
     train_history
@@ -41,7 +43,7 @@ Train a hybrid model using the provided data and save the training process to a 
 """
 function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0.01), patience=typemax(Int),
     file_name=nothing, loss_types=[:mse, :r2], training_loss=:mse, agg=sum, train_from = nothing, 
-    random_seed=nothing, shuffleobs = false, yscale=log10, monitor_names=[], return_model=:best)
+    random_seed=nothing, shuffleobs = false, yscale=log10, monitor_names=[], return_model=:best, normalize_predictors=false)
     #! check if the EasyHybridMakie extension is loaded.
     ext = Base.get_extension(@__MODULE__, :EasyHybridMakie)
     if ext === nothing
@@ -57,6 +59,13 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
 
     # ? split training and validation data
     (x_train, y_train), (x_val, y_val) = splitobs(data_; at=0.8, shuffle=shuffleobs)
+
+    if normalize_predictors !== false	
+        x_train1, x_val1 = scale(x_train[1], x_val[1], normalize_predictors)
+        x_train = (x_train1, x_train[2:end]...)
+        x_val = (x_val1, x_val[2:end]...)
+    end
+
     train_loader = DataLoader((x_train, y_train), batchsize=batchsize, shuffle=true);
 
     if isnothing(train_from)
@@ -373,108 +382,89 @@ Utility function to see if the data is already in the expected format or if furt
 
 # Arguments:
 - hm: The Hybrid Model
-- data: either a Tuple of KeyedArrays or a single KeyedArray.
+- data: either a Tuple of KeyedArrays, a single KeyedArray, or a DataFrame.
 
 Returns a tuple of KeyedArrays
 """
+function _collect_predictors_and_forcing(hm)
+    predictors = Symbol[]
+    forcing = Symbol[]
+    for prop in propertynames(hm)
+        prop_str = string(prop)
+        val = getproperty(hm, prop)
+        if occursin("predictors", prop_str)
+            if isa(val, AbstractVector)
+                append!(predictors, val)
+            elseif isa(val, Union{NamedTuple, Tuple})
+                append!(predictors, unique(vcat(values(val)...)))
+            end
+        elseif occursin("forcing", prop_str)
+            if isa(val, AbstractVector)
+                append!(forcing, val)
+            elseif isa(val, Union{NamedTuple, Tuple})
+                append!(forcing, unique(vcat(values(val)...)))
+            end
+        end
+    end
+    return (unique(predictors), unique(forcing))
+end
+
+function _check_predictors_forcing_targets(predictors, forcing, targets)
+    isempty(predictors) && @warn "No predictors variables."
+    isempty(forcing) && @warn "No forcing variables - is a hybrid model?"
+    isempty(targets) && @warn "No target names."
+end
+
 function prepare_data(hm, data::KeyedArray)
-        targets = hm.targets
-        predictors_forcing = Symbol[]
+    targets = hm.targets
+    predictors, forcing = _collect_predictors_and_forcing(hm)
+    _check_predictors_forcing_targets(predictors, forcing, targets)
+    return prepare_data(hm, data, predictors, forcing, targets)
+end
 
-        # Collect all predictors and forcing variables by checking property names
-        for prop in propertynames(hm)
-            if occursin("predictors", string(prop))
-                val = getproperty(hm, prop)
-                if isa(val, AbstractVector)
-                    append!(predictors_forcing, val)
-                elseif isa(val, Union{NamedTuple, Tuple})
-                    append!(predictors_forcing, unique(vcat(values(val)...)))
-                end
-            end
-        end
-        for prop in propertynames(hm)
-            if occursin("forcing", string(prop))
-                val = getproperty(hm, prop)
-                if isa(val, AbstractVector)
-                    append!(predictors_forcing, val)
-                elseif isa(val, Union{Tuple, NamedTuple})
-                    append!(predictors_forcing, unique(vcat(values(val)...)))
-                end
-            end
-        end
-        predictors_forcing = unique(predictors_forcing)
-        
-        if isempty(predictors_forcing)
-            @warn "Note that you don't have predictors or forcing variables."
-        end
-        if isempty(targets)
-            @warn "Note that you don't have target names."
-        end
-        return (data(predictors_forcing), data(targets))
-    end
+function prepare_data(hm, data::DataFrame)
+    targets = hm.targets
+    predictors, forcing = _collect_predictors_and_forcing(hm)
+    _check_predictors_forcing_targets(predictors, forcing, targets)
 
-    function prepare_data(hm, data::DataFrame)
-        targets = hm.targets
-        predictors_forcing = Symbol[]
+    all_predictor_cols = unique(vcat(values(predictors)...))
+    all_forcing_cols = unique(vcat(values(forcing)...))
+    col_to_select = unique([all_predictor_cols; all_forcing_cols; targets])
 
-        # Collect all predictors and forcing variables by checking property names
-        for prop in propertynames(hm)
-            if occursin("predictors", string(prop))
-                val = getproperty(hm, prop)
-                if isa(val, AbstractVector)
-                    append!(predictors_forcing, val)
-                elseif isa(val, Union{NamedTuple, Tuple})
-                    append!(predictors_forcing, unique(vcat(values(val)...)))
-                end
-            end
-        end
-        for prop in propertynames(hm)
-            if occursin("forcing", string(prop))
-                val = getproperty(hm, prop)
-                if isa(val, AbstractVector)
-                    append!(predictors_forcing, val)
-                elseif isa(val, Union{Tuple, NamedTuple})
-                    append!(predictors_forcing, unique(vcat(values(val)...)))
-                end
-            end
-        end
-        predictors_forcing = unique(predictors_forcing)
-        
-        if isempty(predictors_forcing)
-            @warn "Note that you don't have predictors or forcing variables."
-        end
-        if isempty(targets)
-            @warn "Note that you don't have target names."
-        end
+    # subset to only the cols we care about
+    sdf = data[!, col_to_select]
 
-        all_predictor_cols  = unique(vcat(values(predictors_forcing)...))
-        col_to_select       = unique([all_predictor_cols; targets])
-    
-        # subset to only the cols we care about
-        sdf = data[!, col_to_select]
-    
-        # Separate predictor/forcing vs. target columns
-        predforce_cols = setdiff(col_to_select, targets)
-        
-        # For each row, check if *any* predictor/forcing is missing
-        mask_missing_predforce = map(row -> any(ismissing, row), eachrow(sdf[:, predforce_cols]))
-        
-        # For each row, check if *at least one* target is present (i.e. not all missing)
-        mask_at_least_one_target = map(row -> any(!ismissing, row), eachrow(sdf[:, targets]))
-        
-        # Keep rows where predictors/forcings are *complete* AND there's some target present
-        keep = .!mask_missing_predforce .& mask_at_least_one_target
-        sdf = sdf[keep, col_to_select]
-    
-        mapcols(col -> replace!(col, missing => NaN), sdf; cols = names(sdf, Union{Missing, Real}))
-    
-        # Convert to Float32 and to your keyed array
-        ds_keyed = to_keyedArray(Float32.(sdf))
-        return prepare_data(hm, ds_keyed)
-    end
+    # Separate predictor/forcing vs. target columns
+    predforce_cols = setdiff(col_to_select, targets)
+
+    # For each row, check if *any* predictor/forcing is missing
+    mask_missing_predforce = map(row -> any(ismissing, row), eachrow(sdf[:, predforce_cols]))
+
+    # For each row, check if *at least one* target is present (i.e. not all missing)
+    mask_at_least_one_target = map(row -> any(!ismissing, row), eachrow(sdf[:, targets]))
+
+    # Keep rows where predictors/forcings are *complete* AND there's some target present
+    keep = .!mask_missing_predforce .& mask_at_least_one_target
+    sdf = sdf[keep, col_to_select]
+
+    mapcols(col -> replace!(col, missing => NaN), sdf; cols = names(sdf, Union{Missing, Real}))
+
+    # Convert to Float32 and to your keyed array
+    ds_keyed = to_keyedArray(Float32.(sdf))
+    return prepare_data(hm, ds_keyed, predictors, forcing, targets)
+end
 
 function prepare_data(hm, data::Tuple)
     return data
+end
+
+function prepare_data(hm::Union{SingleNNHybridModel, MultiNNHybridModel}, data::KeyedArray, predictors, forcing, targets)
+    return ((data(predictors), data(forcing)), data(targets))
+end
+
+function prepare_data(hm::LuxCore.AbstractLuxContainerLayer, data::KeyedArray, predictors, forcing, targets)
+    predictors_forcing = unique(vcat(predictors, forcing))  
+    return (data(predictors_forcing), data(targets))
 end
 
 function get_ps_st(train_from::TrainResults)
@@ -483,4 +473,24 @@ end
 
 function get_ps_st(train_from::Tuple)
     return train_from
+end
+
+function scale(x_train::KeyedArray, x_val::KeyedArray, method::Symbol)
+    if method == :zscore
+        row_center = mean(x_train, dims=:col)
+        row_scale = std(x_train, dims=:col)
+    elseif method == :minmax
+        row_center = minimum(x_train, dims=:col)
+        row_scale = maximum(x_train, dims=:col) - row_center
+    elseif method == :robust
+        row_center = median(x_train, dims=:col)
+        row_scale = mapslices(s -> quantile(vec(s), eltype(row_center)(0.75)) - quantile(vec(s), eltype(row_center)(0.25)),
+        x_train; dims = :col)
+    end
+
+    row_scale[row_scale .== 0] .= eltype(row_scale)(1e-6)
+    scaled_train = (x_train .- row_center) ./ row_scale
+    scaled_val = (x_val .- row_center) ./ row_scale
+
+    return scaled_train, scaled_val
 end
