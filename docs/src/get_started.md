@@ -1,85 +1,125 @@
 # EasyHybrid.jl
 
-Simply do
+# Example of how EasyHybrid can create Generic Hybrid models
 
-```@example modelName
+This page demonstrates how to use EasyHybrid to create a hybrid model for ecosystem respiration. This example shows the key concepts of EasyHybrid:
+
+1. **Process-based Model**: The `RbQ10` function represents a classical Q10 model for respiration with base respiration `rb` and `Q10` which describes the factor by respiration is increased for a 10 K change in temperature
+2. **Neural Network**: Learns to predict the basal respiration parameter `rb` from environmental conditions
+3. **Hybrid Integration**: Combines the neural network predictions with the process-based model to produce final outputs
+4. **Parameter Learning**: Some parameters (like `Q10`) can be learned globally, while others (like `rb`) are predicted per sample
+
+The framework automatically handles the integration between neural networks and mechanistic models, making it easy to leverage both data-driven learning and domain knowledge.
+
+## Quick Start Example
+
+### 1. Setup and Data Loading
+
+Load package and synthetic dataset
+
+```@example quick_start_complete
 using EasyHybrid
-@hybrid YourHybridModelName α
-# α is the newly introduced physical parameter to be learned!
+
+ds = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc")
+ds = ds[1:20000, :]  # Use subset for faster execution
+first(ds, 5)
 ```
 
-see your new model by typing `?YourHybridModelName`.
+### 2. Define the Process-based Model
 
-::: details you should see something like:
+RbQ10 model: Respiration model with Q10 temperature sensitivity
 
-```@example modelName
-@doc YourHybridModelName
-```
-:::
-
-
-::: details What is `@habrid` doing?
-
-Defines your model as a sub-type of an `LuxCore.AbstractLuxContainerLayer`. Namely,
-
-```julia
-struct YourHybridModelName{D, T1, T2, T3, T4} <: LuxCore.AbstractLuxContainerLayer{(:NN, :predictors, :forcing, :targets, :α)}
-  NN
-  predictors
-  forcing
-  targets
-  α
-  function YourHybridModelName(NN::D, predictors::T1, forcing::T2, targets::T3, α::T4) where {D, T1, T2, T3, T4}
-      new{D, T1, T2, T3, T4}(NN, collect(predictors), collect(forcing), collect(targets), [α])
-  end
+```@example quick_start_complete
+function RbQ10(;ta, Q10, rb, tref = 15.0f0)
+    reco = rb .* Q10 .^ (0.1f0 .* (ta .- tref))
+    return (; reco, Q10, rb)
 end
 ```
 
-sets initial parameters and states
+### 3. Configure Model Parameters
 
-::: code-group
+Parameter specification: (default, lower_bound, upper_bound)
 
-```julia [initial parameters]
-function LuxCore.initialparameters(::AbstractRNG, layer::YourHybridModelName)
-  ps, _ = LuxCore.setup(Random.default_rng(), layer.NN)
-  return (; ps, α = layer.α,) # these parameters are trainable! [!code warning]
-end
+```@example quick_start_complete
+parameters = (
+    rb  = (3.0f0, 0.0f0, 13.0f0),  # Basal respiration [μmol/m²/s]
+    Q10 = (2.0f0, 1.0f0, 4.0f0),   # Temperature sensitivity - describes factor by which respiration is increased for 10 K increase in temperature [-]
+)
 ```
 
-```julia [initial states]
-function LuxCore.initialstates(::AbstractRNG, layer::RespirationRbQ10)
-  _, st = LuxCore.setup(Random.default_rng(), layer.NN)
-  return (; st) # none of the possible additional arguments/variables here are trainable! [!code warning]
-end
+### 4. Construct the Hybrid Model
+
+Define input variables
+
+```@example quick_start_complete
+forcing = [:ta]                    # Forcing variables (temperature)
+predictors = [:sw_pot, :dsw_pot]   # Predictor variables (solar radiation)
+target = [:reco]                   # Target variable (respiration)
 ```
 
-:::
+Parameter classification as global, neural or fixed (difference between global and neural)
 
-````@docs
-@hybrid
-````
+```@example quick_start_complete
+global_param_names = [:Q10]        # Global parameters (same for all samples)
+neural_param_names = [:rb]         # Neural network predicted parameters
+```
 
-Hence, after specifying the `physical parameters`, you only need to describe how this model operates.
+Construct hybrid model
 
-## Definition
-Model definition, how does the actual model operates!
+```@example quick_start_complete
+hybrid_model = constructHybridModel(
+    predictors,              # Input features
+    forcing,                 # Forcing variables
+    target,                  # Target variables
+    RbQ10,                  # Process-based model function
+    parameters,              # Parameter definitions
+    neural_param_names,      # NN-predicted parameters
+    global_param_names,      # Global parameters
+    hidden_layers = [16, 16], # Neural network architecture
+    activation = swish,      # Activation function
+    scale_nn_outputs = true, # Scale neural network outputs
+    input_batchnorm = true   # Apply batch normalization to inputs
+)
+```
 
-```julia
-function (hm::YourHybridModelName)(dataset_keyed, ps, st)
-  # data selection
-  p = dataset_keyed(hm.predictors)
-  x = Array(dataset_keyed(hm.forcing))
-  
-  # output from Neural network application 
-  β, st = LuxCore.apply(hm.NN, p, ps.ps, st.st) # [!code highlight]
+### 5. Train the Model
 
-  # equation! this is where you should focus, your model!
-  ŷ = β .* ps.α .^(0.1f0 * (x .- 15.0f0)) # [!code warning]
+```@example quick_start_complete
+# using WGLMakie # to see an interactive and automatically updated train_board figure
+out = train(
+    hybrid_model, 
+    ds, 
+    (); 
+    nepochs = 100,           # Number of training epochs
+    batchsize = 512,         # Batch size for training
+    opt = RMSProp(0.001),   # Optimizer and learning rate
+    monitor_names = [:rb, :Q10], # Parameters to monitor during training
+    yscale = identity,       # Scaling for outputs
+    patience = 30            # Early stopping patience
+)
+```
 
-  return (; your_target_name_variable=ŷ), (; β, st = (; st)) # always output predictions and states as two tuples
-end
+### 6. Check Results
+
+Check results - what do you think - is it the true Q10 used to generate the synthetic dataset?
+
+```@example quick_start_complete
+out.train_diffs.Q10
+``` 
+
+Quick scatterplot - dispatches on the output of train
+
+```@example quick_start_complete
+using CairoMakie
+EasyHybrid.poplot(out)
+EasyHybrid.plot_loss(out)
+#EasyHybrid.plot_parameters(out)
 ```
 
 ## Loss function
 
 We provide a generic loss function, if you need further adjustments then define a specific one for your hybrid model.
+
+## More Examples
+
+Check out the `projects/` directory for additional examples and use cases. Each project demonstrates different aspects of hybrid modeling with EasyHybrid.
