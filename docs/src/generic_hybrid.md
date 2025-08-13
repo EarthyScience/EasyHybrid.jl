@@ -11,39 +11,29 @@ The framework automatically handles the integration between neural networks and 
 
 ## Quick Start Example
 
-### 1. Setup and Data Loading
-
-```@example quick_start_setup
+```@example quick_start_complete
 using EasyHybrid
 
+# 1. Setup and Data Loading
 # Load synthetic dataset
 ds = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc")
 ds = ds[1:20000, :]  # Use subset for faster execution
-```
 
-### 2. Define the Process-based Model
-
-```@example quick_start_model
+# 2. Define the Process-based Model
 # RbQ10 model: Respiration model with Q10 temperature sensitivity
 RbQ10 = function(;ta, Q10, rb, tref = 15.0f0)
     reco = rb .* Q10 .^ (0.1f0 .* (ta .- tref))
     return (; reco, Q10, rb)
 end
-```
 
-### 3. Configure Model Parameters
-
-```@example quick_start_parameters
+# 3. Configure Model Parameters
 # Parameter specification: (default, lower_bound, upper_bound)
 parameters = (
     rb  = (3.0f0, 0.0f0, 13.0f0),  # Basal respiration [μmol/m²/s]
     Q10 = (2.0f0, 1.0f0, 4.0f0),   # Temperature sensitivity - describes factor by which respiration is increased for 10 K increase in temperature [-]
 )
-```
 
-### 4. Construct the Hybrid Model
-
-```@example quick_start_construction
+# 4. Construct the Hybrid Model
 # Define input variables
 forcing = [:ta]                    # Forcing variables (temperature)
 predictors = [:sw_pot, :dsw_pot]   # Predictor variables (solar radiation)
@@ -67,12 +57,9 @@ hybrid_model = constructHybridModel(
     scale_nn_outputs = true, # Scale neural network outputs
     input_batchnorm = true   # Apply batch normalization to inputs
 )
-```
 
-### 5. Train the Model
-
-```@example quick_start_training
-using WGLMakie # to see an interactive and automatically updated train_board figure
+# 5. Train the Model
+using CairoMakie # to see an interactive and automatically updated train_board figure
 out = train(
     hybrid_model, 
     ds, 
