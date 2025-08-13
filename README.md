@@ -55,7 +55,15 @@ using EasyHybrid
 
 ## Quick Start Example
 
-Here's a complete example demonstrating how to use EasyHybrid to create a hybrid model for ecosystem respiration modeling with Q10 temperature sensitivity:
+Here's a complete example demonstrating how to use EasyHybrid to create a hybrid model for ecosystem respiration. This example demonstrates the key concepts of EasyHybrid:
+
+1. **Process-based Model**: The `RbQ10` function represents a classical Q10 model for respiration with base respiration `rb` and `Q10` which describes the factor by respiration is increased for a 10 K change in temperature
+2. **Neural Network**: Learns to predict the basal respiration parameter `rb` from environmental conditions
+3. **Hybrid Integration**: Combines the neural network predictions with the process-based model to produce final outputs
+4. **Parameter Learning**: Some parameters (like `Q10`) can be learned globally, while others (like `rb`) are predicted per sample
+
+The framework automatically handles the integration between neural networks and mechanistic models, making it easy to leverage both data-driven learning and domain knowledge.
+
 
 ### 1. Setup and Data Loading
 
@@ -85,7 +93,11 @@ parameters = (
     rb  = (3.0f0, 0.0f0, 13.0f0),  # Basal respiration [μmol/m²/s]
     Q10 = (2.0f0, 1.0f0, 4.0f0),   # Temperature sensitivity - describes factor by which respiration is increased for 10 K increase in temperature [-]
 )
+```
 
+### 4. Construct the Hybrid Model
+
+```julia
 # Define input variables
 forcing = [:ta]                    # Forcing variables (temperature)
 predictors = [:sw_pot, :dsw_pot]   # Predictor variables (solar radiation)
@@ -94,12 +106,8 @@ target = [:reco]                   # Target variable (respiration)
 # Parameter classification
 global_param_names = [:Q10]        # Global parameters (same for all samples)
 neural_param_names = [:rb]         # Neural network predicted parameters
-```
 
-### 4. Construct and Train the Hybrid Model
-
-```julia
-# Create hybrid model
+# Construct hybrid model
 hybrid_model = constructHybridModel(
     predictors,              # Input features
     forcing,                 # Forcing variables
@@ -113,9 +121,11 @@ hybrid_model = constructHybridModel(
     scale_nn_outputs = true, # Scale neural network outputs
     input_batchnorm = true   # Apply batch normalization to inputs
 )
+```
 
-# Train the model
-using WGLMakie
+### 5. Train the model
+```julia
+using WGLMakie # to see an interactive and automatically updated train_board figure
 out = train(
     hybrid_model, 
     ds, 
@@ -131,17 +141,6 @@ out = train(
 # Check results
 out.train_diffs.Q10
 ```
-
-## How It Works
-
-This example demonstrates the key concepts of EasyHybrid:
-
-1. **Process-based Model**: The `RbQ10` function represents a classical Q10 model with base respiration `rb` and `Q10` which describes the factor by respiration is increased for a 10 K change in temperature
-2. **Neural Network**: Learns to predict the basal respiration parameter `rb` from environmental conditions
-3. **Hybrid Integration**: Combines the neural network predictions with the process-based model to produce final outputs
-4. **Parameter Learning**: Some parameters (like `Q10`) can be learned globally, while others (like `rb`) are predicted per sample
-
-The framework automatically handles the integration between neural networks and mechanistic models, making it easy to leverage both data-driven learning and domain knowledge.
 
 ## More Examples
 
