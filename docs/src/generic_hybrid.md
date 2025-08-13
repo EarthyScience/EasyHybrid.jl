@@ -1,4 +1,4 @@
-# Generic Hybrid
+# Example how to EasyHybrid can create Generic Hybrid models
 
 This page demonstrates how to use EasyHybrid to create a hybrid model for ecosystem respiration. This example shows the key concepts of EasyHybrid:
 
@@ -11,40 +11,51 @@ The framework automatically handles the integration between neural networks and 
 
 ## Quick Start Example
 
+### 1. Setup and Data Loading
+Load package and synthetic dataset
 ```@example quick_start_complete
 using EasyHybrid
 
-# 1. Setup and Data Loading
-# Load synthetic dataset
+
 ds = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc")
 ds = ds[1:20000, :]  # Use subset for faster execution
 first(ds, 5)
+```
 
-# 2. Define the Process-based Model
-# RbQ10 model: Respiration model with Q10 temperature sensitivity
+### 2. Define the Process-based Model
+RbQ10 model: Respiration model with Q10 temperature sensitivity
+```@example quick_start_complete
 RbQ10 = function(;ta, Q10, rb, tref = 15.0f0)
     reco = rb .* Q10 .^ (0.1f0 .* (ta .- tref))
     return (; reco, Q10, rb)
 end
+```
 
-# 3. Configure Model Parameters
-# Parameter specification: (default, lower_bound, upper_bound)
+### 3. Configure Model Parameters
+Parameter specification: (default, lower_bound, upper_bound)
+```@example quick_start_complete
 parameters = (
     rb  = (3.0f0, 0.0f0, 13.0f0),  # Basal respiration [μmol/m²/s]
     Q10 = (2.0f0, 1.0f0, 4.0f0),   # Temperature sensitivity - describes factor by which respiration is increased for 10 K increase in temperature [-]
 )
+```
 
-# 4. Construct the Hybrid Model
-# Define input variables
+### 4. Construct the Hybrid Model
+Define input variables
+```@example quick_start_complete
 forcing = [:ta]                    # Forcing variables (temperature)
 predictors = [:sw_pot, :dsw_pot]   # Predictor variables (solar radiation)
 target = [:reco]                   # Target variable (respiration)
+```
 
-# Parameter classification
+Parameter classification as global, neural or fixed (difference between global and neural)
+```@example quick_start_complete
 global_param_names = [:Q10]        # Global parameters (same for all samples)
 neural_param_names = [:rb]         # Neural network predicted parameters
+```
 
-# Construct hybrid model
+Construct hybrid model
+```@example quick_start_complete
 hybrid_model = constructHybridModel(
     predictors,              # Input features
     forcing,                 # Forcing variables
@@ -58,8 +69,10 @@ hybrid_model = constructHybridModel(
     scale_nn_outputs = true, # Scale neural network outputs
     input_batchnorm = true   # Apply batch normalization to inputs
 )
+```
 
-# 5. Train the Model
+### 5. Train the Model
+```@example quick_start_complete
 # using WGLMakie # to see an interactive and automatically updated train_board figure
 out = train(
     hybrid_model, 
@@ -72,15 +85,21 @@ out = train(
     yscale = identity,       # Scaling for outputs
     patience = 30            # Early stopping patience
 )
+```
 
-# Check results
+### 6. Check Results
+Check results - what do you think - is it the true Q10 used to generate the synthetic dataset?
+```@example quick_start_complete
+
 out.train_diffs.Q10
+``` 
 
+Quick scatterplot - dispatches on the output of train
+```@example quick_start_complete
 using CairoMakie
 EasyHybrid.poplot(out)
 #EasyHybrid.plot_loss(out)
 #EasyHybrid.plot_parameters(out)
-
 ```
 
 ## More Examples
