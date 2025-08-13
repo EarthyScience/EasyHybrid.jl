@@ -18,6 +18,7 @@ using EasyHybrid
 # Load synthetic dataset
 ds = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc")
 ds = ds[1:20000, :]  # Use subset for faster execution
+first(ds, 5)
 
 # 2. Define the Process-based Model
 # RbQ10 model: Respiration model with Q10 temperature sensitivity
