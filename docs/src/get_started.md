@@ -100,20 +100,23 @@ out = train(
 ```
 
 ### 6. Check Results
+Evolution of train and validation loss
+```@example quick_start_complete
+using CairoMakie
+EasyHybrid.plot_loss(out, yscale = identity)
+```
 
 Check results - what do you think - is it the true Q10 used to generate the synthetic dataset?
-
 ```@example quick_start_complete
 out.train_diffs.Q10
 ``` 
 
 Quick scatterplot - dispatches on the output of train
-
 ```@example quick_start_complete
-using CairoMakie
+
 EasyHybrid.poplot(out)
-EasyHybrid.plot_loss(out)
-#EasyHybrid.plot_parameters(out)
+```
+
 ```
 
 ## Loss function
