@@ -60,7 +60,7 @@ hybrid_model = constructHybridModel(
 )
 
 # 5. Train the Model
-using CairoMakie # to see an interactive and automatically updated train_board figure
+# using WGLMakie # to see an interactive and automatically updated train_board figure
 out = train(
     hybrid_model, 
     ds, 
@@ -75,6 +75,12 @@ out = train(
 
 # Check results
 out.train_diffs.Q10
+
+using CairoMakie
+EasyHybrid.poplot(out)
+EasyHybrid.plot_loss(out)
+EasyHybrid.plot_parameters(out)
+
 ```
 
 ## More Examples
