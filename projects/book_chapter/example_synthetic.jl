@@ -45,7 +45,7 @@ ds = ds[1:20000, :]
 #   - Q10: temperature sensitivity factor [-]
 #   - rb: basal respiration rate [μmol/m²/s]
 #   - tref: reference temperature [°C] (default: 15.0)
-RbQ10 = function(;ta, Q10, rb, tref = 15.0f0)
+function RbQ10(;ta, Q10, rb, tref = 15.0f0)
     reco = rb .* Q10 .^ (0.1f0 .* (ta .- tref))
     return (; reco, Q10, rb)
 end

@@ -28,7 +28,7 @@ first(ds, 5)
 RbQ10 model: Respiration model with Q10 temperature sensitivity
 
 ```@example quick_start_complete
-RbQ10 = function(;ta, Q10, rb, tref = 15.0f0)
+function RbQ10(;ta, Q10, rb, tref = 15.0f0)
     reco = rb .* Q10 .^ (0.1f0 .* (ta .- tref))
     return (; reco, Q10, rb)
 end
