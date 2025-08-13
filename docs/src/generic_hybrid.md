@@ -78,8 +78,8 @@ out.train_diffs.Q10
 
 using CairoMakie
 EasyHybrid.poplot(out)
-EasyHybrid.plot_loss(out)
-EasyHybrid.plot_parameters(out)
+#EasyHybrid.plot_loss(out)
+#EasyHybrid.plot_parameters(out)
 
 ```
 
