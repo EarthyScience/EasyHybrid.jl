@@ -1,4 +1,4 @@
-# Example how to EasyHybrid can create Generic Hybrid models
+# Example of how EasyHybrid can create Generic Hybrid models
 
 This page demonstrates how to use EasyHybrid to create a hybrid model for ecosystem respiration. This example shows the key concepts of EasyHybrid:
 
@@ -12,10 +12,11 @@ The framework automatically handles the integration between neural networks and 
 ## Quick Start Example
 
 ### 1. Setup and Data Loading
+
 Load package and synthetic dataset
+
 ```@example quick_start_complete
 using EasyHybrid
-
 
 ds = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc")
 ds = ds[1:20000, :]  # Use subset for faster execution
@@ -23,7 +24,9 @@ first(ds, 5)
 ```
 
 ### 2. Define the Process-based Model
+
 RbQ10 model: Respiration model with Q10 temperature sensitivity
+
 ```@example quick_start_complete
 RbQ10 = function(;ta, Q10, rb, tref = 15.0f0)
     reco = rb .* Q10 .^ (0.1f0 .* (ta .- tref))
@@ -32,7 +35,9 @@ end
 ```
 
 ### 3. Configure Model Parameters
+
 Parameter specification: (default, lower_bound, upper_bound)
+
 ```@example quick_start_complete
 parameters = (
     rb  = (3.0f0, 0.0f0, 13.0f0),  # Basal respiration [μmol/m²/s]
@@ -41,7 +46,9 @@ parameters = (
 ```
 
 ### 4. Construct the Hybrid Model
+
 Define input variables
+
 ```@example quick_start_complete
 forcing = [:ta]                    # Forcing variables (temperature)
 predictors = [:sw_pot, :dsw_pot]   # Predictor variables (solar radiation)
@@ -49,12 +56,14 @@ target = [:reco]                   # Target variable (respiration)
 ```
 
 Parameter classification as global, neural or fixed (difference between global and neural)
+
 ```@example quick_start_complete
 global_param_names = [:Q10]        # Global parameters (same for all samples)
 neural_param_names = [:rb]         # Neural network predicted parameters
 ```
 
 Construct hybrid model
+
 ```@example quick_start_complete
 hybrid_model = constructHybridModel(
     predictors,              # Input features
@@ -72,6 +81,7 @@ hybrid_model = constructHybridModel(
 ```
 
 ### 5. Train the Model
+
 ```@example quick_start_complete
 # using WGLMakie # to see an interactive and automatically updated train_board figure
 out = train(
@@ -88,13 +98,15 @@ out = train(
 ```
 
 ### 6. Check Results
-Check results - what do you think - is it the true Q10 used to generate the synthetic dataset?
-```@example quick_start_complete
 
+Check results - what do you think - is it the true Q10 used to generate the synthetic dataset?
+
+```@example quick_start_complete
 out.train_diffs.Q10
 ``` 
 
 Quick scatterplot - dispatches on the output of train
+
 ```@example quick_start_complete
 using CairoMakie
 EasyHybrid.poplot(out)
