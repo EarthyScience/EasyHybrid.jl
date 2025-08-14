@@ -19,3 +19,4 @@ Manifest.toml
 *.png
 *.xlsx
 /projects/SOC_PBM/data/
+*.stamp
