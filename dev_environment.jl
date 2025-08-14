@@ -17,9 +17,6 @@ function _needs_instantiate_or_resolve(project_path::AbstractString; io=stdout)
     manifest = joinpath(project_path, "Manifest.toml")
     stamp    = joinpath(project_path, ".envboot.stamp")
 
-    # If there is no Project, that's an error early.
-    isfile(project) || error("No Project.toml at $project_path")
-
     # Instantiate is needed if there's no Manifest or no stamp,
     # or the Project changed after the last successful boot.
     needs_instantiate =
@@ -72,6 +69,19 @@ function _needs_instantiate_or_resolve(project_path::AbstractString; io=stdout)
     return (needs_resolve, needs_instantiate)
 end
 
+function _is_dev_pkg(pkg_name::AbstractString, dev_path::AbstractString, io=stdout)
+    for (_, entry) in Pkg.dependencies()
+        if entry.name == pkg_name
+            if entry.is_direct_dep && entry.source == dev_path
+                println(io, "[EasyHybrid] $(pkg_name) is already a in development mode.")
+                return true
+            end
+        end
+    end
+    println(io, "[EasyHybrid] $(pkg_name) is not yet in development mode.")
+    return false
+end
+
 """
     dev_environment!(project_path; pkg_name="EasyHybrid", dev_path=pwd(), io=stdout)
 
@@ -122,17 +132,4 @@ function dev_environment!(project_path; pkg_name::AbstractString="EasyHybrid", d
     end
 
     return nothing
-end
-
-function _is_dev_pkg(pkg_name::AbstractString, dev_path::AbstractString, io=stdout)
-    for (_, entry) in Pkg.dependencies()
-        if entry.name == pkg_name
-            if entry.is_direct_dep && entry.source == dev_path
-                println(io, "[EasyHybrid] $(pkg_name) is already a in development mode.")
-                return true
-            end
-        end
-    end
-    println(io, "[EasyHybrid] $(pkg_name) is not yet in development mode.")
-    return false
 end
