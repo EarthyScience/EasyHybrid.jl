@@ -9,7 +9,7 @@
 > [!CAUTION]
 > Work in progress
 
-`EasyHybrid.jl` provides a simple and flexible framework for hybrid modeling, enabling the integration of neural networks with mechanistic (physics-based) models. This approach can be expressed as:
+`EasyHybrid.jl` provides a simple and flexible framework for hybrid modeling, enabling the integration of neural networks with process-based models. This approach can be expressed as:
 
 $$
 \hat{y} = \mathcal{M}(h(x;\theta), z; \phi)
