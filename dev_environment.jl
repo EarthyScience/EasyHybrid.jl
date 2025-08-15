@@ -73,7 +73,7 @@ function _is_dev_pkg(pkg_name::AbstractString, dev_path::AbstractString, io=stdo
     for (_, entry) in Pkg.dependencies()
         if entry.name == pkg_name
             if entry.is_direct_dep && entry.source == dev_path
-                println(io, "[EasyHybrid] $(pkg_name) is already a in development mode.")
+                println(io, "[EasyHybrid] $(pkg_name) is already in development mode.")
                 return true
             end
         end
