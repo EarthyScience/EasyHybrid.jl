@@ -1,13 +1,10 @@
 # =============================================================================
 # Setup and Data Loading
 # =============================================================================
-using Pkg
 project_path = "projects/Respiration_Fluxnet"
-Pkg.activate(project_path)
 
-Pkg.develop(path=pwd())
-Pkg.instantiate()
-
+include(joinpath(pwd(), "dev_environment.jl")) # If file does not exist - have you cloned the EasyHybrid package? Create a folder $project_path in the EasyHybrid folder and put this script in $project_path
+dev_environment!(project_path) # activate and instantiate project environment, EasyHybrid package puts in development mode if needed
 
 # start using the package
 using EasyHybrid
