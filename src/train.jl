@@ -38,10 +38,11 @@ Train a hybrid model using the provided data and save the training process to a 
 - `yscale`: The scale to apply to the y-axis (default: `log10`).
 - `monitor_names`: A vector of monitor names to track during training (default: `[]`).	
 - `return_model`: The model to return: `:best` for the best model, `:final` for the final model (default: `:best`).
+- `hybrid_name`
 """
 function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0.01), patience=typemax(Int),
     file_name=nothing, loss_types=[:mse, :r2], training_loss=:mse, agg=sum, train_from=nothing,
-    random_seed=nothing, shuffleobs=false, yscale=log10, monitor_names=[], return_model=:best)
+    random_seed=161803, shuffleobs=false, yscale=log10, monitor_names=[], return_model=:best, show_progress=true, hybrid_name=randstring(10))
     #! check if the EasyHybridMakie extension is loaded.
     ext = Base.get_extension(@__MODULE__, :EasyHybridMakie)
     if ext === nothing
@@ -121,10 +122,11 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     save_train_val_loss!(file_name,l_init_val, "validation_loss", 0)
 
     # save/record
-    tmp_folder = mkpath(joinpath(dirname(Base.active_project()), "output_tmp"))
+    tmp_folder = get_output_path()
+    @info "Check the saved output (.png, .mp4, .jld2) from training at: $(tmp_folder)"
 
-    prog = Progress(nepochs, desc="Training loss")
-    maybe_record_history(!isnothing(ext), fig, joinpath(tmp_folder, "training_history.mp4"); framerate=24) do io
+    prog = Progress(nepochs, desc="Training loss", enabled=show_progress)
+    maybe_record_history(!isnothing(ext), fig, joinpath(tmp_folder, "training_history_$(hybrid_name).mp4"); framerate=24) do io
         for epoch in 1:nepochs
             for (x, y) in train_loader
                 # ? check NaN indices before going forward, and pass filtered `x, y`.
@@ -185,13 +187,17 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
                 if !isnothing(ext)
                     img_name = joinpath(tmp_folder, "train_history_best_epoch_$(best_epoch).png")
                     EasyHybrid.save_fig(img_name, EasyHybrid.dashboard_figure())
+                    img_name = joinpath(tmp_folder, "train_history_$(hybrid_name).png")
+                    EasyHybrid.save_fig(img_name, EasyHybrid.dashboard_figure())
                 end
-                @info "Early stopping at epoch $epoch with best validation loss wrt $metric_name: $best_agg_loss"
+                @warn "Early stopping at epoch $epoch with best validation loss wrt $metric_name: $best_agg_loss"
                 break
             end
 
             if !isnothing(ext) && epoch == nepochs
                 img_name = joinpath(tmp_folder, "train_history_best_epoch_$(best_epoch).png")
+                EasyHybrid.save_fig(img_name, EasyHybrid.dashboard_figure())
+                img_name = joinpath(tmp_folder, "train_history_$(hybrid_name).png")
                 EasyHybrid.save_fig(img_name, EasyHybrid.dashboard_figure())
             end
 
@@ -224,7 +230,6 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     else
         @warn "Invalid return_model: $return_model. Returning final model."
     end
-    @info "Check the saved output (.png, .mp4, .jld2) from training at: $(tmp_folder)"
 
     ŷ_train, αst_train = hybridModel(x_train, ps, LuxCore.testmode(st))
     ŷ_val, αst_val = hybridModel(x_val, ps, LuxCore.testmode(st))
@@ -281,7 +286,6 @@ function maybe_record_history(block, should_record, fig, output_path; framerate=
         block(nothing)  # call with dummy io
     end
 end
-    
 
 function styled_values(nt; digits=5, color=nothing, paddings=nothing)
     formatted = [

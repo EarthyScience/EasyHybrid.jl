@@ -1,17 +1,28 @@
-# EasyHybrid.jl
+# Getting Started
 
-# Example of how EasyHybrid can create Generic Hybrid models
+This page demonstrates how to use `EasyHybrid` to create a hybrid model for ecosystem respiration. You will become familiar with the following concepts:
 
-This page demonstrates how to use EasyHybrid to create a hybrid model for ecosystem respiration. This example shows the key concepts of EasyHybrid:
+::: tip Key concepts
 
-1. **Process-based Model**: The `RbQ10` function represents a classical Q10 model for respiration with base respiration `rb` and `Q10` which describes the factor by respiration is increased for a 10 K change in temperature
-2. **Neural Network**: Learns to predict the basal respiration parameter `rb` from environmental conditions
-3. **Hybrid Integration**: Combines the neural network predictions with the process-based model to produce final outputs
-4. **Parameter Learning**: Some parameters (like `Q10`) can be learned globally, while others (like `rb`) are predicted per sample
+1. **Process-based Model**: The `RbQ10` function represents a classical Q10 model for respiration with base respiration `rb` and `Q10` which describes the factor by respiration is increased for a 10 K change in temperature.
+2. **Neural Network**: Learns to predict the basal respiration parameter `rb` from environmental conditions.
+3. **Hybrid Integration**: Combines the neural network predictions with the process-based model to produce final outputs.
+4. **Parameter Learning**: Some parameters (like `Q10`) can be learned globally, while others (like `rb`) are predicted per sample.
+
+:::
 
 The framework automatically handles the integration between neural networks and mechanistic models, making it easy to leverage both data-driven learning and domain knowledge.
 
-## Quick Start Example
+## Installation
+
+Install [Julia v1.10](https://julialang.org/downloads/) or above. `EasyHybrid.jl` is available through the Julia package manager. You can enter it by pressing `]` in the `REPL` and then typing `add EasyHybrid`. Alternatively, you can also do
+
+```julia
+import Pkg
+Pkg.add("EasyHybrid")
+```
+
+## Quickstart
 
 ### 1. Setup and Data Loading
 
@@ -68,60 +79,57 @@ Construct hybrid model
 
 ```@example quick_start_complete
 hybrid_model = constructHybridModel(
-    predictors,              # Input features
-    forcing,                 # Forcing variables
-    target,                  # Target variables
-    RbQ10,                  # Process-based model function
-    parameters,              # Parameter definitions
-    neural_param_names,      # NN-predicted parameters
-    global_param_names,      # Global parameters
+    predictors,               # Input features
+    forcing,                  # Forcing variables
+    target,                   # Target variables
+    RbQ10,                    # Process-based model function
+    parameters,               # Parameter definitions
+    neural_param_names,       # NN-predicted parameters
+    global_param_names,       # Global parameters
     hidden_layers = [16, 16], # Neural network architecture
-    activation = swish,      # Activation function
-    scale_nn_outputs = true, # Scale neural network outputs
-    input_batchnorm = true   # Apply batch normalization to inputs
+    activation = swish,       # Activation function
+    scale_nn_outputs = true,  # Scale neural network outputs
+    input_batchnorm = true    # Apply batch normalization to inputs
 )
 ```
 
 ### 5. Train the Model
 
 ```@example quick_start_complete
-# using WGLMakie # to see an interactive and automatically updated train_board figure
 out = train(
     hybrid_model, 
     ds, 
     (); 
-    nepochs = 100,           # Number of training epochs
-    batchsize = 512,         # Batch size for training
-    opt = RMSProp(0.001),   # Optimizer and learning rate
+    nepochs = 100,               # Number of training epochs
+    batchsize = 512,             # Batch size for training
+    opt = RMSProp(0.001),        # Optimizer and learning rate
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
-    yscale = identity,       # Scaling for outputs
-    patience = 30            # Early stopping patience
+    yscale = identity,           # Scaling for outputs
+    patience = 30,               # Early stopping patience
+    show_progress=false,
 )
 ```
 
 ### 6. Check Results
+
 Evolution of train and validation loss
+
 ```@example quick_start_complete
 using CairoMakie
 EasyHybrid.plot_loss(out, yscale = identity)
 ```
 
 Check results - what do you think - is it the true Q10 used to generate the synthetic dataset?
+
 ```@example quick_start_complete
 out.train_diffs.Q10
 ``` 
 
 Quick scatterplot - dispatches on the output of train
-```@example quick_start_complete
 
+```@example quick_start_complete
 EasyHybrid.poplot(out)
 ```
-
-```
-
-## Loss function
-
-We provide a generic loss function, if you need further adjustments then define a specific one for your hybrid model.
 
 ## More Examples
 

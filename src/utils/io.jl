@@ -96,11 +96,27 @@ function resolve_path(file_name)
     file_name = if isabspath(file_name)
         return file_name
     else
-        tmp_folder = mkpath(joinpath(dirname(Base.active_project()), "output_tmp"))
+        tmp_folder = get_output_path()
         return joinpath(tmp_folder, file_name)
     end
     return file_name
 end
+function get_output_path()
+    base_path = dirname(Base.active_project())
+    
+    # Check if we're in a docs environment (common indicators)
+    is_docs = any([
+        basename(pwd()) == "docs",
+        isdir("src") && isfile("make.jl"),
+        contains(base_path, "docs")
+    ])
+    
+    if is_docs
+        return mkpath(joinpath(base_path, "src"))
+    else
+        return mkpath(joinpath(base_path, "output_tmp"))
+    end
+end 
 
 function prog_path(file_name)
     file_name = isnothing(file_name) ? "prog.txt" : file_name
