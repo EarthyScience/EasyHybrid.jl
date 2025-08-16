@@ -18,4 +18,6 @@ Manifest.toml
 *.nc
 *.png
 *.xlsx
+*.mp4
+*.jld2
 /projects/SOC_PBM/data/
