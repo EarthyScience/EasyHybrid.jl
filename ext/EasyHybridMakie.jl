@@ -312,6 +312,14 @@ function EasyHybrid.train_board(
         # Data
         p_tr = getfield(train_preds, t)
         o_tr = getfield(train_obs, t)
+
+        maxpoints = 10_000
+        if length(o_tr) > maxpoints
+            idx = rand(1:length(o_tr), maxpoints)
+            p_tr = @lift($p_tr[idx])
+            o_tr = o_tr[idx]
+        end
+
         mn, mx = extrema(filter(!isnan, o_tr))
         δd = 0.1
         # Training scatter plot
@@ -332,6 +340,13 @@ function EasyHybrid.train_board(
 
         p_val = getfield(val_preds, t)
         o_val = getfield(val_obs, t)
+        
+        if length(o_val) > maxpoints
+            idx = rand(1:length(o_val), maxpoints)
+            p_val = @lift($p_val[idx])
+            o_val = o_val[idx]
+        end
+
         Makie.scatter!(ax_val, p_val, o_val; color = :tomato, alpha = 0.6, markersize = 6)
         Makie.lines!(ax_val, sort(o_val), sort(o_val); color = :black, linestyle = :dash)
     end
