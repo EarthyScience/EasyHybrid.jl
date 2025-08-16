@@ -1,5 +1,54 @@
 export train, TrainResults
 
+
+"""
+    split_data(data, split_by_id; shuffleobs=false, split_ratio=0.8)
+
+Split data into training and validation sets, either randomly or by grouping by ID.
+
+# Arguments:
+- `data`: The data to split, typically a tuple of (x, y) KeyedArrays
+- `split_by_id`: Either `nothing` for random splitting, a `Symbol` for column-based splitting, or an `AbstractVector` for custom ID-based splitting
+- `shuffleobs`: Whether to shuffle observations during splitting (default: false)
+- `split_ratio`: Ratio of data to use for training (default: 0.8)
+
+# Returns:
+- `(x_train, y_train)`: Training data tuple
+- `(x_val, y_val)`: Validation data tuple
+"""
+function split_data(data, split_by_id; shuffleobs=false, split_data_at=0.8)
+    if !isnothing(split_by_id)
+        if isa(split_by_id, Symbol)
+            ids = getbyname(data, split_by_id)
+            unique_ids = unique(ids)
+        elseif isa(split_by_id, AbstractVector)
+            ids = split_by_id
+            unique_ids = unique(ids)
+            split_by_id = "split_by_id"
+        end
+
+        train_ids, val_ids = splitobs(unique_ids; at=split_data_at, shuffle=shuffleobs)
+
+        train_idx = findall(id -> id in train_ids, ids)
+        val_idx  = findall(id -> id in val_ids,  ids)
+
+        @info "Splitting data by $split_by_id"
+        @info "Number of unique $split_by_id's: $(length(unique_ids))"
+        @info "Number of $split_by_id's in training set: $(length(train_ids))"
+        @info "Number of $split_by_id's in validation set: $(length(val_ids))"
+        
+        x_all, y_all = data
+
+        x_train, y_train = x_all[:, train_idx], y_all[:, train_idx]
+        x_val, y_val = x_all[:, val_idx], y_all[:, val_idx]
+    else
+        (x_train, y_train), (x_val, y_val) = splitobs(data; at=split_data_at, shuffle=shuffleobs)
+    end
+    
+    return (x_train, y_train), (x_val, y_val)
+end
+
+
 # beneficial for plotting based on type TrainResults?
 struct TrainResults
     train_history
@@ -42,11 +91,17 @@ Train a hybrid model using the provided data and save the training process to a 
 """
 function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0.01), patience=typemax(Int),
     file_name=nothing, loss_types=[:mse, :r2], training_loss=:mse, agg=sum, train_from=nothing,
-    random_seed=161803, shuffleobs=false, yscale=log10, monitor_names=[], return_model=:best, show_progress=true, hybrid_name=randstring(10))
+    random_seed=161803, shuffleobs=false, yscale=log10, monitor_names=[], return_model=:best, split_by_id = nothing, split_data_at=0.8, plotting=true, show_progress=true, hybrid_name=randstring(10))
     #! check if the EasyHybridMakie extension is loaded.
     ext = Base.get_extension(@__MODULE__, :EasyHybridMakie)
+    
     if ext === nothing
         @warn "Makie extension not loaded, no plots will be generated."
+    end
+    
+    if !plotting
+        ext = nothing
+        @info "Plotting disabled."
     end
 
     data_ = prepare_data(hybridModel, data)
@@ -57,7 +112,8 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
     end
 
     # ? split training and validation data
-    (x_train, y_train), (x_val, y_val) = splitobs(data_; at=0.8, shuffle=shuffleobs)
+    (x_train, y_train), (x_val, y_val) = split_data(data_, split_by_id; shuffleobs=shuffleobs, split_data_at=split_data_at)
+
     train_loader = DataLoader((x_train, y_train), batchsize=batchsize, shuffle=true);
 
     if isnothing(train_from)
@@ -422,4 +478,12 @@ end
 
 function get_ps_st(train_from::Tuple)
     return train_from
+end
+
+function getbyname(df::DataFrame, name::Symbol)
+    return df[!, name]
+end
+
+function getbyname(ka::AxisKeys.KeyedArray, name::Symbol)
+    return ka(name)
 end
