@@ -16,7 +16,11 @@ Split data into training and validation sets, either randomly or by grouping by 
 - `(x_train, y_train)`: Training data tuple
 - `(x_val, y_val)`: Validation data tuple
 """
-function split_data(data, split_by_id; shuffleobs=false, split_data_at=0.8)
+function split_data(data, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
+    
+    data_ = prepare_data(hybridModel, data)
+    # all the KeyedArray thing!
+
     if !isnothing(split_by_id)
         if isa(split_by_id, Symbol)
             ids = getbyname(data, split_by_id)
@@ -37,17 +41,16 @@ function split_data(data, split_by_id; shuffleobs=false, split_data_at=0.8)
         @info "Number of $split_by_id's in training set: $(length(train_ids))"
         @info "Number of $split_by_id's in validation set: $(length(val_ids))"
         
-        x_all, y_all = data
+        x_all, y_all = data_
 
         x_train, y_train = x_all[:, train_idx], y_all[:, train_idx]
         x_val, y_val = x_all[:, val_idx], y_all[:, val_idx]
     else
-        (x_train, y_train), (x_val, y_val) = splitobs(data; at=split_data_at, shuffle=shuffleobs)
+        (x_train, y_train), (x_val, y_val) = splitobs(data_; at=split_data_at, shuffle=shuffleobs)
     end
     
     return (x_train, y_train), (x_val, y_val)
 end
-
 
 # beneficial for plotting based on type TrainResults?
 struct TrainResults
@@ -103,15 +106,12 @@ function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0
         @info "Plotting disabled."
     end
 
-    data_ = prepare_data(hybridModel, data)
-    # all the KeyedArray thing!
-
     if !isnothing(random_seed)
         Random.seed!(random_seed)
     end
 
     # ? split training and validation data
-    (x_train, y_train), (x_val, y_val) = split_data(data_, split_by_id; shuffleobs=shuffleobs, split_data_at=split_data_at)
+    (x_train, y_train), (x_val, y_val) = split_data(data, hybridModel; split_by_id=split_by_id, shuffleobs=shuffleobs, split_data_at=split_data_at)
 
     train_loader = DataLoader((x_train, y_train), batchsize=batchsize, shuffle=true);
 
