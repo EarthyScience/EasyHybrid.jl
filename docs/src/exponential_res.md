@@ -60,7 +60,7 @@ Mathematical Model: `Resp = Resp0 * exp(k * T)`. Implements Arrhenius-type tempe
 **Arguments**
 
 - `T` : Air or soil temperature [°C]
-- `Resp0` : Basal respiration rate at T=0°C [μmol CO₂ m⁻² s⁻¹]
+- `Resp0` : Basal respiration rate - which is equal to Resp at T=0°C [μmol CO₂ m⁻² s⁻¹]
 - `k` : Temperature sensitivity parameter [°C⁻¹], typical range 0.05-0.15
 
 **Returns**
