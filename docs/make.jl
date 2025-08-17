@@ -15,6 +15,7 @@ makedocs(;
         "Get Started" => "get_started.md",
         "Tutorial" => [
             "Exponential Response" => "tutorials/exponential_res.md",
+            "Hyperparameter Tuning" => "tutorials/hyperparameter_tuning.md"
         ],
         "Research" =>[
             "Overview" => "research/overview.md"
