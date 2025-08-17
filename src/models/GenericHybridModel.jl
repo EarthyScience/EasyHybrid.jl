@@ -76,7 +76,8 @@ function constructHybridModel(
     activation = tanh,
     scale_nn_outputs = false,
     input_batchnorm = false,
-    start_from_default = true
+    start_from_default = true,
+    kwargs...
 )
     
     if !isa(parameters, AbstractHybridModel)
@@ -105,6 +106,19 @@ function constructHybridModel(
 end
 
 function constructHybridModel(
+    ;predictors::Vector{Symbol},
+    forcing,
+    targets,
+    mechanistic_model,
+    parameters,
+    neural_param_names,
+    global_param_names,
+    kwargs...
+)
+    constructHybridModel(predictors, forcing, targets, mechanistic_model, parameters, neural_param_names, global_param_names; kwargs...)
+end
+
+function constructHybridModel(
     predictors::NamedTuple,
     forcing,
     targets,
@@ -115,7 +129,8 @@ function constructHybridModel(
     activation::Union{Function, NamedTuple} = tanh,
     scale_nn_outputs = false,
     input_batchnorm = false,
-    start_from_default = true
+    start_from_default = true,
+    kwargs...
 )
 
     if !isa(parameters, AbstractHybridModel)
@@ -153,7 +168,17 @@ function constructHybridModel(
     return MultiNNHybridModel(NNs, predictors, forcing, targets, mechanistic_model, parameters, neural_param_names, global_param_names, fixed_param_names, scale_nn_outputs, start_from_default)
 end
 
-
+function constructHybridModel(
+    ;predictors::NamedTuple,
+    forcing,
+    targets,
+    mechanistic_model,
+    parameters,
+    global_param_names,
+    kwargs...
+)
+    constructHybridModel(predictors, forcing, targets, mechanistic_model, parameters, global_param_names; kwargs...)
+end
 
 # ───────────────────────────────────────────────────────────────────────────
 # Initial parameters for SingleNNHybridModel

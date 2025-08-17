@@ -16,7 +16,7 @@ Split data into training and validation sets, either randomly or by grouping by 
 - `(x_train, y_train)`: Training data tuple
 - `(x_val, y_val)`: Validation data tuple
 """
-function split_data(data, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
+function split_data(data::Union{DataFrame, KeyedArray}, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
     
     data_ = prepare_data(hybridModel, data)
     # all the KeyedArray thing!
@@ -52,6 +52,10 @@ function split_data(data, hybridModel; split_by_id=nothing, shuffleobs=false, sp
     return (x_train, y_train), (x_val, y_val)
 end
 
+function split_data(data::Tuple, hybridModel; kwargs...)
+    return data
+end
+
 # beneficial for plotting based on type TrainResults?
 struct TrainResults
     train_history
@@ -65,6 +69,8 @@ struct TrainResults
     αst_val
     ps
     st
+    best_epoch
+    best_loss
 end
 
 """
@@ -115,8 +121,8 @@ Default output file is `trained_model.jld2` at the current working directory und
 function train(hybridModel, data, save_ps; 
                # Core training parameters
                nepochs=200, 
-               batchsize=10, 
-               opt=Adam(0.01), 
+               batchsize=64, 
+               opt=AdamW(0.01), 
                patience=typemax(Int),
                
                # Loss and evaluation
@@ -372,7 +378,9 @@ function train(hybridModel, data, save_ps;
         αst_train,
         αst_val,
         ps,
-        st
+        st,
+        best_epoch,
+        best_agg_loss
     )
 end
 
