@@ -68,33 +68,82 @@ struct TrainResults
 end
 
 """
-    train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0.01), file_name=nothing, loss_types=[:mse, :mae], training_loss=:mse, agg=sum)
+    train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0.01), patience=typemax(Int),
+          file_name=nothing, loss_types=[:mse, :r2], training_loss=:mse, agg=sum, train_from=nothing,
+          random_seed=161803, shuffleobs=false, yscale=log10, monitor_names=[], return_model=:best, 
+          split_by_id=nothing, split_data_at=0.8, plotting=true, show_progress=true, hybrid_name=randstring(10))
 
-Train a hybrid model using the provided data and save the training process to a file in JLD2 format. Default output file is `trained_model.jld2` at the current working directory under `output_tmp`.
+Train a hybrid model using the provided data and save the training process to a file in JLD2 format. 
+Default output file is `trained_model.jld2` at the current working directory under `output_tmp`.
 
 # Arguments:
 - `hybridModel`: The hybrid model to be trained.
 - `data`: The training data, either a single DataFrame, a single KeyedArray, or a tuple of KeyedArrays.
 - `save_ps`: A tuple of physical parameters to save during training.
+
+## Core Training Parameters:
 - `nepochs`: Number of training epochs (default: 200).
 - `batchsize`: Size of the training batches (default: 10).
 - `opt`: The optimizer to use for training (default: Adam(0.01)).
-- `patience`: The number of epochs to wait before early stopping (default: `typemax(Int)`-> no early stopping).
-- `file_name`: The name of the file to save the training process (default: nothing-> "trained_model.jld2").
-- `loss_types`: A vector of loss types to compute during training (default: `[:mse, :r2]`).
+- `patience`: The number of epochs to wait before early stopping (default: `typemax(Int)` -> no early stopping).
+
+## Loss and Evaluation:
 - `training_loss`: The loss type to use during training (default: `:mse`).
+- `loss_types`: A vector of loss types to compute during training (default: `[:mse, :r2]`).
 - `agg`: The aggregation function to apply to the computed losses (default: `sum`).
-- `train_from`: A tuple of physical parameters and state to start training from or an output of `train` (default: nothing-> new training).
-- `random_seed`: The random seed to use for training (default: nothing-> no seed).
+
+## Data Handling:
 - `shuffleobs`: Whether to shuffle the training data (default: false).
-- `yscale`: The scale to apply to the y-axis (default: `log10`).
-- `monitor_names`: A vector of monitor names to track during training (default: `[]`).	
+- `split_by_id`: Column name or function to split data by ID (default: nothing -> no ID-based splitting).
+- `split_data_at`: Fraction of data to use for training when splitting (default: 0.8).
+
+## Training State and Reproducibility:
+- `train_from`: A tuple of physical parameters and state to start training from or an output of `train` (default: nothing -> new training).
+- `random_seed`: The random seed to use for training (default: 161803).
+
+## Output and Monitoring:
+- `file_name`: The name of the file to save the training process (default: nothing -> "trained_model.jld2").
+- `hybrid_name`: Name identifier for the hybrid model (default: randomly generated 10-character string).
 - `return_model`: The model to return: `:best` for the best model, `:final` for the final model (default: `:best`).
-- `hybrid_name`
+- `monitor_names`: A vector of monitor names to track during training (default: `[]`).
+
+## Visualization and UI:
+- `plotting`: Whether to generate plots during training (default: true).
+- `show_progress`: Whether to show progress bars during training (default: true).
+- `yscale`: The scale to apply to the y-axis for plotting (default: `log10`).
 """
-function train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0.01), patience=typemax(Int),
-    file_name=nothing, loss_types=[:mse, :r2], training_loss=:mse, agg=sum, train_from=nothing,
-    random_seed=161803, shuffleobs=false, yscale=log10, monitor_names=[], return_model=:best, split_by_id = nothing, split_data_at=0.8, plotting=true, show_progress=true, hybrid_name=randstring(10))
+function train(hybridModel, data, save_ps; 
+               # Core training parameters
+               nepochs=200, 
+               batchsize=10, 
+               opt=Adam(0.01), 
+               patience=typemax(Int),
+               
+               # Loss and evaluation
+               training_loss=:mse,
+               loss_types=[:mse, :r2], 
+               agg=sum, 
+               
+               # Data handling
+               shuffleobs=false,
+               split_by_id=nothing, 
+               split_data_at=0.8, 
+               
+               # Training state and reproducibility
+               train_from=nothing,
+               random_seed=161803, 
+               
+               # Output and monitoring
+               file_name=nothing, 
+               hybrid_name=randstring(10),
+               return_model=:best,
+               monitor_names=[], 
+
+               # Visualization and UI
+               plotting=true, 
+               show_progress=true,
+               yscale=log10)
+               
     #! check if the EasyHybridMakie extension is loaded.
     ext = Base.get_extension(@__MODULE__, :EasyHybridMakie)
     
