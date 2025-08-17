@@ -154,7 +154,7 @@ Check out the `projects/` directory for additional examples and use cases. Each 
 <tr>
 <td style="text-align: center; border: none;"><img src="https://erc.europa.eu/sites/default/files/2023-06/LOGO_ERC-FLAG_FP.png" height="120" /></td>
 <td style="text-align: center; border: none;"><a href="https://ai4soilhealth.eu"><img src="https://ai4soilhealth.eu/wp-content/uploads/2023/06/ai4soilhealth_4f.png" height="50" /></a></td>
-<td style="text-align: center; border: none;"><img src="https://www.usmile-erc.eu/wp-content/uploads/sites/9/2020/04/USMILE-Logo-H-pos.jpg" height="80" /></td>
+<td style="text-align: center; border: none;"><a href="https://www.usmile-erc.eu"><img src="https://www.usmile-erc.eu/wp-content/uploads/sites/9/2020/04/USMILE-Logo-H-pos.jpg" height="80" /></td>
 </tr>
 </table>
 </div>
