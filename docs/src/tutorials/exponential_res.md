@@ -1,3 +1,20 @@
+```@raw html
+---
+authors:
+  - name: Markus Reichstein
+    avatar: /assets/markus_reichstein.png
+    link: https://www.bgc-jena.mpg.de/en/bgi/home
+  - name: Lazaro Alonso
+    avatar: https://avatars.githubusercontent.com/u/19525261?v=4
+    platform: github
+    link: https://lazarusa.github.io
+  - name: Bernhard Ahrens
+    avatar: /assets/Bernhard_Ahrens.png
+    link: https://www.bgc-jena.mpg.de/en/bgi/miss
+---
+
+<Authors />
+```
 
 # Soil respiration
 

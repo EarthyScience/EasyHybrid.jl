@@ -1,3 +1,19 @@
+```@raw html
+---
+authors:
+  - name: Bernhard Ahrens
+    avatar: /assets/Bernhard_Ahrens.png
+    link: https://www.bgc-jena.mpg.de/en/bgi/miss
+  - name: Lazaro Alonso
+    avatar: https://avatars.githubusercontent.com/u/19525261?v=4
+    platform: github
+    link: https://lazarusa.github.io
+
+---
+
+<Authors />
+```
+
 # Getting Started
 
 This page demonstrates how to use `EasyHybrid` to create a hybrid model for ecosystem respiration. You will become familiar with the following concepts:
