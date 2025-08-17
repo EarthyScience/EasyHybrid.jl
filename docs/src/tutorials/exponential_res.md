@@ -3,11 +3,6 @@
 
 ```@example expo
 using EasyHybrid
-```
-```@example expo
-using EasyHybrid.AxisKeys
-using EasyHybrid.DataFrameMacros
-using Chain: @chain as @c
 using CairoMakie
 ```
 
@@ -131,5 +126,5 @@ nothing # hide
 ```
 
 ```@raw html
-<video src="./training_history_expo_response.mp4" controls="controls" autoplay="autoplay"></video>
+<video src="../training_history_expo_response.mp4" controls="controls" autoplay="autoplay"></video>
 ```

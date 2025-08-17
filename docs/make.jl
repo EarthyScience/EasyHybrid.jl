@@ -14,9 +14,10 @@ makedocs(;
         "Home" => "index.md",
         "Get Started" => "get_started.md",
         "Tutorial" => [
-            "Exponential Response" => "exponential_res.md",
+            "Exponential Response" => "tutorials/exponential_res.md",
         ],
         "Research" =>[
+            "Overview" => "research/overview.md"
             "RbQ10" => "research/RbQ10_results.md"
             "BulkDensitySOC" => "research/BulkDensitySOC_results.md"
         ],

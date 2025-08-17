@@ -20,18 +20,27 @@ hero:
       text: API
       link: /api
 features:
-  - title: RbQ10
-    details: What is this about?
-    link: /research/RbQ10_results
-  - title: BulkDensitySOC
-    details: What's this about?
-    link: /research/BulkDensitySOC_results
+  - title: Powered by Lux.jl
+    details: Built for speed and flexibility in pure Julia. Native GPU acceleration across CUDA, AMDGPU, Metal, and Intel platforms enables seamless scaling from prototyping to production.
+    link: https://lux.csail.mit.edu/stable/
+  - title: Seamless Data Handling
+    details: Built for efficient data manipulation in pure Julia. <a href = "https://github.com/JuliaData/DataFrames.jl" class="highlight-link">DataFrames.jl</a> handles tabular data and <a href="https://github.com/mcabbott/AxisKeys.jl" class="highlight-link">AxisKeys.jl</a> provides multi-dimensional named arrays with automatic differentiation support.
+  - title: Feature Research
+    details: Using EasyHybrid in your research? Share your work with us through a pull request or drop us a line, and we'll showcase it here alongside other innovative applications.
+    link: /research/overview
 ---
 ```
 
 ## How to Install EasyHybrid.jl?
 
-Get the latest unreleased version of `EasyHybrid.jl` by run the following command: (in most cases the released version will be same as the version on github)
+Its easy to install `EasyHybrid.jl`. Since `EasyHybrid.jl` is registered in the Julia General registry, you can simply run the following command in the Julia REPL:
+
+```julia
+julia> using Pkg
+julia> Pkg.add("EasyHybrid")
+```
+
+If you want to use the latest unreleased version of `EasyHybrid.jl` you can run the following command: (in most cases the released version will be same as the version on github)
 
 ```julia
 julia> using Pkg
