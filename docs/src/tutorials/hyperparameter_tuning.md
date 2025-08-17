@@ -23,7 +23,11 @@ Load package and synthetic dataset
 
 ```@example hyperparameter_tuning
 using EasyHybrid
+using CairoMakie
+using Hyperopt
+```
 
+```@example hyperparameter_tuning
 ds = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc")
 ds = ds[1:20000, :]  # Use subset for faster execution
 first(ds, 5)
@@ -112,7 +116,6 @@ out = train(
 Evolution of train and validation loss
 
 ```@example hyperparameter_tuning
-using CairoMakie
 EasyHybrid.plot_loss(out, yscale = identity)
 ```
 
@@ -137,9 +140,6 @@ EasyHybrid provides built-in hyperparameter tuning capabilities to optimize your
 You can use the `tune` function to automatically search for optimal hyperparameters:
 
 ```@example hyperparameter_tuning
-using Hyperopt
-using Distributed
-
 # Create empty model specification for tuning
 mspempty = ModelSpec()
 
