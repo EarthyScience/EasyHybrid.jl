@@ -19,39 +19,40 @@ where $\hat{y}$ denotes the predicted output of the hybrid model, $h(x;\theta)$ 
 
 
 ## Installation
+
+```julia
+using Pkg
+Pkg.add(url="https://github.com/EarthyScience/EasyHybrid.jl.git")
+```
+
+Start using the package:
+
+```julia
+using EasyHybrid
+```
+
+## Developing EasyHybrid
+
+<details>
+  <summary><span style="color:red"> 🛠️ ⚙️ 🚀  Click for more! 🛠️ ⚙️ 🚀 </span></summary>
+
 Clone the repository
 
 ```sh
 git clone https://github.com/EarthyScience/EasyHybrid.jl.git
 ```
 
-and start using it by opening one of the `env` in `projects`, i.e. Q10.jl. There executing the first 4 lines should get you all needed dependencies. `shift + enter`.
+and start using it by opening one of the `env` in `projects`, i.e. `Q10.jl`. There executing the first 4 lines should get you all needed dependencies: `shift + enter`.
 
-### If you want to start adding new functionality then do
 
-```sh
-EasyHybrid $ julia # call julia in the EasyHybrid directory
-```
-
-```sh
-julia> ] # ']' should be pressed, this is the pkg mode
-```
-
-```sh
-pkg > activate . # activate this project
-```
-
-### install dependencies
-
-```sh
-pkg > instantiate
-```
-
-and now you are good to go!
+Or if you are already working in a project and want to add EasyHybrid in dev mode then do
 
 ```julia
-using EasyHybrid
+# local will clone the repository at your current directory
+]dev --local https://github.com/EarthyScience/EasyHybrid.jl.git
 ```
+
+</details>
 
 ## Quick Start Example
 
@@ -149,11 +150,11 @@ Check out the `projects/` directory for additional examples and use cases. Each 
 ## Acknowledgments & Funding
 
 <div align="center">
-<table style="border-collapse: collapse; border: 0; white-space: nowrap;">
+<table style="border-collapse: collapse; border: none; white-space: nowrap;">
 <tr>
-<td style="text-align: center; border: 0;"><img src="https://erc.europa.eu/sites/default/files/2023-06/LOGO_ERC-FLAG_FP.png" height="120" /></td>
-<td style="text-align: center; border: 0;"><a href="https://ai4soilhealth.eu"><img src="https://ai4soilhealth.eu/wp-content/uploads/2023/06/ai4soilhealth_4f.png" height="50" /></a></td>
-<td style="text-align: center; border: 0;"><img src="https://www.usmile-erc.eu/wp-content/uploads/sites/9/2020/04/USMILE-Logo-H-pos.jpg" height="80" /></td>
+<td style="text-align: center; border: none;"><img src="https://erc.europa.eu/sites/default/files/2023-06/LOGO_ERC-FLAG_FP.png" height="120" /></td>
+<td style="text-align: center; border: none;"><a href="https://ai4soilhealth.eu"><img src="https://ai4soilhealth.eu/wp-content/uploads/2023/06/ai4soilhealth_4f.png" height="50" /></a></td>
+<td style="text-align: center; border: none;"><img src="https://www.usmile-erc.eu/wp-content/uploads/sites/9/2020/04/USMILE-Logo-H-pos.jpg" height="80" /></td>
 </tr>
 </table>
 </div>
