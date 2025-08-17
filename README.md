@@ -149,30 +149,13 @@ Check out the `projects/` directory for additional examples and use cases. Each 
 ## Acknowledgments & Funding
 
 <div align="center">
-<style>
-@media (max-width: 768px) {
-  .responsive-logos table,
-  .responsive-logos tbody,
-  .responsive-logos tr {
-    display: block;
-  }
-  .responsive-logos td {
-    display: block;
-    text-align: center;
-    margin-bottom: -10px;
-  }
-}
-</style>
-
-<div class="responsive-logos">
-<table>
+<table style="border: none; white-space: nowrap;">
 <tr>
-<td><img src="https://erc.europa.eu/sites/default/files/2023-06/LOGO_ERC-FLAG_FP.png" height="120" /></td>
-<td><a href="https://ai4soilhealth.eu"><img src="https://ai4soilhealth.eu/wp-content/uploads/2023/06/ai4soilhealth_4f.png" height="50" /></a></td>
-<td><img src="https://www.usmile-erc.eu/wp-content/uploads/sites/9/2020/04/USMILE-Logo-H-pos.jpg" height="80" /></td>
+<td style="text-align: center; border: none;"><img src="https://erc.europa.eu/sites/default/files/2023-06/LOGO_ERC-FLAG_FP.png" height="120" /></td>
+<td style="text-align: center; border: none;"><a href="https://ai4soilhealth.eu"><img src="https://ai4soilhealth.eu/wp-content/uploads/2023/06/ai4soilhealth_4f.png" height="50" /></a></td>
+<td style="text-align: center; border: none;"><img src="https://www.usmile-erc.eu/wp-content/uploads/sites/9/2020/04/USMILE-Logo-H-pos.jpg" height="80" /></td>
 </tr>
 </table>
-</div>
 </div>
 
 - This work is part of the **[AI4SoilHealth](https://AI4SoilHealth.eu)** project, funded by the **European Union's Horizon Europe Research and Innovation Programme** under **Grant Agreement [No. 101086179](https://cordis.europa.eu/project/id/101086179)**.
