@@ -2,14 +2,14 @@
 ---
 authors:
   - name: Markus Reichstein
-    avatar: /markus_reichstein.png
+    avatar: ../assets/markus_reichstein.png
     link: https://www.bgc-jena.mpg.de/en/bgi/home
   - name: Lazaro Alonso
     avatar: https://avatars.githubusercontent.com/u/19525261?v=4
     platform: github
     link: https://lazarusa.github.io
   - name: Bernhard Ahrens
-    avatar: /Bernhard_Ahrens.png
+    avatar: ../assets/Bernhard_Ahrens.png
     link: https://www.bgc-jena.mpg.de/en/bgi/miss
 ---
 
