@@ -129,3 +129,7 @@ out =  train(hybrid_model, df, (:k,); nepochs=300, batchsize=64,
     );
 nothing # hide
 ```
+
+```@raw html
+<video src="./training_history_expo_response.mp4" controls="controls" autoplay="autoplay"></video>
+```

@@ -112,7 +112,7 @@ function get_output_path()
     ])
     
     if is_docs
-        return mkpath(joinpath(base_path, "src"))
+        return mkpath(joinpath(base_path, "build"))
     else
         return mkpath(joinpath(base_path, "output_tmp"))
     end
