@@ -87,9 +87,9 @@ hybrid_model = constructHybridModel(
     neural_param_names,      # NN-predicted parameters
     global_param_names,      # Global parameters
     hidden_layers = [16, 16], # Neural network architecture
-    activation = swish,      # Activation function
+    activation = sigmoid,      # Activation function
     scale_nn_outputs = true, # Scale neural network outputs
-    input_batchnorm = true   # Apply batch normalization to inputs
+    input_batchnorm = false   # Apply batch normalization to inputs
 )
 
 # =============================================================================
@@ -104,10 +104,9 @@ out = train(
     (); 
     nepochs = 100,           # Number of training epochs
     batchsize = 512,         # Batch size for training
-    opt = RMSProp(0.001),   # Optimizer and learning rate
+    opt = AdamW(0.1),   # Optimizer and learning rate
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
-    yscale = identity,       # Scaling for outputs
-    patience = 30            # Early stopping patience
+    yscale = identity       # Scaling for outputs
 )
 
 # =============================================================================
@@ -116,3 +115,24 @@ out = train(
 # Check the training differences for Q10 parameter
 # This shows how close the model learned the true Q10 value
 out.train_diffs.Q10
+
+using Hyperopt
+using Distributed
+using WGLMakie
+
+mspempty = ModelSpec()
+
+nhyper = 4
+ho = @thyperopt for i=nhyper,
+    opt = [AdamW(0.01), AdamW(0.1), RMSProp(0.001), RMSProp(0.01)],
+    input_batchnorm = [true, false]
+    hyper_parameters = (;opt, input_batchnorm)
+    println("Hyperparameter run: \n", i, " of ", nhyper, "\t with hyperparameters \t", hyper_parameters, "\t")
+    out = EasyHybrid.tune(hybrid_model, ds, mspempty; hyper_parameters..., nepochs = 10, plotting = false, show_progress = false, file_name = "test$i.jld2")
+    out.best_loss#, (out.ps, out.st)
+end
+
+ho.minimizer
+printmin(ho)
+
+out = EasyHybrid.tune(hybrid_model, ds, mspempty; opt = RMSProp(eta=0.001), input_batchnorm = true, nepochs = 100)
