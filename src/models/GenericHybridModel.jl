@@ -65,7 +65,7 @@ end
 
 # Unified constructor that dispatches based on predictors type
 function constructHybridModel(
-    predictors::Vector,
+    predictors::Vector{Symbol},
     forcing,
     targets,
     mechanistic_model,

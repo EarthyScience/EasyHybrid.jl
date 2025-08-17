@@ -148,7 +148,8 @@ function train(hybridModel, data, save_ps;
                # Visualization and UI
                plotting=true, 
                show_progress=true,
-               yscale=log10)
+               yscale=log10,
+               kwargs...)
                
     #! check if the EasyHybridMakie extension is loaded.
     ext = Base.get_extension(@__MODULE__, :EasyHybridMakie)
