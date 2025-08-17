@@ -148,7 +148,19 @@ Check out the `projects/` directory for additional examples and use cases. Each 
 
 ## Acknowledgments & Funding
 
-This work is part of the **[AI4SoilHealth](https://AI4SoilHealth.eu)** project, funded by the **European Union's Horizon Europe Research and Innovation Programme** under **Grant Agreement [No. 101086179](https://cordis.europa.eu/project/id/101086179)**.
+<div align="center">
+<img src="https://erc.europa.eu/sites/default/files/2023-06/LOGO_ERC-FLAG_FP.png" align="left" height="120" style="vertical-align: top;" />
+<a href="https://ai4soilhealth.eu">
+<img src="https://ai4soilhealth.eu/wp-content/uploads/2023/06/ai4soilhealth_4f.png" align="left" height="50" style="vertical-align: top;" />
+</a>
+<img src="https://www.usmile-erc.eu/wp-content/uploads/sites/9/2020/04/USMILE-Logo-H-pos.jpg" align="left" height="80" style="vertical-align: top;" />
+</div>
+
+<br clear="left"/>
+
+- This work is part of the **[AI4SoilHealth](https://AI4SoilHealth.eu)** project, funded by the **European Union's Horizon Europe Research and Innovation Programme** under **Grant Agreement [No. 101086179](https://cordis.europa.eu/project/id/101086179)**.
+
+- Supported also by the European Research Council (ERC) Synergy Grant Understanding and modeling the Earth System with Machine Learning **[USMILE](https://www.usmile-erc.eu)** under the Horizon 2020 research and innovation programme **(Grant Agreement No. 855187)**.
 
 *Funded by the European Union. The views expressed are those of the authors and do not necessarily reflect those of the European Union or the European Research Executive Agency.*
 
