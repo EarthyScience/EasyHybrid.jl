@@ -106,19 +106,6 @@ function constructHybridModel(
 end
 
 function constructHybridModel(
-    ;predictors::Vector{Symbol},
-    forcing,
-    targets,
-    mechanistic_model,
-    parameters,
-    neural_param_names,
-    global_param_names,
-    kwargs...
-)
-    constructHybridModel(predictors, forcing, targets, mechanistic_model, parameters, neural_param_names, global_param_names; kwargs...)
-end
-
-function constructHybridModel(
     predictors::NamedTuple,
     forcing,
     targets,
@@ -169,15 +156,29 @@ function constructHybridModel(
 end
 
 function constructHybridModel(
-    ;predictors::NamedTuple,
-    forcing,
-    targets,
-    mechanistic_model,
-    parameters,
-    global_param_names,
-    kwargs...
+    ; predictors,
+      forcing,
+      targets,
+      mechanistic_model,
+      parameters,
+      neural_param_names = nothing,
+      global_param_names,
+      kwargs...
 )
-    constructHybridModel(predictors, forcing, targets, mechanistic_model, parameters, global_param_names; kwargs...)
+    if predictors isa Vector{Symbol}
+        @assert neural_param_names !== nothing "Provide neural_param_names for Vector predictors"
+        return constructHybridModel(
+            predictors, forcing, targets, mechanistic_model, parameters,
+            neural_param_names, global_param_names; kwargs...
+        )
+    elseif predictors isa NamedTuple
+        return constructHybridModel(
+            predictors, forcing, targets, mechanistic_model, parameters,
+            global_param_names; kwargs...
+        )
+    else
+        throw(ArgumentError("predictors must be Vector{Symbol} or NamedTuple, got $(typeof(predictors))"))
+    end
 end
 
 # ───────────────────────────────────────────────────────────────────────────
