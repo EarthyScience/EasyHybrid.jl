@@ -15,7 +15,7 @@ $$
 \hat{y} = \mathcal{M}(h(x;\theta), z; \phi)
 $$
 
-where $\hat{y}$ denotes the predicted output of the hybrid model, $h(x;\theta)$ is a neural network with inputs $x$ and learnable parameters $\theta$, $z$ denotes additional inputs passed directly to the mechanistic model $\mathcal{M}(\cdot, z;\, \phi)$, which is parameterized by $\phi$. The parameters $\phi$ may be known from first principles or learned from data.
+where $\hat{y}$ denotes the predicted output of the hybrid model, $h(x;\theta)$ is a neural network with inputs $x$ and learnable parameters $\theta$, $z$ denotes forcing passed directly to the mechanistic model $\mathcal{M}(\cdot, z;\, \phi)$, which is parameterized by $\phi$. The parameters $\phi$ may be known learned from data or fixed.
 
 
 ## Installation
@@ -59,9 +59,9 @@ Or if you are already working in a project and want to add EasyHybrid in dev mod
 Here's a complete example demonstrating how to use EasyHybrid to create a hybrid model for ecosystem respiration. This example demonstrates the key concepts of EasyHybrid:
 
 1. **Process-based Model**: The `RbQ10` function represents a classical Q10 model for respiration with base respiration `rb` and `Q10` which describes the factor by respiration is increased for a 10 K change in temperature
-2. **Neural Network**: Learns to predict the basal respiration parameter `rb` from environmental conditions
+2. **Neural Network**: Learns to predict the basal respiration parameter `rb` from environmental covariates
 3. **Hybrid Integration**: Combines the neural network predictions with the process-based model to produce final outputs
-4. **Parameter Learning**: Some parameters (like `Q10`) can be learned globally, while others (like `rb`) are predicted per sample
+4. **Parameter Learning**: Some parameters, like `Q10` corresponding to $\phi$, can be learned globally, while others, like `rb` corresponding to $\theta$, are predicted per sample
 
 The framework automatically handles the integration between neural networks and mechanistic models, making it easy to leverage both data-driven learning and domain knowledge.
 
