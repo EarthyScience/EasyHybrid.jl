@@ -2,7 +2,7 @@
 ---
 authors:
   - name: Bernhard Ahrens
-    avatar: ./assets/Bernhard_Ahrens.png
+    avatar: /Bernhard_Ahrens.png
     link: https://www.bgc-jena.mpg.de/en/bgi/miss
   - name: Lazaro Alonso
     avatar: https://avatars.githubusercontent.com/u/19525261?v=4
