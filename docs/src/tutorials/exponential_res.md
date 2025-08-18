@@ -2,14 +2,14 @@
 ---
 authors:
   - name: Markus Reichstein
-    avatar: https://github.com/EarthyScience/EasyHybrid.jl/blob/1fdf097673f4c2fa0dd459ff9d8108ea9324c9d7/docs/src/assets/markus_reichstein.png
+    avatar: https://raw.githubusercontent.com/EarthyScience/EasyHybrid.jl/72c2fa9df829d46d25df15352a4b728d2dbe94ed/docs/src/assets/markus_reichstein.png
     link: https://www.bgc-jena.mpg.de/en/bgi/home
   - name: Lazaro Alonso
     avatar: https://avatars.githubusercontent.com/u/19525261?v=4
     platform: github
     link: https://lazarusa.github.io
   - name: Bernhard Ahrens
-    avatar: https://github.com/EarthyScience/EasyHybrid.jl/blob/72c2fa9df829d46d25df15352a4b728d2dbe94ed/docs/src/assets/Bernhard_Ahrens.png
+    avatar: https://raw.githubusercontent.com/EarthyScience/EasyHybrid.jl/72c2fa9df829d46d25df15352a4b728d2dbe94ed/docs/src/assets/Bernhard_Ahrens.png
     link: https://www.bgc-jena.mpg.de/en/bgi/miss
 ---
 
