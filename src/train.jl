@@ -61,8 +61,6 @@ struct TrainResults
     val_obs_pred
     train_diffs
     val_diffs
-    αst_train
-    αst_val
     ps
     st
 end
@@ -207,7 +205,15 @@ function train(hybridModel, data, save_ps;
     # track physical parameters
     ps_values_init = [copy(getproperty(ps, e)[1]) for e in save_ps]
     ps_init = NamedTuple{save_ps}(ps_values_init)
-    ps_history = [ps_init]
+
+    # output also monitored names
+    init_monitor_train_values = [vec(getfield(init_ŷ_train, m)) for m in monitor_names]
+    ps_monitor_train = NamedTuple{Tuple(monitor_names)}(init_monitor_train_values)
+    init_monitor_val_values = [vec(getfield(init_ŷ_val, m)) for m in monitor_names]
+    ps_monitor_val = NamedTuple{Tuple(monitor_names)}(init_monitor_val_values)
+
+    ps_history = [(; ϕ = ps_init, monitor = (; train = ps_monitor_train, val = ps_monitor_val))]
+
 
     # For Early stopping
     best_ps = deepcopy(ps)
@@ -244,15 +250,23 @@ function train(hybridModel, data, save_ps;
                     st =(; l[2].st...)
                 end
             end
-            save_ps_st!(file_name, hybridModel, ps, st, save_ps, epoch)
 
             ps_values = [copy(getproperty(ps, e)[1]) for e in save_ps]
             tmp_e = NamedTuple{save_ps}(ps_values)
-            push!(ps_history, tmp_e)
             
             l_train, _, current_ŷ_train = evaluate_acc(hybridModel, x_train, y_train, is_no_nan_t, ps, st, loss_types, training_loss, agg)
             l_val, _, current_ŷ_val = evaluate_acc(hybridModel, x_val, y_val, is_no_nan_v, ps, st, loss_types, training_loss, agg)
+             # save also monitored names
+            current_monitor_train_values = [vec(getfield(current_ŷ_train, m)) for m in monitor_names]
+            c_ps_monitor_train = NamedTuple{Tuple(monitor_names)}(current_monitor_train_values)
+            current_monitor_val_values = [vec(getfield(current_ŷ_val, m)) for m in monitor_names]
+            c_ps_monitor_val = NamedTuple{Tuple(monitor_names)}(current_monitor_val_values)
 
+            tmp_history = (; ϕ = tmp_e, monitor = (; train = c_ps_monitor_train, val = c_ps_monitor_val))
+
+            push!(ps_history, tmp_history)
+
+            save_ps_st!(file_name, hybridModel, ps, st, save_ps, epoch)
             save_train_val_loss!(file_name, l_train, "training_loss", epoch)
             save_train_val_loss!(file_name, l_val, "validation_loss", epoch)
             
@@ -369,8 +383,6 @@ function train(hybridModel, data, save_ps;
         val_obs_pred,
         train_diffs,
         val_diffs,
-        αst_train,
-        αst_val,
         ps,
         st
     )
