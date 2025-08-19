@@ -135,7 +135,7 @@ Evolution of train and validation loss - appears during training!
 Check results - what do you think - is it the true Q10 used to generate the synthetic dataset?
 
 ```@raw html
-<video src="../../training_history_getstarted.mp4" controls="controls" autoplay="autoplay"></video>
+<video src="./training_history_getstarted.mp4" controls="controls" autoplay="autoplay"></video>
 ```
 
 ```@example quick_start_complete
