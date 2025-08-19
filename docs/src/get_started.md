@@ -113,6 +113,7 @@ hybrid_model = constructHybridModel(
 ### 5. Train the Model
 
 ```@example quick_start_complete
+using CairoMakie
 out = train(
     hybrid_model, 
     ds, 
@@ -124,19 +125,23 @@ out = train(
     yscale = identity,           # Scaling for outputs
     patience = 30,               # Early stopping patience
     show_progress=false,
+    hybrid_name="getstarted"
 )
 ```
 
 ### 6. Check Results
 
-Evolution of train and validation loss
+Evolution of train and validation loss - appears during training!
+Check results - what do you think - is it the true Q10 used to generate the synthetic dataset?
 
-```@example quick_start_complete
-using CairoMakie
-EasyHybrid.plot_loss(out, yscale = identity)
+```@raw html
+<video src="../training_history_getstarted.mp4" controls="controls" autoplay="autoplay"></video>
 ```
 
-Check results - what do you think - is it the true Q10 used to generate the synthetic dataset?
+```@example quick_start_complete
+
+EasyHybrid.plot_loss(out, yscale = identity)
+```
 
 ```@example quick_start_complete
 out.train_diffs.Q10
