@@ -1,3 +1,4 @@
+# CC BY-SA 4.0
 # activate the project's environment and instantiate dependencies
 using Pkg
 Pkg.activate("projects/Linear_Regression")

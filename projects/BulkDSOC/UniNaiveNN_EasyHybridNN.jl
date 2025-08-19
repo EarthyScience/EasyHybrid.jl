@@ -1,3 +1,4 @@
+# CC BY-SA 4.0
 project_path = "projects/BulkDSOC"
 Pkg.activate(project_path)
 
