@@ -172,9 +172,7 @@ ho.minimizer
 printmin(ho)
 ```
 
-### Manual Hyperparameter Tuning
-
-For more control, you can manually specify hyperparameters and run the tuning:
+### Train model with the best hyperparameters
 
 ```@example hyperparameter_tuning
 # Run tuning with specific hyperparameters
@@ -206,15 +204,12 @@ When tuning your hybrid model, consider these important hyperparameters:
 - **Activation Functions**: Test different activation functions (relu, sigmoid, tanh)
 - **Batch Normalization**: Enable/disable `input_batchnorm` and other normalization options
 - **Batch Size**: Adjust `batchsize` for optimal training performance
-- **Early Stopping**: Set appropriate `patience` values to prevent overfitting
 
-### Best Practices for Hyperparameter Tuning
+### Tips for Hyperparameter Tuning
 
-1. **Start with a small search space** to get a baseline understanding
-2. **Use cross-validation** when possible to ensure robust parameter selection
-3. **Monitor for overfitting** by tracking validation loss
-4. **Save intermediate results** using the `file_name` parameter
-5. **Consider computational cost** - more hyperparameters and epochs increase training time
+- **Start with a small search space** to get a baseline understanding
+- **Monitor for overfitting** by tracking validation loss  
+- **Consider computational cost** - more hyperparameters and epochs increase training time
 
 ## More Examples
 
