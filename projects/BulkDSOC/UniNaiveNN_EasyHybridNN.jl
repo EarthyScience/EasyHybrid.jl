@@ -65,7 +65,7 @@ lrs = [1e-2, 1e-3, 1e-4];
 activations = [relu, tanh, swish, gelu];
 
 best_models = Dict{Symbol, NamedTuple}()
-for tgt in [:SOCconc, :CF, :SOCdensity]
+for tgt in targets
     @info "==== target: $tgt ===="
 
     # save the grid results
@@ -151,7 +151,6 @@ for tgt in [:SOCconc, :CF, :SOCdensity]
     @info "Best for $tgt: h=$(bm.meta.h), bs=$(bm.meta.bs), lr=$(bm.meta.lr), act=$(bm.meta.act), epoch=$(bm.meta.best_epoch), R2=$(round(best_r2, digits=4))"
 
 end
-
 
 # back-transform helper
 function back_transform(vec::AbstractVector, tgt::Symbol, minmax::Dict{Symbol,<:Tuple})
