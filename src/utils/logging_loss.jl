@@ -34,9 +34,11 @@ function lossfn(HM::LuxCore.AbstractLuxContainerLayer, x, (y_t, y_nan), ps, st, 
     targets = HM.targets
     ŷ, y, y_nan, st = get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
     if logging.train_mode
-        return compute_loss(ŷ, y, y_nan, targets, logging.training_loss, logging.agg), st
+        loss_value = compute_loss(ŷ, y, y_nan, targets, logging.training_loss, logging.agg)
+        return loss_value, st
     else
-        return compute_loss(ŷ, y, y_nan, targets, logging.loss_types, logging.agg), st
+        loss_value = compute_loss(ŷ, y, y_nan, targets, logging.loss_types, logging.agg)
+        return loss_value, st, ŷ
     end
 end
 
@@ -44,9 +46,11 @@ function lossfn(HM::Union{SingleNNHybridModel, MultiNNHybridModel, SingleNNModel
     targets = HM.targets
     ŷ, y, y_nan, st = get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
     if logging.train_mode
-        return compute_loss(ŷ, y, y_nan, targets, logging.training_loss, logging.agg), st
+        loss_value = compute_loss(ŷ, y, y_nan, targets, logging.training_loss, logging.agg)
+        return loss_value, st
     else
-        return compute_loss(ŷ, y, y_nan, targets, logging.loss_types, logging.agg), st
+        loss_value = compute_loss(ŷ, y, y_nan, targets, logging.loss_types, logging.agg)
+        return loss_value, st, ŷ
     end
 end
 

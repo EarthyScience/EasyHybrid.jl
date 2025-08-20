@@ -1,3 +1,4 @@
+# CC BY-SA 4.0
 # activate the project's environment and instantiate dependencies
 using Pkg
 Pkg.activate("projects/RbQ10")
@@ -31,7 +32,7 @@ NN = Chain(Dense(2, 15, relu), Dense(15, 15, relu), Dense(15, 1));
 # instantiate Hybrid Model
 RbQ10 = RespirationRbQ10(NN, predictor_names, forcing_names, target_names, 2.5f0) # ? do different initial Q10s
 # train model
-out = train(RbQ10, ds_keyed, (:Q10, ); nepochs=200, batchsize=512, opt=Adam(0.01));
+out = train(RbQ10, ds_keyed, (:Q10, ); nepochs=100, batchsize=512, opt=Adam(0.01), monitor_names=[:Rb]);
 
 ## legacy
 # ? test lossfn

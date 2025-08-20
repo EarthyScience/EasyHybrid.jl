@@ -3,7 +3,7 @@ using Documenter, DocumenterVitepress
 
 makedocs(;
     modules=[EasyHybrid],
-    authors="Lazaro Alonso, Markus Reichstein, Bernhard Ahrens",
+    authors="Lazaro Alonso, Bernhard Ahrens, Markus Reichstein",
     repo="https://github.com/EarthyScience/EasyHybrid.jl",
     sitename="EasyHybrid.jl",
     format=DocumenterVitepress.MarkdownVitepress(
@@ -14,15 +14,15 @@ makedocs(;
         "Home" => "index.md",
         "Get Started" => "get_started.md",
         "Tutorial" => [
-            "Generic Hybrid" => "generic_hybrid.md",
+            "Exponential Response" => "tutorials/exponential_res.md",
         ],
         "Research" =>[
+            "Overview" => "research/overview.md"
             "RbQ10" => "research/RbQ10_results.md"
             "BulkDensitySOC" => "research/BulkDensitySOC_results.md"
         ],
         "API" => "api.md",
     ],
-    warnonly = true,
 )
 
 DocumenterVitepress.deploydocs(;

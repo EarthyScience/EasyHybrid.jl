@@ -18,5 +18,9 @@ Manifest.toml
 *.nc
 *.png
 *.xlsx
+*.mp4
+*.jld2
 /projects/SOC_PBM/data/
 /projects/BulkDSOC/eval/
+!markus_reichstein.png
+!Bernhard_Ahrens.png

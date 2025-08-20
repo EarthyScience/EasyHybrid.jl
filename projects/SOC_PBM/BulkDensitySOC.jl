@@ -1,3 +1,4 @@
+# CC BY-SA 4.0
 using Pkg
 Pkg.activate("projects/SOC_PBM")
 Pkg.develop(path=pwd())
