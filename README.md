@@ -20,15 +20,24 @@ where $\hat{y}$ denotes the predicted output of the hybrid model, $h(x;\theta)$ 
 
 ## Installation
 
+Since `EasyHybrid.jl` is registered in the Julia General registry, it is available through the Julia package manager. You can enter it by pressing `]` in the `REPL` and then typing `add EasyHybrid`. Alternatively, you can also do
+
 ```julia
-using Pkg
-Pkg.add(url="https://github.com/EarthyScience/EasyHybrid.jl.git")
+julia> using Pkg
+julia> Pkg.add("EasyHybrid")
 ```
 
 Start using the package:
 
 ```julia
 using EasyHybrid
+```
+
+If you want to use the latest unreleased version then do
+
+```julia
+using Pkg
+Pkg.add(url="https://github.com/EarthyScience/EasyHybrid.jl.git")
 ```
 
 ## Developing EasyHybrid
