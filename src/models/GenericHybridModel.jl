@@ -65,7 +65,7 @@ end
 
 # Unified constructor that dispatches based on predictors type
 function constructHybridModel(
-    predictors::Vector,
+    predictors::Vector{Symbol},
     forcing,
     targets,
     mechanistic_model,
@@ -76,7 +76,8 @@ function constructHybridModel(
     activation = tanh,
     scale_nn_outputs = false,
     input_batchnorm = false,
-    start_from_default = true
+    start_from_default = true,
+    kwargs...
 )
     
     if !isa(parameters, AbstractHybridModel)
@@ -115,7 +116,8 @@ function constructHybridModel(
     activation::Union{Function, NamedTuple} = tanh,
     scale_nn_outputs = false,
     input_batchnorm = false,
-    start_from_default = true
+    start_from_default = true,
+    kwargs...
 )
 
     if !isa(parameters, AbstractHybridModel)
@@ -153,7 +155,31 @@ function constructHybridModel(
     return MultiNNHybridModel(NNs, predictors, forcing, targets, mechanistic_model, parameters, neural_param_names, global_param_names, fixed_param_names, scale_nn_outputs, start_from_default)
 end
 
-
+function constructHybridModel(
+    ; predictors,
+      forcing,
+      targets,
+      mechanistic_model,
+      parameters,
+      neural_param_names = nothing,
+      global_param_names,
+      kwargs...
+)
+    if predictors isa Vector{Symbol}
+        @assert neural_param_names !== nothing "Provide neural_param_names for Vector predictors"
+        return constructHybridModel(
+            predictors, forcing, targets, mechanistic_model, parameters,
+            neural_param_names, global_param_names; kwargs...
+        )
+    elseif predictors isa NamedTuple
+        return constructHybridModel(
+            predictors, forcing, targets, mechanistic_model, parameters,
+            global_param_names; kwargs...
+        )
+    else
+        throw(ArgumentError("predictors must be Vector{Symbol} or NamedTuple, got $(typeof(predictors))"))
+    end
+end
 
 # ───────────────────────────────────────────────────────────────────────────
 # Initial parameters for SingleNNHybridModel
