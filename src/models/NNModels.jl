@@ -1,4 +1,4 @@
-export SingleNNModel, MultiNNModel, constructNNModel
+export SingleNNModel, MultiNNModel, constructNNModel, prepare_hidden_chain
 
 using Lux, LuxCore
 using ..EasyHybrid: hard_sigmoid

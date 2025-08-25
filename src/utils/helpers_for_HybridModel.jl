@@ -1,4 +1,4 @@
-export display_parameter_bounds, build_parameters, construct_dispatch_functions
+export display_parameter_bounds, build_parameters, construct_dispatch_functions, build_parameter_matrix
 
 function construct_dispatch_functions(f)
     function new_f end  # Create a new generic function
