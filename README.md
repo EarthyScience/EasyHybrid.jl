@@ -2,6 +2,7 @@
 <img src="docs/src/assets/logo.png" align="right" width="30%"></img>
 [![](https://img.shields.io/badge/docs-stable-blue.svg)](https://earthyscience.github.io/EasyHybrid.jl/stable/)
 [![](https://img.shields.io/badge/docs-dev-blue.svg)](https://earthyscience.github.io/EasyHybrid.jl/dev/)
+[![Downloads](https://img.shields.io/badge/dynamic/json?url=http%3A%2F%2Fjuliapkgstats.com%2Fapi%2Fv1%2Fmonthly_downloads%2FEasyHybrid&query=total_requests&suffix=%2Fmonth&label=Downloads)](https://juliapkgstats.com/pkg/EasyHybrid)
 [![CI](https://github.com/EarthyScience/EasyHybrid.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/EarthyScience/EasyHybrid.jl/actions/workflows/CI.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/EarthyScience/EasyHybrid.jl/blob/main/LICENSE)
 
