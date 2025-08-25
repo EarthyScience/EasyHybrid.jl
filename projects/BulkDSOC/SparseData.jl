@@ -30,7 +30,6 @@ results_dir = joinpath(@__DIR__, "eval");
 
 # input
 targets = [:BD, :CF, :SOCconc, :SOCdensity];
-Random.seed!(42)
 
 raw = CSV.read(joinpath(@__DIR__, "data/lucas_preprocessed.csv"), DataFrame; normalizenames=true);
 predictors = setdiff(Symbol.(names(raw)), targets); # first 3 and last 1, just exclude targets explicitly to be safe
@@ -50,6 +49,8 @@ for tgt in targets
     minv, maxv = map(Float32, extrema(it))
     @. col = ifelse(ismissing(col), missing, (col - minv) / (maxv - minv))
     MINMAX[tgt] = (minv, maxv)
+
+    col = coalesce.(col, NaN32) # for train.jl
     df[!, tgt] = col
 end
 
@@ -98,7 +99,8 @@ for h in hidden_configs, bs in batch_sizes, lr in lrs, act in activations
         random_seed = 42,
         patience = 10,                  
         agg = mean,
-        return_model = :best
+        return_model = :best,
+        plotting = false
     )
 
     # retrieve the best epoch metrics: mse and r2
@@ -173,12 +175,31 @@ end
 
 
 # helper for metrics calculation
-r2_mse(y_true, y_pred) = begin
-    ss_res = sum((y_true .- y_pred).^2)
-    ss_tot = sum((y_true .- mean(y_true)).^2)
+function r2_mse(y_true::AbstractVector, y_pred::AbstractVector)
+    # make mask for valid pairs
+    mask = .!(ismissing.(y_true) .| ismissing.(y_pred) .| isnan.(y_true) .| isnan.(y_pred))
+
+    yt = y_true[mask]
+    yp = y_pred[mask]
+
+    if isempty(yt)
+        return (NaN, NaN)  # nothing valid, return NaN
+    end
+
+    ss_res = sum((yt .- yp).^2)
+    ss_tot = sum((yt .- mean(yt)).^2)
+
     r2  = 1 - ss_res / ss_tot
-    mse = mean((y_true .- y_pred).^2)
-    (r2, mse)
+    mse = mean((yt .- yp).^2)
+
+    return (r2, mse)
+end
+
+# safe extrema ignoring NaNs/missings
+function safe_extrema(y_true::AbstractVector, y_pred::AbstractVector)
+    mask = .!(ismissing.(y_true) .| ismissing.(y_pred) .| isnan.(y_true) .| isnan.(y_pred))
+    vals = vcat(y_true[mask], y_pred[mask])
+    return isempty(vals) ? (NaN, NaN) : extrema(vals)
 end
 
 # accuracy plots for SOCconc, BD, CF in original space
@@ -197,7 +218,7 @@ for tname in targets
         title = string(tname, "\nR²=", round(r2, digits=3), ", MSE=", round(mse, digits=3)),
         normalize=false
     )
-    lims = extrema(vcat(y_val_true, y_val_pred))
+    lims = safe_extrema(y_val_true, y_val_pred)
     Plots.plot!(plt, [lims[1], lims[2]], [lims[1], lims[2]];
         color=:black, linewidth=2, label="1:1 line",
         aspect_ratio=:equal, xlims=lims, ylims=lims
@@ -223,7 +244,7 @@ plt = histogram2d(
     title = "SOCdensity\nR²=$(round(r2_sd,digits=3)), MSE=$(round(mse_sd,digits=3))",
     normalize=false
 )
-lims = extrema(vcat(socdensity_true, socdensity_pred))
+lims = safe_extrema(socdensity_true, socdensity_pred)
 Plots.plot!(plt, [lims[1], lims[2]], [lims[1], lims[2]];
     color=:black, linewidth=2, label="1:1 line",
     aspect_ratio=:equal, xlims=lims, ylims=lims
