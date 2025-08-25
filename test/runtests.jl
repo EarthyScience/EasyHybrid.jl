@@ -7,6 +7,9 @@ dk_twos = gen_linear_data_2outputs()
 #lhm_twos = LinearHybridModel_2outputs([:x2, :x3], [:x1, :x2], 1, 5, DenseNN; b=[4.0f0])
 #out_twos = lhm_twos(dk_twos, :infer)
 
+# Include GenericHybridModel tests
+include("test_generic_hybrid_model.jl")
+
 @testset "LinearHM" begin
     # test model instantiation
     NN = Lux.Chain(Lux.Dense(2, 5), Lux.Dense(5, 1))
