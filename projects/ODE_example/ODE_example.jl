@@ -3,7 +3,7 @@
 # Setup and Data Loading
 # =============================================================================
 using Pkg
-project_path = "projects/ODE_example    "
+project_path = "projects/ODE_example"
 Pkg.activate(project_path)
 
 Pkg.develop(path=pwd())
