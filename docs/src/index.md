@@ -33,7 +33,7 @@ features:
 
 ## How to Install EasyHybrid.jl?
 
-Its easy to install `EasyHybrid.jl`. Since `EasyHybrid.jl` is registered in the Julia General registry, you can simply run the following command in the Julia REPL:
+Since `EasyHybrid.jl` is registered in the Julia General registry, it is available through the Julia package manager. You can enter it by pressing `]` in the `REPL` and then typing `add EasyHybrid`. Alternatively, you can also do
 
 ```julia
 julia> using Pkg

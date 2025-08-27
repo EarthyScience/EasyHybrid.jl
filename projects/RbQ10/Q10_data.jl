@@ -1,3 +1,4 @@
+# CC BY-SA 4.0
 using Pkg
 Pkg.activate("projects/RbQ10")
 Pkg.develop(path=pwd())

@@ -1,3 +1,4 @@
+# CC BY-SA 4.0
 # TODO put this into train
 # ? test lossfn
 ps, st = LuxCore.setup(Random.default_rng(), hm)
