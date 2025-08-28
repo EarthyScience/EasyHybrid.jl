@@ -27,6 +27,8 @@ makedocs(;
 
 DocumenterVitepress.deploydocs(;
     repo = "github.com/EarthyScience/EasyHybrid.jl", # this must be the full URL!
+    target=joinpath(@__DIR__, "build"),
+    branch = "gh-pages",
     devbranch = "main",
     push_preview = true,
 )

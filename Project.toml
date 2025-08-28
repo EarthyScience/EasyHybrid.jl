@@ -1,7 +1,7 @@
 name = "EasyHybrid"
 uuid = "61bb816a-e6af-4913-ab9e-91bff2e122e3"
 authors = ["Lazaro Alonso", "Bernhard Ahrens", "Markus Reichstein"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 AxisKeys = "94b1ba4f-4ee9-5380-92f1-94cde586c3c5"
@@ -47,7 +47,7 @@ DataFrames = "1"
 Downloads = "1.6.0"
 Flux = "0.16"
 ForwardDiff = "1.0.1"
-JLD2 = "0.5.13"
+JLD2 = "0.5.13, 0.6"
 Lux = "1.12.4"
 LuxCore = "1.2.4"
 MLJ = "0.20"
