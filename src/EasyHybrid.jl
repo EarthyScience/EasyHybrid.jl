@@ -25,6 +25,7 @@ using JLD2
 using StyledStrings
 using Printf
 using Reexport: @reexport
+using Hyperopt
 
 @reexport begin
     import LuxCore
