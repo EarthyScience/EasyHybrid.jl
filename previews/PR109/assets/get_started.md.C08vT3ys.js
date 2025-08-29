@@ -30,9 +30,9 @@ import{_ as a,C as t,c as e,o as n,G as l,aA as h}from"./chunks/framework.DML55K
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8;">)</span></span></code></pre></div><div class="language- vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang"></span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0"><code><span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">Neural Network:</span></span>
 <span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">    Chain(</span></span>
 <span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">        layer_1 = BatchNorm(2, affine=false, track_stats=true),</span></span>
-<span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">        layer_2 = Dense(2 =&gt; 16, swish),    # 48 parameters</span></span>
-<span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">        layer_3 = Dense(16 =&gt; 16, swish),   # 272 parameters</span></span>
-<span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">        layer_4 = Dense(16 =&gt; 1),           # 17 parameters</span></span>
+<span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">        layer_2 = Dense(2 =&gt; 16, swish),              # 48 parameters</span></span>
+<span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">        layer_3 = Dense(16 =&gt; 16, swish),             # 272 parameters</span></span>
+<span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">        layer_4 = Dense(16 =&gt; 1),                     # 17 parameters</span></span>
 <span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">    )         # Total: 337 parameters,</span></span>
 <span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">              #        plus 5 states.</span></span>
 <span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">Predictors: </span><span style="--shiki-light:#cb2431;--shiki-dark:#f97583;">[:sw_pot, :dsw_pot]</span></span>

@@ -33,9 +33,9 @@ import{_ as n,C as h,c as t,o as e,G as p,aA as a,j as s}from"./chunks/framework
 <span class="line"><span style="--shiki-light:#959da5;--shiki-dark:#959da5;">Resp0:</span></span>
 <span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">    Chain(</span></span>
 <span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">        layer_1 = BatchNorm(1, affine=false, track_stats=true),</span></span>
-<span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">        layer_2 = Dense(1 =&gt; 16, σ),        # 32 parameters</span></span>
-<span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">        layer_3 = Dense(16 =&gt; 16, σ),       # 272 parameters</span></span>
-<span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">        layer_4 = Dense(16 =&gt; 1),           # 17 parameters</span></span>
+<span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">        layer_2 = Dense(1 =&gt; 16, σ),                  # 32 parameters</span></span>
+<span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">        layer_3 = Dense(16 =&gt; 16, σ),                 # 272 parameters</span></span>
+<span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">        layer_4 = Dense(16 =&gt; 1),                     # 17 parameters</span></span>
 <span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">    )         # Total: 321 parameters,</span></span>
 <span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">              #        plus 3 states.</span></span>
 <span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">Predictors:</span><span style="--shiki-light:#959da5;--shiki-dark:#959da5;"> Resp0: </span><span style="--shiki-light:#cb2431;--shiki-dark:#f97583;">[:SM]</span></span>
