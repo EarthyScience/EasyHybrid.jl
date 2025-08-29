@@ -138,8 +138,8 @@ printmin(ho)
 
 # Plot the results
 import Plots
-using Measures
-plt = Plots.plot(ho, xrotation=25, left_margin=[70mm 0mm], ylab = "loss") 
+using Unitful
+Plots.plot(ho, xrotation=25, left_margin=[100mm 0mm], bottom_margin=60mm, ylab = "loss", size = (900, 900)) 
 
 # Train the model with the best hyperparameters
 best_hyperp = best_hyperparams(ho)
