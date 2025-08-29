@@ -103,12 +103,13 @@ out = train(
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
     yscale = identity,           # Scaling for outputs
     patience = 30,               # Early stopping patience
-    show_progress=false
+    show_progress=false,
+    hybrid_name="before"
 )
 ```
 
 ```@raw html
-<video src="../training_history_after.mp4" controls="controls" autoplay="autoplay"></video>
+<video src="../training_history_before.mp4" controls="controls" autoplay="autoplay"></video>
 ```
 
 ### 6. Check Results
@@ -170,6 +171,14 @@ end
 # Get the best hyperparameters
 ho.minimizer
 printmin(ho)
+# Plot the results
+import Plots
+using Measures
+plt = Plots.plot(ho, xrotation=25, left_margin=[70mm 0mm], ylab = "loss") 
+
+# Train the model with the best hyperparameters
+best_hyperp = best_hyperparams(ho)
+
 ```
 
 ### Train model with the best hyperparameters
@@ -180,8 +189,7 @@ out_tuned = EasyHybrid.tune(
     hybrid_model, 
     ds, 
     mspempty; 
-    opt = RMSProp(eta=0.001), 
-    input_batchnorm = true, 
+    
     nepochs = 100,
     monitor_names = [:rb, :Q10],
     hybrid_name="after"
