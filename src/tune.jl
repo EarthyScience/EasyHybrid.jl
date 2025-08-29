@@ -1,4 +1,4 @@
-export ModelSpec, tune
+export ModelSpec, tune, best_hyperparams
 
 struct ModelSpec
     hyper_model::NamedTuple
@@ -31,3 +31,6 @@ function tune(hybrid_model, data, mspec::ModelSpec; kwargs...)
     )
 end
 
+function best_hyperparams(ho::Hyperoptimizer)
+    NamedTuple{Tuple(ho.params)}(ho.minimizer)
+end

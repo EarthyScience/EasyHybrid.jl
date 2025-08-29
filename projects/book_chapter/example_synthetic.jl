@@ -130,10 +130,17 @@ ho = @thyperopt for i=nhyper,
     hyper_parameters = (;opt, input_batchnorm)
     println("Hyperparameter run: \n", i, " of ", nhyper, "\t with hyperparameters \t", hyper_parameters, "\t")
     out = EasyHybrid.tune(hybrid_model, ds, mspempty; hyper_parameters..., nepochs = 10, plotting = false, show_progress = false, file_name = "test$i.jld2")
-    out.best_loss#, (out.ps, out.st)
+    out.best_loss
 end
 
-ho.minimizer
+# Print the best hyperparameters
 printmin(ho)
 
-out = EasyHybrid.tune(hybrid_model, ds, mspempty; opt = RMSProp(eta=0.001), input_batchnorm = true, nepochs = 100)
+# Plot the results
+import Plots
+using Measures
+plt = Plots.plot(ho, xrotation=25, left_margin=[70mm 0mm], ylab = "loss") 
+
+# Train the model with the best hyperparameters
+best_hyperp = best_hyperparams(ho)
+out = EasyHybrid.tune(hybrid_model, ds, mspempty; best_hyperp..., nepochs = 100)

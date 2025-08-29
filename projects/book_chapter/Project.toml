@@ -1,5 +1,6 @@
 [deps]
 EasyHybrid = "61bb816a-e6af-4913-ab9e-91bff2e122e3"
 Hyperopt = "93e5fe13-2215-51db-baaf-2e9a34fb2712"
+Measures = "442fdcdd-2543-5da2-b0f3-8c86c306513e"
 NCDatasets = "85f8d34a-cbdd-5861-8df4-14fed0d494ab"
 WGLMakie = "276b4fcb-3e11-5398-bf8b-a0c2d153d008"
