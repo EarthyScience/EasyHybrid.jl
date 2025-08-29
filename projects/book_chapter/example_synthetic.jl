@@ -130,8 +130,61 @@ ho = @thyperopt for i=nhyper,
     hyper_parameters = (;opt, input_batchnorm)
     println("Hyperparameter run: \n", i, " of ", nhyper, "\t with hyperparameters \t", hyper_parameters, "\t")
     out = EasyHybrid.tune(hybrid_model, ds, mspempty; hyper_parameters..., nepochs = 10, plotting = false, show_progress = false, file_name = "test$i.jld2")
-    out.best_loss
+    #out.best_loss
+    # return a rich record for this trial (stored in ho.results[i])
+    (out.best_loss,
+     hyperps = hyper_parameters,
+     ps_st = (ps = out.ps, st = out.st),
+     file = "test$i.jld2",
+     i = i)
 end
+
+losses = getfield.(ho.results, :best_loss)
+hyperps = getfield.(ho.results, :hyperps)
+
+# Helper function to make optimizer names short and readable
+function short_opt_name(opt)
+    if opt isa AdamW
+        return "AdamW(η=$(opt.eta))"
+    elseif opt isa RMSProp
+        return "RMSProp(η=$(opt.eta))"
+    else
+        return string(typeof(opt))
+    end
+end
+
+# Sort losses and associated data by increasing loss
+idx = sortperm(losses)
+sorted_losses = losses[idx]
+sorted_hyperps = hyperps[idx]
+
+fig = Figure(figure_padding = 50)
+# Prepare tick labels with hyperparameter info for each trial (sorted)
+sorted_ticklabels = [
+    join([
+        k == :opt ? "opt=$(short_opt_name(v))" : "$k=$(repr(v))"
+        for (k, v) in pairs(hp)
+    ], "\n")
+    for hp in sorted_hyperps
+]
+ax = Makie.Axis(
+    fig[1, 1];
+    xlabel = "Trial",
+    ylabel = "Loss",
+    title = "Hyperparameter Tuning Results",
+    xgridvisible = false,
+    ygridvisible = false,
+    xticks = (1:length(sorted_losses), sorted_ticklabels),
+    xticklabelrotation = 45
+)
+scatter!(ax, 1:length(sorted_losses), sorted_losses; markersize=15, color=:dodgerblue)
+
+
+
+best_idx = argmin(losses)
+best_trial = ho.results[best_idx]
+
+best_params = best_trial.params        # (ps, st)
 
 # Print the best hyperparameters
 printmin(ho)
