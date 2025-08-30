@@ -6,6 +6,9 @@ using Pkg
 project_path = "projects/ODE_example"
 Pkg.activate(project_path)
 
+pwd()
+
+
 Pkg.develop(path=pwd())
 Pkg.instantiate()
 
@@ -15,7 +18,7 @@ using EasyHybrid
 using AxisKeys
 using WGLMakie
 
-include("projects/Respiration_Fluxnet/Data/load_data.jl")
+include(joinpath(pwd(), "projects", "Respiration_Fluxnet", "Data", "load_data.jl"))
 
 # =============================================================================
 # Load data
@@ -35,7 +38,7 @@ df = fluxnet_data.timeseries
 # Mechanistic Model Definition
 # =============================================================================
 
-using DifferentialEquations, SciMLSensitivity, Zygote
+using OrdinaryDiffEq
 
 # Data grid
 Δt   = diff(fluxnet_data.timeseries.time)[1]
