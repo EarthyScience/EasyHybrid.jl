@@ -185,7 +185,7 @@ out_tuned = EasyHybrid.tune(
     hybrid_model, 
     ds, 
     mspempty; 
-    best_hyperp...
+    best_hyperp...,
     nepochs = 100,
     monitor_names = [:rb, :Q10],
     hybrid_name="after"
