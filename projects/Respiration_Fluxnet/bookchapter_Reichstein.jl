@@ -126,9 +126,10 @@ function RbQ10_syn(;Rb, Q10, TA, Tref = 15)
     return (;RECO_syn, Q10, Rb)
 end
 
+# Parameter   Default   Lower   Upper
 parameters = (
-    Q10 = (2.0, 1.0, 4.0),
-    Rb = (0.2, 0.0, 6.0)
+    Q10 = (2.0, 1.0, 4.0),   #   Q10 temperature sensitivity factor
+    Rb  = (0.2, 0.0, 6.0)    #   Rb basal respiration
 )
 
 target = [:RECO_syn]
@@ -136,7 +137,7 @@ forcing = [:TA]
 global_param_names = [:Q10, :Rb]
 nn_param_names = []
 
-hybrid_model = constructHybridModel(
+mRb_constant = constructHybridModel(
     Vector{Symbol}(), # no predictors
     forcing,
     target,
@@ -149,13 +150,13 @@ hybrid_model = constructHybridModel(
 # =============================================================================
 # Model Training
 # =============================================================================
-out_Generic = train(hybrid_model, df, (); nepochs=2, batchsize=512, opt=RMSProp(0.001), 
+out_a = train(mRb_constant, df, (); nepochs=100, batchsize=512, opt=RMSProp(0.001), 
                     loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, 
                     yscale = identity, monitor_names=[:Q10, :Rb], patience = 30, 
                     shuffleobs = true, hybrid_name = "constant Rb")
 
-Q10_a = out_Generic.train_diffs.Q10
-Rb_a = out_Generic.train_diffs.Rb
+Q10_a = out_a.train_diffs.Q10
+Rb_a = out_a.train_diffs.Rb
 RECO_syn_a = RbQ10_syn.(Rb = Rb_a, Q10 = Q10_a, TA = df.TA, Tref = 15).RECO_syn
 
 fig4, ax4_1 = plot_RECO_vs_TA_with_SWC_and_RbQ10(df)
@@ -180,7 +181,7 @@ predictors = [:SWC_shallow]
 global_param_names = [:Q10]
 nn_param_names = [:Rb]
 
-hybrid_model = constructHybridModel(
+mRb_varying = constructHybridModel(
     predictors,
     forcing,
     target,
@@ -190,7 +191,7 @@ hybrid_model = constructHybridModel(
     global_param_names
 )
 
-out_b = train(hybrid_model, df, (); nepochs=100, batchsize=512, opt=RMSProp(0.001), 
+out_b = train(mRb_varying, df, (); nepochs=100, batchsize=512, opt=RMSProp(0.001), 
               loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, 
               yscale = identity, monitor_names=[:Q10, :Rb], patience = 30, 
               shuffleobs = true, hybrid_name = "varying Rb")
