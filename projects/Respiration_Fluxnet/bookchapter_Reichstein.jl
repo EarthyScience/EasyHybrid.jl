@@ -117,7 +117,7 @@ parameters = (
 )
 
 # =============================================================================
-# Hybrid Model Creation
+# RbQ10 Model with constant Q10 and Rb
 # =============================================================================
 
 # Select target and forcing variables and predictors
@@ -158,6 +158,58 @@ lines!(fig3[2,1], df.TA, RECO_syn_a, color = :pink)
 fig4 = Figure()
 ax4 = Makie.Axis(fig4[1, 1], xlabel = "TA", ylabel = "Rb", title = "TA vs Rb")
 scatter!(ax4, df.TA, df.rm_SWC, markersize = 2, color = df.SWC_shallow, colormap = :viridis)
+
+
+# =============================================================================
+# RbQ10 Model with constant Q10 and variable Rb
+# =============================================================================
+
+# Select target and forcing variables and predictors
+target = [:RECO_syn]
+forcing = [:TA]
+predictors = [:SWC_shallow]
+
+# Define global parameters (none for this model, Q10 is fixed)
+global_param_names = [:Q10]
+nn_param_names = [:Rb]
+
+# Create the hybrid model using the unified constructor
+hybrid_model = constructHybridModel(
+    predictors,
+    forcing,
+    target,
+    RbQ10_syn,
+    parameters,
+    nn_param_names,
+    global_param_names
+)
+
+# =============================================================================
+# Model Training
+# =============================================================================
+# Train FluxPartModel
+out_b = train(hybrid_model, df, (); nepochs=1000, batchsize=128, opt=Adam(0.01), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, yscale = identity, monitor_names=[:Q10, :Rb], patience = 50, shuffleobs = true)
+
+Q10_a = out_Generic.train_diffs.Q10
+Rb_a = out_Generic.train_diffs.Rb
+
+RECO_syn_a = RbQ10_syn.(Rb = Rb_a, Q10 = Q10_a, TA = df.TA, Tref = 15).RECO_syn
+
+
+lines!(fig3[2,1], df.TA, RECO_syn_a, color = :pink)
+
+
+# Plot TA vs Rb
+fig4 = Figure()
+ax4 = Makie.Axis(fig4[1, 1], xlabel = "TA", ylabel = "Rb", title = "TA vs Rb")
+scatter!(ax4, df.TA, df.rm_SWC, markersize = 2, color = df.SWC_shallow, colormap = :viridis)
+
+
+
+
+
+
+
 
 
 
