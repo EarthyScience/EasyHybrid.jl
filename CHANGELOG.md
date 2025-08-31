@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.1.2 - 2025-08-31
+
+- example of apparent and intrinsic 'true' Q10 with constant and varying Q10. For ELLIS summerschool [#131](https://github.com/EarthyScience/EasyHybrid.jl/pull/131)
+- legend in trainboard for quantiles in neural parameters [#132](https://github.com/EarthyScience/EasyHybrid.jl/pull/132)
+- subsampling for trainboard plot fixed [#130](https://github.com/EarthyScience/EasyHybrid.jl/pull/130)
+- fix prepare_data for when you input a Dataframe with NaNs or missing [#129](https://github.com/EarthyScience/EasyHybrid.jl/pull/129) 
+
 ## v0.1.2 - 2025-08-30
 
 - Added hyperparameter training in [#109](https://github.com/EarthyScience/EasyHybrid.jl/pull/109)
