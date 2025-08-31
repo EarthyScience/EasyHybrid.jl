@@ -5,13 +5,10 @@
 using Pkg
 project_path = "projects/ODE_example"
 Pkg.activate(project_path)
-
-pwd()
-
+Pkg.instantiate()
+Pkg.precompile()
 
 Pkg.develop(path=pwd())
-Pkg.instantiate()
-
 
 # start using the package
 using EasyHybrid
@@ -39,49 +36,66 @@ df = fluxnet_data.timeseries
 # =============================================================================
 
 using OrdinaryDiffEq
+using StaticArrays
 
 # Data grid
-Δt   = diff(fluxnet_data.timeseries.time)[1]
-t0   = 0.0
+# Convert from milliseconds to days
+Δt_ms = diff(fluxnet_data.timeseries.time)[1]
+Δt = Δt_ms / Day(1)
+t0 = 1.0 * Δt
 tend = length(fluxnet_data.timeseries.time) * Δt
 tgrid = collect(t0:Δt:tend)
+
+# Remove any use of Union{Missing, Float64} or similar types.
+# Instead, ensure all data is Float64 (or appropriate concrete type) and handle missings by converting them to NaN.
+
+using DataFrames
+df = mapcols(col -> Float64.(replace!(col, missing => NaN)), df; cols = names(df, Union{Missing, Real}))
+
 
 # piecewise-constant forcing aligned to the grid
 struct GridForcing{T}; t::Vector{T}; x::Vector{T}; end
 function (gf::GridForcing)(t)
-    k = clamp(fld(Integer, round((t - gf.t[1]) / (gf.t[2]-gf.t[1])), 1), 1, length(gf.t))  # nearest/left index
+    k = argmin(abs.(gf.t .- t))
     return gf.x[k]
 end
 
 fTemp = GridForcing(tgrid, df.TA)
 fSW_IN = GridForcing(tgrid, df.SW_IN)
 
-f(u, p, t) = @SVector [p.fSW_IN(t) .* p.RUE ./ 12.011f0 .- p.Rb .* 0.1 .* p.Q10.^(p.fTemp(t) .- Tref) .* u[1]]
+fTemp(1.0)
+
+fNEE(u, p, t) = @SVector [p.fSW_IN(t) .* p.RUE ./ 12.011f0 .- p.Rb .* 0.1 .* p.Q10.^(p.fTemp(t) .- p.Tref) .* u[1]]
+fGPP(p, t) = @SVector [p.fSW_IN(t) .* p.RUE ./ 12.011f0]
 
 u0    = @SVector [0.0]
-prob  = ODEProblem(f, u0, (tgrid[1], tgrid[end]), p0)
+p0 = (;fTemp, fSW_IN, RUE = 0.1, Rb = 1.0, Q10 = 1.5, Tref = 15.0)
+prob  = ODEProblem(fNEE, u0, (tgrid[1], tgrid[end]), p0)
+sol = solve(prob, RK4(); p=p0, u0=u0, saveat = tgrid[1:3])
 
-p0 = (;Temp = mean(df.TA), SW_IN = mean(df.SW_IN), RUE = 0.1, Rb = 1.0, Q10 = 1.5)
-
-function flux_part(;SW_IN, TA, RUE, Rb, Q10, tgrid)
+import SciMLSensitivity as SMS
+function flux_part(;SW_IN, TA, RUE, Rb, Q10, tgrid, Tref)
 
     fTemp = GridForcing(tgrid, TA)
     fSW_IN = GridForcing(tgrid, SW_IN)
 
+    #@show Tref
     u0 = @SVector [mean(SW_IN).* RUE ./ 12.011f0 ./ mean(Rb .* 0.1 .* Q10.^(TA .- Tref))]
 
-    p = (;fTemp, fSW_IN, RUE, Rb, Q10)
+    p = (;fTemp, fSW_IN, RUE, Rb, Q10, Tref)
 
-    sol = solve(prob, RK4(); p=p, u0=u0, adaptive=false, dt=Δt,
-                save_everystep=true,
-                sensealg=SensitivityADPassThrough())
-    NEE = map((u,t)->f(u,p,t), sol.u, sol.t)
-    RECO = map((u,t)->h(u,p,t), sol.u, sol.t)
-    GPP = NEE .+ RECO
-    return (;NEE, RECO, GPP, Q10, RUE, Rb, C = u[1])
+    sol = solve(prob, RK4(); p=p, u0=u0, saveat = tgrid, sensealg=SMS.SensitivityADPassThrough())
+    NEE = fNEE(sol.u, p, sol.t)
+    GPP = fGPP(p, sol.t)
+    RECO = NEE .+ GPP
+    return (;NEE, RECO, GPP, Q10, RUE, Rb, C = sol.u)
 end
 
-L, back = Zygote.pullback(loss, p0)
+flux_part(;SW_IN=df.SW_IN, TA=df.TA, RUE=p0.RUE, Rb=p0.Rb, Q10=p0.Q10, tgrid=tgrid, Tref=p0.Tref)
+
+
+using Zygote
+L, back = Zygote.pullback(flux_part, p0)
 ∂L_∂p = first(back(1.0))
 
 
