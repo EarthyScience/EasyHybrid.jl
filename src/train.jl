@@ -518,20 +518,20 @@ function prepare_data(hm, data::KeyedArray)
         # subset to only the cols we care about
         sdf = data[!, col_to_select]
     
+        mapcols(col -> replace!(col, missing => NaN), sdf; cols = names(sdf, Union{Missing, Real}))
+
         # Separate predictor/forcing vs. target columns
         predforce_cols = setdiff(col_to_select, targets)
-        
+    
         # For each row, check if *any* predictor/forcing is missing
-        mask_missing_predforce = map(row -> any(ismissing, row), eachrow(sdf[:, predforce_cols]))
+        mask_missing_predforce = map(row -> any(isnan, row), eachrow(sdf[:, predforce_cols]))
         
         # For each row, check if *at least one* target is present (i.e. not all missing)
-        mask_at_least_one_target = map(row -> any(!ismissing, row), eachrow(sdf[:, targets]))
+        mask_at_least_one_target = map(row -> any(!isnan, row), eachrow(sdf[:, targets]))
         
         # Keep rows where predictors/forcings are *complete* AND there's some target present
         keep = .!mask_missing_predforce .& mask_at_least_one_target
         sdf = sdf[keep, col_to_select]
-    
-        mapcols(col -> replace!(col, missing => NaN), sdf; cols = names(sdf, Union{Missing, Real}))
     
         # Convert to Float32 and to your keyed array
         ds_keyed = to_keyedArray(Float32.(sdf))
