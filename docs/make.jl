@@ -15,6 +15,7 @@ makedocs(;
         "Get Started" => "get_started.md",
         "Tutorial" => [
             "Exponential Response" => "tutorials/exponential_res.md",
+            "Hyperparameter Tuning" => "tutorials/hyperparameter_tuning.md"
         ],
         "Research" =>[
             "Overview" => "research/overview.md"
@@ -27,6 +28,8 @@ makedocs(;
 
 DocumenterVitepress.deploydocs(;
     repo = "github.com/EarthyScience/EasyHybrid.jl", # this must be the full URL!
+    target=joinpath(@__DIR__, "build"),
+    branch = "gh-pages",
     devbranch = "main",
     push_preview = true,
 )
