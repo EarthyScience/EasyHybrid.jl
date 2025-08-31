@@ -374,14 +374,17 @@ function EasyHybrid.train_board(
         m_val = getfield(val_monitor, m)
 
         if length(m_tr) > 1
-            for (qi, q) in enumerate([0.25, 0.5, 0.75])
-                m_tr_ex = getfield(m_tr, Symbol("q", string(Int(q*100))))
-                m_val_ex = getfield(m_val, Symbol("q", string(Int(q*100))))
-                Makie.lines!(ax_mt, m_tr_ex; color = :grey25, linewidth = 2)
-                Makie.lines!(ax_mt, m_val_ex; color = :tomato, linewidth = 2, linestyle = :dash)
+            for (qi, q) in enumerate([0.75, 0.5, 0.25])
+                qntl = Symbol("q", string(Int(q*100)))
+                m_tr_ex = getfield(m_tr, qntl)
+                m_val_ex = getfield(m_val, qntl)
+                lw = q == 0.5 ? 3 : 1   # thickest for q50, thin for q25 and q75
+                Makie.lines!(ax_mt, m_tr_ex; color = :grey25, linewidth = lw, label = String(qntl))
+                Makie.lines!(ax_mt, m_val_ex; color = :tomato, linewidth = lw, linestyle = :dash)
                 on(m_val_ex) do _; autolimits!(ax_mt); end
                 Makie.linkxaxes!(ax_loss, ax_mt)
             end
+            Makie.axislegend(ax_mt; position=:lt)
         else
             m_tr_ex = getfield(m_tr, :scalar)
             m_val_ex = getfield(m_val, :scalar)
@@ -391,7 +394,6 @@ function EasyHybrid.train_board(
             on(m_val_ex) do _; autolimits!(ax_mt); end
             Makie.linkxaxes!(ax_loss, ax_mt)
         end
-        
     end
     display(fig)
 end
