@@ -205,7 +205,7 @@ display(fig4)
 lines!(ax4_1, df.TA, RECO_syn_a, color = :black, 
        label = "'Unhybrid' Q10 = $(round(Q10_a[1], digits = 2)), constant Rb = $(round(Rb_a[1], digits = 2))")
 lines!(ax4_1, df.TA, RECO_syn_b, color = :gold, 
-       label = "Hybrid Q10 = $(round(Q10_b[1], digits = 2)), mean of varyingNN-Rb = $(round(mean(Rb_b), digits = 2))")
+       label = "Hybrid Q10 = $(round(Q10_b[1], digits = 2)), mean of varying NN-Rb = $(round(mean(Rb_b), digits = 2))")
 axislegend(ax4_1, position = :lt)
 
 # =============================================================================
