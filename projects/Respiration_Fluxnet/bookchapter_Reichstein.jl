@@ -100,6 +100,66 @@ scatter!(ax1, df.TA, RECO_Rb1, color = :red, markersize = 6, alpha = 0.6, label 
 RECO_Rb2 = RbQ10.(Rb = 0.4, Q10 = 1.5, TA = df.TA, Tref = 15)
 scatter!(ax1, df.TA, RECO_Rb2, color = :red, markersize = 6, alpha = 0.6, label = "Q10 = 1.5, Rb = 0.4") # add text at the right end of the scatter Q10 = 1.5
 
+lines!(ax1, df.TA, RECO_syn_a, color = :red)
+
+# =============================================================================
+# let's say we want to use the RbQ10 model but want to fit Rb and Q10 as constants
+# =============================================================================
+
+function RbQ10_syn(;Rb, Q10, TA, Tref = 15)
+    RECO_syn = Rb .* Q10 .^ ((TA .- Tref) ./ 10.0)
+    return (;RECO_syn, Q10, Rb)
+end
+
+parameters = (
+    Q10 = (1.5, 1.0, 4.0),
+    Rb = (0.2, 0.0, 6.0)
+)
+
+# =============================================================================
+# Hybrid Model Creation
+# =============================================================================
+
+# Select target and forcing variables and predictors
+target = [:RECO_syn]
+forcing = [:TA]
+
+# Define global parameters (none for this model, Q10 is fixed)
+global_param_names = [:Q10, :Rb]
+nn_param_names = []
+
+# Create the hybrid model using the unified constructor
+hybrid_model = constructHybridModel(
+    Vector{Symbol}(), # no predictors
+    forcing,
+    target,
+    RbQ10_syn,
+    parameters,
+    [],
+    global_param_names
+)
+
+# =============================================================================
+# Model Training
+# =============================================================================
+# Train FluxPartModel
+out_Generic = train(hybrid_model, df, (); nepochs=1000, batchsize=128, opt=Adam(0.01), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, yscale = identity, monitor_names=[:Q10, :Rb], patience = 50, shuffleobs = true)
+
+Q10_a = out_Generic.train_diffs.Q10
+Rb_a = out_Generic.train_diffs.Rb
+
+RECO_syn_a = RbQ10_syn.(Rb = Rb_a, Q10 = Q10_a, TA = df.TA, Tref = 15).RECO_syn
+
+
+lines!(fig3[2,1], df.TA, RECO_syn_a, color = :pink)
+
+
+# Plot TA vs Rb
+fig4 = Figure()
+ax4 = Makie.Axis(fig4[1, 1], xlabel = "TA", ylabel = "Rb", title = "TA vs Rb")
+scatter!(ax4, df.TA, df.rm_SWC, markersize = 2, color = df.SWC_shallow, colormap = :viridis)
+
+
 
 # =============================================================================
 # Mechanistic Model Definition
