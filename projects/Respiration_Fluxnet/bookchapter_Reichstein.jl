@@ -57,14 +57,14 @@ end
 
 
 fig = Figure()
-ax = Makie.Axis(fig[1, 1], xlabel = "Time", ylabel = "SWC_shallow", title = "Time Series of SWC_shallow")
+ax = Makie.Axis(fig[1, 1], xlabel = "Time", ylabel = "soil water content")
 lines!(ax, df.time, df.SWC_shallow, color = :dodgerblue)
 
 # moisture limitation
 df.rm_SWC = fM.(SWC = df.SWC_shallow, K_limit = 10, K_inhib = 30)
 
 # Scatterplot of SWC_shallow against rm_SWC
-ax2 = Makie.Axis(fig[2, 1], xlabel = "SWC_shallow", ylabel = "rm_SWC", title = "SWC_shallow vs rm_SWC")
+ax2 = Makie.Axis(fig[2, 1], xlabel = "soil water content", ylabel = "rate modifier due \n to soil water content")
 scatter!(ax2, df.SWC_shallow, df.rm_SWC, color = :purple, markersize = 6, alpha = 0.6)
 
 function fT(;TA, Tref, Q10)
@@ -73,35 +73,38 @@ end
 
 df.rm_T = fT.(TA = df.TA, Tref = 15, Q10 = 1.5)
 
+fig2 = Figure()
+ax2 = Makie.Axis(fig2[1, 1], xlabel = "Time", ylabel = "air temperature")
+lines!(ax2, df.time, df.TA, color = :green, linewidth = 0.5)
+
 # Scatterplot of TA against rm_T
-ax3 = Makie.Axis(fig[3, 1], xlabel = "TA", ylabel = "rm_T", title = "TA vs rm_T")
+ax3 = Makie.Axis(fig2[2, 1], xlabel = "air temperature", ylabel = "rate modifier due \n to air temperature")
 scatter!(ax3, df.TA, df.rm_T, color = :green, markersize = 6, alpha = 0.6)
 
-df.RECO_syn = df.rm_T .* df.rm_SWC
+df.RECO_syn = df.rm_T .* df.rm_SWC .* (1.0 .+ 0.1 .* randn(length(df.rm_T)))
 
 # Scatterplot of SWC_shallow against RECO_syn
 fig3 = Figure()
 ax = Makie.Axis(fig3[1, 1], xlabel = "Time", ylabel = "RECO_syn", title = "RECO_syn")
-lines!(ax, df.time, df.RECO_syn, color = :red)
+lines!(ax, df.time, df.RECO_syn, color = :brown, linewidth = 0.5)
 
+fig4 = Figure()
 # Scatterplot of TA against RECO_syn, colored by SWC_shallow (soil moisture)
-ax1, sc = scatter(fig3[2,1], df.TA, df.RECO_syn;
-              color = df.SWC_shallow, colormap = :viridis,
+ax1, sc = scatter(fig4[1,1], df.TA, df.RECO_syn;
+              color = df.SWC_shallow, colormap = Reverse(:coolwarm),
               axis = (xlabel = "TA", ylabel = "RECO_syn"),
               markersize = 1)
-Colorbar(fig3[2, 2], sc, label = "SWC_shallow")
+Colorbar(fig4[1, 2], sc, label = "SWC_shallow")
 
 function RbQ10(;Rb, Q10, TA, Tref)
     return Rb .* Q10 .^ ((TA .- Tref) ./ 10.0)
 end
 
 RECO_Rb1 = RbQ10.(Rb = 0.2, Q10 = 1.5, TA = df.TA, Tref = 15)
-scatter!(ax1, df.TA, RECO_Rb1, color = :red, markersize = 6, alpha = 0.6, label = "Q10 = 1.5, Rb = 0.2") # add text at the right end of the scatter Q10 = 1.5
+lines!(ax1, df.TA, RECO_Rb1, color = :grey60, label = "Q10 = 1.5, Rb = 0.2") # add text at the right end of the scatter Q10 = 1.5
 RECO_Rb2 = RbQ10.(Rb = 0.4, Q10 = 1.5, TA = df.TA, Tref = 15)
-scatter!(ax1, df.TA, RECO_Rb2, color = :red, markersize = 6, alpha = 0.6, label = "Q10 = 1.5, Rb = 0.4") # add text at the right end of the scatter Q10 = 1.5
-
-lines!(ax1, df.TA, RECO_syn_a, color = :red)
-
+lines!(ax1, df.TA, RECO_Rb2, color = :grey40, label = "Q10 = 1.5, Rb = 0.4") # add text at the right end of the scatter Q10 = 1.5
+#axislegend(ax1, position = :lt)
 # =============================================================================
 # let's say we want to use the RbQ10 model but want to fit Rb and Q10 as constants
 # =============================================================================
@@ -112,7 +115,7 @@ function RbQ10_syn(;Rb, Q10, TA, Tref = 15)
 end
 
 parameters = (
-    Q10 = (1.5, 1.0, 4.0),
+    Q10 = (2.0, 1.0, 4.0),
     Rb = (0.2, 0.0, 6.0)
 )
 
@@ -143,22 +146,15 @@ hybrid_model = constructHybridModel(
 # Model Training
 # =============================================================================
 # Train FluxPartModel
-out_Generic = train(hybrid_model, df, (); nepochs=1000, batchsize=128, opt=Adam(0.01), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, yscale = identity, monitor_names=[:Q10, :Rb], patience = 50, shuffleobs = true)
+out_Generic = train(hybrid_model, df, (); nepochs=100, batchsize=512, opt=RMSProp(0.001), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, yscale = identity, monitor_names=[:Q10, :Rb], patience = 30, shuffleobs = true, hybrid_name = "constant Rb")
 
 Q10_a = out_Generic.train_diffs.Q10
 Rb_a = out_Generic.train_diffs.Rb
 
 RECO_syn_a = RbQ10_syn.(Rb = Rb_a, Q10 = Q10_a, TA = df.TA, Tref = 15).RECO_syn
 
-
-lines!(fig3[2,1], df.TA, RECO_syn_a, color = :pink)
-
-
-# Plot TA vs Rb
-fig4 = Figure()
-ax4 = Makie.Axis(fig4[1, 1], xlabel = "TA", ylabel = "Rb", title = "TA vs Rb")
-scatter!(ax4, df.TA, df.rm_SWC, markersize = 2, color = df.SWC_shallow, colormap = :viridis)
-
+lines!(ax1, df.TA, RECO_syn_a, color = :black, label = "calibrated Q10 = $(round(Q10_a[1], digits = 2)), Rb = $(round(Rb_a[1], digits = 2))")
+#axislegend(ax1, position = :lt)
 
 # =============================================================================
 # RbQ10 Model with constant Q10 and variable Rb
@@ -188,22 +184,27 @@ hybrid_model = constructHybridModel(
 # Model Training
 # =============================================================================
 # Train FluxPartModel
-out_b = train(hybrid_model, df, (); nepochs=1000, batchsize=128, opt=Adam(0.01), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, yscale = identity, monitor_names=[:Q10, :Rb], patience = 50, shuffleobs = true)
+out_b = train(hybrid_model, df, (); nepochs=100, batchsize=512, opt=RMSProp(0.001), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, yscale = identity, monitor_names=[:Q10, :Rb], patience = 30, shuffleobs = true, hybrid_name = "varying Rb")
 
-Q10_a = out_Generic.train_diffs.Q10
-Rb_a = out_Generic.train_diffs.Rb
+Q10_b = out_b.train_diffs.Q10
+Rb_b = out_b.train_diffs.Rb
 
-RECO_syn_a = RbQ10_syn.(Rb = Rb_a, Q10 = Q10_a, TA = df.TA, Tref = 15).RECO_syn
+RECO_syn_b = RbQ10_syn.(Rb = mean(Rb_b), Q10 = Q10_b, TA = df.TA, Tref = 15).RECO_syn
 
-
-lines!(fig3[2,1], df.TA, RECO_syn_a, color = :pink)
-
+lines!(ax1, df.TA, RECO_syn_b, color = :gold, label = "calibrated Q10 = $(round(Q10_b[1], digits = 2)), mean Rb = $(round(mean(Rb_b), digits = 2))")
+axislegend(ax1, position = :lt)
 
 # Plot TA vs Rb
 fig4 = Figure()
 ax4 = Makie.Axis(fig4[1, 1], xlabel = "TA", ylabel = "Rb", title = "TA vs Rb")
 scatter!(ax4, df.TA, df.rm_SWC, markersize = 2, color = df.SWC_shallow, colormap = :viridis)
 
+
+
+# Plot TA vs Rb
+fig4 = Figure()
+ax4 = Makie.Axis(fig4[1, 1], xlabel = "TA", ylabel = "Rb", title = "TA vs Rb")
+scatter!(ax4, df.TA, df.rm_SWC, markersize = 2, color = df.SWC_shallow, colormap = :viridis)
 
 
 
