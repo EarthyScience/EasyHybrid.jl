@@ -9,7 +9,6 @@ Pkg.activate(project_path)
 Pkg.develop(path=pwd())
 Pkg.instantiate()
 
-
 # start using the package
 using EasyHybrid
 using AxisKeys
@@ -46,7 +45,6 @@ for col in names(df)
     end
 end
 
-
 # =============================================================================
 # Artificial data
 # =============================================================================
@@ -55,56 +53,70 @@ function fM(;SWC, K_limit, K_inhib)
     return rm_SWC
 end
 
-
-fig = Figure()
-ax = Makie.Axis(fig[1, 1], xlabel = "Time", ylabel = "soil water content")
-lines!(ax, df.time, df.SWC_shallow, color = :dodgerblue)
-
-# moisture limitation
-df.rm_SWC = fM.(SWC = df.SWC_shallow, K_limit = 10, K_inhib = 30)
-
-# Scatterplot of SWC_shallow against rm_SWC
-ax2 = Makie.Axis(fig[2, 1], xlabel = "soil water content", ylabel = "rate modifier due \n to soil water content")
-scatter!(ax2, df.SWC_shallow, df.rm_SWC, color = :purple, markersize = 6, alpha = 0.6)
-
 function fT(;TA, Tref, Q10)
     return Q10 .^ ((TA .- Tref) ./ 10.0)
 end
 
+# moisture limitation
+df.rm_SWC = fM.(SWC = df.SWC_shallow, K_limit = 10, K_inhib = 30)
 df.rm_T = fT.(TA = df.TA, Tref = 15, Q10 = 1.5)
-
-fig2 = Figure()
-ax2 = Makie.Axis(fig2[1, 1], xlabel = "Time", ylabel = "air temperature")
-lines!(ax2, df.time, df.TA, color = :green, linewidth = 0.5)
-
-# Scatterplot of TA against rm_T
-ax3 = Makie.Axis(fig2[2, 1], xlabel = "air temperature", ylabel = "rate modifier due \n to air temperature")
-scatter!(ax3, df.TA, df.rm_T, color = :green, markersize = 6, alpha = 0.6)
-
 df.RECO_syn = df.rm_T .* df.rm_SWC .* (1.0 .+ 0.1 .* randn(length(df.rm_T)))
 
-# Scatterplot of SWC_shallow against RECO_syn
+# =============================================================================
+# Figure 1: SWC and rate modifier
+# =============================================================================
+fig1 = Figure()
+ax1_1 = Makie.Axis(fig1[1, 1], xlabel = "Time", ylabel = "Soil water content")
+lines!(ax1_1, df.time, df.SWC_shallow, color = :dodgerblue)
+
+ax1_2 = Makie.Axis(fig1[2, 1], xlabel = "Soil water content", ylabel = "Rate modifier due to soil water content")
+scatter!(ax1_2, df.SWC_shallow, df.rm_SWC, color = :purple, markersize = 6, alpha = 0.6)
+
+# =============================================================================
+# Figure 2: Temperature and rate modifier
+# =============================================================================
+fig2 = Figure()
+ax2_1 = Makie.Axis(fig2[1, 1], xlabel = "Time", ylabel = "Air temperature")
+lines!(ax2_1, df.time, df.TA, color = :green, linewidth = 0.5)
+
+ax2_2 = Makie.Axis(fig2[2, 1], xlabel = "Air temperature", ylabel = "Rate modifier due to air temperature")
+scatter!(ax2_2, df.TA, df.rm_T, color = :green, markersize = 6, alpha = 0.6)
+
+# =============================================================================
+# Figure 3: RECO_syn time series
+# =============================================================================
 fig3 = Figure()
-ax = Makie.Axis(fig3[1, 1], xlabel = "Time", ylabel = "RECO_syn", title = "RECO_syn")
-lines!(ax, df.time, df.RECO_syn, color = :brown, linewidth = 0.5)
+ax3_1 = Makie.Axis(fig3[1, 1], xlabel = "Time", ylabel = "RECO_syn", title = "RECO_syn")
+lines!(ax3_1, df.time, df.RECO_syn, color = :brown, linewidth = 0.5)
 
-fig4 = Figure()
-# Scatterplot of TA against RECO_syn, colored by SWC_shallow (soil moisture)
-ax1, sc = scatter(fig4[1,1], df.TA, df.RECO_syn;
-              color = df.SWC_shallow, colormap = Reverse(:coolwarm),
-              axis = (xlabel = "TA", ylabel = "RECO_syn"),
-              markersize = 1)
-Colorbar(fig4[1, 2], sc, label = "SWC_shallow")
+# =============================================================================
+# Figure 4: TA vs RECO_syn with colorbar
+# =============================================================================
 
-function RbQ10(;Rb, Q10, TA, Tref)
-    return Rb .* Q10 .^ ((TA .- Tref) ./ 10.0)
+# RbQ10 function
+function RbQ10(; Rb, Q10, TA, Tref)
+    Rb .* Q10 .^ ((TA .- Tref) ./ 10.0)
 end
 
-RECO_Rb1 = RbQ10.(Rb = 0.2, Q10 = 1.5, TA = df.TA, Tref = 15)
-lines!(ax1, df.TA, RECO_Rb1, color = :grey60, label = "Q10 = 1.5, Rb = 0.2") # add text at the right end of the scatter Q10 = 1.5
-RECO_Rb2 = RbQ10.(Rb = 0.4, Q10 = 1.5, TA = df.TA, Tref = 15)
-lines!(ax1, df.TA, RECO_Rb2, color = :grey40, label = "Q10 = 1.5, Rb = 0.4") # add text at the right end of the scatter Q10 = 1.5
-#axislegend(ax1, position = :lt)
+function plot_RECO_vs_TA_with_SWC_and_RbQ10(df)
+    fig = Figure(size = (900, 550))
+    ax, sc = scatter(fig[1,1], df.TA, df.RECO_syn;
+                  color = df.SWC_shallow, colormap = Reverse(:coolwarm),
+                  axis = (xlabel = "TA", ylabel = "RECO_syn"),
+                  markersize = 1)
+    Colorbar(fig[1, 2], sc, label = "SWC_shallow")
+
+    RECO_Rb1 = RbQ10.(Rb = 0.2, Q10 = 1.5, TA = df.TA, Tref = 15)
+    RECO_Rb2 = RbQ10.(Rb = 0.4, Q10 = 1.5, TA = df.TA, Tref = 15)
+
+    lines!(ax, df.TA, RECO_Rb1, color = :grey60, label = "Q10 = 1.5, Rb = 0.2")
+    lines!(ax, df.TA, RECO_Rb2, color = :grey40, label = "Q10 = 1.5, Rb = 0.4")
+
+    return fig, ax
+end
+fig4, ax4_1 = plot_RECO_vs_TA_with_SWC_and_RbQ10(df)
+display(fig4)
+axislegend(ax4_1, position = :lt)
 # =============================================================================
 # let's say we want to use the RbQ10 model but want to fit Rb and Q10 as constants
 # =============================================================================
@@ -119,19 +131,11 @@ parameters = (
     Rb = (0.2, 0.0, 6.0)
 )
 
-# =============================================================================
-# RbQ10 Model with constant Q10 and Rb
-# =============================================================================
-
-# Select target and forcing variables and predictors
 target = [:RECO_syn]
 forcing = [:TA]
-
-# Define global parameters (none for this model, Q10 is fixed)
 global_param_names = [:Q10, :Rb]
 nn_param_names = []
 
-# Create the hybrid model using the unified constructor
 hybrid_model = constructHybridModel(
     Vector{Symbol}(), # no predictors
     forcing,
@@ -145,31 +149,37 @@ hybrid_model = constructHybridModel(
 # =============================================================================
 # Model Training
 # =============================================================================
-# Train FluxPartModel
-out_Generic = train(hybrid_model, df, (); nepochs=100, batchsize=512, opt=RMSProp(0.001), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, yscale = identity, monitor_names=[:Q10, :Rb], patience = 30, shuffleobs = true, hybrid_name = "constant Rb")
+out_Generic = train(hybrid_model, df, (); nepochs=2, batchsize=512, opt=RMSProp(0.001), 
+                    loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, 
+                    yscale = identity, monitor_names=[:Q10, :Rb], patience = 30, 
+                    shuffleobs = true, hybrid_name = "constant Rb")
 
 Q10_a = out_Generic.train_diffs.Q10
 Rb_a = out_Generic.train_diffs.Rb
-
 RECO_syn_a = RbQ10_syn.(Rb = Rb_a, Q10 = Q10_a, TA = df.TA, Tref = 15).RECO_syn
 
-lines!(ax1, df.TA, RECO_syn_a, color = :black, label = "calibrated Q10 = $(round(Q10_a[1], digits = 2)), Rb = $(round(Rb_a[1], digits = 2))")
-#axislegend(ax1, position = :lt)
+fig4, ax4_1 = plot_RECO_vs_TA_with_SWC_and_RbQ10(df)
+display(fig4)
+lines!(ax4_1, df.TA, RECO_syn_a, color = :black, 
+       label = "calibrated Q10 = $(round(Q10_a[1], digits = 2)), Rb = $(round(Rb_a[1], digits = 2))")
+       axislegend(ax4_1, position = :lt)
+
+# =============================================================================
+# Figure 5: TA vs Rb
+# =============================================================================
+fig5 = Figure()
+ax5_1 = Makie.Axis(fig5[1, 1], xlabel = "TA", ylabel = "Rb")
+scatter!(ax5_1, df.TA, df.rm_SWC, markersize = 2, color = df.SWC_shallow, colormap = :viridis)
 
 # =============================================================================
 # RbQ10 Model with constant Q10 and variable Rb
 # =============================================================================
-
-# Select target and forcing variables and predictors
 target = [:RECO_syn]
 forcing = [:TA]
 predictors = [:SWC_shallow]
-
-# Define global parameters (none for this model, Q10 is fixed)
 global_param_names = [:Q10]
 nn_param_names = [:Rb]
 
-# Create the hybrid model using the unified constructor
 hybrid_model = constructHybridModel(
     predictors,
     forcing,
@@ -180,44 +190,26 @@ hybrid_model = constructHybridModel(
     global_param_names
 )
 
-# =============================================================================
-# Model Training
-# =============================================================================
-# Train FluxPartModel
-out_b = train(hybrid_model, df, (); nepochs=100, batchsize=512, opt=RMSProp(0.001), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, yscale = identity, monitor_names=[:Q10, :Rb], patience = 30, shuffleobs = true, hybrid_name = "varying Rb")
+out_b = train(hybrid_model, df, (); nepochs=100, batchsize=512, opt=RMSProp(0.001), 
+              loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, 
+              yscale = identity, monitor_names=[:Q10, :Rb], patience = 30, 
+              shuffleobs = true, hybrid_name = "varying Rb")
 
 Q10_b = out_b.train_diffs.Q10
 Rb_b = out_b.train_diffs.Rb
-
 RECO_syn_b = RbQ10_syn.(Rb = mean(Rb_b), Q10 = Q10_b, TA = df.TA, Tref = 15).RECO_syn
 
-lines!(ax1, df.TA, RECO_syn_b, color = :gold, label = "calibrated Q10 = $(round(Q10_b[1], digits = 2)), mean Rb = $(round(mean(Rb_b), digits = 2))")
-axislegend(ax1, position = :lt)
-
-# Plot TA vs Rb
-fig4 = Figure()
-ax4 = Makie.Axis(fig4[1, 1], xlabel = "TA", ylabel = "Rb", title = "TA vs Rb")
-scatter!(ax4, df.TA, df.rm_SWC, markersize = 2, color = df.SWC_shallow, colormap = :viridis)
-
-
-
-# Plot TA vs Rb
-fig4 = Figure()
-ax4 = Makie.Axis(fig4[1, 1], xlabel = "TA", ylabel = "Rb", title = "TA vs Rb")
-scatter!(ax4, df.TA, df.rm_SWC, markersize = 2, color = df.SWC_shallow, colormap = :viridis)
-
-
-
-
-
-
-
-
+fig4, ax4_1 = plot_RECO_vs_TA_with_SWC_and_RbQ10(df)
+display(fig4)
+lines!(ax4_1, df.TA, RECO_syn_a, color = :black, 
+       label = "'Unhybrid' Q10 = $(round(Q10_a[1], digits = 2)), constant Rb = $(round(Rb_a[1], digits = 2))")
+lines!(ax4_1, df.TA, RECO_syn_b, color = :gold, 
+       label = "Hybrid Q10 = $(round(Q10_b[1], digits = 2)), mean of varyingNN-Rb = $(round(mean(Rb_b), digits = 2))")
+axislegend(ax4_1, position = :lt)
 
 # =============================================================================
 # Mechanistic Model Definition
 # =============================================================================
-
 function flux_part_mechanistic_model(;SW_IN, TA, RUE, Rb, Q10)
     # -------------------------------------------------------------------------
     # Arguments:
@@ -256,19 +248,14 @@ parameters = (
 # =============================================================================
 # Hybrid Model Creation
 # =============================================================================
-
-# Select target and forcing variables and predictors
 target_FluxPartModel = [:NEE]
 forcing_FluxPartModel = [:SW_IN, :TA]
 
-# Define predictors as NamedTuple - this automatically determines neural parameter names
 predictors = (Rb = [:SWC_shallow, :P, :WS, :sine_dayofyear, :cos_dayofyear], 
               RUE = [:TA, :P, :WS, :SWC_shallow, :VPD, :SW_IN_POT, :dSW_IN_POT, :dSW_IN_POT_DAY])
 
-# Define global parameters (none for this model, Q10 is fixed)
 global_param_names = [:Q10]
 
-# Create the hybrid model using the unified constructor
 hybrid_model = constructHybridModel(
     predictors,
     forcing_FluxPartModel,
@@ -286,7 +273,9 @@ hybrid_model = constructHybridModel(
 # =============================================================================
 # Model Training
 # =============================================================================
-# Train FluxPartModel
-out_Generic = train(hybrid_model, df, (); nepochs=1000, batchsize=512, opt=RMSProp(0.01), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, yscale = identity, monitor_names=[:RUE, :Q10], patience = 50, shuffleobs = true)
+out_Generic = train(hybrid_model, df, (); nepochs=1000, batchsize=512, opt=RMSProp(0.01), 
+                    loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, 
+                    yscale = identity, monitor_names=[:RUE, :Q10], patience = 50, 
+                    shuffleobs = true)
 
 EasyHybrid.poplot(out_Generic)
