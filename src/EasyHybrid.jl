@@ -25,6 +25,7 @@ using JLD2
 using StyledStrings
 using Printf
 using Reexport: @reexport
+using Hyperopt
 
 @reexport begin
     import LuxCore
@@ -52,5 +53,7 @@ include("train.jl")
 include("utils/show_train.jl")
 include("utils/helpers_for_HybridModel.jl")
 include("plotrecipes.jl")
+include("utils/helpers_data_loading.jl")
+include("tune.jl")
 
 end

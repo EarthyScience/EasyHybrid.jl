@@ -218,6 +218,10 @@ function EasyHybrid.plot_loss!(loss)
     Makie.axislegend(ax; position=:rt)
 end
 
+function log_tick_formatter(values)
+    return map(v -> "10" * Makie.UnicodeFun.to_superscript(round(Int64, v)), values)
+end
+
 # =============================================================================
 # Multi‑Target Live Training Dashboard with Monitors
 # =============================================================================
@@ -227,8 +231,9 @@ end
                 train_preds, train_obs,
                 val_preds, val_obs,
                 train_monitor, val_monitor,
-                yscale;
-                target_names, monitor_names)
+                yscale, zoom_epochs,
+                target_names;
+                monitor_names)
 
 Create a live‑updating dashboard showing per‑target scatter plots for training and validation,
 loss curves, and time‑series for additional monitored outputs.
@@ -241,76 +246,145 @@ loss curves, and time‑series for additional monitored outputs.
 - `yscale`: Y‑axis scale function (e.g. `log10`)
 - `target_names`: Symbols of targets to plot
 - `monitor_names`: Symbols of extra outputs to monitor
+- `zoom_epochs`: Number of epochs to zoom in on loss curve
 """
 function EasyHybrid.train_board(
-    train_loss::Observable, val_loss::Observable,
-    train_preds::NamedTuple,  train_obs::NamedTuple,
-    val_preds::NamedTuple,    val_obs::NamedTuple,
-    train_monitor::NamedTuple, val_monitor::NamedTuple,
-    yscale;
-    target_names::Vector{Symbol}=collect(keys(train_preds)),
-    monitor_names=collect(keys(train_monitor))
+    train_loss,
+    val_loss,
+    train_preds,
+    val_preds,
+    train_monitor,
+    val_monitor,
+    train_obs,
+    val_obs,
+    yscale,
+    target_names;
+    monitor_names,
+    zoom_epochs
 )
     n_targets  = length(target_names)
     n_monitors = length(monitor_names)
-    total_rows = max(n_targets, n_monitors, 2)
+    # total_rows = max(n_targets, n_monitors)
+    total_gds = (n_targets + n_monitors)
+    j_max = Int(floor(total_gds/2)) + 1
 
-    if monitor_names == []
-        fig = Makie.Figure(size=(950, 250*total_rows))
-    else
-        fig = Makie.Figure(size=(1400, 250*total_rows))
+    fig = Makie.Figure(; size=(1200, 400 * j_max))
+    # let's do a GridLayout per topic, Per‑target scatter subplots (side by side)
+    gd_losses = GridLayout(fig[1, 1])
+    gd_t1 = GridLayout(fig[1, 2])
+    gd_tm = [gd_t1, ]
+    # create more grid layouts to accommodate additional targets and monitor_names.
+    max_counter = 1
+    for j in 2:j_max
+        for i in 1:2
+            push!(gd_tm, GridLayout(fig[j, i]))
+            max_counter +=1
+            if max_counter>= total_gds
+                break
+            end
+        end
     end
 
-    # Columns 1-2: Per‑target scatter subplots (side by side)
-    for (i, t) in enumerate(target_names)
-        # Training scatter plot
-        ax_tr = Makie.Axis(fig[i, 1]; title = "Training: $(t)", xlabel = "Predicted", ylabel = "Observed", aspect = 1)
-        p_tr = getfield(train_preds, t)
-        o_tr = getfield(train_obs, t)
-        Makie.scatter!(ax_tr, p_tr, o_tr; color = :grey25, alpha = 0.6, markersize = 6)
-        Makie.lines!(ax_tr, @lift(sort($o_tr)), @lift(sort($o_tr)); color = :black, linestyle = :dash)
-        on(p_tr) do _; autolimits!(ax_tr); end
+    # gd_losses
+    ax_loss = Makie.Axis(gd_losses[1, 1]; yscale = yscale, xlabel = "Epoch", ylabel = "Loss", aspect=1)
+    Makie.lines!(ax_loss, train_loss; color = :grey25, label = "Training", linewidth = 2)
+    Makie.lines!(ax_loss, val_loss;   color = :tomato, label = "Validation", linewidth = 2)
+    # Zoomed loss in last zoom_epochs
+    ax_zoom = Makie.Axis(gd_losses[1, 2],
+        xlabel = "Epoch", ylabel = "", aspect=1,
+        title="Zoomed View", titlefont=:regular
+        )
 
-        # Validation scatter plot
-        ax_val = Makie.Axis(fig[i, 2]; title = "Validation: $(t)", xlabel = "Predicted", ylabel = "Observed", aspect = 1)
-        p_val = getfield(val_preds, t)
-        o_val = getfield(val_obs, t)
-        Makie.scatter!(ax_val, p_val, o_val; color = :tomato, alpha = 0.6, markersize = 6)
-        Makie.lines!(ax_val, @lift(sort($o_val)), @lift(sort($o_val)); color = :black, linestyle = :dash)
-        on(p_val) do _; autolimits!(ax_val); end
-    end
-
-    # Columns 3-4: Loss evolution
-    ax_loss = Makie.Axis(fig[1, 3:4]; yscale = yscale, xlabel = "Epoch", ylabel = "Loss", title = "Loss Evolution")
-    Makie.lines!(ax_loss, train_loss; color = :grey25, label = "Training Loss", linewidth = 2)
-    Makie.lines!(ax_loss, val_loss;   color = :tomato, label = "Validation Loss", linewidth = 2)
-    Makie.axislegend(ax_loss; position = :rt, nbanks = 2)
-
-    # Zoomed loss last 100 epochs
-    ax_zoom = Makie.Axis(fig[2, 3:4]; yscale = yscale, xlabel = "Epoch", ylabel = "Loss (Zoom)", title = "Zoomed Loss")
-    zoom_idx = @lift(max(1, length($train_loss) - 100))
+    zoom_idx = @lift(max(1, length($train_loss) - zoom_epochs))
     tlz = @lift($train_loss[$zoom_idx:end])
     vlz = @lift($val_loss[$zoom_idx:end])
     Makie.lines!(ax_zoom, tlz; color = :grey25, label = "Training (Zoom)", linewidth = 2)
     Makie.lines!(ax_zoom, vlz;   color = :tomato,  label = "Validation (Zoom)", linewidth = 2)
-    Makie.axislegend(ax_zoom; position = :rt, nbanks = 2)
+    # Makie.axislegend(ax_zoom; position = :rt, nbanks = 2)
     on(train_loss) do _; autolimits!(ax_loss); autolimits!(ax_zoom); end
+    
+    Makie.Legend(gd_losses[0, 1:2], ax_loss; nbanks = 2,
+        framewidth=0, backgroundcolor =(:grey25, 0.1), tellheight=true,)
+    hidespines!(ax_loss, :r, :t)
+
+
+    for (i, t) in enumerate(target_names)
+        # Data
+        p_tr = getfield(train_preds, t)
+        o_tr = getfield(train_obs, t)
+
+        maxpoints = 10_000
+        idx = @lift begin #TODO better with density plot?
+            n = length($p_tr)
+            if n > maxpoints
+                randperm(n)[1:maxpoints]
+            else
+                1:n
+            end
+        end
+
+        p_tr_sub = @lift($p_tr[$idx])   # Observable
+        o_tr_sub = @lift(o_tr[$idx])    # o_val captured as constant
+
+        mn, mx = extrema(filter(!isnan, o_tr))
+        δd = 0.1
+        # Training scatter plot
+        ax_tr = Makie.Axis(gd_tm[i][1, 1]; aspect = 1, xlabel="Predicted", ylabel ="",
+            limits = (mn - δd, mx + δd, mn - δd, mx + δd) )
+        hidespines!(ax_tr, :r, :t)
+
+        Box(gd_tm[i][1, 1:2, Top()]; color=(:grey25, 0.1), strokevisible=false)
+        Label(gd_tm[i][1, 1:2, Top()], "$(t)")
+
+        Makie.scatter!(ax_tr, p_tr_sub, o_tr_sub; color = :grey25, alpha = 0.6, markersize = 6)
+        Makie.lines!(ax_tr, sort(o_tr), sort(o_tr); color = :black, linestyle = :dash)
+        # Validation scatter plot
+        ax_val = Makie.Axis(gd_tm[i][1, 2]; aspect = 1, xlabel="Predicted", ylabel = "",
+            limits = (mn - δd, mx + δd, mn - δd, mx + δd))
+        hideydecorations!(ax_val, grid=false)
+        hidespines!(ax_val, :l, :t)
+
+        p_val = getfield(val_preds, t)
+        o_val = getfield(val_obs, t)
+        
+        val_idx = @lift begin
+            n = length($p_val)
+            if n > maxpoints
+                randperm(n)[1:maxpoints]
+            else
+                1:n
+            end
+        end
+
+        p_val_sub = @lift($p_val[$val_idx])   # Observable
+        o_val_sub = @lift(o_val[$val_idx])
+
+        Makie.scatter!(ax_val, p_val_sub, o_val_sub; color = :tomato, alpha = 0.6, markersize = 6)
+        Makie.lines!(ax_val, sort(o_val), sort(o_val); color = :black, linestyle = :dash)
+    end
+    Label(gd_tm[1][1:end, 0], "Observed", tellheight=false, rotation=pi/2)
+    # Label(gd_tm[end+1,1:end], "Predicted")
+    Label(gd_tm[1][0,1], "Training"; color = :grey25, tellwidth=false)
+    Label(gd_tm[1][0,2], "Validation"; color=:tomato, tellwidth=false)
 
     # Columns 5-6: Additional monitored outputs
     for (j, m) in enumerate(monitor_names)
-        ax_mt = Makie.Axis(fig[j, 5:6]; xlabel = "Epoch", ylabel = string(m), title = "Monitor: $(m)")
+        ax_mt = Makie.Axis(gd_tm[j + n_targets][1,1]; xlabel = "Epoch", ylabel = string(m), title = "Monitor: $(m)")
         m_tr = getfield(train_monitor, m)
         m_val = getfield(val_monitor, m)
 
         if length(m_tr) > 1
-            for (qi, q) in enumerate([0.25, 0.5, 0.75])
-                m_tr_ex = getfield(m_tr, Symbol("q", string(Int(q*100))))
-                m_val_ex = getfield(m_val, Symbol("q", string(Int(q*100))))
-                Makie.lines!(ax_mt, m_tr_ex; color = :grey25, linewidth = 2)
-                Makie.lines!(ax_mt, m_val_ex; color = :tomato, linewidth = 2, linestyle = :dash)
+            for (qi, q) in enumerate([0.75, 0.5, 0.25])
+                qntl = Symbol("q", string(Int(q*100)))
+                m_tr_ex = getfield(m_tr, qntl)
+                m_val_ex = getfield(m_val, qntl)
+                lw = q == 0.5 ? 3 : 1   # thickest for q50, thin for q25 and q75
+                Makie.lines!(ax_mt, m_tr_ex; color = :grey25, linewidth = lw, label = String(qntl))
+                Makie.lines!(ax_mt, m_val_ex; color = :tomato, linewidth = lw, linestyle = :dash)
                 on(m_val_ex) do _; autolimits!(ax_mt); end
                 Makie.linkxaxes!(ax_loss, ax_mt)
             end
+            Makie.axislegend(ax_mt; position=:lt)
         else
             m_tr_ex = getfield(m_tr, :scalar)
             m_val_ex = getfield(m_val, :scalar)
@@ -320,39 +394,77 @@ function EasyHybrid.train_board(
             on(m_val_ex) do _; autolimits!(ax_mt); end
             Makie.linkxaxes!(ax_loss, ax_mt)
         end
-        
+    end
+    display(fig)
+end
+
+"""
+    update_plotting_observables(ext, train_h_obs, val_h_obs, train_preds, val_preds, train_monitor, val_monitor, hybridModel, x_train, x_val, ps, st, l_train, l_val, training_loss, agg, epoch, monitor_names)
+
+Update plotting observables during training if the Makie extension is loaded.
+"""
+function EasyHybrid.update_plotting_observables(
+    train_h_obs,
+    val_h_obs,
+    train_preds,
+    val_preds,
+    train_monitor,
+    val_monitor,
+    l_train,
+    l_val,
+    training_loss,
+    agg,
+    current_ŷ_train,
+    current_ŷ_val,
+    target_names,
+    epoch;
+    monitor_names)
+    
+    l_value = getproperty(getproperty(l_train, training_loss), Symbol("$agg"))
+    new_p = Point2f(epoch, l_value)
+    push!(train_h_obs[], new_p)
+    notify(train_h_obs) 
+
+    l_value_val = getproperty(getproperty(l_val, training_loss), Symbol("$agg"))
+    new_p_val = Point2f(epoch, l_value_val)
+    push!(val_h_obs[], new_p_val)
+
+    for t in target_names
+        # replace the array stored in the Observable:
+        train_preds[t][] = vec(getfield(current_ŷ_train, t))
+        val_preds[t][]   = vec(getfield(current_ŷ_val,   t))
+        # and notify Makie that it changed:
+        notify(train_preds[t])
+        notify(val_preds[t])
     end
 
-    # Columns 7-8: Additional monitored outputs (if needed)
-    if length(monitor_names) > 6
-        for (j, m) in enumerate(monitor_names[2:end])
-            ax_mt2 = Makie.Axis(fig[j, 7:8]; xlabel = "Epoch", ylabel = string(m), title = "Monitor: $(m)")
-            m_tr = getfield(train_monitor, m)
-            m_val = getfield(val_monitor, m)
-
-            if length(m_tr) > 1
-                for (qi, q) in enumerate([0.25, 0.5, 0.75])
-                    m_tr_ex = getfield(m_tr, Symbol("q", string(Int(q*100))))
-                    m_val_ex = getfield(m_val, Symbol("q", string(Int(q*100))))
-                    Makie.lines!(ax_mt2, m_tr_ex; color = :grey25, linewidth = 2)
-                    Makie.lines!(ax_mt2, m_val_ex; color = :tomato, linewidth = 2, linestyle = :dash)
-                    on(m_val_ex) do _; autolimits!(ax_mt2); end
-                    Makie.linkxaxes!(ax_loss, ax_mt2)
+    if !isempty(monitor_names)
+        for m in monitor_names
+            v_tr = vec(getfield(current_ŷ_val, m))  # ? it was set to train before? bug?
+            m_tr = vec(getfield(current_ŷ_train, m))
+        
+            if length(v_tr) > 1 
+                for q in [0.25, 0.5, 0.75]
+                    push!(val_monitor[m][Symbol("q", string(Int(q*100)))][], Point2f(epoch, quantile(v_tr, q)))
+                    push!(train_monitor[m][Symbol("q", string(Int(q*100)))][], Point2f(epoch, quantile(m_tr, q)))
+                    notify(val_monitor[m][Symbol("q", string(Int(q*100)))]) 
+                    notify(train_monitor[m][Symbol("q", string(Int(q*100)))]) 
                 end
             else
-                m_tr_ex = getfield(m_tr, :scalar)
-                m_val_ex = getfield(m_val, :scalar)
-                Makie.lines!(ax_mt2, m_tr_ex; color = :grey25, linewidth = 2, label = "Training")
-                Makie.lines!(ax_mt2, m_val_ex; color = :tomato, linewidth = 2, linestyle = :dash, label = "Validation")
-                on(m_val_ex) do _; autolimits!(ax_mt2); end
-                Makie.linkxaxes!(ax_loss, ax_mt2)
+            push!(val_monitor[m][:scalar][], Point2f(epoch, v_tr[1]))
+            push!(train_monitor[m][:scalar][], Point2f(epoch, m_tr[1]))
+            notify(val_monitor[m][:scalar])
+            notify(train_monitor[m][:scalar])
             end
-            
         end
     end
-
-    Makie.display(fig; focus_on_show = true)
+    notify(val_h_obs)
 end
+
+EasyHybrid.dashboard_figure() = Makie.current_figure()
+EasyHybrid.record_history(args...; kargs...) = Makie.record(args...; backend=Makie.current_backend(), kargs...)
+EasyHybrid.recordframe!(io) = Makie.recordframe!(io)
+EasyHybrid.save_fig(args...) = Makie.save(args...)
 
 # =============================================================================
 # Generic Dispatch Methods for Loss and Parameter Plotting
@@ -618,7 +730,7 @@ function __init__()
     @debug "setting theme_easy_hybrid"
     # hybrid_latex = merge(theme_easy_hybrid(), theme_latexfonts())
     hybrid_latex = theme_easy_hybrid()
-    set_theme!(hybrid_latex)
+    set_theme!(hybrid_latex, GLMakie=(title="EasyHybrid.jl", focus_on_show = true))
 end
 
 end

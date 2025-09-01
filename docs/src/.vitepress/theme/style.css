@@ -165,3 +165,7 @@ mjx-container > svg {
   margin: auto;
   display: inline-block;
 }
+
+.highlight-link {
+  color: var(--vp-c-brand-1);
+}

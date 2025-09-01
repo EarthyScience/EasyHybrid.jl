@@ -1,3 +1,4 @@
+# CC BY-SA 4.0
 using Pkg
 Pkg.activate("projects/Respiration_Fluxnet")
 Pkg.develop(path=pwd())

@@ -21,5 +21,8 @@ Manifest.toml
 *.nc
 *.png
 *.xlsx
+*.mp4
+*.jld2
 /projects/SOC_PBM/data/
->>>>>>> 9fe024f7b7587264ed149cb6e65bcf55379541d8
+!markus_reichstein.png
+!Bernhard_Ahrens.png
