@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## v0.1.2 - 2025-08-31
+## v0.1.3 - 2025-09-01
 
 - example of apparent and intrinsic 'true' Q10 with constant and varying Q10. For ELLIS summerschool [#131](https://github.com/EarthyScience/EasyHybrid.jl/pull/131)
 - legend in trainboard for quantiles in neural parameters [#132](https://github.com/EarthyScience/EasyHybrid.jl/pull/132)
