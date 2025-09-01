@@ -14,7 +14,8 @@ end
 # start using the package
 using EasyHybrid
 using AxisKeys
-using GLMakie
+using WGLMakie # or GLMakie for additional panel 
+
 
 include("Data/load_data.jl")
 
@@ -38,30 +39,6 @@ println(names(fluxnet_data.profiles))
 
 # select timeseries data
 df = fluxnet_data.timeseries
-
-# =============================================================================
-# Targets, Forcing and Predictors definition
-# =============================================================================
-
-# Select target and forcing variables and predictors
-target_FluxPartModel = [:NEE]
-forcing_FluxPartModel = [:SW_IN, :TA]
-
-# Define predictors as NamedTuple - this automatically determines neural parameter names
-predictors = (Rb = [:SWC_shallow, :P, :WS, :sine_dayofyear, :cos_dayofyear], 
-              RUE = [:TA, :P, :WS, :SWC_shallow, :VPD, :SW_IN_POT, :dSW_IN_POT, :dSW_IN_POT_DAY])
-
-# =============================================================================
-# Parameter container for the mechanistic model
-# =============================================================================
-
-# Define parameter structure with bounds
-parameters = (
-    #            default                  lower                     upper                description
-    RUE      = ( 0.1f0,                  0.0f0,                   1.0f0 ),            # Radiation Use Efficiency [g/MJ]
-    Rb       = ( 1.0f0,                  0.0f0,                   6.0f0 ),            # Basal respiration [μmol/m²/s]
-    Q10      = ( 1.5f0,                  1.0f0,                   4.0f0 ),            # Temperature sensitivity factor [-]
-)
 
 # =============================================================================
 # Mechanistic Model Definition
@@ -90,9 +67,22 @@ function flux_part_mechanistic_model(;SW_IN, TA, RUE, Rb, Q10)
     return (;NEE, RECO, GPP, Q10, RUE)
 end
 
+# =============================================================================
+# Parameter container for the mechanistic model
+# =============================================================================
+
+# Define parameter structure with bounds
+parameters = (
+    #            default                  lower                     upper                description
+    RUE      = ( 0.1f0,                  0.0f0,                   1.0f0 ),            # Radiation Use Efficiency [g/MJ]
+    Rb       = ( 1.0f0,                  0.0f0,                   6.0f0 ),            # Basal respiration [μmol/m²/s]
+    Q10      = ( 1.5f0,                  1.0f0,                   4.0f0 ),            # Temperature sensitivity factor [-]
+)
+
+
 mech_model = construct_dispatch_functions(flux_part_mechanistic_model)
 
-out_test = mech_model(df, parameters, forcing_FluxPartModel)
+out_test = mech_model(df, parameters, [:SW_IN, :TA])
 
 # =============================================================================
 # Plot with defaults
@@ -117,15 +107,16 @@ linkxaxes!(filter(x -> x isa Makie.Axis, fig.content)...)
 # Hybrid Model Creation
 # =============================================================================
 
-# recall forcing and target variables
-forcing_FluxPartModel
-target_FluxPartModel
+# Select target and forcing variables and predictors
+target_FluxPartModel = [:NEE]
+forcing_FluxPartModel = [:SW_IN, :TA]
 
-# recall predictors
-predictors
-
-# Define global parameters (none for this model, Q10 is fixed)
+# Define global parameters
 global_param_names = [:Q10]
+
+# Define neural_params via a NamedTuple with parameters that should be estimated as neural network output, gives predictors as NamedTuple for each parameter
+predictors = (Rb = [:SWC_shallow, :P, :WS, :sine_dayofyear, :cos_dayofyear], 
+              RUE = [:TA, :P, :WS, :SWC_shallow, :VPD, :SW_IN_POT, :dSW_IN_POT, :dSW_IN_POT_DAY])
 
 # Create the hybrid model using the unified constructor
 hybrid_model = constructHybridModel(
@@ -138,7 +129,7 @@ hybrid_model = constructHybridModel(
     scale_nn_outputs=true,
     hidden_layers = [15, 15],
     activation = sigmoid,
-    input_batchnorm = true,
+    input_batchnorm = true, # normalization of predictors magnitudes 
     start_from_default = false
 )
 
@@ -151,7 +142,7 @@ ps_st = (ps, st)
 ps_st2 = deepcopy(ps_st)
 
 # Train FluxPartModel
-out_Generic = train(hybrid_model, df, (); nepochs=5, batchsize=512, opt=AdamW(0.01), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, yscale = identity, monitor_names=[:RUE, :Q10]);
+out_Generic = train(hybrid_model, df, (); nepochs=5, batchsize=512, opt=AdamW(0.01), loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, yscale = identity, monitor_names=[:RUE, :Q10])
 
 EasyHybrid.poplot(out_Generic)
 
