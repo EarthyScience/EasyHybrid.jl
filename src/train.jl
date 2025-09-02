@@ -110,6 +110,7 @@ Default output file is `trained_model.jld2` at the current working directory und
 - `hybrid_name`: Name identifier for the hybrid model (default: randomly generated 10-character string).
 - `return_model`: The model to return: `:best` for the best model, `:final` for the final model (default: `:best`).
 - `monitor_names`: A vector of monitor names to track during training (default: `[]`).
+- `folder_to_save`: Additional folder name string to append to output path (default: "").
 
 ## Visualization and UI:
 - `plotting`: Whether to generate plots during training (default: true).
@@ -141,7 +142,8 @@ function train(hybridModel, data, save_ps;
                file_name=nothing, 
                hybrid_name=randstring(10),
                return_model=:best,
-               monitor_names=[], 
+               monitor_names=[],
+               folder_to_save="",
 
                # Visualization and UI
                plotting=true, 
@@ -240,7 +242,7 @@ function train(hybridModel, data, save_ps;
     save_train_val_loss!(file_name,l_init_val, "validation_loss", 0)
 
     # save/record
-    tmp_folder = get_output_path()
+    tmp_folder = get_output_path(; folder_to_save)
     @info "Check the saved output (.png, .mp4, .jld2) from training at: $(tmp_folder)"
 
     prog = Progress(nepochs, desc="Training loss", enabled=show_progress)

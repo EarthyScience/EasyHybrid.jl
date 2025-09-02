@@ -101,7 +101,7 @@ function resolve_path(file_name)
     end
     return file_name
 end
-function get_output_path()
+function get_output_path(; folder_to_save="")
     base_path = dirname(Base.active_project())
     
     # Check if we're in a docs environment (common indicators)
@@ -114,7 +114,7 @@ function get_output_path()
     if is_docs
         return mkpath(joinpath(base_path, "build"))
     else
-        return mkpath(joinpath(base_path, "output_tmp"))
+        return mkpath(joinpath(base_path, "output_tmp"*folder_to_save))
     end
 end 
 
