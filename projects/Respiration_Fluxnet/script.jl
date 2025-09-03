@@ -33,18 +33,6 @@ println(names(fluxnet_data.profiles))
 # select timeseries data
 df = fluxnet_data.timeseries
 
-# Replace missings with NaN and convert all columns to Float64 where possible
-for col in names(df)
-    if eltype(df[!, col]) <: Union{Missing, Number}
-        df[!, col] = coalesce.(df[!, col], NaN)
-        try
-            df[!, col] = Float64.(df[!, col])
-        catch
-            # If conversion fails, leave as is
-        end
-    end
-end
-df
 
 # =============================================================================
 # Mechanistic Model Definition
@@ -103,8 +91,8 @@ hybrid_model = constructHybridModel(
     parameters,
     global_param_names,
     scale_nn_outputs=true,
-    hidden_layers = [32],
-    activation = sigmoid,
+    hidden_layers = [32, 32],
+    activation = tanh,
     input_batchnorm = true,
     start_from_default = false
 )
@@ -112,9 +100,29 @@ hybrid_model = constructHybridModel(
 # =============================================================================
 # Model Training
 # =============================================================================
-out_Generic = train(hybrid_model, df, (); nepochs=1000, batchsize=512, opt=RMSProp(0.01), 
+out_Generic = train(hybrid_model, df, (); nepochs=100, batchsize=512, opt=RMSProp(0.01), 
                     loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, 
                     yscale = identity, monitor_names=[:RUE, :Q10], patience = 50, 
                     shuffleobs = true)
 
 EasyHybrid.poplot(out_Generic)
+
+# forward model Run
+
+forward_run = hybrid_model(df, out_Generic.ps, out_Generic.st)
+
+forward_run.NEE_pred
+forward_run.GPP_pred
+forward_run.RECO_pred
+forward_run.RUE_pred
+
+# https://nrennie.rbind.io/blog/introduction-julia-r-users/
+using TidierPlots
+using WGLMakie
+beautiful_makie_theme = Attributes(
+    fonts=(;regular="CMU Serif"),
+)
+ggplot(forward_run, aes(x=:GPP_NT, y=:GPP_pred)) + geom_point() + beautiful_makie_theme
+
+idx = .!isnan.(forward_run.GPP_NT) .& .!isnan.(forward_run.GPP_pred)
+EasyHybrid.poplot(forward_run.GPP_NT[idx], forward_run.GPP_pred[idx], "GPP", xlabel = "Nighttime GPP", ylabel = "Hybrid GPP")

@@ -317,7 +317,7 @@ end
 
 # ───────────────────────────────────────────────────────────────────────────
 # Forward pass for SingleNNHybridModel (optimized, no branching)
-function (m::SingleNNHybridModel)(ds_k, ps, st)
+function (m::SingleNNHybridModel)(ds_k::KeyedArray, ps, st)
     # 1) get features
     predictors = ds_k(m.predictors) 
 
@@ -379,8 +379,23 @@ function (m::SingleNNHybridModel)(ds_k, ps, st)
     return out, (; st = st_new)
 end
 
+function (m::SingleNNHybridModel)(df::DataFrame, ps, st)
+    @warn "Only makes sense in test mode, not training!"
+
+    all_data = to_keyedArray(df)
+    x, _ = prepare_data(m, all_data)
+    out, _ = m(x, ps, LuxCore.testmode(st))
+    dfnew = copy(df)
+    for k in keys(out)
+        if length(out[k]) == size(x, 2)
+            dfnew[!, String(k) * "_pred"] = out[k]
+        end
+    end
+    return dfnew
+end
+
 # Forward pass for MultiNNHybridModel (optimized, no branching)
-function (m::MultiNNHybridModel)(ds_k, ps, st)
+function (m::MultiNNHybridModel)(ds_k::KeyedArray, ps, st)
 
     parameters = m.parameters
 
@@ -450,4 +465,19 @@ function (m::MultiNNHybridModel)(ds_k, ps, st)
     st_new = (; nn_states..., fixed = st.fixed)
 
     return out, (; st = st_new)
+end
+
+function (m::MultiNNHybridModel)(df::DataFrame, ps, st)
+    @warn "Only makes sense in test mode, not training!"
+
+    all_data = to_keyedArray(df)
+    x, _ = prepare_data(m, all_data)
+    out, _ = m(x, ps, LuxCore.testmode(st))
+    dfnew = copy(df)
+    for k in keys(out)
+        if length(out[k]) == size(x, 2)
+            dfnew[!, String(k) * "_pred"] = out[k]
+        end
+    end
+    return dfnew
 end
