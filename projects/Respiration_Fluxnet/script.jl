@@ -23,7 +23,13 @@ include("Data/load_data.jl")
 # copy data to data/data20240123/ from here /Net/Groups/BGI/work_4/scratch/jnelson/4Sinikka/data20240123
 # or adjust the path to /Net/Groups/BGI/work_4/scratch/jnelson/4Sinikka/data20240123 + FluxNetSite
 
-fluxnet_data = load_fluxnet_nc(joinpath(project_path, "Data", "data20240123", "US-SRG.nc"), timevar="date")
+site = "US-SRG"
+
+fluxnet_data = load_fluxnet_nc(joinpath(project_path, "Data", "data20240123", "$site.nc"), timevar="date")
+
+fluxnet_data.timeseries.dayofyear = dayofyear.(fluxnet_data.timeseries.time)
+fluxnet_data.timeseries.sine_dayofyear = sin.(fluxnet_data.timeseries.dayofyear)
+fluxnet_data.timeseries.cos_dayofyear = cos.(fluxnet_data.timeseries.dayofyear)
 
 # explore data structure
 println(names(fluxnet_data.timeseries))
@@ -100,10 +106,28 @@ hybrid_model = constructHybridModel(
 # =============================================================================
 # Model Training
 # =============================================================================
-out_Generic = train(hybrid_model, df, (); nepochs=100, batchsize=512, opt=RMSProp(0.01), 
-                    loss_types=[:nse, :mse], training_loss=:nse, random_seed=123, 
-                    yscale = identity, monitor_names=[:RUE, :Q10], patience = 50, 
-                    shuffleobs = true)
+
+for site in ["US-SRG"]
+    fluxnet_data = load_fluxnet_nc(joinpath(project_path, "Data", "data20240123", "$site.nc"), timevar="date")
+    df = fluxnet_data.timeseries
+
+    out_Generic = train(
+        hybrid_model, df, ();
+        nepochs = 100,
+        batchsize = 512,
+        opt = RMSProp(0.01),
+        loss_types = [:nse, :mse],
+        training_loss = :nse,
+        random_seed = 123,
+        yscale = identity,
+        monitor_names = [:RUE, :Q10],
+        patience = 50,
+        shuffleobs = true,
+        hybrid_name = site,
+        plotting = false,
+        folder_to_save = site
+    )
+end
 
 EasyHybrid.poplot(out_Generic)
 
