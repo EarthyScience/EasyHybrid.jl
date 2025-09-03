@@ -49,19 +49,19 @@ Create a scatter plot comparing predicted vs observed values with performance me
 # Returns
 - Updates the axis with the plot and adds modeling efficiency to title
 """
-function EasyHybrid.poplot(pred, obs, title_prefix)
+function EasyHybrid.poplot(pred, obs, title_prefix; xlabel="Predicted", ylabel="Observed")
 
     fig = Makie.Figure()
     ax = Makie.Axis(fig[1, 1])
 
-    EasyHybrid.plot_pred_vs_obs!(ax, pred, obs, title_prefix)
+    EasyHybrid.plot_pred_vs_obs!(ax, pred, obs, title_prefix; xlabel, ylabel)
 
     return fig
 
 end
 
 """
-    plot_pred_vs_obs!(fig, pred, obs, title_prefix, row::Int, col::Int)
+    plot_pred_vs_obs!(fig, pred, obs, title_prefix, row::Int, col::Int; xlabel="Predicted", ylabel="Observed")
 
 Add a prediction vs observed plot to a figure at the specified position.
 
@@ -76,19 +76,19 @@ Add a prediction vs observed plot to a figure at the specified position.
 # Returns
 - Updated figure with the new plot
 """
-function EasyHybrid.poplot!(fig, pred, obs, title_prefix, row::Int, col::Int)
+function EasyHybrid.poplot!(fig, pred, obs, title_prefix, row::Int, col::Int; xlabel="Predicted", ylabel="Observed")
     ax = Makie.Axis(fig[row, col])
-    EasyHybrid.plot_pred_vs_obs!(ax, pred, obs, title_prefix)
+    EasyHybrid.plot_pred_vs_obs!(ax, pred, obs, title_prefix; xlabel, ylabel)
 end
 
-function EasyHybrid.plot_pred_vs_obs!(ax, pred, obs, title_prefix)
+function EasyHybrid.plot_pred_vs_obs!(ax, pred, obs, title_prefix; xlabel="Predicted", ylabel="Observed")
     ss_res = sum((obs .- pred).^2)
     ss_tot = sum((obs .- mean(obs)).^2)
     modeling_efficiency = 1 - ss_res / ss_tot
 
     ax.title = "$title_prefix\nModeling Efficiency: $(round(modeling_efficiency, digits=3))"
-    ax.xlabel = "Predicted"
-    ax.ylabel = "Observed"
+    ax.xlabel = xlabel
+    ax.ylabel = ylabel
     ax.aspect = 1
 
     Makie.scatter!(ax, pred, obs, color=:purple, alpha=0.6, markersize=8)
