@@ -382,6 +382,15 @@ end
 function (m::SingleNNHybridModel)(df::DataFrame, ps, st)
     @warn "Only makes sense in test mode, not training!"
 
+    
+    # Process numeric or missing-containing columns
+    for col in names(df)
+        what_type = eltype(df[!, col])
+        if what_type <: Union{Missing, Real} || what_type <: Real
+            df[!, col] = Float64.(coalesce.(df[!, col], NaN))
+        end
+    end
+
     all_data = to_keyedArray(df)
     x, _ = prepare_data(m, all_data)
     out, _ = m(x, ps, LuxCore.testmode(st))
@@ -470,8 +479,18 @@ end
 function (m::MultiNNHybridModel)(df::DataFrame, ps, st)
     @warn "Only makes sense in test mode, not training!"
 
+    # Process numeric or missing-containing columns
+    for col in names(df)
+        what_type = eltype(df[!, col])
+        if what_type <: Union{Missing, Real} || what_type <: Real
+            df[!, col] = Float64.(coalesce.(df[!, col], NaN))
+        end
+    end
+
     all_data = to_keyedArray(df)
+
     x, _ = prepare_data(m, all_data)
+    @show typeof(x)
     out, _ = m(x, ps, LuxCore.testmode(st))
     dfnew = copy(df)
     for k in keys(out)
