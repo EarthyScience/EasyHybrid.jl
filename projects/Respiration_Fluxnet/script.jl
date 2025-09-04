@@ -6,8 +6,8 @@ using Pkg
 project_path = "projects/Respiration_Fluxnet"
 Pkg.activate(project_path)
 
-Pkg.develop(path=pwd())
-Pkg.instantiate()
+#Pkg.develop(path=pwd())
+#Pkg.instantiate()
 
 # start using the package
 using EasyHybrid
@@ -25,12 +25,6 @@ include("Data/load_data.jl")
 
 site = "US-SRG"
 
-fluxnet_data = load_fluxnet_nc(joinpath(project_path, "Data", "data20240123", "$site.nc"), timevar="date")
-
-fluxnet_data.timeseries.dayofyear = dayofyear.(fluxnet_data.timeseries.time)
-fluxnet_data.timeseries.sine_dayofyear = sin.(fluxnet_data.timeseries.dayofyear)
-fluxnet_data.timeseries.cos_dayofyear = cos.(fluxnet_data.timeseries.dayofyear)
-
 # explore data structure
 println(names(fluxnet_data.timeseries))
 println(fluxnet_data.scalars)
@@ -38,7 +32,6 @@ println(names(fluxnet_data.profiles))
 
 # select timeseries data
 df = fluxnet_data.timeseries
-
 
 # =============================================================================
 # Mechanistic Model Definition
@@ -106,34 +99,74 @@ hybrid_model = constructHybridModel(
 # =============================================================================
 # Model Training
 # =============================================================================
+using OhMyThreads: @tasks
 
-for site in ["US-SRG"]
+# Set the data directory path
+data_dir = joinpath(project_path, "Data", "data20240123")
+
+# Get full paths to all *.nc files
+nc_files = filter(f -> endswith(f, ".nc") && isfile(f),
+                  readdir(data_dir; join=true))
+
+# Extract site names (filename without extension)
+sites = first.(splitext.(basename.(nc_files)))
+
+#using Base.Threads
+using CairoMakie
+@tasks for site in ["FR-Pue", "FR-LBr", "US-SRG"] # sites[randperm(length(sites))[1:3]]
     fluxnet_data = load_fluxnet_nc(joinpath(project_path, "Data", "data20240123", "$site.nc"), timevar="date")
     df = fluxnet_data.timeseries
 
-    out_Generic = train(
-        hybrid_model, df, ();
-        nepochs = 100,
-        batchsize = 512,
-        opt = RMSProp(0.01),
-        loss_types = [:nse, :mse],
-        training_loss = :nse,
-        random_seed = 123,
-        yscale = identity,
-        monitor_names = [:RUE, :Q10],
-        patience = 50,
-        shuffleobs = true,
-        hybrid_name = site,
-        plotting = false,
-        folder_to_save = site
-    )
+    # only good quality data: a record is a measured value (*_QC=0), or the quality level of the gap-filling that was used for that record (*_QC=1 better, *_QC=3 worse quality)
+    df = df[df.NEE_QC .== 0, :]
+
+    # Check number of non-NaN values in predictors, forcing, and target
+    predictor_cols = unique(vcat(values(predictors)...))
+    forcing_cols = forcing_FluxPartModel
+    target_cols = target_FluxPartModel
+
+    println("Site: $site")
+    train_on_site = true
+    for col in vcat(predictor_cols, forcing_cols, target_cols)
+        n_nonan = sum(.!ismissing.(df[!, col]))
+        if n_nonan < 1000
+            println("Column $col has only $n_nonan non-NaN values")
+            train_on_site = false
+        end
+    end
+
+    if train_on_site
+        out_Generic = train(
+            hybrid_model, df, ();
+            nepochs = 3,
+            batchsize = 512,
+            opt = RMSProp(0.01),
+            loss_types = [:nse, :mse],
+            training_loss = :nse,
+            random_seed = 123,
+            yscale = identity,
+            monitor_names = [:RUE, :Q10],
+            patience = 50,
+            shuffleobs = true,
+            plotting = false,
+            show_progress = false,
+            hybrid_name = "",
+            folder_to_save = "_$site"
+        )
+    end
 end
 
-EasyHybrid.poplot(out_Generic)
+# read the trained weights and biases from disk
+site = "US-SRG"
+output_file = joinpath(@__DIR__, "output_tmp_$site/best_model.jld2")
+all_groups = get_all_groups(output_file)
+
+psst, _ = load_group(output_file, :HybridModel_MultiNNHybridModel)
+
+ps_learned, st_learned = psst[end][1], psst[end][2]
 
 # forward model Run
-
-forward_run = hybrid_model(df, out_Generic.ps, out_Generic.st)
+forward_run = hybrid_model(df, ps_learned, st_learned)
 
 forward_run.NEE_pred
 forward_run.GPP_pred
@@ -143,9 +176,8 @@ forward_run.RUE_pred
 # https://nrennie.rbind.io/blog/introduction-julia-r-users/
 using TidierPlots
 using WGLMakie
-beautiful_makie_theme = Attributes(
-    fonts=(;regular="CMU Serif"),
-)
+beautiful_makie_theme = Attributes(fonts=(;regular="CMU Serif"))
+
 ggplot(forward_run, aes(x=:GPP_NT, y=:GPP_pred)) + geom_point() + beautiful_makie_theme
 
 idx = .!isnan.(forward_run.GPP_NT) .& .!isnan.(forward_run.GPP_pred)

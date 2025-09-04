@@ -88,7 +88,7 @@ function get_all_groups(filename)
     return groups
 end
 
-function resolve_path(file_name)
+function resolve_path(file_name; folder_to_save="")
     file_name = isnothing(file_name) ? "trained_model.jld2" : file_name
     if !endswith(file_name, ".jld2")
         error("This needs to be a jld2 file, please include the extension as in `file_name.jld2`")
@@ -96,7 +96,7 @@ function resolve_path(file_name)
     file_name = if isabspath(file_name)
         return file_name
     else
-        tmp_folder = get_output_path()
+        tmp_folder = get_output_path(; folder_to_save)
         return joinpath(tmp_folder, file_name)
     end
     return file_name

@@ -236,8 +236,11 @@ function train(hybridModel, data, save_ps;
     val_metric_name = first(keys(l_init_val))
     current_agg_loss = best_agg_loss  # Initialize for potential use in final logging
     
-    file_name = resolve_path(file_name)
+    file_name = resolve_path(file_name; folder_to_save)
     save_ps_st(file_name, hybridModel, ps, st, save_ps)
+    file_name_best = resolve_path("best_model.jld2"; folder_to_save)
+    save_ps_st(file_name_best, hybridModel, ps, st, save_ps)
+    
     save_train_val_loss!(file_name,l_init_train, "training_loss", 0)
     save_train_val_loss!(file_name,l_init_val, "validation_loss", 0)
 
@@ -352,6 +355,7 @@ function train(hybridModel, data, save_ps;
     if return_model == :best
         ps, st = deepcopy(best_ps), deepcopy(best_st)
         @info "Returning best model from epoch $best_epoch of $nepochs epochs with best validation loss wrt $val_metric_name: $best_agg_loss"
+        save_ps_st!(file_name_best, hybridModel, ps, st, save_ps, best_epoch)
     elseif return_model == :final
         ps, st = deepcopy(ps), deepcopy(st)
         @info "Returning final model from final of $nepochs epochs with validation loss: $current_agg_loss, the best validation loss was $best_agg_loss from epoch $best_epoch wrt $val_metric_name"
