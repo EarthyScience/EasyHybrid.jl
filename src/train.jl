@@ -355,7 +355,8 @@ function train(hybridModel, data, save_ps;
     if return_model == :best
         ps, st = deepcopy(best_ps), deepcopy(best_st)
         @info "Returning best model from epoch $best_epoch of $nepochs epochs with best validation loss wrt $val_metric_name: $best_agg_loss"
-        save_ps_st!(file_name_best, hybridModel, ps, st, save_ps, best_epoch)
+        save_epoch = best_epoch == 0 ? 1 : best_epoch
+        save_ps_st!(file_name_best, hybridModel, ps, st, save_ps, save_epoch)
     elseif return_model == :final
         ps, st = deepcopy(ps), deepcopy(st)
         @info "Returning final model from final of $nepochs epochs with validation loss: $current_agg_loss, the best validation loss was $best_agg_loss from epoch $best_epoch wrt $val_metric_name"
