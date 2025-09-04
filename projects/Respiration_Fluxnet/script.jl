@@ -5,8 +5,7 @@
 using Pkg
 project_path = "projects/Respiration_Fluxnet"
 Pkg.activate(project_path)
-
-#Pkg.develop(path=pwd())
+Pkg.develop(path=pwd())
 #Pkg.instantiate()
 
 # start using the package
@@ -24,6 +23,8 @@ include("Data/load_data.jl")
 # or adjust the path to /Net/Groups/BGI/work_4/scratch/jnelson/4Sinikka/data20240123 + FluxNetSite
 
 site = "US-SRG"
+
+fluxnet_data = load_fluxnet_nc(joinpath(project_path, "Data", "data20240123", "$site.nc"), timevar="date")
 
 # explore data structure
 println(names(fluxnet_data.timeseries))
@@ -77,11 +78,10 @@ parameters = (
 target_FluxPartModel = [:NEE]
 forcing_FluxPartModel = [:SW_IN, :TA]
 
-predictors = (Rb = [:SWC_shallow, :P, :WS], 
+predictors = (Rb = [:SWC_shallow, :P, :WS, :cos_dayofyear, :sin_dayofyear], 
               RUE = [:TA, :P, :WS, :SWC_shallow, :VPD, :SW_IN_POT, :dSW_IN_POT, :dSW_IN_POT_DAY])
 
 global_param_names = [:Q10]
-
 hybrid_model = constructHybridModel(
     predictors,
     forcing_FluxPartModel,
@@ -91,7 +91,7 @@ hybrid_model = constructHybridModel(
     global_param_names,
     scale_nn_outputs=true,
     hidden_layers = [32, 32],
-    activation = tanh,
+    activation = sigmoid,
     input_batchnorm = true,
     start_from_default = false
 )
@@ -178,7 +178,7 @@ using TidierPlots
 using WGLMakie
 beautiful_makie_theme = Attributes(fonts=(;regular="CMU Serif"))
 
-ggplot(forward_run, aes(x=:GPP_NT, y=:GPP_pred)) + geom_point() + beautiful_makie_theme
+ggplot(forward_run, @aes(x=GPP_NT, y=GPP_pred)) + geom_point() + beautiful_makie_theme
 
 idx = .!isnan.(forward_run.GPP_NT) .& .!isnan.(forward_run.GPP_pred)
 EasyHybrid.poplot(forward_run.GPP_NT[idx], forward_run.GPP_pred[idx], "GPP", xlabel = "Nighttime GPP", ylabel = "Hybrid GPP")
