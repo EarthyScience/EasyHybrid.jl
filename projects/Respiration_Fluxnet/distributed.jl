@@ -147,8 +147,9 @@ selected_sites = sites
 # =============================================================================
 # Parallel training with pmap
 # =============================================================================
+using ProgressMeter
 @info "Starting parallel training on $(length(selected_sites)) site(s)…"
-results = pmap(site -> train_site(site, data_dir, PROJECT_ROOT), selected_sites)
+results = @showprogress dt=1 pmap(site -> train_site(site, data_dir, PROJECT_ROOT), selected_sites)
 
 for r in results
     if r.trained
