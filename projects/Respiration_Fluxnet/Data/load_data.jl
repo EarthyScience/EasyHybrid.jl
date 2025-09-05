@@ -44,6 +44,10 @@ function load_fluxnet_nc(path; timevar="date", timedim="time", soildim = "depth"
             df[!, Symbol(name)] = ds[name][:]
         end
 
+        df.dayofyear = dayofyear.(df.time)
+        df.sine_dayofyear = sin.(df.dayofyear)
+        df.cos_dayofyear = cos.(df.dayofyear)
+
         # -- collect scalars (0-D & length-1) -------------------------------
         scalars = Dict{Symbol,Any}()
         for name in keys(ds)

@@ -65,7 +65,7 @@ end
 
 # Unified constructor that dispatches based on predictors type
 function constructHybridModel(
-    predictors::Vector,
+    predictors::Vector{Symbol},
     forcing,
     targets,
     mechanistic_model,
@@ -76,7 +76,8 @@ function constructHybridModel(
     activation = tanh,
     scale_nn_outputs = false,
     input_batchnorm = false,
-    start_from_default = true
+    start_from_default = true,
+    kwargs...
 )
     
     if !isa(parameters, AbstractHybridModel)
@@ -115,7 +116,8 @@ function constructHybridModel(
     activation::Union{Function, NamedTuple} = tanh,
     scale_nn_outputs = false,
     input_batchnorm = false,
-    start_from_default = true
+    start_from_default = true,
+    kwargs...
 )
 
     if !isa(parameters, AbstractHybridModel)
@@ -153,7 +155,31 @@ function constructHybridModel(
     return MultiNNHybridModel(NNs, predictors, forcing, targets, mechanistic_model, parameters, neural_param_names, global_param_names, fixed_param_names, scale_nn_outputs, start_from_default)
 end
 
-
+function constructHybridModel(
+    ; predictors,
+      forcing,
+      targets,
+      mechanistic_model,
+      parameters,
+      neural_param_names = nothing,
+      global_param_names,
+      kwargs...
+)
+    if predictors isa Vector{Symbol}
+        @assert neural_param_names !== nothing "Provide neural_param_names for Vector predictors"
+        return constructHybridModel(
+            predictors, forcing, targets, mechanistic_model, parameters,
+            neural_param_names, global_param_names; kwargs...
+        )
+    elseif predictors isa NamedTuple
+        return constructHybridModel(
+            predictors, forcing, targets, mechanistic_model, parameters,
+            global_param_names; kwargs...
+        )
+    else
+        throw(ArgumentError("predictors must be Vector{Symbol} or NamedTuple, got $(typeof(predictors))"))
+    end
+end
 
 # ───────────────────────────────────────────────────────────────────────────
 # Initial parameters for SingleNNHybridModel
@@ -291,7 +317,7 @@ end
 
 # ───────────────────────────────────────────────────────────────────────────
 # Forward pass for SingleNNHybridModel (optimized, no branching)
-function (m::SingleNNHybridModel)(ds_k, ps, st)
+function (m::SingleNNHybridModel)(ds_k::KeyedArray, ps, st)
     # 1) get features
     predictors = ds_k(m.predictors) 
 
@@ -353,8 +379,32 @@ function (m::SingleNNHybridModel)(ds_k, ps, st)
     return out, (; st = st_new)
 end
 
+function (m::SingleNNHybridModel)(df::DataFrame, ps, st)
+    @warn "Only makes sense in test mode, not training!"
+
+    
+    # Process numeric or missing-containing columns
+    for col in names(df)
+        what_type = eltype(df[!, col])
+        if what_type <: Union{Missing, Real} || what_type <: Real
+            df[!, col] = Float64.(coalesce.(df[!, col], NaN))
+        end
+    end
+
+    all_data = to_keyedArray(df)
+    x, _ = prepare_data(m, all_data)
+    out, _ = m(x, ps, LuxCore.testmode(st))
+    dfnew = copy(df)
+    for k in keys(out)
+        if length(out[k]) == size(x, 2)
+            dfnew[!, String(k) * "_pred"] = out[k]
+        end
+    end
+    return dfnew
+end
+
 # Forward pass for MultiNNHybridModel (optimized, no branching)
-function (m::MultiNNHybridModel)(ds_k, ps, st)
+function (m::MultiNNHybridModel)(ds_k::KeyedArray, ps, st)
 
     parameters = m.parameters
 
@@ -424,4 +474,29 @@ function (m::MultiNNHybridModel)(ds_k, ps, st)
     st_new = (; nn_states..., fixed = st.fixed)
 
     return out, (; st = st_new)
+end
+
+function (m::MultiNNHybridModel)(df::DataFrame, ps, st)
+    @warn "Only makes sense in test mode, not training!"
+
+    # Process numeric or missing-containing columns
+    for col in names(df)
+        what_type = eltype(df[!, col])
+        if what_type <: Union{Missing, Real} || what_type <: Real
+            df[!, col] = Float64.(coalesce.(df[!, col], NaN))
+        end
+    end
+
+    all_data = to_keyedArray(df)
+
+    x, _ = prepare_data(m, all_data)
+    @show typeof(x)
+    out, _ = m(x, ps, LuxCore.testmode(st))
+    dfnew = copy(df)
+    for k in keys(out)
+        if length(out[k]) == size(x, 2)
+            dfnew[!, String(k) * "_pred"] = out[k]
+        end
+    end
+    return dfnew
 end

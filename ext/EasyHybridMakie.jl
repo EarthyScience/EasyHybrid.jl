@@ -49,19 +49,19 @@ Create a scatter plot comparing predicted vs observed values with performance me
 # Returns
 - Updates the axis with the plot and adds modeling efficiency to title
 """
-function EasyHybrid.poplot(pred, obs, title_prefix)
+function EasyHybrid.poplot(pred, obs, title_prefix; xlabel="Predicted", ylabel="Observed")
 
     fig = Makie.Figure()
     ax = Makie.Axis(fig[1, 1])
 
-    EasyHybrid.plot_pred_vs_obs!(ax, pred, obs, title_prefix)
+    EasyHybrid.plot_pred_vs_obs!(ax, pred, obs, title_prefix; xlabel, ylabel)
 
     return fig
 
 end
 
 """
-    plot_pred_vs_obs!(fig, pred, obs, title_prefix, row::Int, col::Int)
+    plot_pred_vs_obs!(fig, pred, obs, title_prefix, row::Int, col::Int; xlabel="Predicted", ylabel="Observed")
 
 Add a prediction vs observed plot to a figure at the specified position.
 
@@ -76,19 +76,19 @@ Add a prediction vs observed plot to a figure at the specified position.
 # Returns
 - Updated figure with the new plot
 """
-function EasyHybrid.poplot!(fig, pred, obs, title_prefix, row::Int, col::Int)
+function EasyHybrid.poplot!(fig, pred, obs, title_prefix, row::Int, col::Int; xlabel="Predicted", ylabel="Observed")
     ax = Makie.Axis(fig[row, col])
-    EasyHybrid.plot_pred_vs_obs!(ax, pred, obs, title_prefix)
+    EasyHybrid.plot_pred_vs_obs!(ax, pred, obs, title_prefix; xlabel, ylabel)
 end
 
-function EasyHybrid.plot_pred_vs_obs!(ax, pred, obs, title_prefix)
+function EasyHybrid.plot_pred_vs_obs!(ax, pred, obs, title_prefix; xlabel="Predicted", ylabel="Observed")
     ss_res = sum((obs .- pred).^2)
     ss_tot = sum((obs .- mean(obs)).^2)
     modeling_efficiency = 1 - ss_res / ss_tot
 
     ax.title = "$title_prefix\nModeling Efficiency: $(round(modeling_efficiency, digits=3))"
-    ax.xlabel = "Predicted"
-    ax.ylabel = "Observed"
+    ax.xlabel = xlabel
+    ax.ylabel = ylabel
     ax.aspect = 1
 
     Makie.scatter!(ax, pred, obs, color=:purple, alpha=0.6, markersize=8)
@@ -314,11 +314,17 @@ function EasyHybrid.train_board(
         o_tr = getfield(train_obs, t)
 
         maxpoints = 10_000
-        if length(o_tr) > maxpoints
-            idx = rand(1:length(o_tr), maxpoints)
-            p_tr = @lift($p_tr[idx])
-            o_tr = o_tr[idx]
+        idx = @lift begin #TODO better with density plot?
+            n = length($p_tr)
+            if n > maxpoints
+                randperm(n)[1:maxpoints]
+            else
+                1:n
+            end
         end
+
+        p_tr_sub = @lift($p_tr[$idx])   # Observable
+        o_tr_sub = @lift(o_tr[$idx])    # o_val captured as constant
 
         mn, mx = extrema(filter(!isnan, o_tr))
         δd = 0.1
@@ -330,7 +336,7 @@ function EasyHybrid.train_board(
         Box(gd_tm[i][1, 1:2, Top()]; color=(:grey25, 0.1), strokevisible=false)
         Label(gd_tm[i][1, 1:2, Top()], "$(t)")
 
-        Makie.scatter!(ax_tr, p_tr, o_tr; color = :grey25, alpha = 0.6, markersize = 6)
+        Makie.scatter!(ax_tr, p_tr_sub, o_tr_sub; color = :grey25, alpha = 0.6, markersize = 6)
         Makie.lines!(ax_tr, sort(o_tr), sort(o_tr); color = :black, linestyle = :dash)
         # Validation scatter plot
         ax_val = Makie.Axis(gd_tm[i][1, 2]; aspect = 1, xlabel="Predicted", ylabel = "",
@@ -341,13 +347,19 @@ function EasyHybrid.train_board(
         p_val = getfield(val_preds, t)
         o_val = getfield(val_obs, t)
         
-        if length(o_val) > maxpoints
-            idx = rand(1:length(o_val), maxpoints)
-            p_val = @lift($p_val[idx])
-            o_val = o_val[idx]
+        val_idx = @lift begin
+            n = length($p_val)
+            if n > maxpoints
+                randperm(n)[1:maxpoints]
+            else
+                1:n
+            end
         end
 
-        Makie.scatter!(ax_val, p_val, o_val; color = :tomato, alpha = 0.6, markersize = 6)
+        p_val_sub = @lift($p_val[$val_idx])   # Observable
+        o_val_sub = @lift(o_val[$val_idx])
+
+        Makie.scatter!(ax_val, p_val_sub, o_val_sub; color = :tomato, alpha = 0.6, markersize = 6)
         Makie.lines!(ax_val, sort(o_val), sort(o_val); color = :black, linestyle = :dash)
     end
     Label(gd_tm[1][1:end, 0], "Observed", tellheight=false, rotation=pi/2)
@@ -362,14 +374,17 @@ function EasyHybrid.train_board(
         m_val = getfield(val_monitor, m)
 
         if length(m_tr) > 1
-            for (qi, q) in enumerate([0.25, 0.5, 0.75])
-                m_tr_ex = getfield(m_tr, Symbol("q", string(Int(q*100))))
-                m_val_ex = getfield(m_val, Symbol("q", string(Int(q*100))))
-                Makie.lines!(ax_mt, m_tr_ex; color = :grey25, linewidth = 2)
-                Makie.lines!(ax_mt, m_val_ex; color = :tomato, linewidth = 2, linestyle = :dash)
+            for (qi, q) in enumerate([0.75, 0.5, 0.25])
+                qntl = Symbol("q", string(Int(q*100)))
+                m_tr_ex = getfield(m_tr, qntl)
+                m_val_ex = getfield(m_val, qntl)
+                lw = q == 0.5 ? 3 : 1   # thickest for q50, thin for q25 and q75
+                Makie.lines!(ax_mt, m_tr_ex; color = :grey25, linewidth = lw, label = String(qntl))
+                Makie.lines!(ax_mt, m_val_ex; color = :tomato, linewidth = lw, linestyle = :dash)
                 on(m_val_ex) do _; autolimits!(ax_mt); end
                 Makie.linkxaxes!(ax_loss, ax_mt)
             end
+            Makie.axislegend(ax_mt; position=:lt)
         else
             m_tr_ex = getfield(m_tr, :scalar)
             m_val_ex = getfield(m_val, :scalar)
@@ -379,7 +394,6 @@ function EasyHybrid.train_board(
             on(m_val_ex) do _; autolimits!(ax_mt); end
             Makie.linkxaxes!(ax_loss, ax_mt)
         end
-        
     end
     display(fig)
 end

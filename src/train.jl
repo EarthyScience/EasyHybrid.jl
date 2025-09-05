@@ -16,7 +16,7 @@ Split data into training and validation sets, either randomly or by grouping by 
 - `(x_train, y_train)`: Training data tuple
 - `(x_val, y_val)`: Validation data tuple
 """
-function split_data(data, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
+function split_data(data::Union{DataFrame, KeyedArray}, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
     
     data_ = prepare_data(hybridModel, data)
     # all the KeyedArray thing!
@@ -52,6 +52,10 @@ function split_data(data, hybridModel; split_by_id=nothing, shuffleobs=false, sp
     return (x_train, y_train), (x_val, y_val)
 end
 
+function split_data(data::Tuple, hybridModel; kwargs...)
+    return data
+end
+
 # beneficial for plotting based on type TrainResults?
 struct TrainResults
     train_history
@@ -63,6 +67,8 @@ struct TrainResults
     val_diffs
     ps
     st
+    best_epoch
+    best_loss
 end
 
 """
@@ -104,6 +110,7 @@ Default output file is `trained_model.jld2` at the current working directory und
 - `hybrid_name`: Name identifier for the hybrid model (default: randomly generated 10-character string).
 - `return_model`: The model to return: `:best` for the best model, `:final` for the final model (default: `:best`).
 - `monitor_names`: A vector of monitor names to track during training (default: `[]`).
+- `folder_to_save`: Additional folder name string to append to output path (default: "").
 
 ## Visualization and UI:
 - `plotting`: Whether to generate plots during training (default: true).
@@ -113,8 +120,8 @@ Default output file is `trained_model.jld2` at the current working directory und
 function train(hybridModel, data, save_ps; 
                # Core training parameters
                nepochs=200, 
-               batchsize=10, 
-               opt=Adam(0.01), 
+               batchsize=64, 
+               opt=AdamW(0.01), 
                patience=typemax(Int),
                
                # Loss and evaluation
@@ -135,12 +142,14 @@ function train(hybridModel, data, save_ps;
                file_name=nothing, 
                hybrid_name=randstring(10),
                return_model=:best,
-               monitor_names=[], 
+               monitor_names=[],
+               folder_to_save="",
 
                # Visualization and UI
                plotting=true, 
                show_progress=true,
-               yscale=log10)
+               yscale=log10,
+               kwargs...)
                
     #! check if the EasyHybridMakie extension is loaded.
     ext = Base.get_extension(@__MODULE__, :EasyHybridMakie)
@@ -227,13 +236,16 @@ function train(hybridModel, data, save_ps;
     val_metric_name = first(keys(l_init_val))
     current_agg_loss = best_agg_loss  # Initialize for potential use in final logging
     
-    file_name = resolve_path(file_name)
+    file_name = resolve_path(file_name; folder_to_save)
     save_ps_st(file_name, hybridModel, ps, st, save_ps)
+    file_name_best = resolve_path("best_model.jld2"; folder_to_save)
+    save_ps_st(file_name_best, hybridModel, ps, st, save_ps)
+    
     save_train_val_loss!(file_name,l_init_train, "training_loss", 0)
     save_train_val_loss!(file_name,l_init_val, "validation_loss", 0)
 
     # save/record
-    tmp_folder = get_output_path()
+    tmp_folder = get_output_path(; folder_to_save)
     @info "Check the saved output (.png, .mp4, .jld2) from training at: $(tmp_folder)"
 
     prog = Progress(nepochs, desc="Training loss", enabled=show_progress)
@@ -343,6 +355,8 @@ function train(hybridModel, data, save_ps;
     if return_model == :best
         ps, st = deepcopy(best_ps), deepcopy(best_st)
         @info "Returning best model from epoch $best_epoch of $nepochs epochs with best validation loss wrt $val_metric_name: $best_agg_loss"
+        save_epoch = best_epoch == 0 ? 1 : best_epoch
+        save_ps_st!(file_name_best, hybridModel, ps, st, save_ps, save_epoch)
     elseif return_model == :final
         ps, st = deepcopy(ps), deepcopy(st)
         @info "Returning final model from final of $nepochs epochs with validation loss: $current_agg_loss, the best validation loss was $best_agg_loss from epoch $best_epoch wrt $val_metric_name"
@@ -384,7 +398,9 @@ function train(hybridModel, data, save_ps;
         train_diffs,
         val_diffs,
         ps,
-        st
+        st,
+        best_epoch,
+        best_agg_loss
     )
 end
 
@@ -509,20 +525,20 @@ function prepare_data(hm, data::KeyedArray)
         # subset to only the cols we care about
         sdf = data[!, col_to_select]
     
+        mapcols(col -> replace!(col, missing => NaN), sdf; cols = names(sdf, Union{Missing, Real}))
+
         # Separate predictor/forcing vs. target columns
         predforce_cols = setdiff(col_to_select, targets)
-        
+    
         # For each row, check if *any* predictor/forcing is missing
-        mask_missing_predforce = map(row -> any(ismissing, row), eachrow(sdf[:, predforce_cols]))
+        mask_missing_predforce = map(row -> any(isnan, row), eachrow(sdf[:, predforce_cols]))
         
         # For each row, check if *at least one* target is present (i.e. not all missing)
-        mask_at_least_one_target = map(row -> any(!ismissing, row), eachrow(sdf[:, targets]))
+        mask_at_least_one_target = map(row -> any(!isnan, row), eachrow(sdf[:, targets]))
         
         # Keep rows where predictors/forcings are *complete* AND there's some target present
         keep = .!mask_missing_predforce .& mask_at_least_one_target
         sdf = sdf[keep, col_to_select]
-    
-        mapcols(col -> replace!(col, missing => NaN), sdf; cols = names(sdf, Union{Missing, Real}))
     
         # Convert to Float32 and to your keyed array
         ds_keyed = to_keyedArray(Float32.(sdf))
