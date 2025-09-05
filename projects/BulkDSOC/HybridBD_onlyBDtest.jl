@@ -24,7 +24,7 @@ results_dir = joinpath(@__DIR__, "eval");
 raw = CSV.read(joinpath(@__DIR__, "data/lucas_preprocessed.csv"), DataFrame; normalizenames=true);
 raw = dropmissing(raw); # to be discussed, as now train.jl seems to allow training with sparse data
 raw .= Float32.(raw);
-df = raw
+df = raw;
 
 # mechanistic model
 function BD_model(; SOCconc, oBD, mBD)
@@ -35,8 +35,8 @@ end
 # param bounds
 parameters = (
     SOCconc = (0.01f0, 0.0f0, 1.0f0),   # fraction
-    oBD     = (1.30f0, 0.90f0, 1.80f0),  # g/cm^3
-    mBD     = (1.50f0, 0.80f0, 2.0f0),  # global
+    oBD     = (0.20f0, 0.05f0, 0.40f0),  # g/cm^3
+    mBD     = (1.20f0, 0.75f0, 2.0f0),  # global
 )
 
 # define param for hybrid model

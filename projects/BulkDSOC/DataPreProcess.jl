@@ -5,18 +5,19 @@ using EasyHybrid.MLUtils
 
 # ? move the `csv` file into the `BulkDSOC/data` folder (create folder)
 df_o = CSV.read(joinpath(@__DIR__, "./data/lucas_overlaid.csv"), DataFrame, normalizenames=true)
-println(size(df_o))
+println(size(df_o));
+
+## target: BD g/cm3, SOCconc g/kg, CF [0,1]
+target_names = [:BD, :SOCconc, :CF, :SOCdensity];
+rename!(df_o, :bulk_density_fe => :BD, :soc => :SOCconc, :coarse_vol => :CF); # rename as in hybrid model
+df_o[!, :SOCconc] .= df_o[!, :SOCconc] ./ 1000; # convert to fraction, [0,1]
+df_o[!,:SOCdensity] = df_o.BD .* df_o.SOCconc .* (1 .- df_o.CF); # SOCdensity g/cm3
 
 coords = collect(zip(df_o.lat, df_o.lon))
 
-using Rasters
-
-zarr_path = "/Net/Groups/BGI/scratch/HYCO/npp.zarr/"
-data = Raster(zarr_path)
-
 # t clean covariates
-names_cov = Symbol.(names(df_o))[19:end]
-names_meta = Symbol.(names(df_o))[1:18]
+names_cov = Symbol.(names(df_o))[19:end-1]
+# names_meta = Symbol.(names(df_o))[1:18]
 
 # Fix soilsuite and cropland extent columns
 for col in names_cov
@@ -66,18 +67,8 @@ names_cov = filter(x -> !(x in cols_to_drop_col), names_cov) # remove cols-to-dr
 println(size(df_o))
 
 
-df = df_o[:, [:bulk_density_fe, :soc, :coarse_vol, names_cov...]]
+df = df_o[:, [:BD, :SOCconc, :CF, :SOCdensity, names_cov...]];
 
-# ? match target_names
-rename!(df, :bulk_density_fe => :BD, :soc => :SOCconc, :coarse_vol => :CF) # rename as in hybrid model
-# BD g/cm3, SOCconc g/kg, CF [0,1]
-
-df[:, :SOCconc] .= df[:, :SOCconc] ./ 1000 # convert to fraction
-
-# ? calculate SOC density
-df[!,:SOCdensity] = df.BD .* df.SOCconc .* (1 .- df.CF) # SOCdensity ton/m3
-target_names = [:BD, :SOCconc, :CF, :SOCdensity]
-# df[:, target_names] = replace.(df[:, target_names], missing => NaN) # replace missing with NaN
 
 # for col in names_cov # to check covairate distribution
 #     println(string(col)[1:10], ' ', round(std(df[:, col]); digits=2), ' ', round(mean(df[:, col]); digits=2))
@@ -92,9 +83,19 @@ end
 df[:, names_cov] .= (df[:, names_cov] .- means') ./ stds'
 
 println(size(df))
+df.row_id = 1:nrow(df);
+CSV.write(joinpath(@__DIR__, "data/lucas_preprocessed.csv"), df)
 
-# CSV.write(joinpath(@__DIR__, "data/lucas_preprocessed.csv"), df)
+# split train and test
+raw_val = dropmissing(df, targets);
+Random.seed!(42);
+eligible = raw_val.row_id;
+train_ids, val_ids = splitobs(collect(eligible); at=0.8, shuffle=true);
+test  = df[in.(raw.row_id, Ref(val_ids)), :];
+train = df[.!in.(raw.row_id, Ref(val_ids)), :];
 
+CSV.write(joinpath(@__DIR__, "data/lucas_train.csv"), train)
+CSV.write(joinpath(@__DIR__, "data/lucas_test.csv"), test)
 
 # plot BD vs SOCconc
 bd_lims = extrema(skipmissing(df[:, "BD"]))      
@@ -115,7 +116,8 @@ savefig(plt, joinpath(@__DIR__, "./eval/00_truth_BD.vs.SOCconc.png"))
 
 # check distribution of BD, SOCconc, CF
 for col in ["BD", "SOCconc", "CF"]
-    values = log10.(df[:, col])
+    # values = log10.(df[:, col])
+    values = df_o[:, col]
     histogram(
         values;
         bins = 50,
