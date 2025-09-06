@@ -87,12 +87,12 @@ df.row_id = 1:nrow(df);
 CSV.write(joinpath(@__DIR__, "data/lucas_preprocessed.csv"), df)
 
 # split train and test
-raw_val = dropmissing(df, targets);
+raw_val = dropmissing(df, target_names);
 Random.seed!(42);
 eligible = raw_val.row_id;
 train_ids, val_ids = splitobs(collect(eligible); at=0.8, shuffle=true);
-test  = df[in.(raw.row_id, Ref(val_ids)), :];
-train = df[.!in.(raw.row_id, Ref(val_ids)), :];
+test  = df[in.(df.row_id, Ref(val_ids)), :];
+train = df[.!in.(df.row_id, Ref(val_ids)), :];
 
 CSV.write(joinpath(@__DIR__, "data/lucas_train.csv"), train)
 CSV.write(joinpath(@__DIR__, "data/lucas_test.csv"), test)
