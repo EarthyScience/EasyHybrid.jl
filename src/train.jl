@@ -53,7 +53,10 @@ function split_data(data::Union{DataFrame, KeyedArray}, hybridModel; split_by_id
 end
 
 function split_data(data::Tuple, hybridModel; kwargs...)
-    return data
+    train_all, val_all = data
+    x_train, y_train = prepare_data(hybridModel, train_all)
+    x_val, y_val = prepare_data(hybridModel, val_all)
+    return (x_train, y_train), (x_val, y_val)
 end
 
 # beneficial for plotting based on type TrainResults?
