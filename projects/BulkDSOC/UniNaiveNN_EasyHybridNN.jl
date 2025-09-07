@@ -23,6 +23,13 @@ testid = "01_univariate"
 results_dir = joinpath(@__DIR__, "eval");
 
 targets = [:BD, :CF, :SOCconc, :SOCdensity];
+# scalers for targets, to bring them to similar range ~[0,1]
+scalers = Dict(
+    :SOCconc   => 1.8,
+    :CF        => 2.2,
+    :BD        => 0.53,
+    :SOCdensity => 2.5,
+);
 Random.seed!(42);
 
 train_df = CSV.read(joinpath(@__DIR__, "data/lucas_train.csv"), DataFrame; normalizenames=true)
@@ -54,6 +61,8 @@ activations = [relu, tanh, swish, gelu];
 best_models = Dict{Symbol, NamedTuple}()
 for tgt in targets
     @info "==== target: $tgt ===="
+    train_df[!, tgt] .= train_df[!, tgt] .* scalers[tgt]
+    test_df[!, tgt]  .= test_df[!, tgt] .* scalers[tgt]
 
     # save the grid results
     # results = Vector{Tuple{String,Int,Float64,String,Float64,Float64,Int}}() # (h, bs, lr, act, r2, mse, best_epoch)
@@ -63,7 +72,6 @@ for tgt in targets
     best_r2 = -Inf
     best_bundle = nothing  # to store (ps, st, model, val_obs_pred DataFrame, meta)
 
-    
     # as well as the validation index, so that we could recover the train, test split that created the
     # models. and we could also visualize later.
 
@@ -140,14 +148,15 @@ for tgt in targets
 
 end
 
-val_tables = Dict{Symbol,DataFrame}()
+val_tables = Dict{Symbol,Vector{Float64}}()
 best_meta  = Dict{Symbol,NamedTuple}()
 
 for tname in targets
     jld = joinpath(results_dir, "best_model_$(tname).jld2")
     @assert isfile(jld) "Missing $(jld). Did you train & save best model for $(tname)?"
     @load jld val_obs_pred meta
-    val_tables[tname] = val_obs_pred
+    val_tables[Symbol("$(tname)_pred")] = val_obs_pred[:, Symbol("$(tname)_pred")]./ scalers[tname]
+    val_tables[tname] = val_obs_pred[:, tname]./ scalers[tname]
     best_meta[tname]  = meta
 end
 
@@ -162,9 +171,10 @@ end
 
 # accuracy plots for SOCconc, BD, CF in original space
 for tname in targets
-    y_val_true = val_tables[tname][:, tname]
-    y_val_pred = val_tables[tname][:, Symbol("$(tname)_pred")]
-    @assert all(in(Symbol.(names(df_out))).([tname, Symbol("$(tname)_pred")])) "Expected columns $(tname) and $(tname)_pred in saved val table."
+    y_val_true = val_tables[:, tname]
+    y_val_pred = val_tables[:, Symbol("$(tname)_pred")]
+
+    # @assert all(in(Symbol.(names(df_out))).([tname, Symbol("$(tname)_pred")])) "Expected columns $(tname) and $(tname)_pred in saved val table."
 
     r2, mse = r2_mse(y_val_true, y_val_pred)
 
@@ -183,8 +193,8 @@ for tname in targets
 end
 
 # MTD SOCdensity
-socdensity_pred = val_tables[:SOCconc][:, :SOCconc_pred] .* val_tables[:BD][:, :BD_pred] .* (1 .- val_tables[:CF][:, :CF_pred]);
-socdensity_true = val_tables[:SOCdensity][:, :SOCdensity]
+socdensity_pred = val_tables[:SOCconc_pred] .* val_tables[:BD_pred] .* (1 .- val_tables[:CF_pred]);
+socdensity_true = val_tables[:SOCdensity]
 r2_sd, mse_sd = r2_mse(socdensity_true, socdensity_pred);
 plt = histogram2d(
     socdensity_pred; socdensity_true, 
