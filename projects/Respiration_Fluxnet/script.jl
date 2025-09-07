@@ -78,8 +78,8 @@ parameters = (
 target_FluxPartModel = [:NEE]
 forcing_FluxPartModel = [:SW_IN, :TA]
 
-predictors = (Rb = [:SWC_shallow, :P, :cos_dayofyear, :sine_dayofyear, :cos_WS, :sine_WS], 
-              RUE = [:TA, :P, :cos_WS, :sine_WS, :SWC_shallow, :VPD, :SW_IN_POT, :dSW_IN_POT, :dSW_IN_POT_DAY])
+predictors = (Rb = [:SWC_shallow, :P, :cos_dayofyear, :sine_dayofyear, :WS], 
+              RUE = [:TA, :P, :WS, :SWC_shallow, :VPD, :SW_IN_POT, :dSW_IN_POT, :dSW_IN_POT_DAY])
 
 global_param_names = [:Q10]
 hybrid_model = constructHybridModel(
