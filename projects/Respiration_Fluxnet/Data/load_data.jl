@@ -48,9 +48,6 @@ function load_fluxnet_nc(path; timevar="date", timedim="time", soildim = "depth"
         df.sine_dayofyear = sin.(df.dayofyear)
         df.cos_dayofyear = cos.(df.dayofyear)
 
-        df.sine_WS = sin.(df.WS)
-        df.cos_WS = cos.(df.WS)
-
         # Group keys
         df.year = year.(df.time)
         df.doy  = dayofyear.(df.time)
@@ -70,7 +67,7 @@ function load_fluxnet_nc(path; timevar="date", timedim="time", soildim = "depth"
         end
 
         # Ensure NIGHT is Bool where present (keeps missings to be skipped later)
-        # k = fraction of nighttime among rows with non-missing NEE
+        # k = fraction of daytime hours among rows with non-missing NEE
         k_fun = (nee, night) -> begin
             valid = .!ismissing.(nee) .& .!ismissing.(night)
             if !any(valid)
@@ -79,7 +76,7 @@ function load_fluxnet_nc(path; timevar="date", timedim="time", soildim = "depth"
             n_night = sum(night[valid] .== true)
             n_day   = sum(night[valid] .== false)
             den = n_night + n_day
-            den == 0 ? missing : n_night / den
+            den == 0 ? missing : n_day / den
         end
 
         daily_stats = combine(grouped,
@@ -92,6 +89,11 @@ function load_fluxnet_nc(path; timevar="date", timedim="time", soildim = "depth"
             ((needay - neenight)*k),
             daily_stats.NEE_DAY, daily_stats.NEE_NIGHT, daily_stats.k
         )
+
+        daily_stats.GPP_prox2 = map((needay, neenight, k) ->
+        ((needay*k - neenight*(1-k))),
+        daily_stats.NEE_DAY, daily_stats.NEE_NIGHT, daily_stats.k
+    )
 
         # join back into df
         df = leftjoin(df, daily_stats, on = [:year, :doy])

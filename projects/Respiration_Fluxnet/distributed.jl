@@ -44,16 +44,16 @@ end
     # Parameter container and hybrid model constructor (shared constants)
     # =============================================================================
     parameters = (
-        RUE = (0.1f0, 0.0f0, 1.0f0),
-        Rb  = (1.0f0, 0.0f0, 10.0f0),
-        Q10 = (1.5f0, 0.5f0, 5.0f0),
+        RUE = (0.1f0, 0.0f0, 2.0f0),
+        Rb  = (1.0f0, 0.0f0, 20.0f0),
+        Q10 = (1.5f0, 1.0f0, 5.0f0),
     )
 
     target_FluxPartModel   = [:NEE]
     forcing_FluxPartModel  = [:SW_IN, :TA]
     predictors = (
-        Rb  = [:SWC_shallow, :P, :sine_WS, :cos_WS, :NEE_NIGHT],
-        RUE = [:TA, :P, :sine_WS, :cos_WS, :SWC_shallow, :VPD, :SW_IN_POT, :dSW_IN_POT, :dSW_IN_POT_DAY, :GPP_prox],
+        Rb  = [:SWC_shallow, :P, :WS, :NEE_NIGHT],
+        RUE = [:TA, :P, :WS, :SWC_shallow, :VPD, :SW_IN_POT, :dSW_IN_POT, :dSW_IN_POT_DAY, :GPP_prox],
     )
     global_param_names = [:Q10]
 
@@ -66,7 +66,7 @@ end
         global_param_names;
         scale_nn_outputs = true,
         hidden_layers    = [32, 32],
-        activation       = sigmoid,
+        activation       = tanh,
         input_batchnorm  = true,
         start_from_default = true,
     )
@@ -151,14 +151,6 @@ using ProgressMeter
 @info "Starting parallel training on $(length(selected_sites)) site(s)…"
 results = @showprogress dt=1 pmap(site -> train_site(site, data_dir, PROJECT_ROOT), selected_sites)
 
-for r in results
-    if r.trained
-        @info "✓ Trained $(r.site) → $(r.out_folder)"
-    else
-        @warn "✗ Skipped $(r.site): $(get(r, :reason, "unknown reason"))"
-    end
-end
-
 # =============================================================================
 # Post-processing / forward run (on master)
 # =============================================================================
@@ -166,14 +158,11 @@ using AxisKeys     # only for your exploration later
 using CairoMakie
 using TidierPlots
 
-# Rebuild the model on master too
-hybrid_model = make_hybrid_model()
-
 # Load one site’s best model (consistent path with training)
 dfQ10 = DataFrame()  # initialize empty DataFrame
 
 for site in selected_sites
-    output_file = joinpath(PROJECT_ROOT, "output_tmpoutput_tmp_$(site)", "trained_model.jld2")
+    output_file = joinpath(PROJECT_ROOT, "output_tmp_$(site)", "trained_model.jld2")
 
     if !isfile(output_file)
         @warn "Output file does not exist for site $site, skipping."
@@ -192,31 +181,13 @@ for site in selected_sites
     push!(dfQ10, (site = site, Q10 = q10, MAT = MAT))
 end
 
-using TidierPlots
 beautiful_makie_theme = Attributes(fonts=(; regular="CMU Serif"))
-ggplot(dfQ10, aes(x=:MAT, y=:Q10)) + geom_point() + beautiful_makie_theme
-
-psst, _ = load_group(output_file, :HybridModel_MultiNNHybridModel)
-ps_learned, st_learned = psst[end][1], psst[end][2]
-
-# Prepare input dataframe for forward run
-fluxnet_data = load_fluxnet_nc(joinpath(PROJECT_ROOT, "Data", "data20240123", "$site.nc"); timevar="date")
-df = fluxnet_data.timeseries
-
-ggplot(df, aes(x=:time, y=:GPP_prox)) + geom_line() + beautiful_makie_theme
-ggplot(df, aes(x=:time, y=:NEENIGHT)) + geom_line() + beautiful_makie_theme
-
-
-forward_run = hybrid_model(df, ps_learned, st_learned)
-
-forward_run.NEE_pred
-
-# Quick diagnostics (plots are optional)
-beautiful_makie_theme = Attributes(fonts=(; regular="CMU Serif"))
-ggplot(forward_run, aes(x=:GPP_NT, y=:GPP_pred)) + geom_point() + beautiful_makie_theme
-
-idx = .!isnan.(forward_run.GPP_NT) .& .!isnan.(forward_run.GPP_pred)
-EasyHybrid.poplot(forward_run.GPP_NT[idx], forward_run.GPP_pred[idx], "GPP";
-    xlabel = "Nighttime GPP", ylabel = "Hybrid GPP")
+Q10_vs_MAT = ggplot(dfQ10, aes(x=:MAT, y=:Q10)) + geom_point() + beautiful_makie_theme
+if !isinteractive()
+    savefig(Q10_vs_MAT, "Q10_vs_MAT.png")
+end
 
 rmprocs(workers())
+if !isinteractive()
+    exit()
+end
