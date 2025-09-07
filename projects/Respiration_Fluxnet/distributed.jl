@@ -37,7 +37,7 @@ end
         GPP  = SW_IN .* RUE ./ 12.011f0          # µmol/m²/s
         RECO = Rb .* Q10 .^ (0.1f0 .* (TA .- 15.0f0))
         NEE  = RECO .- GPP
-        return (; NEE, RECO, GPP, Q10, RUE)
+        return (; NEE, RECO, GPP, Q10, RUE, Rb)
     end
 
     # =============================================================================
@@ -45,15 +45,15 @@ end
     # =============================================================================
     parameters = (
         RUE = (0.1f0, 0.0f0, 1.0f0),
-        Rb  = (1.0f0, 0.0f0, 6.0f0),
-        Q10 = (1.5f0, 1.0f0, 4.0f0),
+        Rb  = (1.0f0, 0.0f0, 10.0f0),
+        Q10 = (1.5f0, 0.5f0, 5.0f0),
     )
 
     target_FluxPartModel   = [:NEE]
     forcing_FluxPartModel  = [:SW_IN, :TA]
     predictors = (
-        Rb  = [:SWC_shallow, :P, :WS],
-        RUE = [:TA, :P, :WS, :SWC_shallow, :VPD, :SW_IN_POT, :dSW_IN_POT, :dSW_IN_POT_DAY],
+        Rb  = [:SWC_shallow, :P, :sine_WS, :cos_WS, :NEE_NIGHT],
+        RUE = [:TA, :P, :sine_WS, :cos_WS, :SWC_shallow, :VPD, :SW_IN_POT, :dSW_IN_POT, :dSW_IN_POT_DAY, :GPP_prox],
     )
     global_param_names = [:Q10]
 
@@ -66,9 +66,9 @@ end
         global_param_names;
         scale_nn_outputs = true,
         hidden_layers    = [32, 32],
-        activation       = tanh,
+        activation       = sigmoid,
         input_batchnorm  = true,
-        start_from_default = false,
+        start_from_default = true,
     )
 
     # =============================================================================
@@ -107,20 +107,20 @@ end
             # Train (no plotting on workers)
             train(
                 hybrid_model, df, ();
-                nepochs        = 100,
+                nepochs        = 500,
                 batchsize      = 512,
                 opt            = RMSProp(0.01),
                 loss_types     = [:nse, :mse],
                 training_loss  = :nse,
                 random_seed    = 123,
                 yscale         = identity,
-                monitor_names  = [:RUE, :Q10],
-                patience       = 50,
+                monitor_names  = [:RUE, :Q10, :Rb],
+                patience       = 30,
                 shuffleobs     = true,
                 plotting       = true,
                 show_progress  = false,
                 hybrid_name    = "",
-                folder_to_save = "output_tmp_$(site)"
+                folder_to_save = "_$(site)"
             )
 
             return (site=String(site), trained=true, out_folder=out_folder)
@@ -170,16 +170,42 @@ using TidierPlots
 hybrid_model = make_hybrid_model()
 
 # Load one site’s best model (consistent path with training)
-site = "US-SRG"
-output_file = joinpath(PROJECT_ROOT, "output_tmp_$(site)", "best_model.jld2")
+dfQ10 = DataFrame()  # initialize empty DataFrame
 
-all_groups = get_all_groups(output_file)
+for site in selected_sites
+    output_file = joinpath(PROJECT_ROOT, "output_tmpoutput_tmp_$(site)", "trained_model.jld2")
+
+    if !isfile(output_file)
+        @warn "Output file does not exist for site $site, skipping."
+        continue
+    end
+    all_groups = get_all_groups(output_file)
+    preds = load_group(output_file, :predictions)
+
+    fluxnet_data = load_fluxnet_nc(joinpath(data_dir, "$site.nc"); timevar="date")
+    df = fluxnet_data.timeseries
+
+    q10 = preds["training"].Q10[1]
+    MAT = mean(skipmissing(df.TA))
+
+    # add a row to dfQ10
+    push!(dfQ10, (site = site, Q10 = q10, MAT = MAT))
+end
+
+using TidierPlots
+beautiful_makie_theme = Attributes(fonts=(; regular="CMU Serif"))
+ggplot(dfQ10, aes(x=:MAT, y=:Q10)) + geom_point() + beautiful_makie_theme
+
 psst, _ = load_group(output_file, :HybridModel_MultiNNHybridModel)
 ps_learned, st_learned = psst[end][1], psst[end][2]
 
 # Prepare input dataframe for forward run
 fluxnet_data = load_fluxnet_nc(joinpath(PROJECT_ROOT, "Data", "data20240123", "$site.nc"); timevar="date")
 df = fluxnet_data.timeseries
+
+ggplot(df, aes(x=:time, y=:GPP_prox)) + geom_line() + beautiful_makie_theme
+ggplot(df, aes(x=:time, y=:NEENIGHT)) + geom_line() + beautiful_makie_theme
+
 
 forward_run = hybrid_model(df, ps_learned, st_learned)
 
@@ -192,3 +218,5 @@ ggplot(forward_run, aes(x=:GPP_NT, y=:GPP_pred)) + geom_point() + beautiful_maki
 idx = .!isnan.(forward_run.GPP_NT) .& .!isnan.(forward_run.GPP_pred)
 EasyHybrid.poplot(forward_run.GPP_NT[idx], forward_run.GPP_pred[idx], "GPP";
     xlabel = "Nighttime GPP", ylabel = "Hybrid GPP")
+
+rmprocs(workers())

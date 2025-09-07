@@ -1,5 +1,5 @@
 # activate the project's environment and instantiate dependencies
-using NCDatasets, DataFrames, Dates
+using NCDatasets, DataFrames, Dates, Statistics
 
 struct FluxNetSite
     timeseries     :: DataFrame            # time‐series
@@ -47,6 +47,54 @@ function load_fluxnet_nc(path; timevar="date", timedim="time", soildim = "depth"
         df.dayofyear = dayofyear.(df.time)
         df.sine_dayofyear = sin.(df.dayofyear)
         df.cos_dayofyear = cos.(df.dayofyear)
+
+        df.sine_WS = sin.(df.WS)
+        df.cos_WS = cos.(df.WS)
+
+    # group keys
+    df.year = year.(df.time)
+    df.doy  = dayofyear.(df.time)
+
+    grouped = groupby(df, [:year, :doy])
+
+    # mean over skipmissing; NaN if empty
+    mean_nm(v) = begin
+        s = collect(skipmissing(v))
+        isempty(s) ? NaN : mean(s)
+    end
+
+    # conditional mean of NEE for a target night flag; NaN if empty
+    neemean = (nee, night, tgt) -> begin
+        s = collect(skipmissing(nee[night .== tgt]))
+        isempty(s) ? NaN : mean(s)
+    end
+
+
+    # ensure NIGHT is Bool where present (keeps missings to be skipped later)    # k = fraction of nighttime among rows with non-missing NEE
+    k_fun = (nee, night) -> begin
+    valid = .!ismissing.(nee) .& .!ismissing.(night)
+    if !any(valid); return missing; end
+    n_night = sum(night[valid] .== true)
+    n_day   = sum(night[valid] .== false)
+    den = n_night + n_day
+    den == 0 ? missing : n_night / den
+end
+
+    daily_stats = combine(grouped,
+        [:NEE, :NIGHT] => ((nee, night) -> k_fun(nee, night)) => :k,                                   # fraction nighttime
+        [:NEE, :NIGHT] => ((nee, night) -> neemean(nee, night, true))  => :NEE_NIGHT, # mean NEE at night
+        [:NEE, :NIGHT] => ((nee, night) -> neemean(nee, night, false)) => :NEE_DAY,   # mean NEE at day
+    )
+
+    daily_stats.GPP_prox = map((needay, neenight, k) ->
+        ((needay - neenight)*k),
+        daily_stats.NEE_DAY, daily_stats.NEE_NIGHT, daily_stats.k
+    )
+
+    # join back into df
+    df = leftjoin(df, daily_stats, on = [:year, :doy])
+
+        
 
         # -- collect scalars (0-D & length-1) -------------------------------
         scalars = Dict{Symbol,Any}()
