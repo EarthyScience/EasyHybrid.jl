@@ -2,6 +2,7 @@
 using Revise
 using EasyHybrid
 using EasyHybrid.MLUtils
+using Plots
 
 # ? move the `csv` file into the `BulkDSOC/data` folder (create folder)
 df_o = CSV.read(joinpath(@__DIR__, "./data/lucas_overlaid.csv"), DataFrame, normalizenames=true)
@@ -115,7 +116,7 @@ plt = histogram2d(
 savefig(plt, joinpath(@__DIR__, "./eval/00_truth_BD.vs.SOCconc.png"))
 
 # check distribution of BD, SOCconc, CF
-for col in ["BD", "SOCconc", "CF"]
+for col in ["BD", "SOCconc", "CF", "SOCdensity"]
     # values = log10.(df[:, col])
     values = df_o[:, col]
     histogram(
