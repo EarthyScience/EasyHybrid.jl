@@ -171,8 +171,8 @@ end
 
 # accuracy plots for SOCconc, BD, CF in original space
 for tname in targets
-    y_val_true = val_tables[:, tname]
-    y_val_pred = val_tables[:, Symbol("$(tname)_pred")]
+    y_val_true = val_tables[tname]
+    y_val_pred = val_tables[Symbol("$(tname)_pred")]
 
     # @assert all(in(Symbol.(names(df_out))).([tname, Symbol("$(tname)_pred")])) "Expected columns $(tname) and $(tname)_pred in saved val table."
 
@@ -194,10 +194,10 @@ end
 
 # MTD SOCdensity
 socdensity_pred = val_tables[:SOCconc_pred] .* val_tables[:BD_pred] .* (1 .- val_tables[:CF_pred]);
-socdensity_true = val_tables[:SOCdensity]
+socdensity_true = val_tables[:SOCdensity];
 r2_sd, mse_sd = r2_mse(socdensity_true, socdensity_pred);
 plt = histogram2d(
-    socdensity_pred; socdensity_true, 
+    socdensity_pred, socdensity_true;
     nbins=(40,40), cbar=true, xlab="Pred SOCdensity MTD", ylab="True SOCdensity",
     title = "SOCdensity\nR²=$(round(r2_sd,digits=3)), MSE=$(round(mse_sd,digits=3))",
     normalize=false
@@ -211,7 +211,7 @@ savefig(plt, joinpath(results_dir, "$(testid)_accuracy_SOCdensity.MTD.png"));
 
 # BD vs SOCconc predictions
 plt = histogram2d(
-    val_tables[:BD][:, :BD_pred], val_tables[:SOCconc][:, :SOCconc_pred];
+    val_tables[:BD_pred], val_tables[:SOCconc_pred];
     nbins      = (30, 30),
     cbar       = true,
     xlab       = "BD",
