@@ -113,8 +113,10 @@ function get_output_path(; folder_to_save="")
     
     if is_docs
         return mkpath(joinpath(base_path, "build"))
+    elseif folder_to_save == ""
+        return mkpath(joinpath(base_path, "output_tmp"))
     else
-        return mkpath(joinpath(base_path, "output_tmp"*folder_to_save))
+        return mkpath(joinpath(base_path, folder_to_save))
     end
 end 
 
