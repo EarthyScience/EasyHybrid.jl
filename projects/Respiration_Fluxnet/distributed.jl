@@ -52,8 +52,8 @@ end
     target_FluxPartModel   = [:NEE]
     forcing_FluxPartModel  = [:SW_IN, :TA]
     predictors = (
-        Rb  = [:SWC_shallow, :P, :WS, :NEE_NIGHT],
-        RUE = [:TA, :P, :WS, :SWC_shallow, :VPD, :SW_IN_POT, :dSW_IN_POT, :dSW_IN_POT_DAY, :GPP_prox],
+        Rb  = [:SWC_shallow, :P, :WS, :sine_dayofyear, :cos_dayofyear],
+        RUE = [:TA, :P, :WS, :SWC_shallow, :VPD, :SW_IN_POT, :dSW_IN_POT, :dSW_IN_POT_DAY, :sine_dayofyear, :cos_dayofyear]
     )
     global_param_names = [:Q10]
 
@@ -66,7 +66,7 @@ end
         global_param_names;
         scale_nn_outputs = true,
         hidden_layers    = [32, 32],
-        activation       = tanh,
+        activation       = sin,
         input_batchnorm  = true,
         start_from_default = true,
     )
@@ -74,7 +74,7 @@ end
     # =============================================================================
     # Per-site training function (runs on workers via pmap)
     # =============================================================================
-    function train_site(site::AbstractString, data_dir::AbstractString, out_root::AbstractString)
+    function train_site(site::AbstractString, data_dir::AbstractString, main_output_folder::AbstractString)
         try
             fluxnet_data = load_fluxnet_nc(joinpath(data_dir, "$site.nc"); timevar="date")
             df = fluxnet_data.timeseries
@@ -120,7 +120,7 @@ end
                 plotting       = true,
                 show_progress  = false,
                 hybrid_name    = "",
-                folder_to_save = "_$(site)"
+                folder_to_save = joinpath(main_output_folder, "$(site)")
             )
 
             return (site=String(site), trained=true, out_folder=out_folder)
@@ -143,27 +143,28 @@ sites = first.(splitext.(basename.(nc_files)))
 
 # Or use a fixed subset (like your original sample)
 selected_sites = sites
+selected_sites = sites[randperm(length(sites))[1:11]]
 
 # =============================================================================
 # Parallel training with pmap
 # =============================================================================
 using ProgressMeter
 @info "Starting parallel training on $(length(selected_sites)) site(s)…"
-results = @showprogress dt=1 pmap(site -> train_site(site, data_dir, PROJECT_ROOT), selected_sites)
+main_output_folder = "NNRb_GlobalQ10"
+results = @showprogress dt=1 pmap(site -> train_site(site, data_dir, main_output_folder), selected_sites)
 
 # =============================================================================
 # Post-processing / forward run (on master)
 # =============================================================================
 using AxisKeys     # only for your exploration later
-using CairoMakie
-using TidierPlots
 
 # Load one site’s best model (consistent path with training)
 dfQ10 = DataFrame()  # initialize empty DataFrame
 
 for site in selected_sites
-    output_file = joinpath(PROJECT_ROOT, "output_tmp_$(site)", "trained_model.jld2")
+    output_file = joinpath(PROJECT_ROOT, main_output_folder, "$(site)", "trained_model.jld2")
 
+    @show output_file
     if !isfile(output_file)
         @warn "Output file does not exist for site $site, skipping."
         continue
@@ -181,8 +182,19 @@ for site in selected_sites
     push!(dfQ10, (site = site, Q10 = q10, MAT = MAT))
 end
 
+include(joinpath(PROJECT_ROOT, "plotting.jl"))
+fig = plot_Q10_vs_MAT(dfQ10, 3.5)
+display(fig)
+
+savefig(fig, joinpath(PROJECT_ROOT, main_output_folder, "Q10_vs_MAT.png"))
+
+using TidierPlots
 beautiful_makie_theme = Attributes(fonts=(; regular="CMU Serif"))
-Q10_vs_MAT = ggplot(dfQ10, aes(x=:MAT, y=:Q10)) + geom_point() + beautiful_makie_theme
+Q10_vs_MAT = ggplot(dfQ10, aes(x=:MAT, y=:Q10)) + 
+    geom_point() + 
+    lims(y=(0, 7)) +
+    geom_histogram(aes(x = :MAT), fill = "grey25") +
+    beautiful_makie_theme
 if !isinteractive()
     savefig(Q10_vs_MAT, "Q10_vs_MAT.png")
 end
