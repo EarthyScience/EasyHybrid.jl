@@ -2,8 +2,8 @@
 # Simple mechanistic SOC model for an oxic peat layer over 365 days.
 # dC/dt = NPP - k_oxic * C
 
-#import Pkg; Pkg.add("DifferentialEquations"); using DifferentialEquations
-#import Pkg; Pkg.add("Plots"); using Plots
+import Pkg; Pkg.add("DifferentialEquations"); using DifferentialEquations
+import Pkg; Pkg.add("Plots"); using Plots
 
 using DifferentialEquations
 using Plots
