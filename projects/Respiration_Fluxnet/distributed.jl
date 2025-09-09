@@ -52,8 +52,8 @@ end
     target_FluxPartModel   = [:NEE]
     forcing_FluxPartModel  = [:SW_IN, :TA]
     predictors = (
-        Rb  = [:SWC_shallow, :P, :WS, :sine_dayofyear, :cos_dayofyear],
-        RUE = [:TA, :P, :WS, :SWC_shallow, :VPD, :SW_IN_POT, :dSW_IN_POT, :dSW_IN_POT_DAY, :sine_dayofyear, :cos_dayofyear]
+        Rb  = [:SWC_shallow, :P, :WS],
+        RUE = [:TA, :P, :WS, :SWC_shallow, :VPD, :SW_IN_POT, :dSW_IN_POT, :dSW_IN_POT_DAY]
     )
     global_param_names = [:Q10]
 
@@ -66,7 +66,7 @@ end
         global_param_names;
         scale_nn_outputs = true,
         hidden_layers    = [32, 32],
-        activation       = sin,
+        activation       = sigmoid,
         input_batchnorm  = true,
         start_from_default = true,
     )
@@ -150,7 +150,7 @@ selected_sites = sites[randperm(length(sites))[1:11]]
 # =============================================================================
 using ProgressMeter
 @info "Starting parallel training on $(length(selected_sites)) site(s)…"
-main_output_folder = "NNRb_GlobalQ10"
+main_output_folder = "sigmoid_act_no_dayofyear"
 results = @showprogress dt=1 pmap(site -> train_site(site, data_dir, main_output_folder), selected_sites)
 
 # =============================================================================
@@ -186,7 +186,7 @@ include(joinpath(PROJECT_ROOT, "plotting.jl"))
 fig = plot_Q10_vs_MAT(dfQ10, 3.5)
 display(fig)
 
-savefig(fig, joinpath(PROJECT_ROOT, main_output_folder, "Q10_vs_MAT.png"))
+save(joinpath(PROJECT_ROOT, main_output_folder, "Q10_vs_MAT.png"), fig)
 
 using TidierPlots
 beautiful_makie_theme = Attributes(fonts=(; regular="CMU Serif"))

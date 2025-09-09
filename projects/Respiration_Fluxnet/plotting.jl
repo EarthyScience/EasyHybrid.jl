@@ -28,44 +28,71 @@ function build_step_data(df_bins)
     return x_edges, y_steps
 end
 
-function plot_Q10_vs_MAT(dfQ10::DataFrame, binw::Real)
+function plot_Q10_vs_MAT(dfQ10::DataFrame, binw::Real; percentiles::Bool = false)
     df_bins = summarise_bins(dfQ10; binw)
     x_edges, y_steps = build_step_data(df_bins)
 
     fig = Figure()
-    ax  = Makie.Axis(fig[1, 1], xlabel="MAT (°C)", ylabel="Q₁₀,hybrid",
-               xminorticksvisible=true, yminorticksvisible=true)
+    ax  = Makie.Axis(
+        fig[1, 1],
+        xlabel = "MAT (°C)",
+        ylabel = "Q₁₀, hybrid NEE partitioning",
+        xminorticksvisible = true,
+        yminorticksvisible = true
+    )
 
-    # 95% band as per-bin rectangles
-    for r in eachrow(df_bins)
-        poly!(ax, Rect(r.bin_left, r.y_q025, r.bin_right - r.bin_left, r.y_q975 - r.y_q025);
-              color = (:gray, 0.35), strokecolor=:transparent)
-    end
+    if percentiles == true
+        # 95% band as per-bin rectangles
+        for r in eachrow(df_bins)
+            poly!(
+                ax,
+                Rect(r.bin_left, r.y_q025, r.bin_right - r.bin_left, r.y_q975 - r.y_q025);
+                color = (:gray, 0.35),
+                strokecolor = :transparent
+            )
+        end
 
-    # 50% band rectangles on top (darker)
-    for r in eachrow(df_bins)
-        poly!(ax, Rect(r.bin_left, r.y_q25, r.bin_right - r.bin_left, r.y_q75 - r.y_q25);
-              color = (:gray, 0.6), strokecolor=:transparent)
+        # 50% band rectangles on top (darker)
+        for r in eachrow(df_bins)
+            poly!(
+                ax,
+                Rect(r.bin_left, r.y_q25, r.bin_right - r.bin_left, r.y_q75 - r.y_q25);
+                color = (:gray, 0.6),
+                strokecolor = :transparent
+            )
+        end
     end
 
     # ladder / step median per bin
-    stairs!(ax, x_edges, y_steps; step=:post, linewidth=2)
-    scatter!(ax, dfQ10.MAT, dfQ10.Q10; markersize=6)
+    scatter!(ax, dfQ10.MAT, dfQ10.Q10; markersize = 6, color = :tomato)
+    stairs!(ax, x_edges, y_steps; step = :post, linewidth = 2, alpha = 0.8)
 
     xlims!(ax, minimum(df_bins.bin_left), maximum(df_bins.bin_right))
     ylims!(ax, 0, 7)   # adjust if needed
 
-    axislegend(ax,
-      [
-        PolyElement(color=(:gray, 0.35), strokecolor=:transparent),
-        PolyElement(color=(:gray, 0.6),  strokecolor=:transparent),
-        LineElement(color=:black, linewidth=2),
-        MarkerElement(marker=:circle, markersize=6, color=:black)
-      ],
-      ["5-95% percentile", "25-75% percentile", "Bin median", "Site Q₁₀"],
-      position = :rt
-    )
-
+    if percentiles == true
+        axislegend(
+            ax,
+            [
+                PolyElement(color = (:gray, 0.35), strokecolor = :transparent),
+                PolyElement(color = (:gray, 0.6),  strokecolor = :transparent),
+                LineElement(color = :black, linewidth = 2, alpha = 0.8),
+                MarkerElement(marker = :circle, markersize = 6, color = :black)
+            ],
+            ["5-95% percentile", "25-75% percentile", "Bin median", "Site Q₁₀"],
+            position = :rt
+        )
+    else
+        axislegend(
+            ax,
+            [
+                LineElement(color = :black, linewidth = 2),
+                MarkerElement(marker = :circle, markersize = 6, color = :tomato)
+            ],
+            ["Bin median", "Site Q₁₀"],
+            position = :rt
+        )
+    end
     return fig
 end
 
