@@ -30,29 +30,23 @@ results_dir = joinpath(@__DIR__, "eval");
 
 # input
 targets = [:BD, :CF, :SOCconc, :SOCdensity];
+# scalers for targets, to bring them to similar range ~[0,1]
+scalers = Dict(
+    :SOCconc   => 1.8,
+    :CF        => 2.2,
+    :BD        => 0.53,
+    :SOCdensity => 2.5,
+);
+Random.seed!(42)
 
-raw = CSV.read(joinpath(@__DIR__, "data/lucas_preprocessed.csv"), DataFrame; normalizenames=true);
-predictors = setdiff(Symbol.(names(raw)), targets); # first 3 and last 1, just exclude targets explicitly to be safe
-raw = dropmissing(raw, predictors)
-nf = length(predictors);
+train_df = CSV.read(joinpath(@__DIR__, "data/lucas_train.csv"), DataFrame; normalizenames=true)
+# train_df = dropmissing(train_df)
+test_df = CSV.read(joinpath(@__DIR__, "data/lucas_test.csv"), DataFrame; normalizenames=true)
+test_df = dropmissing(test_df)
 
-# store min/max scalers for back-transform
-MINMAX = Dict{Symbol, Tuple{Float64, Float64}}();
-# transform per target
-df = deepcopy(raw);
-for tgt in targets
-    col = df[!,tgt]
-    if tgt in [:SOCconc, :CF, :SOCdensity]
-        @. col = ifelse(ismissing(col), missing, log(col * 1000f0 + 1f0))
-    end
-    it = collect(skipmissing(col))
-    minv, maxv = map(Float32, extrema(it))
-    @. col = ifelse(ismissing(col), missing, (col - minv) / (maxv - minv))
-    MINMAX[tgt] = (minv, maxv)
-
-    col = coalesce.(col, NaN32) # for train.jl
-    df[!, tgt] = col
-end
+# just exclude targets explicitly to be safe
+predictors = Symbol.(names(train_df))[5:end-1]; # first 3 and last 1
+nf = length(predictors)
 
 # search space
 hidden_configs = [  
@@ -76,6 +70,11 @@ results = []
 best_r2 = -Inf
 best_bundle = nothing
 
+for tgt in targets
+    train_df[!, tgt] .= train_df[!, tgt] .* scalers[tgt]
+    test_df[!, tgt]  .= test_df[!, tgt] .* scalers[tgt]
+end
+
 # param search by looping....    
 for h in hidden_configs, bs in batch_sizes, lr in lrs, act in activations
     println("Testing h=$h, bs=$bs, lr=$lr, activation=$act")
@@ -88,7 +87,7 @@ for h in hidden_configs, bs in batch_sizes, lr in lrs, act in activations
     )
 
     res = train(
-        nn, df, ();                   
+        nn, (train_df,test_df), ();                   
         nepochs = 200,
         batchsize = bs,
         opt = AdamW(lr),
@@ -148,77 +147,49 @@ bm = best_bundle
 # @load joinpath(results_dir, "best_model_$(tgt).jld2") ps st model val_obs_pred meta
 @info "Best for $testid: h=$(bm.meta.h), bs=$(bm.meta.bs), lr=$(bm.meta.lr), act=$(bm.meta.act), epoch=$(bm.meta.best_epoch), R2=$(round(best_r2, digits=4))"
 
-# back-transform helper
-function back_transform(vec::AbstractVector, tgt::Symbol, minmax::Dict{Symbol,<:Tuple})
-    mn, mx = minmax[tgt]
-    v = vec .* (mx - mn) .+ mn
-    if tgt in [:SOCconc, :CF, :SOCdensity]
-        v = (exp.(v) .- 1) ./ 1000
-    end
-    return v
-end
+## for plotting
+val_tables = Dict{Symbol,Vector{Float64}}()
+best_meta  = Dict{Symbol,NamedTuple}()
 
 # load predictions
 jld = joinpath(results_dir, "$(testid)_best_model.jld2")
 @assert isfile(jld) "Missing $(jld). Did you train & save best model for $(tname)?"
 @load jld val_obs_pred meta
 # split output table
-val_tables = Dict{Symbol,DataFrame}()
 for t in targets
     # expected: t (true), t_pred (pred), and maybe :index if the framework saved it
     have_pred = Symbol(t, :_pred)
     req = Set((t, have_pred))
     @assert issubset(req, Symbol.(names(val_obs_pred))) "val_obs_pred missing $(collect(req)) for $(t). Columns: $(names(val_obs_pred))"
-    keep = [:index, t, have_pred] 
-    val_tables[t] = val_obs_pred[:, keep]
+    val_tables[t] = val_obs_pred[:, t]./ scalers[t]
+    val_tables[have_pred] = val_obs_pred[:, have_pred]./ scalers[t]
 end
-
 
 # helper for metrics calculation
-function r2_mse(y_true::AbstractVector, y_pred::AbstractVector)
-    # make mask for valid pairs
-    mask = .!(ismissing.(y_true) .| ismissing.(y_pred) .| isnan.(y_true) .| isnan.(y_pred))
-
-    yt = y_true[mask]
-    yp = y_pred[mask]
-
-    if isempty(yt)
-        return (NaN, NaN)  # nothing valid, return NaN
-    end
-
-    ss_res = sum((yt .- yp).^2)
-    ss_tot = sum((yt .- mean(yt)).^2)
-
+r2_mse(y_true, y_pred) = begin
+    ss_res = sum((y_true .- y_pred).^2)
+    ss_tot = sum((y_true .- mean(y_true)).^2)
     r2  = 1 - ss_res / ss_tot
-    mse = mean((yt .- yp).^2)
-
-    return (r2, mse)
-end
-
-# safe extrema ignoring NaNs/missings
-function safe_extrema(y_true::AbstractVector, y_pred::AbstractVector)
-    mask = .!(ismissing.(y_true) .| ismissing.(y_pred) .| isnan.(y_true) .| isnan.(y_pred))
-    vals = vcat(y_true[mask], y_pred[mask])
-    return isempty(vals) ? (NaN, NaN) : extrema(vals)
+    mse = mean((y_true .- y_pred).^2)
+    (r2, mse)
 end
 
 # accuracy plots for SOCconc, BD, CF in original space
 for tname in targets
-    df_out = val_tables[tname]
-    @assert all(in(Symbol.(names(df_out))).([tname, Symbol("$(tname)_pred")])) "Expected columns $(tname) and $(tname)_pred in saved val table."
+    y_val_true = val_tables[tname]
+    y_val_pred = val_tables[Symbol("$(tname)_pred")]
 
-    y_val_true = back_transform(df_out[:, tname], tname, MINMAX)
-    y_val_pred = back_transform(df_out[:, Symbol("$(tname)_pred")], tname, MINMAX)
+    # @assert all(in(Symbol.(names(df_out))).([tname, Symbol("$(tname)_pred")])) "Expected columns $(tname) and $(tname)_pred in saved val table."
 
     r2, mse = r2_mse(y_val_true, y_val_pred)
 
     plt = histogram2d(
-        y_val_true, y_val_pred;
-        nbins=(40, 40), cbar=true, xlab="True", ylab="Predicted",
+        y_val_pred, y_val_true;
+        nbins=(40, 40), cbar=true, xlab="Predicted", ylab="Observed",
         title = string(tname, "\nR²=", round(r2, digits=3), ", MSE=", round(mse, digits=3)),
         normalize=false
     )
-    lims = safe_extrema(y_val_true, y_val_pred)
+    lims = extrema(vcat(y_val_true, y_val_pred))
     Plots.plot!(plt, [lims[1], lims[2]], [lims[1], lims[2]];
         color=:black, linewidth=2, label="1:1 line",
         aspect_ratio=:equal, xlims=lims, ylims=lims
@@ -227,24 +198,16 @@ for tname in targets
 end
 
 # MTD SOCdensity
-df_soc = DataFrame(
-    SOCconc_true = back_transform(val_tables[:SOCconc][:, :SOCconc],       :SOCconc, MINMAX),
-    SOCconc_pred = back_transform(val_tables[:SOCconc][:, :SOCconc_pred],  :SOCconc, MINMAX),
-    BD_true      = back_transform(val_tables[:BD][:,       :BD],           :BD,      MINMAX),
-    BD_pred      = back_transform(val_tables[:BD][:,       :BD_pred],      :BD,      MINMAX),
-    CF_true      = back_transform(val_tables[:CF][:,       :CF],           :CF,      MINMAX),
-    CF_pred      = back_transform(val_tables[:CF][:,       :CF_pred],      :CF,      MINMAX),
-);
-socdensity_pred = df_soc.SOCconc_pred .* df_soc.BD_pred .* (1 .- df_soc.CF_pred);
-socdensity_true = back_transform(val_tables[:SOCdensity][:, :SOCdensity], :SOCdensity, MINMAX);
+socdensity_pred = val_tables[:SOCconc_pred] .* val_tables[:BD_pred] .* (1 .- val_tables[:CF_pred]);
+socdensity_true = val_tables[:SOCdensity];
 r2_sd, mse_sd = r2_mse(socdensity_true, socdensity_pred);
 plt = histogram2d(
-    socdensity_true, socdensity_pred;
-    nbins=(40,40), cbar=true, xlab="True SOCdensity", ylab="Pred SOCdensity MTD",
+    socdensity_pred, socdensity_true;
+    nbins=(40,40), cbar=true, xlab="Pred SOCdensity MTD", ylab="True SOCdensity",
     title = "SOCdensity\nR²=$(round(r2_sd,digits=3)), MSE=$(round(mse_sd,digits=3))",
     normalize=false
 )
-lims = safe_extrema(socdensity_true, socdensity_pred)
+lims = extrema(vcat(socdensity_true, socdensity_pred))
 Plots.plot!(plt, [lims[1], lims[2]], [lims[1], lims[2]];
     color=:black, linewidth=2, label="1:1 line",
     aspect_ratio=:equal, xlims=lims, ylims=lims
@@ -253,7 +216,7 @@ savefig(plt, joinpath(results_dir, "$(testid)_accuracy_SOCdensity.MTD.png"));
 
 # BD vs SOCconc predictions
 plt = histogram2d(
-    df_soc[:,:BD_pred], df_soc[:,:SOCconc_pred];
+    val_tables[:BD_pred], val_tables[:SOCconc_pred];
     nbins      = (30, 30),
     cbar       = true,
     xlab       = "BD",
