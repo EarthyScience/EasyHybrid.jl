@@ -150,7 +150,7 @@ selected_sites = sites[randperm(length(sites))[1:11]]
 # =============================================================================
 using ProgressMeter
 @info "Starting parallel training on $(length(selected_sites)) site(s)…"
-main_output_folder = "sigmoid_act_no_dayofyear"
+main_output_folder = "test_short"
 results = @showprogress dt=1 pmap(site -> train_site(site, data_dir, main_output_folder), selected_sites)
 
 # =============================================================================
