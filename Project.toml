@@ -11,6 +11,7 @@ ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 ComponentArrays = "b0b7db55-cfe3-40fc-9ded-d10e2dbeff66"
 DataFrameMacros = "75880514-38bc-4a95-a458-c2aea5a3a702"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
 Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
@@ -45,6 +46,7 @@ ChainRulesCore = "1.25.1"
 ComponentArrays = "0.15.28"
 DataFrameMacros = "0.4"
 DataFrames = "1"
+DimensionalData = "0.29.23"
 Downloads = "1.6.0"
 Flux = "0.16"
 ForwardDiff = "1.0.1"
@@ -71,3 +73,6 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test"]
+
+[sources]
+DimensionalData = { url ="https://github.com/rafaqz/DimensionalData.jl", rev = "la/chain_rules_dims"}
