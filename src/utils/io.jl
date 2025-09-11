@@ -108,17 +108,19 @@ function get_output_path(; folder_to_save="")
     is_docs = any([
         basename(pwd()) == "docs",
         isdir("src") && isfile("make.jl"),
-        contains(base_path, "docs")
+        occursin("docs", base_path),
     ])
     
     if is_docs
         return mkpath(joinpath(base_path, "build"))
     elseif folder_to_save == ""
         return mkpath(joinpath(base_path, "output_tmp"))
+    elseif isabspath(folder_to_save)
+        return mkpath(folder_to_save)
     else
         return mkpath(joinpath(base_path, folder_to_save))
     end
-end 
+end
 
 function prog_path(file_name)
     file_name = isnothing(file_name) ? "prog.txt" : file_name

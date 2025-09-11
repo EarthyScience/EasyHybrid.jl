@@ -137,3 +137,37 @@ function load_fluxnet_nc(path; timevar="date", timedim="time", soildim = "depth"
         error("Error reading, nothing to do here!")
     end
 end
+
+function select_site(site, data_dir, predictors, forcing_FluxPartModel, target_FluxPartModel)
+    fluxnet_data = load_fluxnet_nc(joinpath(data_dir, "$site.nc"); timevar="date")
+    df = fluxnet_data.timeseries
+
+    # Good-quality data only
+    if :NEE_QC ∉ propertynames(df)
+        return (; df=df, site=String(site), trained=false, reason="NEE_QC column missing")
+    end
+    df = df[df.NEE_QC .== 0, :]
+
+    # Sanity check: sufficient non-missing data
+    predictor_cols = unique(vcat(values(predictors)...))
+    forcing_cols   = forcing_FluxPartModel
+    target_cols    = target_FluxPartModel
+    needed_cols    = vcat(predictor_cols, forcing_cols, target_cols)
+
+    for col in needed_cols
+        if col ∉ propertynames(df)
+            return (; df=df, site=String(site), trained=false, reason="Missing column $(col)")
+        end
+        n_nonmiss = sum(.!ismissing.(df[!, col]))
+        if n_nonmiss < 1000
+            return (; df =df, site=String(site), trained=false, reason="Insufficient data in $(col): $(n_nonmiss)")
+        end
+    end
+    return (; df=df, site=String(site), trained=true, reason="All checks passed")
+end
+
+function sites_names(data_dir)
+    nc_files = filter(f -> endswith(f, ".nc") && isfile(f), readdir(data_dir; join=true))
+    sites = first.(splitext.(basename.(nc_files)))
+   return sites
+end
