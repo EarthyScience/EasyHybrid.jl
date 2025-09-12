@@ -6,7 +6,6 @@ Pkg.activate(project_path)
 using EasyHybrid
 using AxisKeys
 using CairoMakie
-using TidierPlots
 
 # Load helper(s)
 include(joinpath(project_path, "Data", "load_data.jl"))
@@ -24,29 +23,25 @@ for site in s_names
         @warn "Output file does not exist for site $site, skipping."
         continue
     end
-    all_groups = get_all_groups(output_file)
-    preds = load_group(output_file, :predictions)
-
     fluxnet_data = load_fluxnet_nc(joinpath(data_dir, "$site.nc"); timevar="date")
     df = fluxnet_data.timeseries
 
-    q10 = preds["training"].Q10[1]
-    MAT = mean(skipmissing(df.TA))
+    all_groups = get_all_groups(output_file)
+    try
+        if isfile(output_file)
+            preds = load_group(output_file, :predictions)
+            q10 = preds["training"].Q10[1]
+            MAT = mean(skipmissing(df.TA))
 
-    # add a row to dfQ10
-    push!(dfQ10, (site = site, Q10 = q10, MAT = MAT))
+            push!(dfQ10, (site = site, Q10 = q10, MAT = MAT))
+        end
+    catch e
+        @warn "Failed to load predictions for site $site"
+        continue
+    end
 end
 
+using Random
 include(joinpath(@__DIR__, "plotting.jl"))
-fig = plot_Q10_vs_MAT(dfQ10, 3.5)
+fig = plot_Q10_vs_MAT(dfQ10, 3.5; k =7)
 save(joinpath(main_output_folder, "00_Q10_vs_MAT.png"), fig)
-
-# ? what else?
-beautiful_makie_theme = Attributes(fonts=(; regular="CMU Serif"))
-Q10_vs_MAT = ggplot(dfQ10, aes(x=:MAT, y=:Q10)) + 
-    geom_point() + 
-    lims(y=(0, 7)) +
-    geom_histogram(aes(x = :MAT), fill = "grey25") +
-    beautiful_makie_theme
-
-save(joinpath(main_output_folder, "01_Q10_vs_MAT.png"), Q10_vs_MAT)

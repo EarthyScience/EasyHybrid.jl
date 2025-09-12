@@ -28,9 +28,14 @@ function build_step_data(df_bins)
     return x_edges, y_steps
 end
 
-function plot_Q10_vs_MAT(dfQ10::DataFrame, binw::Real; percentiles::Bool = false)
+function plot_Q10_vs_MAT(dfQ10::DataFrame, binw::Real; percentiles::Bool = false, k=6)
     df_bins = summarise_bins(dfQ10; binw)
     x_edges, y_steps = build_step_data(df_bins)
+    top_k = first(sort(dfQ10, :Q10, rev=true), k)
+    x, y = top_k.MAT, top_k.Q10
+    Random.seed!(123)  # for reproducible text jitter
+    # Q10 = $(round(row.Q10, digits=2))
+    txt = [rich("$(row.site)", color=:grey15, fontsize=10) for row in eachrow(top_k)]
 
     fig = Figure()
     ax  = Makie.Axis(
@@ -69,6 +74,19 @@ function plot_Q10_vs_MAT(dfQ10::DataFrame, binw::Real; percentiles::Bool = false
 
     xlims!(ax, minimum(df_bins.bin_left), maximum(df_bins.bin_right))
     ylims!(ax, 0, 7)   # adjust if needed
+    k  = 1
+    for (i, j, t) in zip(x, y, txt)
+        annotation!(
+            ax,
+            i - (-1.4)^k, j + 0.85 + 0.5*rand(), # relative position in axis coordinates
+            i, j,
+            text = t,
+            path = Ann.Paths.Arc(0.1*(-1)^k),
+            style = Ann.Styles.LineArrow(head = Ann.Arrows.Head()),
+            labelspace = :data
+        )
+        k += 1
+    end
 
     if percentiles == true
         axislegend(
