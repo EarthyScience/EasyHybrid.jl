@@ -62,17 +62,15 @@ function load_fluxnet_nc(path; timevar="date", timedim="time", soildim = "depth"
 
         # Conditional mean of NEE for a target night flag; NaN if empty
         neemean = (nee, night, tgt) -> begin
-            s = collect(skipmissing(nee[night .== tgt]))
-            isempty(s) ? NaN : mean(s)
+            valid = .!ismissing.(nee) .& .!ismissing.(night)
+            s = collect(skipmissing(nee[night[valid] .== tgt]))
+            isempty(s) ? missing : mean(s)
         end
 
         # Ensure NIGHT is Bool where present (keeps missings to be skipped later)
         # k = fraction of daytime hours among rows with non-missing NEE
         k_fun = (nee, night) -> begin
             valid = .!ismissing.(nee) .& .!ismissing.(night)
-            if !any(valid)
-                return missing
-            end
             n_night = sum(night[valid] .== true)
             n_day   = sum(night[valid] .== false)
             den = n_night + n_day
@@ -146,7 +144,10 @@ function select_site(site, data_dir, predictors, forcing_FluxPartModel, target_F
     if :NEE_QC ∉ propertynames(df)
         return (; df=df, site=String(site), trained=false, reason="NEE_QC column missing")
     end
-    df = df[df.NEE_QC .== 0, :]
+
+    mask = .!ismissing.(df.NEE_QC) .& (df.NEE_QC .== 0)
+    mask = coalesce.(mask, false)   # ensure no missings in the mask
+    df   = df[mask, :]
 
     # Sanity check: sufficient non-missing data
     predictor_cols = unique(vcat(values(predictors)...))
