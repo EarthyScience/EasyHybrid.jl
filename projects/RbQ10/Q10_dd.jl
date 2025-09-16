@@ -90,3 +90,4 @@ ar = rand(3,3)
 A = DimArray(ar, (Y([:a,:b,:c]), X(1:3)));
 grad = Zygote.gradient(x -> sum(x[Y=At(:b)]), A)
 
+# out = train(RbQ10, (ds_p_f, ds_t), (:Q10, ); nepochs=200, batchsize=512, opt=Adam(0.01));

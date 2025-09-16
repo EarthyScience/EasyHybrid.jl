@@ -46,7 +46,7 @@ ChainRulesCore = "1.25.1"
 ComponentArrays = "0.15.28"
 DataFrameMacros = "0.4"
 DataFrames = "1"
-DimensionalData = "0.29.23"
+DimensionalData = "0.29.24"
 Downloads = "1.6.0"
 Flux = "0.16"
 ForwardDiff = "1.0.1"
@@ -73,6 +73,3 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test"]
-
-[sources]
-DimensionalData = { url ="https://github.com/rafaqz/DimensionalData.jl", rev = "la/chain_rules_dims"}
