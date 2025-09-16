@@ -25,10 +25,10 @@ results_dir = joinpath(@__DIR__, "eval");
 targets = [:BD, :CF, :SOCconc, :SOCdensity];
 # scalers for targets, to bring them to similar range ~[0,1]
 scalers = Dict(
-    :SOCconc   => 1.8,
+    :SOCconc   => 0.158, # log(x*1000)*0.158
     :CF        => 2.2,
     :BD        => 0.53,
-    :SOCdensity => 2.5,
+    :SOCdensity => 0.165, # log(x*1000)*0.165
 );
 Random.seed!(42);
 
@@ -61,6 +61,10 @@ activations = [relu, tanh, swish, gelu];
 best_models = Dict{Symbol, NamedTuple}()
 for tgt in targets
     @info "==== target: $tgt ===="
+    if tgt in (:SOCdensity, :SOCconc)
+        train_df[!, tgt] .= log.(train_df[!, tgt] .* 1000)
+        test_df[!, tgt]  .= log.(test_df[!, tgt] .* 1000)
+    end
     train_df[!, tgt] .= train_df[!, tgt] .* scalers[tgt]
     test_df[!, tgt]  .= test_df[!, tgt] .* scalers[tgt]
 
@@ -157,6 +161,10 @@ for tname in targets
     @load jld val_obs_pred meta
     val_tables[Symbol("$(tname)_pred")] = val_obs_pred[:, Symbol("$(tname)_pred")]./ scalers[tname]
     val_tables[tname] = val_obs_pred[:, tname]./ scalers[tname]
+    if tname in (:SOCdensity, :SOCconc)
+        val_tables[Symbol("$(tname)_pred")] = exp.(val_tables[Symbol("$(tname)_pred")]) ./ 1000
+        val_tables[tname] = exp.(val_tables[tname]) ./ 1000
+    end
     best_meta[tname]  = meta
 end
 
