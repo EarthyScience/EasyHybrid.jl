@@ -1,7 +1,8 @@
 # CC BY-SA 4.0
 import Pkg
 project_path = @__DIR__
-Pkg.activate(project_path)
+# Pkg.activate(project_path)
+
 # Pkg.develop(path=pwd())
 # Pkg.instantiate()
 
@@ -11,11 +12,13 @@ using CairoMakie
 
 # Load helper(s)
 include(joinpath(project_path, "Data", "load_data.jl"))
-# data_dir = joinpath(project_path, "Data", "data20240123")
-data_dir = "/Net/Groups/BGI/work_5/scratch/lalonso/data20240123"
+data_dir = joinpath(project_path, "Data", "data20240123")
+# data_dir = "/Net/Groups/BGI/work_5/scratch/lalonso/data20240123"
 s_names = sites_names(data_dir)
 
-slurm_array_id = Base.parse(Int, ARGS[1]) # get from command line argument
+# slurm_array_id = Base.parse(Int, ARGS[1]) # get from command line argument
+slurm_array_id = 3
+
 println("SLURM_ARRAY_ID = $slurm_array_id")
 
 # =============================================================================
@@ -71,11 +74,12 @@ hybrid_model = make_hybrid_model()
 
 # TODO: training
 # save things into `tscratch`, plently of space there!
-main_output_folder = "/Net/Groups/BGI/tscratch/lalonso/respiration_fluxnet"
+# main_output_folder = "/Net/Groups/BGI/tscratch/lalonso/respiration_fluxnet"
+main_output_folder = "debug_predictions"
 
 train(
     hybrid_model, df, ();
-    nepochs        = 500,
+    nepochs        = 50,
     batchsize      = 512,
     opt            = RMSProp(0.01),
     loss_types     = [:nse, :mse],
