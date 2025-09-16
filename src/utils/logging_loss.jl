@@ -65,14 +65,43 @@ function get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
     y_nan = y_nan(HM.targets)
     return ŷ, y, y_nan, st #TODO has to be done otherwise e.g. Rb is passed as a st and messes up the training
 end
+
+function get_predictions_targets(
+    HM, 
+    x::AbstractDimArray, 
+    ys::Tuple{<:AbstractDimArray,<:AbstractDimArray}, 
+    ps, st, targets
+)
+    y_t, y_nan = ys
+    ŷ, st = HM(x, ps, st)
+    y     = y_t[col=At(targets)]
+    y_nan = y_nan[col=At(targets)]
+    return ŷ, y, y_nan, st
+end
+
 function compute_loss(ŷ, y, y_nan, targets, training_loss::Symbol, agg::Function)
     losses = [loss_fn(ŷ[k], y(k), y_nan(k), Val(training_loss)) for k in targets]
+    return agg(losses)
+end
+
+function compute_loss(ŷ, y::AbstractDimArray, y_nan::AbstractDimArray, targets, training_loss::Symbol, agg::Function)
+    losses = [loss_fn(ŷ[k], y[col=At(k)], y_nan[col=At(k)], Val(training_loss)) for k in targets]
     return agg(losses)
 end
 function compute_loss(ŷ, y, y_nan, targets, loss_types::Vector{Symbol}, agg::Function)
     out_loss_types = [
         begin
             losses = [loss_fn(ŷ[k], y(k), y_nan(k), Val(loss_type)) for k in targets]
+            agg_loss = agg(losses)
+            NamedTuple{(targets..., Symbol(agg))}([losses..., agg_loss])
+        end
+        for loss_type in loss_types]
+    return NamedTuple{Tuple(loss_types)}([out_loss_types...])
+end
+function compute_loss(ŷ, y::AbstractDimArray, y_nan::AbstractDimArray, targets, loss_types::Vector{Symbol}, agg::Function)
+    out_loss_types = [
+        begin
+            losses = [loss_fn(ŷ[k], y[col=At(k)], y_nan[col=At(k)], Val(loss_type)) for k in targets]
             agg_loss = agg(losses)
             NamedTuple{(targets..., Symbol(agg))}([losses..., agg_loss])
         end
