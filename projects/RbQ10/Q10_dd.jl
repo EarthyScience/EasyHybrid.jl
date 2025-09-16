@@ -86,6 +86,7 @@ grad_k = Zygote.gradient(x -> sum(x(X=:b)), ak)
 # Gradient through single At selector
 # ar = rand(3,3)
 using Zygote, ChainRulesCore, DimensionalData
+using GLMakie
 ar = rand(3,3)
 A = DimArray(ar, (Y([:a,:b,:c]), X(1:3)));
 grad = Zygote.gradient(x -> sum(x[Y=At(:b)]), A)

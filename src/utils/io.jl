@@ -57,6 +57,11 @@ function to_named_tuple(ka, target_names)
     return NamedTuple{Tuple(target_names)}(arrays)
 end
 
+function to_named_tuple(ka::AbstractDimArray, target_names)
+    arrays = [Array(ka[col=At(k)]) for k in target_names]
+    return NamedTuple{Tuple(target_names)}(arrays)
+end
+
 function load_group(file_name, group)
     group = string(group)
     group_tmp = JLD2.load(file_name, group)
