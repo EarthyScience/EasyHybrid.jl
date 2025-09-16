@@ -8,6 +8,7 @@ import LuxCore: LuxCore.setup, LuxCore.AbstractLuxContainerLayer
 import Flux
 using DataFrames
 using DataFrameMacros
+using DimensionalData
 using Chain: @chain
 using CSV
 using MLUtils

@@ -127,6 +127,13 @@ function toDataFrame(ka)
     return df
 end
 
+function toDataFrame(ka::AbstractDimArray)
+    data_array = Array(ka')
+    df = DataFrame(data_array, Array(dims(ka, :col)))
+    df.index = Array(dims(ka, :row))
+    return df
+end
+
 function toDataFrame(ka, target_names)
     data = [getproperty(ka, t_name) for t_name in target_names]
     
