@@ -1,9 +1,9 @@
 # CC BY-SA 4.0
 # activate the project's environment and instantiate dependencies
 using Pkg
-Pkg.activate("projects/RbQ10")
-Pkg.develop(path=pwd())
-Pkg.instantiate()
+# Pkg.activate("projects/RbQ10")
+# Pkg.develop(path=pwd())
+# Pkg.instantiate()
 
 # start using the package
 using EasyHybrid
@@ -90,4 +90,12 @@ ar = rand(3,3)
 A = DimArray(ar, (Y([:a,:b,:c]), X(1:3)));
 grad = Zygote.gradient(x -> sum(x[Y=At(:b)]), A)
 
-# out = train(RbQ10, (ds_p_f, ds_t), (:Q10, ); nepochs=200, batchsize=512, opt=Adam(0.01));
+xy = EasyHybrid.split_data((ds_p_f, ds_t), 0.8, shuffle=true, rng=Random.default_rng())
+
+EasyHybrid.get_prediction_target_names(RbQ10)
+
+xy1 = EasyHybrid.prepare_data(RbQ10, da)
+
+(x_train, y_train), (x_val, y_val) = EasyHybrid.split_data(da, RbQ10) # ; shuffleobs=false, split_data_at=0.8
+
+out = train(RbQ10, da, (:Q10, ); nepochs=200, batchsize=512, opt=Adam(0.01));
