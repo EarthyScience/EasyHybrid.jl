@@ -387,7 +387,7 @@ function (m::SingleNNHybridModel)(df::DataFrame, ps, st)
     for col in names(df)
         what_type = eltype(df[!, col])
         if what_type <: Union{Missing, Real} || what_type <: Real
-            df[!, col] = Float64.(coalesce.(df[!, col], NaN))
+            df[!, col] = Float32.(coalesce.(df[!, col], NaN))
         end
     end
 
@@ -483,7 +483,7 @@ function (m::MultiNNHybridModel)(df::DataFrame, ps, st)
     for col in names(df)
         what_type = eltype(df[!, col])
         if what_type <: Union{Missing, Real} || what_type <: Real
-            df[!, col] = Float64.(coalesce.(df[!, col], NaN))
+            df[!, col] = Float32.(coalesce.(df[!, col], NaN))
         end
     end
 

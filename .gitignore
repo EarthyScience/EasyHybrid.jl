@@ -23,3 +23,5 @@ Manifest.toml
 /projects/SOC_PBM/data/
 !markus_reichstein.png
 !Bernhard_Ahrens.png
+*.err
+*.out
