@@ -62,8 +62,12 @@ function load_fluxnet_nc(path; timevar="date", timedim="time", soildim = "depth"
 
         # Conditional mean of NEE for a target night flag; NaN if empty
         neemean = (nee, night, tgt) -> begin
-            s = collect(skipmissing(nee[night .== tgt]))
-            isempty(s) ? NaN : mean(s)
+            if ismissing(all(night .== tgt))
+                return NaN
+            else
+                s = collect(skipmissing(nee[night .== tgt]))
+                return isempty(s) ? NaN : mean(s)
+            end
         end
 
         # Ensure NIGHT is Bool where present (keeps missings to be skipped later)
@@ -134,7 +138,8 @@ function load_fluxnet_nc(path; timevar="date", timedim="time", soildim = "depth"
         close(ds)
         return FluxNetSite(df, scalars, dfsoil, gattrs)
     catch e
-        error("Error reading, nothing to do here!")
+        println(e)
+        # @warn "Error reading, nothing to do here!"
     end
 end
 
@@ -146,6 +151,7 @@ function select_site(site, data_dir, predictors, forcing_FluxPartModel, target_F
     if :NEE_QC ∉ propertynames(df)
         return (; df=df, site=String(site), trained=false, reason="NEE_QC column missing")
     end
+    df.NEE_QC = replace(df.NEE_QC, missing => NaN)
     df = df[df.NEE_QC .== 0, :]
 
     # Sanity check: sufficient non-missing data

@@ -16,8 +16,8 @@ data_dir = joinpath(project_path, "Data", "data20240123")
 # data_dir = "/Net/Groups/BGI/work_5/scratch/lalonso/data20240123"
 s_names = sites_names(data_dir)
 
-# slurm_array_id = Base.parse(Int, ARGS[1]) # get from command line argument
-slurm_array_id = 3
+slurm_array_id = Base.parse(Int, ARGS[1]) # get from command line argument
+# slurm_array_id = 3
 
 println("SLURM_ARRAY_ID = $slurm_array_id")
 
