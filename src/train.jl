@@ -1,73 +1,4 @@
 export train, TrainResults
-
-
-"""
-    split_data(data, split_by_id; shuffleobs=false, split_ratio=0.8)
-
-Split data into training and validation sets, either randomly or by grouping by ID.
-
-# Arguments:
-- `data`: The data to split, typically a tuple of (x, y) KeyedArrays
-- `split_by_id`: Either `nothing` for random splitting, a `Symbol` for column-based splitting, or an `AbstractVector` for custom ID-based splitting
-- `shuffleobs`: Whether to shuffle observations during splitting (default: false)
-- `split_ratio`: Ratio of data to use for training (default: 0.8)
-
-# Returns:
-- `(x_train, y_train)`: Training data tuple
-- `(x_val, y_val)`: Validation data tuple
-"""
-function split_data(data::Union{DataFrame, KeyedArray}, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
-    
-    data_ = prepare_data(hybridModel, data)
-    # all the KeyedArray thing!
-
-    if !isnothing(split_by_id)
-        if isa(split_by_id, Symbol)
-            ids = getbyname(data, split_by_id)
-            unique_ids = unique(ids)
-        elseif isa(split_by_id, AbstractVector)
-            ids = split_by_id
-            unique_ids = unique(ids)
-            split_by_id = "split_by_id"
-        end
-
-        train_ids, val_ids = splitobs(unique_ids; at=split_data_at, shuffle=shuffleobs)
-
-        train_idx = findall(id -> id in train_ids, ids)
-        val_idx  = findall(id -> id in val_ids,  ids)
-
-        @info "Splitting data by $split_by_id"
-        @info "Number of unique $split_by_id's: $(length(unique_ids))"
-        @info "Number of $split_by_id's in training set: $(length(train_ids))"
-        @info "Number of $split_by_id's in validation set: $(length(val_ids))"
-        
-        x_all, y_all = data_
-
-        x_train, y_train = x_all[:, train_idx], y_all[:, train_idx]
-        x_val, y_val = x_all[:, val_idx], y_all[:, val_idx]
-    else
-        (x_train, y_train), (x_val, y_val) = splitobs(data_; at=split_data_at, shuffle=shuffleobs)
-    end
-    
-    return (x_train, y_train), (x_val, y_val)
-end
-
-function split_data(data::AbstractDimArray, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
-    data_ = prepare_data(hybridModel, data)
-    (x_train, y_train), (x_val, y_val) = splitobs(data_; at=split_data_at, shuffle=shuffleobs)
-    return (x_train, y_train), (x_val, y_val)
-end
-
-function split_data(data::Tuple, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
-    data_ = prepare_data(hybridModel, data)
-    (x_train, y_train), (x_val, y_val) = splitobs(data_; at=split_data_at, shuffle=shuffleobs)
-    return (x_train, y_train), (x_val, y_val)
-end
-
-function split_data(data::Tuple{Tuple, Tuple}, hybridModel; kwargs...)
-    return data
-end
-
 # beneficial for plotting based on type TrainResults?
 struct TrainResults
     train_history
@@ -450,6 +381,85 @@ function header_and_paddings(nt; digits=5)
     headers = [rpad(string(k), w) for (k, w) in zip(keys(nt), paddings)]
     return headers, paddings
 end
+
+function split_data(data::Union{DataFrame, KeyedArray}, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
+    
+    data_ = prepare_data(hybridModel, data)
+    # all the KeyedArray thing!
+
+    if !isnothing(split_by_id)
+        if isa(split_by_id, Symbol)
+            ids = getbyname(data, split_by_id)
+            unique_ids = unique(ids)
+        elseif isa(split_by_id, AbstractVector)
+            ids = split_by_id
+            unique_ids = unique(ids)
+            split_by_id = "split_by_id"
+        end
+
+        train_ids, val_ids = splitobs(unique_ids; at=split_data_at, shuffle=shuffleobs)
+
+        train_idx = findall(id -> id in train_ids, ids)
+        val_idx  = findall(id -> id in val_ids,  ids)
+
+        @info "Splitting data by $split_by_id"
+        @info "Number of unique $split_by_id's: $(length(unique_ids))"
+        @info "Number of $split_by_id's in training set: $(length(train_ids))"
+        @info "Number of $split_by_id's in validation set: $(length(val_ids))"
+        
+        x_all, y_all = data_
+
+        x_train, y_train = x_all[:, train_idx], y_all[:, train_idx]
+        x_val, y_val = x_all[:, val_idx], y_all[:, val_idx]
+    else
+        (x_train, y_train), (x_val, y_val) = splitobs(data_; at=split_data_at, shuffle=shuffleobs)
+    end
+    
+    return (x_train, y_train), (x_val, y_val)
+end
+
+function split_data(data::AbstractDimArray, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
+    data_ = prepare_data(hybridModel, data)
+    (x_train, y_train), (x_val, y_val) = splitobs(data_; at=split_data_at, shuffle=shuffleobs)
+    return (x_train, y_train), (x_val, y_val)
+end
+
+function split_data(data::Tuple, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
+    data_ = prepare_data(hybridModel, data)
+    (x_train, y_train), (x_val, y_val) = splitobs(data_; at=split_data_at, shuffle=shuffleobs)
+    return (x_train, y_train), (x_val, y_val)
+end
+
+function split_data(data::Tuple{Tuple, Tuple}, hybridModel; kwargs...)
+    return data
+end
+
+
+"""
+    split_data(data, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
+    split_data(data::Union{DataFrame, KeyedArray}, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
+    split_data(data::AbstractDimArray, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
+    split_data(data::Tuple, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
+    split_data(data::Tuple{Tuple, Tuple}, hybridModel; kwargs...)
+
+Split data into training and validation sets, either randomly or by grouping by ID.
+
+# Arguments:
+- `data`: The data to split, which can be a DataFrame, KeyedArray, AbstractDimArray, or Tuple
+- `hybridModel`: The hybrid model object used for data preparation
+- `split_by_id=nothing`: Either `nothing` for random splitting, a `Symbol` for column-based splitting, or an `AbstractVector` for custom ID-based splitting
+- `shuffleobs=false`: Whether to shuffle observations during splitting
+- `split_data_at=0.8`: Ratio of data to use for training
+
+# Behavior:
+- For DataFrame/KeyedArray: Supports both random and ID-based splitting with logging
+- For AbstractDimArray/Tuple: Random splitting only after data preparation
+- For pre-split Tuple{Tuple, Tuple}: Returns input unchanged
+
+# Returns:
+- `((x_train, y_train), (x_val, y_val))`: Tuple containing training and validation data pairs
+"""
+function split_data end
 
 function prepare_data(hm, data::KeyedArray)
     predictors_forcing, targets = get_prediction_target_names(hm)
