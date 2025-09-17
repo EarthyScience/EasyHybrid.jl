@@ -1,16 +1,16 @@
 # CC BY-SA 4.0
 # activate the project's environment and instantiate dependencies
 using Pkg
-Pkg.activate("projects/RbQ10")
-Pkg.develop(path=pwd())
-Pkg.instantiate()
+# Pkg.activate("projects/RbQ10")
+# Pkg.develop(path=pwd())
+# Pkg.instantiate()
 
 # start using the package
 using EasyHybrid
 
 # for Plotting
 using GLMakie
-using AlgebraOfGraphics
+# using AlgebraOfGraphics
 
 # Local Path (MPI-BGC server):
 #   /Net/Groups/BGI/scratch/bahrens/DataHeinemeyerRh/RESP_07_08_09_10_filled.csv
@@ -46,7 +46,12 @@ ls_logs = EasyHybrid.lossfn(RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss
 
 # ? play with :Temp as predictors in NN, temperature sensitivity!
 # TODO: variance effect due to LSTM vs NN
-out = train(RbQ10, (ds_p_f, ds_t), (:Q10, ); nepochs=200, batchsize=512, opt=Adam(0.01));
+out = train(RbQ10, (ds_p_f, ds_t), (:Q10, ); nepochs=50, batchsize=512, opt=Adam(0.01));
+
+sdata = EasyHybrid.split_data((ds_p_f, ds_t), RbQ10)
+
+# in already split data, useful for k-fold cross validation!
+out = train(RbQ10, sdata, (:Q10, ); nepochs=200, batchsize=512, opt=Adam(0.01));
 
 output_file = joinpath(@__DIR__, "output_tmp/trained_model.jld2")
 # o = jldopen(output_file, "r")
