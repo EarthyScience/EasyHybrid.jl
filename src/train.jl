@@ -52,13 +52,19 @@ function split_data(data::Union{DataFrame, KeyedArray}, hybridModel; split_by_id
     return (x_train, y_train), (x_val, y_val)
 end
 
-function split_data(data::AbstractDimArray, hybridModel;  split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
+function split_data(data::AbstractDimArray, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
     data_ = prepare_data(hybridModel, data)
     (x_train, y_train), (x_val, y_val) = splitobs(data_; at=split_data_at, shuffle=shuffleobs)
     return (x_train, y_train), (x_val, y_val)
 end
 
-function split_data(data::Tuple, hybridModel; kwargs...)
+function split_data(data::Tuple, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
+    data_ = prepare_data(hybridModel, data)
+    (x_train, y_train), (x_val, y_val) = splitobs(data_; at=split_data_at, shuffle=shuffleobs)
+    return (x_train, y_train), (x_val, y_val)
+end
+
+function split_data(data::Tuple{Tuple, Tuple}, hybridModel; kwargs...)
     return data
 end
 
