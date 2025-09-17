@@ -4,7 +4,9 @@ Slurm is an open source, fault-tolerant, and highly scalable cluster management 
 
 Here, we provide only a minimal script `q10_slurm.sh` to get you started!
 
-```bash
+::: code-group
+
+```bash [q10_slurm.sh]
 #!/bin/bash
 #SBATCH --job-name=q10_fluxnet
 #SBATCH --ntasks=1
@@ -25,18 +27,16 @@ echo "Running with: id=$id"
 julia --project --heap-size-hint=16G q10_slurm.jl $id
 ```
 
-with the corresponding julia script:
-
-```julia
+```julia [q10_slurm.jl]
+# julia script
 using EasyHybrid
 slurm_array_id = Base.parse(Int, ARGS[1]) # get from command line argument
 println("SLURM_ARRAY_ID = $slurm_array_id")
 ```
 
-and then in your cluster's location script run
-
-```sh
+```sh [sbatch]
+# submit your job to the cluster!
 u@hpc-node:~/project $ sbatch q10_slurm.sh
 ```
 
-that should submit your job to the cluster!
+:::
