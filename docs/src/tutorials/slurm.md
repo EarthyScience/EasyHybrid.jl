@@ -1,6 +1,6 @@
 ## Slurm jobs
 
-Slurm is an open source, fault-tolerant, and highly scalable cluster management and job scheduling system for large and small Linux clusters. See https://slurm.schedmd.com/overview.html for more information.
+Slurm is an open source, fault-tolerant, and highly scalable cluster management and job scheduling system for large and small Linux clusters. See [slurm](https://slurm.schedmd.com/overview.html) for more information.
 
 Here, we provide only a minimal script `q10_slurm.sh` to get you started!
 

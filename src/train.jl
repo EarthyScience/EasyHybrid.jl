@@ -181,7 +181,7 @@ function train(hybridModel, data, save_ps;
     
     file_name = resolve_path(file_name; folder_to_save)
     save_ps_st(file_name, hybridModel, ps, st, save_ps)
-    file_name_best = resolve_path("best_model.jld2"; folder_to_save)
+    file_name_best = resolve_path("best_model_$(hybrid_name).jld2"; folder_to_save)
     save_ps_st(file_name_best, hybridModel, ps, st, save_ps)
     
     save_train_val_loss!(file_name,l_init_train, "training_loss", 0)
