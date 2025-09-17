@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.1.4 - 2025-09-17
+- dispatch on DimensionalData [#144](https://github.com/EarthyScience/EasyHybrid.jl/pull/140)
+- fix split_data (prepare_data) to prepare train, val split outside of train function [#147](https://github.com/EarthyScience/EasyHybrid.jl/pull/146)
+- simply pass Dataframe to hybrid model for forward run [#135](https://github.com/EarthyScience/EasyHybrid.jl/pull/135)
+- custom output folder in train: train(; folder_to_save = out_folder
+- further cleanup of projects folder. Most projects will be moved to their own repos
+
 ## v0.1.3 - 2025-09-01
 
 - example of apparent and intrinsic 'true' Q10 with constant and varying Q10. For ELLIS summerschool [#131](https://github.com/EarthyScience/EasyHybrid.jl/pull/131)
