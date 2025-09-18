@@ -90,7 +90,7 @@ hybrid_model = constructHybridModel(
     hidden_layers = [16, 16], # Neural network architecture
     activation = sigmoid,      # Activation function
     scale_nn_outputs = true, # Scale neural network outputs
-    input_batchnorm = false   # Apply batch normalization to inputs
+    input_batchnorm = true   # Apply batch normalization to inputs
 )
 
 # =============================================================================
@@ -112,21 +112,24 @@ function make_folds(ds; k::Int=5, shuffle=true)
     return folds
 end
 
-folds = make_folds(ds, k=10, shuffle=true)
+k = 3
+folds = make_folds(ds, k=k, shuffle=true)
 
-# TODO loop over the folds
-val_fold = 1
+results = Vector{Any}(undef, k)
 
-# Train the hybrid model with k-fold cross-validation
-out = train(
-    hybrid_model, 
-    ds, 
-    (); 
-    folds = folds,
-    val_fold = val_fold,
-    nepochs = 100,
-    batchsize = 512,         # Batch size for training
-    opt = AdamW(0.1),   # Optimizer and learning rate
-    monitor_names = [:rb, :Q10], # Parameters to monitor during training
-    yscale = identity       # Scaling for outputs
-)
+for val_fold in 1:k
+    @info "Training fold $val_fold of $k"
+    out = train(
+        hybrid_model, 
+        ds, 
+        (); 
+        nepochs = 100,
+        patience = 10,
+        batchsize = 512,         # Batch size for training
+        opt = RMSProp(0.001),    # Optimizer and learning rate
+        monitor_names = [:rb, :Q10],
+        folds = folds,
+        val_fold = val_fold
+    )
+    results[val_fold] = out
+end
