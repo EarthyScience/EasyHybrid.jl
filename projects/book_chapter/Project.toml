@@ -1,5 +1,6 @@
 [deps]
 EasyHybrid = "61bb816a-e6af-4913-ab9e-91bff2e122e3"
 Hyperopt = "93e5fe13-2215-51db-baaf-2e9a34fb2712"
+MLUtils = "f1d291b0-491e-4a28-83b9-f70985020b54"
 NCDatasets = "85f8d34a-cbdd-5861-8df4-14fed0d494ab"
 WGLMakie = "276b4fcb-3e11-5398-bf8b-a0c2d153d008"

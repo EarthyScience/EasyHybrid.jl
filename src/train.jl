@@ -43,6 +43,8 @@ Default output file is `trained_model.jld2` at the current working directory und
 - `shuffleobs`: Whether to shuffle the training data (default: false).
 - `split_by_id`: Column name or function to split data by ID (default: nothing -> no ID-based splitting).
 - `split_data_at`: Fraction of data to use for training when splitting (default: 0.8).
+- `folds`: Vector or column name of fold assignments (1..k), one per sample/column for k-fold cross-validation (default: nothing).
+- `val_fold`: The validation fold to use when `folds` is provided (default: nothing).
 
 ## Training State and Reproducibility:
 - `train_from`: A tuple of physical parameters and state to start training from or an output of `train` (default: nothing -> new training).
@@ -75,7 +77,9 @@ function train(hybridModel, data, save_ps;
                # Data handling
                shuffleobs=false,
                split_by_id=nothing, 
-               split_data_at=0.8, 
+               split_data_at=0.8,
+               folds = nothing,
+               val_fold = nothing,
                
                # Training state and reproducibility
                train_from=nothing,
@@ -111,7 +115,11 @@ function train(hybridModel, data, save_ps;
     end
 
     # ? split training and validation data
-    (x_train, y_train), (x_val, y_val) = split_data(data, hybridModel; split_by_id=split_by_id, shuffleobs=shuffleobs, split_data_at=split_data_at)
+    if !isnothing(folds) && !isnothing(val_fold)
+        (x_train, y_train), (x_val, y_val) = split_data(data, hybridModel; folds=folds, val_fold=val_fold)
+    else
+        (x_train, y_train), (x_val, y_val) = split_data(data, hybridModel; split_by_id=split_by_id, shuffleobs=shuffleobs, split_data_at=split_data_at)
+    end
 
     train_loader = DataLoader((x_train, y_train), batchsize=batchsize, shuffle=true);
 
@@ -434,15 +442,42 @@ function split_data(data::Tuple{Tuple, Tuple}, hybridModel; kwargs...)
     return data
 end
 
+function split_data(data::Union{DataFrame, KeyedArray}, 
+                    hybridModel; 
+                    folds::Union{AbstractVector, Symbol},
+                    val_fold::Integer)
+    
+    x_all, y_all = prepare_data(hybridModel, data)
+    n = size(x_all, 2)
+    @assert length(folds) == n "length(folds) ($(length(folds))) must equal number of samples/columns ($n)."
+    @assert 1 ≤ val_fold ≤ maximum(folds) "val_fold=$val_fold is out of range 1:$(maximum(folds))."
+
+    if isa(folds, Symbol)
+        folds = getbyname(data, folds)
+    end
+
+    val_idx   = findall(==(val_fold), folds)
+    @assert !isempty(val_idx) "No samples assigned to validation fold $val_fold."
+    train_idx = setdiff(1:n, val_idx)
+
+    # Use `view` to avoid copies; switch to slicing (x_all[:, train_idx]) if you need owning arrays.
+    x_train, y_train = view(x_all, :, train_idx), view(y_all, :, train_idx)
+    x_val,   y_val   = view(x_all, :, val_idx),   view(y_all, :, val_idx)
+
+    @info "K-fold via external assignments: val_fold=$val_fold → train=$(length(train_idx)) val=$(length(val_idx))"
+    return (x_train, y_train), (x_val, y_val)
+end
+
 
 """
     split_data(data, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
     split_data(data::Union{DataFrame, KeyedArray}, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
+    split_data(data::Union{DataFrame, KeyedArray}, hybridModel; folds::Union{AbstractVector, Symbol}, val_fold::Integer)
     split_data(data::AbstractDimArray, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
     split_data(data::Tuple, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
     split_data(data::Tuple{Tuple, Tuple}, hybridModel; kwargs...)
 
-Split data into training and validation sets, either randomly or by grouping by ID.
+Split data into training and validation sets, either randomly, by grouping by ID, or using external fold assignments.
 
 # Arguments:
 - `data`: The data to split, which can be a DataFrame, KeyedArray, AbstractDimArray, or Tuple
@@ -450,9 +485,11 @@ Split data into training and validation sets, either randomly or by grouping by 
 - `split_by_id=nothing`: Either `nothing` for random splitting, a `Symbol` for column-based splitting, or an `AbstractVector` for custom ID-based splitting
 - `shuffleobs=false`: Whether to shuffle observations during splitting
 - `split_data_at=0.8`: Ratio of data to use for training
+- `folds`: Vector of fold assignments (1..k), one per sample/column for k-fold cross-validation
+- `val_fold`: The validation fold to use when `folds` is provided
 
 # Behavior:
-- For DataFrame/KeyedArray: Supports both random and ID-based splitting with logging
+- For DataFrame/KeyedArray: Supports random splitting, ID-based splitting, and external fold assignments
 - For AbstractDimArray/Tuple: Random splitting only after data preparation
 - For pre-split Tuple{Tuple, Tuple}: Returns input unchanged
 
