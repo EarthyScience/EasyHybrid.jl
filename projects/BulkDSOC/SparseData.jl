@@ -30,12 +30,12 @@ results_dir = joinpath(@__DIR__, "eval");
 
 # input
 targets = [:BD, :CF, :SOCconc, :SOCdensity];
-# scalers for targets, to bring them to similar range ~[0,1]
+# scalers for targets, to bring them to similar range ~[0,1], better normal
 scalers = Dict(
-    :SOCconc   => 1.8,
+    :SOCconc   => 0.158, # log(x*1000)*0.158
     :CF        => 2.2,
     :BD        => 0.53,
-    :SOCdensity => 2.5,
+    :SOCdensity => 0.165, # log(x*1000)*0.165
 );
 Random.seed!(42)
 
@@ -71,6 +71,10 @@ best_r2 = -Inf
 best_bundle = nothing
 
 for tgt in targets
+    if tgt in (:SOCdensity, :SOCconc)
+        train_df[!, tgt] .= log.(train_df[!, tgt] .* 1000)
+        test_df[!, tgt]  .= log.(test_df[!, tgt] .* 1000)
+    end
     train_df[!, tgt] .= train_df[!, tgt] .* scalers[tgt]
     test_df[!, tgt]  .= test_df[!, tgt] .* scalers[tgt]
 end
@@ -163,6 +167,10 @@ for t in targets
     @assert issubset(req, Symbol.(names(val_obs_pred))) "val_obs_pred missing $(collect(req)) for $(t). Columns: $(names(val_obs_pred))"
     val_tables[t] = val_obs_pred[:, t]./ scalers[t]
     val_tables[have_pred] = val_obs_pred[:, have_pred]./ scalers[t]
+    if t in (:SOCdensity, :SOCconc)
+        val_tables[Symbol("$(t)_pred")] = exp.(val_tables[Symbol("$(t)_pred")]) ./ 1000
+        val_tables[t] = exp.(val_tables[t]) ./ 1000
+    end
 end
 
 # helper for metrics calculation
