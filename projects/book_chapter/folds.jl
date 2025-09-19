@@ -133,3 +133,21 @@ for val_fold in 1:k
     )
     results[val_fold] = out
 end
+
+
+
+for val_fold in 1:k
+    @info "Split data outside of train function. Training fold $val_fold of $k"
+    sdata = split_data(ds, hybrid_model; val_fold = val_fold, folds = folds)
+    out = train(
+        hybrid_model, 
+        sdata, 
+        (); 
+        nepochs = 100,
+        patience = 10,
+        batchsize = 512,         # Batch size for training
+        opt = RMSProp(0.001),    # Optimizer and learning rate
+        monitor_names = [:rb, :Q10]
+    )
+    results[val_fold] = out
+end
