@@ -8,22 +8,17 @@ using ComponentArrays
 # Test data generation
 dk = gen_linear_data()
 
-# Simple mechanistic model for testing
-function test_mechanistic_model(; x1, a, b, c=nothing)
+# Simple mechanistic model for testing, c and d as dummy parameters
+function test_mechanistic_model(; x1, a, b, c=nothing, d=nothing)
     return (; y_pred = a .* x1 .+ b)
-end
-
-# Mechanistic model for MultiNNHybridModel: accepts either a (from params) or nn1 (from NN)
-function test_mechanistic_model_multi(; x1, a=nothing, b=nothing, c=nothing, nn1=nothing, nn2=nothing)
-    α = isnothing(a) ? nn1 : a
-    return (; y_pred = α .* x1 .+ b)
 end
 
 # Test parameters
 test_parameters = (
     a = (1.0f0, 0.0f0, 5.0f0),
     b = (2.0f0, 0.0f0, 10.0f0),
-    c = (0.5f0, 0.0f0, 2.0f0)
+    c = (0.5f0, 0.0f0, 2.0f0),
+    d = (0.5f0, 0.0f0, 2.0f0)
 )
 
 @testset "GenericHybridModel - Basic Functions" begin
@@ -138,7 +133,7 @@ end
         @test model.targets == targets
         @test model.neural_param_names == neural_param_names
         @test model.global_param_names == global_param_names
-        @test model.fixed_param_names == [:c]
+        @test model.fixed_param_names == [:c, :d]
         @test model.scale_nn_outputs == false
         @test model.start_from_default == true
         @test model.NN isa Chain
@@ -218,6 +213,9 @@ end
         @test haskey(st.fixed, :c)
         @test length(st.fixed.c) == 1
         @test st.fixed.c[1] isa Float32
+        @test haskey(st.fixed, :d)
+        @test length(st.fixed.d) == 1
+        @test st.fixed.d[1] isa Float32
     end
     
     @testset "SingleNNHybridModel forward pass" begin
@@ -286,7 +284,7 @@ end
 
 @testset "GenericHybridModel - MultiNNHybridModel" begin
     @testset "constructHybridModel with NamedTuple predictors" begin
-        predictors = (nn1 = [:x2, :x3], nn2 = [:x1])
+        predictors = (a = [:x2, :x3], d = [:x1])
         forcing = [:x1]
         targets = [:obs]
         global_param_names = [:b]
@@ -295,7 +293,7 @@ end
             predictors,
             forcing,
             targets,
-            test_mechanistic_model_multi,
+            test_mechanistic_model,
             test_parameters,
             global_param_names
         )
@@ -304,17 +302,17 @@ end
         @test model.predictors == predictors
         @test model.forcing == forcing
         @test model.targets == targets
-        @test model.neural_param_names == [:nn1, :nn2]
+        @test model.neural_param_names == [:a, :d]
         @test model.global_param_names == global_param_names
-        @test model.fixed_param_names == [:a, :c]
+        @test model.fixed_param_names == [:c]
         @test model.scale_nn_outputs == false
         @test model.start_from_default == true
-        @test haskey(model.NNs, :nn1)
-        @test haskey(model.NNs, :nn2)
+        @test haskey(model.NNs, :a)
+        @test haskey(model.NNs, :d)
     end
     
     @testset "MultiNNHybridModel with NamedTuple hidden_layers and activation" begin
-        predictors = (nn1 = [:x2, :x3], nn2 = [:x1])
+        predictors = (a = [:x2, :x3], d = [:x1])
         forcing = [:x1]
         targets = [:obs]
         global_param_names = [:b]
@@ -323,20 +321,20 @@ end
             predictors,
             forcing,
             targets,
-            test_mechanistic_model_multi,
+            test_mechanistic_model,
             test_parameters,
             global_param_names;
-            hidden_layers = (nn1 = [16, 8], nn2 = [8]),
-            activation = (nn1 = tanh, nn2 = sigmoid)
+            hidden_layers = (a = [16, 8], d = [8]),
+            activation = (a = tanh, d = sigmoid)
         )
         
         @test model isa MultiNNHybridModel
-        @test haskey(model.NNs, :nn1)
-        @test haskey(model.NNs, :nn2)
+        @test haskey(model.NNs, :a)
+        @test haskey(model.NNs, :d)
     end
     
     @testset "MultiNNHybridModel initialparameters" begin
-        predictors = (nn1 = [:x2, :x3], nn2 = [:x1])
+        predictors = (a = [:x2, :x3], d = [:x1])
         forcing = [:x1]
         targets = [:obs]
         global_param_names = [:b]
@@ -345,7 +343,7 @@ end
             predictors,
             forcing,
             targets,
-            test_mechanistic_model_multi,
+            test_mechanistic_model,
             test_parameters,
             global_param_names
         )
@@ -353,15 +351,15 @@ end
         rng = Random.default_rng()
         ps = LuxCore.initialparameters(rng, model)
         
-        @test haskey(ps, :nn1)  # First neural network parameters
-        @test haskey(ps, :nn2)  # Second neural network parameters
+        @test haskey(ps, :a)  # First neural network parameters
+        @test haskey(ps, :d)  # Second neural network parameters
         @test haskey(ps, :b)    # Global parameter
         @test length(ps.b) == 1
         @test ps.b[1] isa Float32
     end
     
     @testset "MultiNNHybridModel initialstates" begin
-        predictors = (nn1 = [:x2, :x3], nn2 = [:x1])
+        predictors = (a = [:x2, :x3], d = [:x1])
         forcing = [:x1]
         targets = [:obs]
         global_param_names = [:b]
@@ -370,7 +368,7 @@ end
             predictors,
             forcing,
             targets,
-            test_mechanistic_model_multi,
+            test_mechanistic_model,
             test_parameters,
             global_param_names
         )
@@ -378,8 +376,8 @@ end
         rng = Random.default_rng()
         st = LuxCore.initialstates(rng, model)
         
-        @test haskey(st, :nn1)   # First neural network states
-        @test haskey(st, :nn2)   # Second neural network states
+        @test haskey(st, :a)   # First neural network states
+        @test haskey(st, :d)   # Second neural network states
         @test haskey(st, :fixed) # Fixed parameters
         @test haskey(st.fixed, :c)
         @test length(st.fixed.c) == 1
@@ -387,7 +385,7 @@ end
     end
     
     @testset "MultiNNHybridModel forward pass" begin
-        predictors = (nn1 = [:x2, :x3], nn2 = [:x1])
+        predictors = (a = [:x2, :x3], d = [:x1])
         forcing = [:x1]
         targets = [:obs]
         global_param_names = [:b]
@@ -396,7 +394,7 @@ end
             predictors,
             forcing,
             targets,
-            test_mechanistic_model_multi,
+            test_mechanistic_model,
             test_parameters,
             global_param_names
         )
@@ -411,17 +409,17 @@ end
         @test haskey(output, :y_pred)
         @test haskey(output, :parameters)
         @test haskey(output, :nn_outputs)
-        @test haskey(output.parameters, :nn1)
-        @test haskey(output.parameters, :nn2)
+        @test haskey(output.parameters, :a)
         @test haskey(output.parameters, :b)
         @test haskey(output.parameters, :c)
-        @test haskey(new_st.st, :nn1)
-        @test haskey(new_st.st, :nn2)
+        @test haskey(output.parameters, :d)
+        @test haskey(new_st.st, :a)
+        @test haskey(new_st.st, :d)
         @test haskey(new_st.st, :fixed)
     end
     
     @testset "MultiNNHybridModel with scale_nn_outputs=true" begin
-        predictors = (nn1 = [:x2, :x3], nn2 = [:x1])
+        predictors = (a = [:x2, :x3], d = [:x1])
         forcing = [:x1]
         targets = [:obs]
         global_param_names = [:b]
@@ -430,7 +428,7 @@ end
             predictors,
             forcing,
             targets,
-            test_mechanistic_model_multi,
+            test_mechanistic_model,
             test_parameters,
             global_param_names;
             scale_nn_outputs = true
@@ -444,12 +442,12 @@ end
 
         # ! TODO: Fix this test; currently fails due to nn_outputs not being returned
         # ERROR: type NamedTuple has no field nn1
+        output, new_st = model(dk, ps, st)
         
-        # output, new_st = model(dk, ps, st)
-        
-        # @test haskey(output, :y_pred)
-        # @test haskey(output, :parameters)
-        # @test haskey(output, :nn_outputs)
+        @test haskey(output, :y_pred)
+        @test haskey(output, :parameters)
+        @test haskey(output, :nn_outputs)
+        @test haskey(output.nn_outputs, :a)
     end
 end
 
@@ -474,7 +472,7 @@ end
         @test model isa SingleNNHybridModel
         @test isempty(model.neural_param_names)
         @test isempty(model.global_param_names)
-        @test model.fixed_param_names == [:a, :b, :c]
+        @test model.fixed_param_names == [:a, :b, :c, :d]
         
         rng = Random.default_rng()
         ps = LuxCore.initialparameters(rng, model)
