@@ -17,8 +17,8 @@ end
 """
     train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0.01), patience=typemax(Int),
           file_name=nothing, loss_types=[:mse, :r2], training_loss=:mse, agg=sum, train_from=nothing,
-          random_seed=161803, shuffleobs=false, yscale=log10, monitor_names=[], return_model=:best, 
-          split_by_id=nothing, split_data_at=0.8, plotting=true, show_progress=true, hybrid_name=randstring(10))
+          random_seed=161803, yscale=log10, monitor_names=[], return_model=:best, 
+          plotting=true, show_progress=true, hybrid_name=randstring(10), kwargs...)
 
 Train a hybrid model using the provided data and save the training process to a file in JLD2 format. 
 Default output file is `trained_model.jld2` at the current working directory under `output_tmp`.
@@ -39,7 +39,7 @@ Default output file is `trained_model.jld2` at the current working directory und
 - `loss_types`: A vector of loss types to compute during training (default: `[:mse, :r2]`).
 - `agg`: The aggregation function to apply to the computed losses (default: `sum`).
 
-## Data Handling:
+## Data Handling (passed via kwargs):
 - `shuffleobs`: Whether to shuffle the training data (default: false).
 - `split_by_id`: Column name or function to split data by ID (default: nothing -> no ID-based splitting).
 - `split_data_at`: Fraction of data to use for training when splitting (default: 0.8).
@@ -74,12 +74,7 @@ function train(hybridModel, data, save_ps;
                loss_types=[:mse, :r2], 
                agg=sum, 
                
-               # Data handling
-               shuffleobs=false,
-               split_by_id=nothing, 
-               split_data_at=0.8,
-               folds = nothing,
-               val_fold = nothing,
+               # Data handling parameters are now passed via kwargs...
                
                # Training state and reproducibility
                train_from=nothing,
@@ -113,13 +108,8 @@ function train(hybridModel, data, save_ps;
     if !isnothing(random_seed)
         Random.seed!(random_seed)
     end
-
-    # ? split training and validation data
-    if !isnothing(folds) && !isnothing(val_fold)
-        (x_train, y_train), (x_val, y_val) = split_data(data, hybridModel; folds=folds, val_fold=val_fold)
-    else
-        (x_train, y_train), (x_val, y_val) = split_data(data, hybridModel; split_by_id=split_by_id, shuffleobs=shuffleobs, split_data_at=split_data_at)
-    end
+    
+    (x_train, y_train), (x_val, y_val) = split_data(data, hybridModel; kwargs...)
 
     train_loader = DataLoader((x_train, y_train), batchsize=batchsize, shuffle=true);
 
@@ -390,13 +380,13 @@ function header_and_paddings(nt; digits=5)
     return headers, paddings
 end
 
-function split_data(data::AbstractDimArray, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
+function split_data(data::AbstractDimArray, hybridModel; shuffleobs=false, split_data_at=0.8, kwargs...)
     data_ = prepare_data(hybridModel, data)
     (x_train, y_train), (x_val, y_val) = splitobs(data_; at=split_data_at, shuffle=shuffleobs)
     return (x_train, y_train), (x_val, y_val)
 end
 
-function split_data(data::Tuple, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
+function split_data(data::Tuple, hybridModel; shuffleobs=false, split_data_at=0.8, kwargs...)
     data_ = prepare_data(hybridModel, data)
     (x_train, y_train), (x_val, y_val) = splitobs(data_; at=split_data_at, shuffle=shuffleobs)
     return (x_train, y_train), (x_val, y_val)
@@ -413,7 +403,8 @@ function split_data(
     folds::Union{Nothing,AbstractVector,Symbol}=nothing,
     val_fold::Union{Nothing,Int}=nothing,
     shuffleobs::Bool=false,
-    split_data_at::Real=0.8
+    split_data_at::Real=0.8,
+    kwargs...
 )
     data_ = prepare_data(hybridModel, data)
 
@@ -463,10 +454,10 @@ end
 
 
 """
-    split_data(data, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
-    split_data(data::Union{DataFrame, KeyedArray}, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8, folds=nothing, val_fold=nothing)
-    split_data(data::AbstractDimArray, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
-    split_data(data::Tuple, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
+    split_data(data, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8, kwargs...)
+    split_data(data::Union{DataFrame, KeyedArray}, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8, folds=nothing, val_fold=nothing, kwargs...)
+    split_data(data::AbstractDimArray, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8, kwargs...)
+    split_data(data::Tuple, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8, kwargs...)
     split_data(data::Tuple{Tuple, Tuple}, hybridModel; kwargs...)
 
 Split data into training and validation sets, either randomly, by grouping by ID, or using external fold assignments.
