@@ -120,7 +120,7 @@ ho = @thyperopt for i=nhyper,
     println("Hyperparameter run: \n", i, " of ", nhyper, "\t with hyperparameters \t", hyper_parameters, "\t")
     out = EasyHybrid.tune(hybrid_model, ds, mspempty; hyper_parameters..., nepochs = 10, plotting = false, show_progress = false, file_name = "test$i.jld2")
     #out.best_loss
-    # return a rich record for this trial (stored in ho.results[i])
+    # out.best_loss, has to be first element of the tuple, return a rich record for this trial (stored in ho.results[i])
     (out.best_loss, hyperps = hyper_parameters, ps_st = (out.ps, out.st), i = i)
 end
 
@@ -164,8 +164,7 @@ ax = Makie.Axis(
 )
 scatter!(ax, 1:length(sorted_losses), sorted_losses; markersize=15, color=:dodgerblue)
 
-
-
+# Get the best trial
 best_idx = argmin(losses)
 best_trial = ho.results[best_idx]
 
@@ -174,10 +173,14 @@ best_params = best_trial.ps_st        # (ps, st)
 # Print the best hyperparameters
 printmin(ho)
 
-# Plot the results #TODO fix plot from hyperopt.jl
-#import Plots
-#using Unitful
-#Plots.plot(ho, xrotation=25, left_margin=[100mm 0mm], bottom_margin=60mm, ylab = "loss", size = (900, 900)) 
+# Plot the results
+import Plots
+using Plots.PlotMeasures
+# rebuild the ho object as intended by plot function for hyperopt object
+ho2 = deepcopy(ho)
+ho2.results = getfield.(ho.results, :best_loss)
+
+Plots.plot(ho2, xrotation=25, left_margin=[100mm 0mm], bottom_margin=60mm, ylab = "loss", size = (900, 900)) 
 
 # Train the model with the best hyperparameters
 best_hyperp = best_hyperparams(ho)
