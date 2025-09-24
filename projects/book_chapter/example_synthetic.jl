@@ -173,7 +173,7 @@ best_params = best_trial.ps_st        # (ps, st)
 # Print the best hyperparameters
 printmin(ho)
 
-# Plot the results #TODO fix plot from hyperopt.jl
+# Plot the results
 import Plots
 using Plots.PlotMeasures
 # rebuild the ho object as intended by plot function for hyperopt object
