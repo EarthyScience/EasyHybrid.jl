@@ -15,17 +15,6 @@ using Pkg
 project_path = "projects/book_chapter"
 Pkg.activate(project_path)
 
-# Check if manifest exists, create project if needed
-manifest_path = joinpath(project_path, "Manifest.toml")
-if !isfile(manifest_path)
-    package_path = pwd() 
-    if !endswith(package_path, "EasyHybrid")
-        @error "You opened in the wrong directory. Please open the EasyHybrid folder, create a new project in the projects folder and provide the relative path to the project folder as project_path."
-    end
-    Pkg.develop(path=package_path)
-    Pkg.instantiate()
-end
-
 using EasyHybrid
 
 # =============================================================================
@@ -132,11 +121,7 @@ ho = @thyperopt for i=nhyper,
     out = EasyHybrid.tune(hybrid_model, ds, mspempty; hyper_parameters..., nepochs = 10, plotting = false, show_progress = false, file_name = "test$i.jld2")
     #out.best_loss
     # return a rich record for this trial (stored in ho.results[i])
-    (out.best_loss,
-     hyperps = hyper_parameters,
-     ps_st = (ps = out.ps, st = out.st),
-     file = "test$i.jld2",
-     i = i)
+    (out.best_loss, hyperps = hyper_parameters, ps_st = (out.ps, out.st), i = i)
 end
 
 losses = getfield.(ho.results, :best_loss)
@@ -184,16 +169,16 @@ scatter!(ax, 1:length(sorted_losses), sorted_losses; markersize=15, color=:dodge
 best_idx = argmin(losses)
 best_trial = ho.results[best_idx]
 
-best_params = best_trial.params        # (ps, st)
+best_params = best_trial.ps_st        # (ps, st)
 
 # Print the best hyperparameters
 printmin(ho)
 
-# Plot the results
-import Plots
-using Unitful
-Plots.plot(ho, xrotation=25, left_margin=[100mm 0mm], bottom_margin=60mm, ylab = "loss", size = (900, 900)) 
+# Plot the results #TODO fix plot from hyperopt.jl
+#import Plots
+#using Unitful
+#Plots.plot(ho, xrotation=25, left_margin=[100mm 0mm], bottom_margin=60mm, ylab = "loss", size = (900, 900)) 
 
 # Train the model with the best hyperparameters
 best_hyperp = best_hyperparams(ho)
-out = EasyHybrid.tune(hybrid_model, ds, mspempty; best_hyperp..., nepochs = 100)
+out = EasyHybrid.tune(hybrid_model, ds, mspempty; best_hyperp..., nepochs = 100, train_from = best_params)
