@@ -37,7 +37,7 @@ grads = backtrace(l)[1]
 # TODO: test DimArray inputs
 using DimensionalData, ChainRulesCore
 # mat = Matrix(df)'
-mat = Array(Matrix(df)')
+mat = Float32.(Array(Matrix(df)'))
 da = DimArray(mat, (Dim{:col}(Symbol.(names(df))), Dim{:row}(1:size(df,1))))
 
 ##! new dispatch
@@ -106,4 +106,14 @@ axDims = dims(da)
 
 ds_yax = YAXArray(axDims, da.data)
 
+ds_p_f = ds_yax[col=At(forcing_names ∪ predictor_names)]
+ds_t = ds_yax[col=At(target_names)]
+ds_t_nan = .!isnan.(ds_t) #  produces 1×35064 YAXArray{Float32, 2}, not a Bool
+ds_t_nan = map(x -> !isnan(x), ds_t) # 1×35064 YAXArray{Bool, 2}
+
+ls = EasyHybrid.lossfn(RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss())
+ls_logs = EasyHybrid.lossfn(RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss(train_mode=false))
+acc_ = EasyHybrid.evaluate_acc(RbQ10, ds_p_f, ds_t, ds_t_nan, ps, st, [:mse, :r2], :mse, sum)
+
+# TODO how to proceed - would it work already for multiple targets?
 out_yax = train(RbQ10, ds_yax, (:Q10, ); nepochs=200, batchsize=512, opt=Adam(0.01));
