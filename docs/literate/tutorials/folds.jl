@@ -45,28 +45,33 @@ parameters = (
 # ## 5. Configure Hybrid Model Components
 
 # Define input variables
-forcing     = [:ta]                  # Forcing variables (temperature)
-predictors  = [:sw_pot, :dsw_pot]    # Predictor variables (solar radiation, and its derivative)
-target      = [:reco]                # Target variable (respiration)
+# Forcing variables (temperature)
+forcing     = [:ta]
+# Predictor variables (solar radiation, and its derivative)
+predictors  = [:sw_pot, :dsw_pot]
+# Target variable (respiration)
+target      = [:reco]
 
 # Parameter classification
-global_param_names = [:Q10]          # Global parameters (same for all samples)
-neural_param_names = [:rb]           # Neural network predicted parameters
+# Global parameters (same for all samples)
+global_param_names = [:Q10]
+# Neural network predicted parameters
+neural_param_names = [:rb]
 
 # ## 6. Construct the Hybrid Model
 
 hybrid_model = constructHybridModel(
-    predictors,                # Input features
-    forcing,                   # Forcing variables
-    target,                    # Target variables
-    RbQ10,                     # Process-based model function
-    parameters,                # Parameter definitions
-    neural_param_names,        # NN-predicted parameters
-    global_param_names,        # Global parameters
-    hidden_layers = [16, 16],  # Neural network architecture
-    activation = sigmoid,      # Activation function
-    scale_nn_outputs = true,   # Scale neural network outputs
-    input_batchnorm = true     # Apply batch normalization to inputs
+    predictors,
+    forcing,
+    target,
+    RbQ10,
+    parameters,
+    neural_param_names,
+    global_param_names,
+    hidden_layers = [16, 16],
+    activation = sigmoid,
+    scale_nn_outputs = true,
+    input_batchnorm = true
 )
 
 # ## 7. Model Training: k-Fold Cross-Validation
@@ -96,4 +101,3 @@ results = Vector{Any}(undef, k)
     )
     results[val_fold] = out
 end
-
