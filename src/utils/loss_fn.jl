@@ -37,7 +37,7 @@ end
 function loss_fn(ŷ, y, y_nan, ::Val{:mae})
     return mean(abs, (ŷ[y_nan] .- y[y_nan]))
 end
-# person correlation coefficient
+# pearson correlation coefficient
 function loss_fn(ŷ, y, y_nan, ::Val{:pearson})
     return cor(ŷ[y_nan], y[y_nan])
 end
@@ -49,4 +49,10 @@ end
 # one minus nse
 function loss_fn(ŷ, y, y_nan, ::Val{:nse})
     return sum((ŷ[y_nan] .- y[y_nan]).^2) / sum((y[y_nan] .- mean(y[y_nan])).^2)
+end
+
+## More generic possibility to pass custom loss functions
+function loss_fn(ŷ, y, y_nan, training_loss::Function )
+    #return sum((ŷ[y_nan] .- y[y_nan]).^2) / sum((y[y_nan] .- mean(y[y_nan])).^2)
+    return training_loss(ŷ[y_nan], y[y_nan])
 end

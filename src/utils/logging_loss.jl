@@ -84,6 +84,11 @@ function compute_loss(ŷ, y, y_nan, targets, training_loss::Symbol, agg::Functi
     return agg(losses)
 end
 
+function compute_loss(ŷ, y, y_nan, targets, training_loss::Function, agg::Function)
+    losses = [loss_fn(ŷ[k], y(k), y_nan(k), training_loss) for k in targets]
+    return agg(losses)
+end
+
 function compute_loss(ŷ, y::AbstractDimArray, y_nan::AbstractDimArray, targets, training_loss::Symbol, agg::Function)
     losses = [loss_fn(ŷ[k], y[col=At(k)], y_nan[col=At(k)], Val(training_loss)) for k in targets]
     return agg(losses)
