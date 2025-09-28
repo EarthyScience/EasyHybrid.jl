@@ -1,5 +1,4 @@
 export make_folds
-using MLUtils
 
 """
     make_folds(df::DataFrame; k::Int=5, shuffle=true) -> Vector{Int}
@@ -16,7 +15,7 @@ Assigns each observation in the DataFrame `df` to one of `k` folds for cross-val
 """
 function make_folds(df::DataFrame; k::Int=5, shuffle=true)
     n = numobs(df)
-    _, val_idx = MLUtils.kfolds(n, k)
+    _, val_idx = kfolds(n, k)
     folds = fill(0, n)
     perm = shuffle ? randperm(n) : 1:n
     for (f, idx) in enumerate(val_idx)

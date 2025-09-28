@@ -3,10 +3,7 @@ using Test
 using Random
 using EasyHybrid
 using Lux
-using MLUtils
 using DataFrames
-using DimensionalData
-using ChainRulesCore
 using Statistics
 
 # ------------------------------------------------------------------------------
@@ -72,6 +69,7 @@ const RbQ10_PARAMS = (
             batchsize = 12,
             plotting = false,
             show_progress = false,
+            hybrid_name = "test",
             kwargs...
         )
 
@@ -108,13 +106,11 @@ const RbQ10_PARAMS = (
         out = trainshort(ka, folds = folds, val_fold = 1)
         @test !isnothing(out)
 
-        out = trainshort(ka, folds = :folds, val_fold = 1)
+        out = trainshort(df, folds = :folds, val_fold = 1)
         @test !isnothing(out)
 
         out = trainshort(df, folds = :folds, val_fold = 1, shuffleobs = true)
         @test !isnothing(out)
-
-        out = trainshort(df, folds = :folds, val_fold = 1, shuffleobs = true, split_by_id = :id)
 
         @test_throws ArgumentError trainshort(df; folds = :folds, val_fold = 1, shuffleobs = true, split_by_id = :id)
     end
