@@ -114,10 +114,10 @@ const RbQ10_PARAMS = (
         @test_throws ArgumentError trainshort(df; folds = :folds, val_fold = 1, shuffleobs = true, split_by_id = :id)
 
         sdata = split_data(df, model, split_by_id = :id)
-        @test "split_data on DataFrame" !isnothing(sdata)
+        @test !isnothing(sdata)
 
         out = trainshort(sdata)
-        @test "training on split_data" !isnothing(out)
+        @test !isnothing(out)
 
         mat = vcat(ka[1], ka[2])
         da = DimArray(mat, (Dim{:col}(mat.keys[1]), Dim{:row}(1:size(mat,2))))'
