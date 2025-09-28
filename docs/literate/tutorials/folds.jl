@@ -1,0 +1,100 @@
+# # Folds Tutorial: Cross-Validation with EasyHybrid.jl
+#
+# This tutorial demonstrates how to perform k-fold cross-validation using EasyHybrid.jl.
+# The code is compatible with Literate.jl and can be executed as a script or rendered as documentation.
+#
+# ## 1. Load Packages
+
+using EasyHybrid
+using OhMyThreads
+using WGLMakie
+
+# ## 2. Data Loading and Preprocessing
+
+# Load synthetic dataset from GitHub
+df = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc")
+
+# Select a subset of data for faster execution
+df = df[1:20000, :]
+
+# ## 3. Define the Physical Model
+
+"""
+    RbQ10(; ta, Q10, rb, tref=15.0f0)
+
+Respiration model with Q10 temperature sensitivity.
+
+- `ta`: air temperature [°C]
+- `Q10`: temperature sensitivity factor [-]
+- `rb`: basal respiration rate [μmol/m²/s]
+- `tref`: reference temperature [°C] (default: 15.0)
+"""
+function RbQ10(; ta, Q10, rb, tref = 15.0f0)
+    reco = rb .* Q10 .^ (0.1f0 .* (ta .- tref))
+    return (; reco, Q10, rb)
+end
+
+# ## 4. Define Model Parameters
+
+# Parameter specification: (default, lower_bound, upper_bound)
+parameters = (
+    # Parameter name | Default | Lower | Upper
+    rb  = (3.0f0, 0.0f0, 13.0f0),   # Basal respiration [μmol/m²/s]
+    Q10 = (2.0f0, 1.0f0, 4.0f0),    # Temperature sensitivity factor [-]
+)
+
+# ## 5. Configure Hybrid Model Components
+
+# Define input variables
+forcing     = [:ta]                  # Forcing variables (temperature)
+predictors  = [:sw_pot, :dsw_pot]    # Predictor variables (solar radiation, and its derivative)
+target      = [:reco]                # Target variable (respiration)
+
+# Parameter classification
+global_param_names = [:Q10]          # Global parameters (same for all samples)
+neural_param_names = [:rb]           # Neural network predicted parameters
+
+# ## 6. Construct the Hybrid Model
+
+hybrid_model = constructHybridModel(
+    predictors,                # Input features
+    forcing,                   # Forcing variables
+    target,                    # Target variables
+    RbQ10,                     # Process-based model function
+    parameters,                # Parameter definitions
+    neural_param_names,        # NN-predicted parameters
+    global_param_names,        # Global parameters
+    hidden_layers = [16, 16],  # Neural network architecture
+    activation = sigmoid,      # Activation function
+    scale_nn_outputs = true,   # Scale neural network outputs
+    input_batchnorm = true     # Apply batch normalization to inputs
+)
+
+# ## 7. Model Training: k-Fold Cross-Validation
+
+k = 3
+folds = make_folds(df, k = k, shuffle = true)
+
+results = Vector{Any}(undef, k)
+
+@time @tasks for val_fold in 1:k
+    @info "Split data outside of train function. Training fold $val_fold of $k"
+    sdata = split_data(df, hybrid_model; val_fold = val_fold, folds = folds)
+    out = train(
+        hybrid_model, 
+        sdata, 
+        (); 
+        nepochs = 10,
+        patience = 10,
+        batchsize = 512,         # Batch size for training
+        opt = RMSProp(0.001),    # Optimizer and learning rate
+        monitor_names = [:rb, :Q10],
+        hybrid_name = "folds_$(val_fold)",
+        folder_to_save = "CV_results",
+        file_name = "trained_model_folds_$(val_fold).jld2",
+        show_progress = false,
+        plotting = false
+    )
+    results[val_fold] = out
+end
+
