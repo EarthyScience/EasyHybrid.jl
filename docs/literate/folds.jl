@@ -27,7 +27,7 @@ if !isfile(manifest_path)
 end
 
 using EasyHybrid
-
+using OhMyThreads
 # =============================================================================
 # Data Loading and Preprocessing
 # =============================================================================
@@ -103,8 +103,7 @@ folds = make_folds(df, k=k, shuffle=true)
 
 results = Vector{Any}(undef, k)
 
-using OhMyThreads
-for val_fold in 1:k
+@time @tasks for val_fold in 1:k
     @info "Split data outside of train function. Training fold $val_fold of $k"
     sdata = split_data(df, hybrid_model; val_fold = val_fold, folds = folds)
     out = train(
@@ -117,8 +116,11 @@ for val_fold in 1:k
         opt = RMSProp(0.001),    # Optimizer and learning rate
         monitor_names = [:rb, :Q10],
         hybrid_name = "folds_$(val_fold)",
+        folder_to_save = "CV_results",
+        file_name = "trained_model_folds_$(val_fold).jld2",
         show_progress = false,
         plotting = false
     )
-    results[val_fold] = out
+    #results[val_fold] = out
 end
+
