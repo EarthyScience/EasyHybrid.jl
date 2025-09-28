@@ -1,4 +1,4 @@
-export train, TrainResults
+export train, TrainResults, prepare_data, split_data
 # beneficial for plotting based on type TrainResults?
 struct TrainResults
     train_history
@@ -380,24 +380,12 @@ function header_and_paddings(nt; digits=5)
     return headers, paddings
 end
 
-function split_data(data::AbstractDimArray, hybridModel; shuffleobs=false, split_data_at=0.8, kwargs...)
-    data_ = prepare_data(hybridModel, data)
-    (x_train, y_train), (x_val, y_val) = splitobs(data_; at=split_data_at, shuffle=shuffleobs)
-    return (x_train, y_train), (x_val, y_val)
-end
-
-function split_data(data::Tuple, hybridModel; shuffleobs=false, split_data_at=0.8, kwargs...)
-    data_ = prepare_data(hybridModel, data)
-    (x_train, y_train), (x_val, y_val) = splitobs(data_; at=split_data_at, shuffle=shuffleobs)
-    return (x_train, y_train), (x_val, y_val)
-end
-
 function split_data(data::Tuple{Tuple, Tuple}, hybridModel; kwargs...)
     return data
 end
 
 function split_data(
-    data::Union{DataFrame, KeyedArray},
+    data::Union{DataFrame, KeyedArray, Tuple, AbstractDimArray},
     hybridModel;
     split_by_id::Union{Nothing,Symbol,AbstractVector}=nothing,
     folds::Union{Nothing,AbstractVector,Symbol}=nothing,
@@ -517,7 +505,7 @@ end
 
 function prepare_data(hm, data::AbstractDimArray)
     predictors_forcing, targets = get_prediction_target_names(hm)
-    return (data[col=At(predictors_forcing)], data[col=At(targets)])
+    return (data[col=At(predictors_forcing)], data[col=At(targets)]) # TODO check what this should be rows or cols, I would say rows, but maybe it does not matter 
 end
 
 function prepare_data(hm, data::Tuple)

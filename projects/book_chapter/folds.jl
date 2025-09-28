@@ -32,10 +32,10 @@ using EasyHybrid
 # Data Loading and Preprocessing
 # =============================================================================
 # Load synthetic dataset from GitHub
-ds = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc")
+df = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc")
 
 # Select a subset of data for faster execution
-ds = ds[1:20000, :]
+df = df[1:20000, :]
 
 # =============================================================================
 # Define the Physical Model
@@ -100,8 +100,8 @@ using WGLMakie
 
 using MLUtils
 
-function make_folds(ds; k::Int=5, shuffle=true)
-    n = numobs(ds)
+function make_folds(df; k::Int=5, shuffle=true)
+    n = numobs(df)
     _, val_idx = MLUtils.kfolds(n, k)
     folds = fill(0, n)
     perm = shuffle ? randperm(n) : 1:n
@@ -113,7 +113,7 @@ function make_folds(ds; k::Int=5, shuffle=true)
 end
 
 k = 3
-folds = make_folds(ds, k=k, shuffle=true)
+folds = make_folds(df, k=k, shuffle=true)
 
 results = Vector{Any}(undef, k)
 
@@ -121,9 +121,9 @@ for val_fold in 1:k
     @info "Training fold $val_fold of $k"
     out = train(
         hybrid_model, 
-        ds, 
+        df, 
         (); 
-        nepochs = 100,
+        nepochs = 10,
         patience = 10,
         batchsize = 512,         # Batch size for training
         opt = RMSProp(0.001),    # Optimizer and learning rate
@@ -135,15 +135,14 @@ for val_fold in 1:k
 end
 
 
-
 for val_fold in 1:k
     @info "Split data outside of train function. Training fold $val_fold of $k"
-    sdata = split_data(ds, hybrid_model; val_fold = val_fold, folds = folds)
+    sdata = split_data(df, hybrid_model; val_fold = val_fold, folds = folds)
     out = train(
         hybrid_model, 
         sdata, 
         (); 
-        nepochs = 100,
+        nepochs = 10,
         patience = 10,
         batchsize = 512,         # Batch size for training
         opt = RMSProp(0.001),    # Optimizer and learning rate
@@ -151,3 +150,80 @@ for val_fold in 1:k
     )
     results[val_fold] = out
 end
+
+
+dtuple_tuple = split_data(df, hybrid_model; val_fold = 1, folds = folds)
+out = train(
+    hybrid_model, 
+    dtuple_tuple, 
+    (); 
+    nepochs = 10,
+    patience = 10,
+    batchsize = 512,         # Batch size for training
+    opt = RMSProp(0.001),    # Optimizer and learning rate
+    monitor_names = [:rb, :Q10]
+)
+
+dtuple_tuple = split_data(df, hybrid_model; shuffleobs=true,
+split_data_at = 0.8)
+out = train(
+    hybrid_model, 
+    dtuple_tuple, 
+    (); 
+    nepochs = 10,
+    patience = 10,
+    batchsize = 512,         # Batch size for training
+    opt = RMSProp(0.001),    # Optimizer and learning rate
+    monitor_names = [:rb, :Q10]
+)
+
+ka = prepare_data(hybrid_model, df)
+dtuple_tuple = split_data(ka, hybrid_model; val_fold = 1, folds = folds)
+out = train(
+    hybrid_model, 
+    dtuple_tuple, 
+    (); 
+    nepochs = 10,
+    patience = 10,
+    batchsize = 512,         # Batch size for training
+    opt = RMSProp(0.001),    # Optimizer and learning rate
+    monitor_names = [:rb, :Q10]
+)
+
+dtuple_tuple = split_data(ka, hybrid_model; shuffleobs=true,
+split_data_at = 0.8)
+out = train(
+    hybrid_model, 
+    dtuple_tuple, 
+    (); 
+    nepochs = 10,
+    patience = 10,
+    batchsize = 512,         # Batch size for training
+    opt = RMSProp(0.001),    # Optimizer and learning rate
+    monitor_names = [:rb, :Q10]
+)
+
+using DimensionalData, ChainRulesCore
+mat = vcat(ka[1], ka[2])
+da = DimArray(mat, (Dim{:col}(mat.keys[1]), Dim{:row}(1:size(mat,2))))'
+
+
+predictors_forcing, targets = EasyHybrid.get_prediction_target_names(hybrid_model)
+da[col=At(predictors_forcing)]
+da[col=At(targets[1])]
+dk = prepare_data(hybrid_model, da)
+dk[1]
+dk[2]
+
+# TODO: this is not working, need to fix GenericHybrid Model for DimensionalData 
+dtuple_tuple = split_data(dk, hybrid_model; val_fold = 1, folds = folds)
+out = train(
+    hybrid_model, 
+    da, 
+    (); 
+    nepochs = 10,
+    patience = 10,
+    batchsize = 512,         # Batch size for training
+    opt = RMSProp(0.001),    # Optimizer and learning rate
+    monitor_names = [:rb, :Q10]
+)
