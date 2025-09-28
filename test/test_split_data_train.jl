@@ -53,18 +53,15 @@ const RbQ10_PARAMS = (
     global_param_names = [:Q10]
     neural_param_names = [:rb]
 
-    @testset "constructHybridModel test" begin
+    @testset "test DataFrame and thereby KeyedArray" begin
         model = constructHybridModel(
             predictors, forcing, target, RbQ10,
             RbQ10_PARAMS, neural_param_names, global_param_names
         )
         @test model isa SingleNNHybridModel
-    end
-
-    @testset "test DataFrame and thereby KeyedArray" begin
         # prepare_data should produce something consumable by split_data
         ka = prepare_data(model, df)
-        @test !isnothing(ka)
+        @test "creation of KeyedArray from DataFrame" !isnothing(ka)
 
         trainshort(ka; kwargs...) = train(model, ka, ();
             nepochs = 1,
@@ -76,7 +73,7 @@ const RbQ10_PARAMS = (
         )
 
         out = trainshort(ka)
-        @test !isnothing(out)
+        @test "training on KeyedArray" !isnothing(out)
 
         out = trainshort(ka, shuffleobs = true)
         @test !isnothing(out)
@@ -115,28 +112,22 @@ const RbQ10_PARAMS = (
         @test !isnothing(out)
 
         @test_throws ArgumentError trainshort(df; folds = :folds, val_fold = 1, shuffleobs = true, split_by_id = :id)
-    end
-
-    @testset "test split_data" begin
-        # prepare_data should produce something consumable by split_data
 
         sdata = split_data(df, model, split_by_id = :id)
-        @test !isnothing(sdata)
+        @test "split_data on DataFrame" !isnothing(sdata)
 
         out = trainshort(sdata)
-        @test !isnothing(out)
-    end
+        @test "training on split_data" !isnothing(out)
 
-    @testset "Dimensional data" begin
-    mat = vcat(ka[1], ka[2])
-    da = DimArray(mat, (Dim{:col}(mat.keys[1]), Dim{:row}(1:size(mat,2))))'
-    ka = prepare_data(model, da)
-    @test !isnothing(ka)
-    
-    # TODO: this is not working, transpose da columns to rows?
-    #dtuple_tuple = split_data(da, model)
-    #@test !isnothing(dtuple_tuple)
-    # TODO: this is not working, need to fix GenericHybrid Model for DimensionalData 
-    # out = trainshort(dtuple_tuple)
+        mat = vcat(ka[1], ka[2])
+        da = DimArray(mat, (Dim{:col}(mat.keys[1]), Dim{:row}(1:size(mat,2))))'
+        ka = prepare_data(model, da)
+        @test !isnothing(ka)
+        
+        # TODO: this is not working, transpose da columns to rows?
+        #dtuple_tuple = split_data(da, model)
+        #@test !isnothing(dtuple_tuple)
+        # TODO: this is not working, need to fix GenericHybrid Model for DimensionalData 
+        # out = trainshort(dtuple_tuple)
     end
 end
