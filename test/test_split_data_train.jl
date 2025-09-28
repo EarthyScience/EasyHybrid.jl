@@ -7,6 +7,7 @@ using MLUtils
 using DataFrames
 using DimensionalData
 using ChainRulesCore
+using Statistics
 
 # ------------------------------------------------------------------------------
 # Synthetic data similar to the example's columns (no network calls)
