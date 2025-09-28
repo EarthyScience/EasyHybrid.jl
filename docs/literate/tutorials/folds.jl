@@ -16,7 +16,7 @@ df = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/
 
 # Select a subset of data for faster execution
 df = df[1:20000, :];
-head(df)
+first(df, 5)
 
 # ## 3. Define the Physical Model
 
