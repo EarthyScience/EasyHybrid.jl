@@ -5,6 +5,8 @@ using EasyHybrid
 using Lux
 using DataFrames
 using Statistics
+using DimensionalData
+using ChainRulesCore
 
 # ------------------------------------------------------------------------------
 # Synthetic data similar to the example's columns (no network calls)
@@ -123,5 +125,18 @@ const RbQ10_PARAMS = (
 
         out = trainshort(sdata)
         @test !isnothing(out)
+    end
+
+    @testset "Dimensional data" begin
+    mat = vcat(ka[1], ka[2])
+    da = DimArray(mat, (Dim{:col}(mat.keys[1]), Dim{:row}(1:size(mat,2))))'
+    ka = prepare_data(model, da)
+    @test !isnothing(ka)
+    
+    # TODO: this is not working, transpose da columns to rows?
+    #dtuple_tuple = split_data(da, model)
+    #@test !isnothing(dtuple_tuple)
+    # TODO: this is not working, need to fix GenericHybrid Model for DimensionalData 
+    # out = trainshort(dtuple_tuple)
     end
 end
