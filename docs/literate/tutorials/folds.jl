@@ -1,7 +1,7 @@
 # # Folds Tutorial: Cross-Validation with EasyHybrid.jl
 #
 # This tutorial demonstrates how to perform k-fold cross-validation using EasyHybrid.jl.
-# The code is compatible with Literate.jl and can be executed as a script or rendered as documentation.
+# The code for this tutorial can be found in docs/literate/tutorials/folds.jl.
 #
 # ## 1. Load Packages
 
