@@ -38,9 +38,8 @@ end
 
 # Parameter specification: (default, lower_bound, upper_bound)
 parameters = (
-    # Parameter name | Default | Lower | Upper
-    rb  = (3.0f0, 0.0f0, 13.0f0),   # Basal respiration [μmol/m²/s]
-    Q10 = (2.0f0, 1.0f0, 4.0f0),    # Temperature sensitivity factor [-]
+    rb  = (3.0f0, 0.0f0, 13.0f0),
+    Q10 = (2.0f0, 1.0f0, 4.0f0)
 )
 
 # ## 5. Configure Hybrid Model Components
