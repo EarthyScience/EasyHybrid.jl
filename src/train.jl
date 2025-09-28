@@ -381,6 +381,7 @@ function header_and_paddings(nt; digits=5)
 end
 
 function split_data(data::Tuple{Tuple, Tuple}, hybridModel; kwargs...)
+    @warn "data was prepared already, none of the keyword arguments for split_data will be used"
     return data
 end
 
@@ -396,7 +397,11 @@ function split_data(
 )
     data_ = prepare_data(hybridModel, data)
 
-    if split_by_id !== nothing
+    if split_by_id !== nothing && folds !== nothing
+        
+        throw(ArgumentError("split_by_id and folds are not supported together; do the split when constructing folds"))
+    
+    elseif split_by_id !== nothing
         # --- Option A: split by ID ---
         ids = isa(split_by_id, Symbol) ? getbyname(data, split_by_id) : split_by_id
         unique_ids = unique(ids)
@@ -417,6 +422,7 @@ function split_data(
         # --- Option B: external K-fold assignment ---
         @assert val_fold !== nothing "Provide val_fold when using folds."
         @assert folds !== nothing "Provide folds when using val_fold."
+        @warn "shuffleobs is not supported when using folds and val_fold, this will be ignored and should be done during fold constructions"
         x_all, y_all = data_
         f = isa(folds, Symbol) ? getbyname(data, folds) : folds
         n = size(x_all, 2)

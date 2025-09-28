@@ -98,20 +98,6 @@ hybrid_model = constructHybridModel(
 # =============================================================================
 using WGLMakie
 
-using MLUtils
-
-function make_folds(df; k::Int=5, shuffle=true)
-    n = numobs(df)
-    _, val_idx = MLUtils.kfolds(n, k)
-    folds = fill(0, n)
-    perm = shuffle ? randperm(n) : 1:n
-    for (f, idx) in enumerate(val_idx)
-        fidx = perm[idx]
-        folds[fidx] .= f
-     end
-    return folds
-end
-
 k = 3
 folds = make_folds(df, k=k, shuffle=true)
 
