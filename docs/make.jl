@@ -4,10 +4,10 @@ using Documenter, DocumenterVitepress
 literate_root = joinpath(@__DIR__, "literate")
 
 # collect all .jl files recursively under docs/literate
-jl_files = isdir(literate_root) ? filter(f -> endswith(f, ".jl"), collect(walkdir(literate_root)) do (root, _, files)
-    joinpath.(root, files)
-end |> Iterators.flatten) : String[]
-
+jl_files = isdir(literate_root) ?
+    [joinpath(root, f) for (root, _, files) in walkdir(literate_root) for f in files if endswith(f, ".jl")] :
+    String[]
+    
 if !isempty(jl_files)
     @info "Running Literate.jl on $(length(jl_files)) files..."
     using Literate
@@ -33,7 +33,9 @@ if !isempty(jl_files)
         end
     end
 
-    render_tree(literate_root, src_root)
+    # Typical folders you might want; add/remove as you wish
+    render_tree(joinpath(literate_root, "tutorials"), joinpath(src_root, "tutorials"))
+    render_tree(joinpath(literate_root, "research"),  joinpath(src_root, "research"))
 else
     @info "No Literate sources found — skipping Literate.jl step."
 end
