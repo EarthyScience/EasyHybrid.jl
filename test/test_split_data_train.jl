@@ -61,7 +61,7 @@ const RbQ10_PARAMS = (
         @test model isa SingleNNHybridModel
         # prepare_data should produce something consumable by split_data
         ka = prepare_data(model, df)
-        @test "creation of KeyedArray from DataFrame" !isnothing(ka)
+        @test !isnothing(ka)
 
         trainshort(ka; kwargs...) = train(model, ka, ();
             nepochs = 1,
@@ -73,7 +73,7 @@ const RbQ10_PARAMS = (
         )
 
         out = trainshort(ka)
-        @test "training on KeyedArray" !isnothing(out)
+        @test !isnothing(out)
 
         out = trainshort(ka, shuffleobs = true)
         @test !isnothing(out)
