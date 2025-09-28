@@ -7,7 +7,7 @@
 
 using EasyHybrid
 using OhMyThreads
-using WGLMakie
+using CairoMakie
 
 # ## 2. Data Loading and Preprocessing
 
