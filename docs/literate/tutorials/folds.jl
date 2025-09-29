@@ -1,7 +1,7 @@
 # # Cross-Validation in EasyHybrid.jl
 #
 # This tutorial demonstrates one option for cross-validation in EasyHybrid.
-# The code for this tutorial can be found in [docs/literate/tutorials](https://github.com/EarthyScience/EasyHybrid.jl/tree/main/docs/src/literate/tutorials/) => folds.jl.
+# The code for this tutorial can be found in [docs/src/literate/tutorials](https://github.com/EarthyScience/EasyHybrid.jl/tree/main/docs/src/literate/tutorials/) => folds.jl.
 #
 # ## 1. Load Packages
 
