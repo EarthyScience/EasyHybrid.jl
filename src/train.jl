@@ -1,4 +1,4 @@
-export train, TrainResults
+export train, TrainResults, prepare_data, split_data
 # beneficial for plotting based on type TrainResults?
 struct TrainResults
     train_history
@@ -17,8 +17,8 @@ end
 """
     train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0.01), patience=typemax(Int),
           file_name=nothing, loss_types=[:mse, :r2], training_loss=:mse, agg=sum, train_from=nothing,
-          random_seed=161803, shuffleobs=false, yscale=log10, monitor_names=[], return_model=:best, 
-          split_by_id=nothing, split_data_at=0.8, plotting=true, show_progress=true, hybrid_name=randstring(10))
+          random_seed=161803, yscale=log10, monitor_names=[], return_model=:best, 
+          plotting=true, show_progress=true, hybrid_name=randstring(10), kwargs...)
 
 Train a hybrid model using the provided data and save the training process to a file in JLD2 format. 
 Default output file is `trained_model.jld2` at the current working directory under `output_tmp`.
@@ -39,10 +39,12 @@ Default output file is `trained_model.jld2` at the current working directory und
 - `loss_types`: A vector of loss types to compute during training (default: `[:mse, :r2]`).
 - `agg`: The aggregation function to apply to the computed losses (default: `sum`).
 
-## Data Handling:
+## Data Handling (passed via kwargs):
 - `shuffleobs`: Whether to shuffle the training data (default: false).
 - `split_by_id`: Column name or function to split data by ID (default: nothing -> no ID-based splitting).
 - `split_data_at`: Fraction of data to use for training when splitting (default: 0.8).
+- `folds`: Vector or column name of fold assignments (1..k), one per sample/column for k-fold cross-validation (default: nothing).
+- `val_fold`: The validation fold to use when `folds` is provided (default: nothing).
 
 ## Training State and Reproducibility:
 - `train_from`: A tuple of physical parameters and state to start training from or an output of `train` (default: nothing -> new training).
@@ -72,10 +74,7 @@ function train(hybridModel, data, save_ps;
                loss_types=[:mse, :r2], 
                agg=sum, 
                
-               # Data handling
-               shuffleobs=false,
-               split_by_id=nothing, 
-               split_data_at=0.8, 
+               # Data handling parameters are now passed via kwargs...
                
                # Training state and reproducibility
                train_from=nothing,
@@ -109,9 +108,8 @@ function train(hybridModel, data, save_ps;
     if !isnothing(random_seed)
         Random.seed!(random_seed)
     end
-
-    # ? split training and validation data
-    (x_train, y_train), (x_val, y_val) = split_data(data, hybridModel; split_by_id=split_by_id, shuffleobs=shuffleobs, split_data_at=split_data_at)
+    
+    (x_train, y_train), (x_val, y_val) = split_data(data, hybridModel; kwargs...)
 
     train_loader = DataLoader((x_train, y_train), batchsize=batchsize, shuffle=true);
 
@@ -382,67 +380,81 @@ function header_and_paddings(nt; digits=5)
     return headers, paddings
 end
 
-function split_data(data::Union{DataFrame, KeyedArray}, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
-    
-    data_ = prepare_data(hybridModel, data)
-    # all the KeyedArray thing!
-
-    if !isnothing(split_by_id)
-        if isa(split_by_id, Symbol)
-            ids = getbyname(data, split_by_id)
-            unique_ids = unique(ids)
-        elseif isa(split_by_id, AbstractVector)
-            ids = split_by_id
-            unique_ids = unique(ids)
-            split_by_id = "split_by_id"
-        end
-
-        train_ids, val_ids = splitobs(unique_ids; at=split_data_at, shuffle=shuffleobs)
-
-        train_idx = findall(id -> id in train_ids, ids)
-        val_idx  = findall(id -> id in val_ids,  ids)
-
-        @info "Splitting data by $split_by_id"
-        @info "Number of unique $split_by_id's: $(length(unique_ids))"
-        @info "Number of $split_by_id's in training set: $(length(train_ids))"
-        @info "Number of $split_by_id's in validation set: $(length(val_ids))"
-        
-        x_all, y_all = data_
-
-        x_train, y_train = x_all[:, train_idx], y_all[:, train_idx]
-        x_val, y_val = x_all[:, val_idx], y_all[:, val_idx]
-    else
-        (x_train, y_train), (x_val, y_val) = splitobs(data_; at=split_data_at, shuffle=shuffleobs)
-    end
-    
-    return (x_train, y_train), (x_val, y_val)
-end
-
-function split_data(data::AbstractDimArray, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
-    data_ = prepare_data(hybridModel, data)
-    (x_train, y_train), (x_val, y_val) = splitobs(data_; at=split_data_at, shuffle=shuffleobs)
-    return (x_train, y_train), (x_val, y_val)
-end
-
-function split_data(data::Tuple, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
-    data_ = prepare_data(hybridModel, data)
-    (x_train, y_train), (x_val, y_val) = splitobs(data_; at=split_data_at, shuffle=shuffleobs)
-    return (x_train, y_train), (x_val, y_val)
-end
-
 function split_data(data::Tuple{Tuple, Tuple}, hybridModel; kwargs...)
+    @warn "data was prepared already, none of the keyword arguments for split_data will be used"
     return data
+end
+
+function split_data(
+    data::Union{DataFrame, KeyedArray, Tuple, AbstractDimArray},
+    hybridModel;
+    split_by_id::Union{Nothing,Symbol,AbstractVector}=nothing,
+    folds::Union{Nothing,AbstractVector,Symbol}=nothing,
+    val_fold::Union{Nothing,Int}=nothing,
+    shuffleobs::Bool=false,
+    split_data_at::Real=0.8,
+    kwargs...
+)
+    data_ = prepare_data(hybridModel, data)
+
+    if split_by_id !== nothing && folds !== nothing
+        
+        throw(ArgumentError("split_by_id and folds are not supported together; do the split when constructing folds"))
+    
+    elseif split_by_id !== nothing
+        # --- Option A: split by ID ---
+        ids = isa(split_by_id, Symbol) ? getbyname(data, split_by_id) : split_by_id
+        unique_ids = unique(ids)
+        train_ids, val_ids = splitobs(unique_ids; at=split_data_at, shuffle=shuffleobs)
+        train_idx = findall(in(train_ids), ids)
+        val_idx   = findall(in(val_ids),  ids)
+
+        @info "Splitting data by $(split_by_id)"
+        @info "Number of unique $(split_by_id): $(length(unique_ids))"
+        @info "Train IDs: $(length(train_ids)) | Val IDs: $(length(val_ids))"
+
+        x_all, y_all = data_
+        x_train, y_train = view(x_all, :, train_idx), view(y_all, :, train_idx)
+        x_val,   y_val   = view(x_all, :, val_idx),   view(y_all, :, val_idx)
+        return (x_train, y_train), (x_val, y_val)
+
+    elseif folds !== nothing || val_fold !== nothing
+        # --- Option B: external K-fold assignment ---
+        @assert val_fold !== nothing "Provide val_fold when using folds."
+        @assert folds !== nothing "Provide folds when using val_fold."
+        @warn "shuffleobs is not supported when using folds and val_fold, this will be ignored and should be done during fold constructions"
+        x_all, y_all = data_
+        f = isa(folds, Symbol) ? getbyname(data, folds) : folds
+        n = size(x_all, 2)
+        @assert length(f) == n "length(folds) ($(length(f))) must equal number of samples/columns ($n)."
+        @assert 1 ≤ val_fold ≤ maximum(f) "val_fold=$val_fold is out of range 1:$(maximum(f))."
+
+        val_idx   = findall(==(val_fold), f)
+        @assert !isempty(val_idx) "No samples assigned to validation fold $val_fold."
+        train_idx = setdiff(1:n, val_idx)
+
+        @info "K-fold via external assignments: val_fold=$val_fold → train=$(length(train_idx)) val=$(length(val_idx))"
+
+        x_train, y_train = view(x_all, :, train_idx), view(y_all, :, train_idx)
+        x_val,   y_val   = view(x_all, :, val_idx),   view(y_all, :, val_idx)
+        return (x_train, y_train), (x_val, y_val)
+
+    else
+        # --- Fallback: simple random/chronological split of prepared data ---
+        (x_train, y_train), (x_val, y_val) = splitobs(data_; at=split_data_at, shuffle=shuffleobs)
+        return (x_train, y_train), (x_val, y_val)
+    end
 end
 
 
 """
-    split_data(data, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
-    split_data(data::Union{DataFrame, KeyedArray}, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
-    split_data(data::AbstractDimArray, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
-    split_data(data::Tuple, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8)
+    split_data(data, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8, kwargs...)
+    split_data(data::Union{DataFrame, KeyedArray}, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8, folds=nothing, val_fold=nothing, kwargs...)
+    split_data(data::AbstractDimArray, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8, kwargs...)
+    split_data(data::Tuple, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8, kwargs...)
     split_data(data::Tuple{Tuple, Tuple}, hybridModel; kwargs...)
 
-Split data into training and validation sets, either randomly or by grouping by ID.
+Split data into training and validation sets, either randomly, by grouping by ID, or using external fold assignments.
 
 # Arguments:
 - `data`: The data to split, which can be a DataFrame, KeyedArray, AbstractDimArray, or Tuple
@@ -450,9 +462,11 @@ Split data into training and validation sets, either randomly or by grouping by 
 - `split_by_id=nothing`: Either `nothing` for random splitting, a `Symbol` for column-based splitting, or an `AbstractVector` for custom ID-based splitting
 - `shuffleobs=false`: Whether to shuffle observations during splitting
 - `split_data_at=0.8`: Ratio of data to use for training
+- `folds`: Vector or column name of fold assignments (1..k), one per sample/column for k-fold cross-validation
+- `val_fold`: The validation fold to use when `folds` is provided
 
 # Behavior:
-- For DataFrame/KeyedArray: Supports both random and ID-based splitting with logging
+- For DataFrame/KeyedArray: Supports random splitting, ID-based splitting, and external fold assignments
 - For AbstractDimArray/Tuple: Random splitting only after data preparation
 - For pre-split Tuple{Tuple, Tuple}: Returns input unchanged
 
@@ -497,7 +511,7 @@ end
 
 function prepare_data(hm, data::AbstractDimArray)
     predictors_forcing, targets = get_prediction_target_names(hm)
-    return (data[col=At(predictors_forcing)], data[col=At(targets)])
+    return (data[col=At(predictors_forcing)], data[col=At(targets)]) # TODO check what this should be rows or cols, I would say rows, but maybe it does not matter 
 end
 
 function prepare_data(hm, data::Tuple)

@@ -25,3 +25,4 @@ Manifest.toml
 !Bernhard_Ahrens.png
 *.err
 *.out
+/docs/src/tutorials/folds.md
