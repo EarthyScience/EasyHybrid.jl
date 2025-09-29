@@ -58,7 +58,7 @@ makedocs(;
             "Exponential Response"   => "tutorials/exponential_res.md",
             "Hyperparameter Tuning"  => "tutorials/hyperparameter_tuning.md",
             "Slurm"                  => "tutorials/slurm.md",
-            "Folds"                  => "tutorials/folds.md",
+            "Cross-validation"       => "tutorials/folds.md",
         ],
         "Research" => [
             "Overview"         => "research/overview.md",
