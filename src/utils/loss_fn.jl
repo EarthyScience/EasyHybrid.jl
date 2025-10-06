@@ -2,27 +2,52 @@
 export loss_fn
 
 """
-    loss_fn(ŷ, y, y_nan, ::Val{:rmse})
-    loss_fn(ŷ, y, y_nan, ::Val{:mse})
-    loss_fn(ŷ, y, y_nan, ::Val{:mae})
-    loss_fn(ŷ, y, y_nan, ::Val{:pearson})
-    loss_fn(ŷ, y, y_nan, ::Val{:r2})
+    loss_fn(ŷ, y, y_nan, loss_type)
 
-Compute the loss for the given predictions and targets using the specified loss type.
+Compute the loss for given predictions and targets using various loss specifications.
 
-# Arguments:
-- `ŷ`: Predicted values.
-- `y`: Target values.
-- `y_nan`: Mask for NaN values.
-- `::Val{:rmse}`: Root Mean Square Error or `::Val{:mse}`: Mean Square Error or `::Val{:mae}`: Mean Absolute Error or `::Val{:pearson}`: Pearson correlation coefficient or `::Val{:r2}`: R-squared.
+# Arguments
+- `ŷ`: Predicted values
+- `y`: Target values
+- `y_nan`: Mask for NaN values
+- `loss_type`: One of the following:
+    - `Val(:rmse)`: Root Mean Square Error
+    - `Val(:mse)`: Mean Square Error 
+    - `Val(:mae)`: Mean Absolute Error
+    - `Val(:pearson)`: Pearson correlation coefficient
+    - `Val(:r2)`: R-squared
+    - `::Function`: Custom loss function with signature `f(x, y)`
+    - `::Tuple{Function, Tuple}`: Custom loss with args `f(x, y, args...)`
+    - `::Tuple{Function, NamedTuple}`: Custom loss with kwargs `f(x, y; kwargs...)`
+    - `::Tuple{Function, Tuple, NamedTuple}`: Custom loss with both `f(x, y, args...; kwargs...)`
 
-You can define additional loss functions as needed by adding more methods to this function.
-# Example:
-In your working script just do the following:
+# Examples
+```julia
+# Predefined loss
+loss = loss_fn(ŷ, y, y_nan, Val(:mse))
+
+# Custom loss function
+custom_loss(x, y) = mean(abs2, x .- y)
+loss = loss_fn(ŷ, y, y_nan, custom_loss)
+
+# With positional arguments
+weighted_loss(x, y, w) = w * mean(abs2, x .- y)
+loss = loss_fn(ŷ, y, y_nan, (weighted_loss, (0.5,)))
+
+# With keyword arguments
+scaled_loss(x, y; scale=1.0) = scale * mean(abs2, x .- y)
+loss = loss_fn(ŷ, y, y_nan, (scaled_loss, (scale=2.0,)))
+
+# With both args and kwargs
+complex_loss(x, y, w; scale=1.0) = scale * w * mean(abs2, x .- y)
+loss = loss_fn(ŷ, y, y_nan, (complex_loss, (0.5,), (scale=2.0,)))
+```
+
+You can define additional predefined loss functions by adding more methods:
 ```julia
 import EasyHybrid: loss_fn
-function EasyHybrid.loss_fn(ŷ, y, y_nan, ::Val{:nse})
-    return 1 - sum((ŷ[y_nan] .- y[y_nan]).^2) / sum((y[y_nan] .- mean(y[y_nan])).^2)
+function EasyHybrid.loss_fn(ŷ, y, y_nan, ::Val{:nse})
+    return 1 - sum((ŷ[y_nan] .- y[y_nan]).^2) / sum((y[y_nan] .- mean(y[y_nan])).^2)
 end
 ```
 """
@@ -51,11 +76,6 @@ function loss_fn(ŷ, y, y_nan, ::Val{:nse})
     return sum((ŷ[y_nan] .- y[y_nan]).^2) / sum((y[y_nan] .- mean(y[y_nan])).^2)
 end
 
-## More generic possibility to pass custom loss functions
-
-# function loss_fn(ŷ, y, y_nan, training_loss::Function, args...; kwargs...)
-#     return training_loss(ŷ[y_nan], y[y_nan], args...; kwargs...)
-# end
 function loss_fn(ŷ, y, y_nan, training_loss::Function)
     return training_loss(ŷ[y_nan], y[y_nan])
 end

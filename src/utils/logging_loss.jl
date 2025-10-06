@@ -1,35 +1,98 @@
 export LoggingLoss
 
+const LossSpec = Union{Symbol, Function, Tuple}
+
 """
     LoggingLoss
 
 A structure to define a logging loss function for hybrid models.
 
-# Arguments:
+# Arguments
 - `loss_types`: A vector of loss specifications (Symbol, Function or Tuple)
-  e.g. `[:mse, custom_loss, (weighted_loss, (0.5,))]`
-- `training_loss`: The loss to use during training
-  e.g. `:mse` or `custom_loss` or `(weighted_loss, (0.5,))`
-- `agg`: Function to aggregate losses, e.g. `sum` or `mean`
-- `train_mode`: If true, uses training_loss; otherwise uses loss_types
+  - Symbol: predefined loss, e.g. `:mse`
+  - Function: custom loss function, e.g. `custom_loss`
+  - Tuple: function with args/kwargs:
+    - `(f, args)`: positional args, e.g. `(weighted_loss, (0.5,))`
+    - `(f, kwargs)`: keyword args, e.g. `(scaled_loss, (scale=2.0,))`
+    - `(f, args, kwargs)`: both, e.g. `(complex_loss, (0.5,), (scale=2.0,))`
+- `training_loss`: The loss specification to use during training (same format as above)
+- `agg`: Function to aggregate losses across targets, e.g. `sum` or `mean`
+- `train_mode`: If true, uses `training_loss`; otherwise uses `loss_types`.
+
+# Examples
+```julia
+# Simple predefined loss
+logging = LoggingLoss(
+    loss_types=[:mse, :mae],
+    training_loss=:mse
+)
+
+# Custom loss function
+custom_loss(x, y) = mean(abs2, x .- y)
+logging = LoggingLoss(
+    loss_types=[:mse, custom_loss],
+    training_loss=custom_loss
+)
+
+# With arguments/kwargs
+weighted_loss(x, y, w) = w * mean(abs2, x .- y)
+scaled_loss(x, y; scale=1.0) = scale * mean(abs2, x .- y)
+logging = LoggingLoss(
+    loss_types=[:mse, (weighted_loss, (0.5,)), (scaled_loss, (scale=2.0,))],
+    training_loss=(weighted_loss, (0.5,))
+)
+```
 """
-Base.@kwdef struct LoggingLoss{T<:Function}
-    loss_types = [:mse]
-    training_loss = :mse
-    agg::T = sum
+struct LoggingLoss{T<:Function, L<:AbstractVector{<:LossSpec}, TL<:LossSpec}
+    loss_types::L
+    training_loss::TL
+    agg::T
+    train_mode::Bool
+
+    function LoggingLoss{T,L,TL}(;
+        loss_types = [:mse],
+        training_loss = :mse,
+        agg::T = sum,
+        train_mode::Bool = true
+    ) where {T<:Function, L<:AbstractVector{<:LossSpec}, TL<:LossSpec}
+        lt = Vector{LossSpec}(loss_types)
+        new{T, typeof(lt), typeof(training_loss)}(lt, training_loss, agg, train_mode)
+    end
+end
+
+# Outer constructor
+function LoggingLoss(;
+    loss_types = [:mse],
+    training_loss = :mse,
+    agg::F = sum,
     train_mode::Bool = true
+) where {F<:Function}
+    LoggingLoss{F, Vector{LossSpec}, typeof(training_loss)}(;
+        loss_types = loss_types,
+        training_loss = training_loss,
+        agg = agg,
+        train_mode = train_mode
+    )
 end
 
 """
-    lossfn(HM::LuxCore.AbstractLuxContainerLayer, x, (y_t, y_nan), ps, st, logging::LoggingLoss)
+    lossfn(HM, x, (y_t, y_nan), ps, st, logging::LoggingLoss)
 
-Arguments:
-- `HM::LuxCore.AbstractLuxContainerLayer`: The hybrid model to compute the loss for.
-- `x`: Input data for the model.
-- `(y_t, y_nan)`: Tuple containing the target values and a mask for NaN values.
-- `ps`: Parameters of the model.
-- `st`: State of the model.
-- `logging::LoggingLoss`: Logging configuration for the loss function.
+Main loss function for hybrid models that handles both training and evaluation modes.
+
+# Arguments
+- `HM`: The hybrid model (AbstractLuxContainerLayer or specific model type)
+- `x`: Input data for the model
+- `(y_t, y_nan)`: Tuple containing target values and NaN mask functions/arrays
+- `ps`: Model parameters
+- `st`: Model state
+- `logging`: LoggingLoss configuration
+
+# Returns
+- In training mode (`logging.train_mode = true`):
+  - `(loss_value, st)`: Single loss value and updated state
+- In evaluation mode (`logging.train_mode = false`):
+  - `(loss_values, st, ŷ)`: NamedTuple of losses, state and predictions
 """
 function lossfn(HM::LuxCore.AbstractLuxContainerLayer, x, (y_t, y_nan), ps, st, logging::LoggingLoss)
     targets = HM.targets
@@ -58,7 +121,22 @@ end
 
 """
     get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
+
 Get predictions and targets from the hybrid model and return them along with the NaN mask.
+
+# Arguments
+- `HM`: The hybrid model
+- `x`: Input data
+- `(y_t, y_nan)`: Tuple of target values and NaN mask (functions or arrays)
+- `ps`: Model parameters
+- `st`: Model state
+- `targets`: Target variable names
+
+# Returns
+- `ŷ`: Model predictions
+- `y`: Target values
+- `y_nan`: NaN mask
+- `st`: Updated model state
 """
 function get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
     ŷ, st = HM(x, ps, st) #TODO the output st can contain more than st, e.g. Rb is that what we want?
@@ -80,6 +158,25 @@ function get_predictions_targets(
     return ŷ, y, y_nan, st
 end
 
+"""
+    compute_loss(ŷ, y, y_nan, targets, loss_spec, agg::Function)
+    compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
+
+Compute loss values for predictions against targets using specified loss functions.
+
+# Arguments
+- `ŷ`: Model predictions
+- `y`: Target values (function or AbstractDimArray)
+- `y_nan`: NaN mask (function or AbstractDimArray)
+- `targets`: Target variable names
+- `loss_spec`: Single loss specification (Symbol, Function, or Tuple)
+- `loss_types`: Vector of loss specifications
+- `agg`: Function to aggregate losses across targets
+
+# Returns
+- Single loss value when using `loss_spec`
+- NamedTuple of losses when using `loss_types`
+"""
 function compute_loss(ŷ, y, y_nan, targets, loss_spec, agg::Function)
     losses = [_apply_loss(ŷ[k], y(k), y_nan(k), loss_spec) for k in targets]
     return agg(losses)
@@ -89,6 +186,21 @@ function compute_loss(ŷ, y::AbstractDimArray, y_nan::AbstractDimArray, targets,
     losses = [_apply_loss(ŷ[k], y[col=At(k)], y_nan[col=At(k)], loss_spec) for k in targets]
     return agg(losses)
 end
+
+"""
+    _apply_loss(ŷ, y, y_nan, loss_spec)
+
+Helper function to apply the appropriate loss function based on the specification type.
+
+# Arguments
+- `ŷ`: Predictions for a single target
+- `y`: Target values for a single target
+- `y_nan`: NaN mask for a single target
+- `loss_spec`: Loss specification (Symbol, Function, or Tuple)
+
+# Returns
+- Computed loss value
+"""
 function _apply_loss(ŷ, y, y_nan, loss_spec::Symbol)
     return loss_fn(ŷ, y, y_nan, Val(loss_spec))
 end
