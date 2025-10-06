@@ -1,16 +1,4 @@
 using Pkg
-Pkg.activate("projects/BulkDSOC")
-Pkg.develop(path=pwd())
-Pkg.instantiate()
-
-using Revise
-using EasyHybrid
-using Lux
-using Pkg
-Pkg.activate("projects/BulkDSOC")
-Pkg.develop(path=pwd())
-Pkg.instantiate()
-
 using Revise
 using EasyHybrid
 using Lux
@@ -231,6 +219,8 @@ plt = histogram2d(
     ylab       = "SOCconc",
     color      = cgrad(:bamako, rev=true),
     normalize  = false,
-    size = (460, 400)
+    size = (460, 400),
+    xlims = (0,1.8),
+    ylims = (0, 0.6)
 )   
 savefig(plt, joinpath(results_dir, "$(testid)_BD.vs.SOCconc.png"));
