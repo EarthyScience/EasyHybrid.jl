@@ -273,15 +273,15 @@ function train(hybridModel, data, save_ps;
                 EasyHybrid.save_fig(img_name, EasyHybrid.dashboard_figure())
             end
 
-            _headers, paddings = header_and_paddings(getproperty(l_init_train, training_loss))
+            _headers, paddings = header_and_paddings(get_loss_entries(l_init_train, training_loss))
 
             next!(prog; showvalues = [
                 ("epoch ", epoch),
                 ("targets ", join(_headers, "  ")),
-                (styled"{red:training-start }", styled_values(getproperty(l_init_train, training_loss); paddings)),
-                (styled"{bright_red:current }", styled_values(getproperty(l_train, training_loss); color=:bright_red, paddings)),
-                (styled"{cyan:validation-start }", styled_values(getproperty(l_init_val, training_loss); paddings)),
-                (styled"{bright_cyan:current }", styled_values(getproperty(l_val, training_loss); color=:bright_cyan, paddings)),
+                (styled"{red:training-start }", styled_values(get_loss_entries(l_init_train, training_loss); paddings)),
+                (styled"{bright_red:current }", styled_values(get_loss_entries(l_train, training_loss); color=:bright_red, paddings)),
+                (styled"{cyan:validation-start }", styled_values(get_loss_entries(l_init_val, training_loss); paddings)),
+                (styled"{bright_cyan:current }", styled_values(get_loss_entries(l_val, training_loss); color=:bright_cyan, paddings)),
                 ]
                 )
                 # TODO: log metrics

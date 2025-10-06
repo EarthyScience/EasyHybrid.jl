@@ -49,13 +49,12 @@ function save_fig end
 Initialize plotting observables for training visualization if the Makie extension is loaded.
 """
 function initialize_plotting_observables(init_ŷ_train, init_ŷ_val, y_train, y_val, l_init_train, l_init_val, training_loss, agg, target_names; monitor_names)
-
     # Initialize loss history observables
-    l_value = getproperty(getproperty(l_init_train, training_loss), Symbol("$agg"))
+    l_value = get_loss_value(l_init_train, training_loss, Symbol("$agg"))
     p = EasyHybrid.to_point2f(0, l_value)
     train_h_obs = EasyHybrid.to_obs([p])
     
-    l_value_val = getproperty(getproperty(l_init_val, training_loss), Symbol("$agg"))
+    l_value_val = get_loss_value(l_init_val, training_loss, Symbol("$agg"))
     p_val = EasyHybrid.to_point2f(0, l_value_val)
     val_h_obs = EasyHybrid.to_obs([p_val])
 
@@ -73,6 +72,41 @@ function initialize_plotting_observables(init_ŷ_train, init_ŷ_val, y_train, 
     observations = (; train_obs, val_obs) # observations
 
     return (; observables, observations)
+end
+
+"""
+    get_loss_value(losses, loss_spec, agg)
+
+Extract loss value from losses based on the loss specification type.
+
+# Arguments
+- `losses`: NamedTuple containing loss values
+- `loss_spec`: Loss specification (Symbol, Function or Tuple)
+- `agg`: Aggregation function name as Symbol
+
+# Returns
+- Loss value for the specified loss function
+
+# Examples
+```julia
+# Symbol case
+val = get_loss_value(losses, :mse, :sum)
+
+# Function case
+custom_loss(ŷ, y) = mean(abs2, ŷ .- y)
+val = get_loss_value(losses, custom_loss, :mean)
+
+# Tuple case
+weighted_loss(ŷ, y, w) = w * mean(abs2, ŷ .- y)
+val = get_loss_value(losses, (weighted_loss, (0.5,)), :sum)
+```
+"""
+function get_loss_value(losses, loss_spec, agg::Symbol)
+    return losses[_loss_name(loss_spec)][agg]
+end
+
+function get_loss_entries(losses, loss_spec)
+    return losses[_loss_name(loss_spec)]
 end
 
 function to_obs_tuple(y, target_names)
