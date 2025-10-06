@@ -28,15 +28,15 @@ logging = LoggingLoss(
 )
 
 # Custom loss function
-custom_loss(x, y) = mean(abs2, x .- y)
+custom_loss(ŷ, y) = mean(abs2, ŷ .- y)
 logging = LoggingLoss(
     loss_types=[:mse, custom_loss],
     training_loss=custom_loss
 )
 
 # With arguments/kwargs
-weighted_loss(x, y, w) = w * mean(abs2, x .- y)
-scaled_loss(x, y; scale=1.0) = scale * mean(abs2, x .- y)
+weighted_loss(ŷ, y, w) = w * mean(abs2, ŷ .- y)
+scaled_loss(ŷ, y; scale=1.0) = scale * mean(abs2, ŷ .- y)
 logging = LoggingLoss(
     loss_types=[:mse, (weighted_loss, (0.5,)), (scaled_loss, (scale=2.0,))],
     training_loss=(weighted_loss, (0.5,))

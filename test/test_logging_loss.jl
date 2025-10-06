@@ -15,13 +15,13 @@ import EasyHybrid: compute_loss
 
     @testset "Custom constructor" begin
         # Simple custom loss function
-        custom_loss(x, y) = mean(abs2, x .- y)
+        custom_loss(ŷ, y) = mean(abs2, ŷ .- y)
         
         # Loss function with args
-        weighted_loss(x, y, w) = w * mean(abs2, x .- y)
+        weighted_loss(ŷ, y, w) = w * mean(abs2, ŷ .- y)
         
         # Loss function with kwargs
-        scaled_loss(x, y; scale=1.0) = scale * mean(abs2, x .- y)
+        scaled_loss(ŷ, y; scale=1.0) = scale * mean(abs2, ŷ .- y)
 
         @testset "Basic custom constructor" begin
             logging = LoggingLoss(
@@ -103,22 +103,22 @@ end
 
     @testset "Custom loss functions" begin
         # Simple custom loss
-        custom_loss(x, y) = mean(abs2, x .- y)
+        custom_loss(ŷ, y) = mean(abs2, ŷ .- y)
         loss = compute_loss(ŷ, y, y_nan, targets, custom_loss, sum)
         @test loss isa Number
 
         # Custom loss with args
-        weighted_loss(x, y, w) = w * mean(abs2, x .- y)
+        weighted_loss(ŷ, y, w) = w * mean(abs2, ŷ .- y)
         loss = compute_loss(ŷ, y, y_nan, targets, (weighted_loss, (2.0,)), sum)
         @test loss isa Number
 
         # Custom loss with kwargs
-        scaled_loss(x, y; scale=1.0) = scale * mean(abs2, x .- y)
+        scaled_loss(ŷ, y; scale=1.0) = scale * mean(abs2, ŷ .- y)
         loss = compute_loss(ŷ, y, y_nan, targets, (scaled_loss, (scale=2.0,)), sum)
         @test loss isa Number
 
         # Custom loss with both
-        complex_loss(x, y, w; scale=1.0) = scale * w * mean(abs2, x .- y)
+        complex_loss(ŷ, y, w; scale=1.0) = scale * w * mean(abs2, ŷ .- y)
         loss = compute_loss(ŷ, y, y_nan, targets, (complex_loss, (0.5,), (scale=2.0,)), sum)
         @test loss isa Number
     end

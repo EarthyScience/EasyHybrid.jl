@@ -16,10 +16,10 @@ Compute the loss for given predictions and targets using various loss specificat
     - `Val(:mae)`: Mean Absolute Error
     - `Val(:pearson)`: Pearson correlation coefficient
     - `Val(:r2)`: R-squared
-    - `::Function`: Custom loss function with signature `f(x, y)`
-    - `::Tuple{Function, Tuple}`: Custom loss with args `f(x, y, args...)`
-    - `::Tuple{Function, NamedTuple}`: Custom loss with kwargs `f(x, y; kwargs...)`
-    - `::Tuple{Function, Tuple, NamedTuple}`: Custom loss with both `f(x, y, args...; kwargs...)`
+    - `::Function`: Custom loss function with signature `f(ŷ, y)`
+    - `::Tuple{Function, Tuple}`: Custom loss with args `f(ŷ, y, args...)`
+    - `::Tuple{Function, NamedTuple}`: Custom loss with kwargs `f(ŷ, y; kwargs...)`
+    - `::Tuple{Function, Tuple, NamedTuple}`: Custom loss with both `f(ŷ, y, args...; kwargs...)`
 
 # Examples
 ```julia
@@ -27,19 +27,19 @@ Compute the loss for given predictions and targets using various loss specificat
 loss = loss_fn(ŷ, y, y_nan, Val(:mse))
 
 # Custom loss function
-custom_loss(x, y) = mean(abs2, x .- y)
+custom_loss(ŷ, y) = mean(abs2, ŷ .- y)
 loss = loss_fn(ŷ, y, y_nan, custom_loss)
 
 # With positional arguments
-weighted_loss(x, y, w) = w * mean(abs2, x .- y)
+weighted_loss(ŷ, y, w) = w * mean(abs2, ŷ .- y)
 loss = loss_fn(ŷ, y, y_nan, (weighted_loss, (0.5,)))
 
 # With keyword arguments
-scaled_loss(x, y; scale=1.0) = scale * mean(abs2, x .- y)
+scaled_loss(ŷ, y; scale=1.0) = scale * mean(abs2, ŷ .- y)
 loss = loss_fn(ŷ, y, y_nan, (scaled_loss, (scale=2.0,)))
 
 # With both args and kwargs
-complex_loss(x, y, w; scale=1.0) = scale * w * mean(abs2, x .- y)
+complex_loss(ŷ, y, w; scale=1.0) = scale * w * mean(abs2, ŷ .- y)
 loss = loss_fn(ŷ, y, y_nan, (complex_loss, (0.5,), (scale=2.0,)))
 ```
 

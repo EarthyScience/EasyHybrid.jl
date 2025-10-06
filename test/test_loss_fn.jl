@@ -8,10 +8,10 @@ using Statistics
     y = [1.1, 1.9, 3.2, 3.8]
     y_nan = trues(4)  # all values are valid
 
-    simple_loss(x, y) = mean(abs2, x .- y)
-    weighted_loss(x, y, w) = w * mean(abs2, x .- y)
-    scaled_loss(x, y; scale=1.0) = scale * mean(abs2, x .- y)
-    complex_loss(x, y, w; scale=1.0) = scale * w * mean(abs2, x .- y)
+    simple_loss(ŷ, y) = mean(abs2, ŷ .- y)
+    weighted_loss(ŷ, y, w) = w * mean(abs2, ŷ .- y)
+    scaled_loss(ŷ, y; scale=1.0) = scale * mean(abs2, ŷ .- y)
+    complex_loss(ŷ, y, w; scale=1.0) = scale * w * mean(abs2, ŷ .- y)
 
     @testset "Predefined loss functions" begin
         # RMSE test
