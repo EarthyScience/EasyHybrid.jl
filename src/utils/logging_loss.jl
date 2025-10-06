@@ -242,11 +242,13 @@ function _loss_name(loss_spec::Symbol)
 end
 
 function _loss_name(loss_spec::Function)
-    return nameof(typeof(loss_spec))
+    raw_name = nameof(typeof(loss_spec))
+    clean_name = Symbol(replace(string(raw_name), "#" => ""))
+    return clean_name
 end
 
 function _loss_name(loss_spec::Tuple)
-    return nameof(typeof(loss_spec[1]))
+    return _loss_name(loss_spec[1])
 end
 
 """

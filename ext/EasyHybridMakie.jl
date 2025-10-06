@@ -6,6 +6,7 @@ using Makie.Colors
 using DataFrames
 import Makie
 import EasyHybrid
+import EasyHybrid: get_loss_value
 using Statistics
 
 include("HybridTheme.jl")
@@ -420,12 +421,12 @@ function EasyHybrid.update_plotting_observables(
     epoch;
     monitor_names)
     
-    l_value = getproperty(getproperty(l_train, training_loss), Symbol("$agg"))
+    l_value = get_loss_value(l_train, training_loss, Symbol("$agg"))
     new_p = Point2f(epoch, l_value)
     push!(train_h_obs[], new_p)
     notify(train_h_obs) 
 
-    l_value_val = getproperty(getproperty(l_val, training_loss), Symbol("$agg"))
+    l_value_val = get_loss_value(l_val, training_loss, Symbol("$agg"))
     new_p_val = Point2f(epoch, l_value_val)
     push!(val_h_obs[], new_p_val)
 
