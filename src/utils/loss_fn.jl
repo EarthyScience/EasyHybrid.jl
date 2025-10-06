@@ -52,7 +52,23 @@ function loss_fn(ŷ, y, y_nan, ::Val{:nse})
 end
 
 ## More generic possibility to pass custom loss functions
-function loss_fn(ŷ, y, y_nan, training_loss::Function )
-    #return sum((ŷ[y_nan] .- y[y_nan]).^2) / sum((y[y_nan] .- mean(y[y_nan])).^2)
+
+# function loss_fn(ŷ, y, y_nan, training_loss::Function, args...; kwargs...)
+#     return training_loss(ŷ[y_nan], y[y_nan], args...; kwargs...)
+# end
+function loss_fn(ŷ, y, y_nan, training_loss::Function)
     return training_loss(ŷ[y_nan], y[y_nan])
+end
+function loss_fn(ŷ, y, y_nan, training_loss::Tuple{Function, Tuple})
+    f, args = training_loss
+    return f(ŷ[y_nan], y[y_nan], args...)
+end
+
+function loss_fn(ŷ, y, y_nan, training_loss::Tuple{Function, NamedTuple})
+    f, kwargs = training_loss
+    return f(ŷ[y_nan], y[y_nan]; kwargs...)
+end
+function loss_fn(ŷ, y, y_nan, training_loss::Tuple{Function, Tuple, NamedTuple})
+    f, args, kwargs = training_loss
+    return f(ŷ[y_nan], y[y_nan], args...; kwargs...)
 end

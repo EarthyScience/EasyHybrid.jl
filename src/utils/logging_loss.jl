@@ -4,17 +4,18 @@ export LoggingLoss
     LoggingLoss
 
 A structure to define a logging loss function for hybrid models.
-It allows for multiple loss types and an aggregation function to be specified.
 
 # Arguments:
-- `loss_types::Vector{Symbol}`: A vector of loss types to compute, e.g., `[:mse, :mae]`.
-- `training_loss::Symbol`: The loss type to use during training, e.g., `:mse`.
-- `agg::Function`: A function to aggregate the losses, e.g., `sum` or `mean`.
-- `train_mode::Bool`: A flag indicating whether the model is in training mode. If `true`, it uses `training_loss`; otherwise, it uses `loss_types`.
+- `loss_types`: A vector of loss specifications (Symbol, Function or Tuple)
+  e.g. `[:mse, custom_loss, (weighted_loss, (0.5,))]`
+- `training_loss`: The loss to use during training
+  e.g. `:mse` or `custom_loss` or `(weighted_loss, (0.5,))`
+- `agg`: Function to aggregate losses, e.g. `sum` or `mean`
+- `train_mode`: If true, uses training_loss; otherwise uses loss_types
 """
 Base.@kwdef struct LoggingLoss{T<:Function}
-    loss_types::Vector{Symbol} = [:mse]
-    training_loss::Symbol = :mse
+    loss_types = [:mse]
+    training_loss = :mse
     agg::T = sum
     train_mode::Bool = true
 end
@@ -79,44 +80,66 @@ function get_predictions_targets(
     return ŷ, y, y_nan, st
 end
 
-function compute_loss(ŷ, y, y_nan, targets, training_loss::Symbol, agg::Function)
-    losses = [loss_fn(ŷ[k], y(k), y_nan(k), Val(training_loss)) for k in targets]
+function compute_loss(ŷ, y, y_nan, targets, loss_spec, agg::Function)
+    losses = [_apply_loss(ŷ[k], y(k), y_nan(k), loss_spec) for k in targets]
     return agg(losses)
 end
 
-function compute_loss(ŷ, y, y_nan, targets, training_loss::Function, agg::Function)
-    losses = [loss_fn(ŷ[k], y(k), y_nan(k), training_loss) for k in targets]
+function compute_loss(ŷ, y::AbstractDimArray, y_nan::AbstractDimArray, targets, loss_spec, agg::Function)
+    losses = [_apply_loss(ŷ[k], y[col=At(k)], y_nan[col=At(k)], loss_spec) for k in targets]
     return agg(losses)
+end
+function _apply_loss(ŷ, y, y_nan, loss_spec::Symbol)
+    return loss_fn(ŷ, y, y_nan, Val(loss_spec))
 end
 
-function compute_loss(ŷ, y::AbstractDimArray, y_nan::AbstractDimArray, targets, training_loss::Symbol, agg::Function)
-    losses = [loss_fn(ŷ[k], y[col=At(k)], y_nan[col=At(k)], Val(training_loss)) for k in targets]
-    return agg(losses)
+function _apply_loss(ŷ, y, y_nan, loss_spec::Function)
+    return loss_fn(ŷ, y, y_nan, loss_spec)
 end
-function compute_loss(ŷ, y, y_nan, targets, loss_types::Vector{Symbol}, agg::Function)
+
+function _apply_loss(ŷ, y, y_nan, loss_spec::Tuple)
+    return loss_fn(ŷ, y, y_nan, loss_spec)
+end
+
+function compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
     out_loss_types = [
         begin
-            losses = [loss_fn(ŷ[k], y(k), y_nan(k), Val(loss_type)) for k in targets]
+            losses = [_apply_loss(ŷ[k], y(k), y_nan(k), loss_type) for k in targets]
             agg_loss = agg(losses)
             NamedTuple{(targets..., Symbol(agg))}([losses..., agg_loss])
         end
         for loss_type in loss_types]
-    return NamedTuple{Tuple(loss_types)}([out_loss_types...])
+        _names = [_loss_name(lt) for lt in loss_types]
+    return NamedTuple{Tuple(_names)}([out_loss_types...])
 end
-function compute_loss(ŷ, y::AbstractDimArray, y_nan::AbstractDimArray, targets, loss_types::Vector{Symbol}, agg::Function)
+function compute_loss(ŷ, y::AbstractDimArray, y_nan::AbstractDimArray, targets, loss_types::Vector, agg::Function)
     out_loss_types = [
         begin
-            losses = [loss_fn(ŷ[k], y[col=At(k)], y_nan[col=At(k)], Val(loss_type)) for k in targets]
+            losses = [_apply_loss(ŷ[k], y[col=At(k)], y_nan[col=At(k)], loss_type) for k in targets]
             agg_loss = agg(losses)
             NamedTuple{(targets..., Symbol(agg))}([losses..., agg_loss])
         end
         for loss_type in loss_types]
-    return NamedTuple{Tuple(loss_types)}([out_loss_types...])
+        _names = [_loss_name(lt) for lt in loss_types]
+    return NamedTuple{Tuple(_names)}([out_loss_types...])
+end
+
+# Helper to generate meaningful names for loss types
+function _loss_name(loss_spec::Symbol)
+    return loss_spec
+end
+
+function _loss_name(loss_spec::Function)
+    return nameof(typeof(loss_spec))
+end
+
+function _loss_name(loss_spec::Tuple)
+    return nameof(typeof(loss_spec[1]))
 end
 
 """
-    compute_loss(ŷ, y, y_nan, targets, training_loss::Symbol, agg::Function)
-    compute_loss(ŷ, y, y_nan, targets, loss_types::Vector{Symbol}, agg::Function)
+    compute_loss(ŷ, y, y_nan, targets, training_loss, agg::Function)
+    compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
 
 Compute the loss for the given predictions and targets using the specified training loss (or vector of losses) type and aggregation function.
 
@@ -125,8 +148,8 @@ Compute the loss for the given predictions and targets using the specified train
 - `y`: Target values.
 - `y_nan`: Mask for NaN values.
 - `targets`: The targets for which the loss is computed.
-- `training_loss::Symbol`: The loss type to use during training, e.g., `:mse`.
-- `loss_types::Vector{Symbol}`: A vector of loss types to compute, e.g., `[:mse, :mae]`.
+- `training_loss`: The loss type to use during training, e.g., `:mse`.
+- `loss_types::Vector`: A vector of loss types to compute, e.g., `[:mse, :mae]`.
 - `agg::Function`: The aggregation function to apply to the computed losses, e.g., `sum` or `mean`.
 
 Returns a single loss value if `training_loss` is provided, or a NamedTuple of losses for each type in `loss_types`.
