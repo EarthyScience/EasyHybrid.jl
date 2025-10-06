@@ -56,5 +56,6 @@ include("utils/helpers_for_HybridModel.jl")
 include("plotrecipes.jl")
 include("utils/helpers_data_loading.jl")
 include("tune.jl")
+include("utils/helpers_cross_validation.jl")
 
 end
