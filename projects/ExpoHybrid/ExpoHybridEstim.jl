@@ -9,7 +9,7 @@ Pkg.activate(project_path)
 manifest_path = joinpath(project_path, "Manifest.toml")
 if !isfile(manifest_path)
     package_path = pwd() 
-    if !endswith(package_path, "EasyHybrid")
+    if !endswith(package_path, "EasyHybrid.jl")
         @error "You opened in the wrong directory. Please open the EasyHybrid folder, create a new project in the projects folder and provide the relative path to the project folder as project_path."
     end
     Pkg.develop(path=package_path)
@@ -42,7 +42,7 @@ SM = rand(500) .* 0.8 .+ 0.1   # Random soil moisture
 SM_fac = exp.(-8.0*(SM .- 0.6) .^ 2)
 Resp0 = 1.1 .* SM_fac # Base respiration dependent on soil moisture
 Resp = Resp0 .* exp.(0.07 .* T)
-Resp_obs = Resp .+ randn(length(Resp)) .* 0.05 .* mean(Resp)  # Add some noise
+Resp_obs = Resp .+ randn(length(Resp)) .* 0.2 .* mean(Resp)  # Add some noise
 end;
 df = DataFrame(; T, SM, SM_fac, Resp0, Resp, Resp_obs)
 
@@ -99,8 +99,18 @@ hybrid_model = constructHybridModel(
 
 out =  train(hybrid_model, df, (:k,); nepochs=300, batchsize=64, opt=AdamW(0.01, (0.9, 0.999), 0.01), loss_types=[:mse, :nse], training_loss=:nse, random_seed=123, yscale = identity, monitor_names=[:Resp0, :k])
 
+function qregr_loss(ŷ, y; qnt=0.9)
+    r = ŷ .- y
+    ρ = qnt .* max.(r, 0) .+ (qnt - 1) .* min.(r, 0)
+    return mean(ρ)
+end
 
-EasyHybrid.poplot(out)
+tr_loss_now = (qregr_loss, (qnt=0.9,))
+out2 =  train(hybrid_model, df, (:k,); nepochs=300, batchsize=64, opt=AdamW(0.01, (0.9, 0.999), 0.01), loss_types=[:mse, :nse, tr_loss_now], training_loss=tr_loss_now , random_seed=123, yscale = identity, monitor_names=[:Resp0, :k])
+
+
+EasyHybrid.poplot(out2)
+
 EasyHybrid.plot_loss(out)
 EasyHybrid.plot_parameters(out)
 EasyHybrid.plot_training_summary(out, yscale=identity) # TODO needs work  
