@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.1.5 - 2025-09-29
+- initial option for cross-validation [#153](https://github.com/EarthyScience/EasyHybrid.jl/pull/153)
+- fix hyperopt script in projects (plotting, filenames, extra output) [#155](https://github.com/EarthyScience/EasyHybrid.jl/pull/155) [#156](https://github.com/EarthyScience/EasyHybrid.jl/pull/156)
+- tests included for constructHybridModel [#154](https://github.com/EarthyScience/EasyHybrid.jl/pull/154)
 ## v0.1.4 - 2025-09-17
 - dispatch on DimensionalData [#144](https://github.com/EarthyScience/EasyHybrid.jl/pull/140)
 - fix split_data (prepare_data) to prepare train, val split outside of train function [#147](https://github.com/EarthyScience/EasyHybrid.jl/pull/146)

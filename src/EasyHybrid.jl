@@ -50,11 +50,12 @@ include("utils/show_generic.jl")
 include("utils/synthetic_test_data.jl")
 include("utils/logging_loss.jl")
 include("utils/loss_fn.jl")
+include("plotrecipes.jl")
 include("train.jl")
 include("utils/show_train.jl")
 include("utils/helpers_for_HybridModel.jl")
-include("plotrecipes.jl")
 include("utils/helpers_data_loading.jl")
 include("tune.jl")
+include("utils/helpers_cross_validation.jl")
 
 end

@@ -9,6 +9,9 @@ dk_twos = gen_linear_data_2outputs()
 
 # Include GenericHybridModel tests
 include("test_generic_hybrid_model.jl")
+# Include SplitData tests
+include("test_split_data_train.jl")
+
 
 @testset "LinearHM" begin
     # test model instantiation

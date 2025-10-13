@@ -34,6 +34,38 @@ RbQ10 = RespirationRbQ10(NN, predictor_names, forcing_names, target_names, 2.5f0
 # train model
 out = train(RbQ10, ds_keyed, (:Q10, ); nepochs=100, batchsize=512, opt=Adam(0.01), monitor_names=[:Rb]);
 
+# test custom loss function, keyword arguments
+function pinball(ŷ, y; τ=0.9)
+    r = ŷ .- y
+    ρ = τ .* max.(r, 0) .+ (τ - 1) .* min.(r, 0)
+    return mean(ρ)
+end
+
+out_pinball = train(RbQ10, ds_keyed, (:Q10, );
+    loss_types=[:mse, (pinball, (0.9,))],
+    training_loss=(pinball, (τ=0.9,)),
+    nepochs=100,
+    batchsize=512,
+    opt=Adam(0.01),
+    monitor_names=[:Rb]
+    );
+
+# or positional arguments
+function pinball_pos(ŷ, y, τ)
+    r = ŷ .- y
+    ρ = τ .* max.(r, 0) .+ (τ - 1) .* min.(r, 0)
+    return mean(ρ)
+end
+# test custom loss function
+out_pinball = train(RbQ10, ds_keyed, (:Q10, );
+    loss_types=[:mse, (pinball_pos, (0.9,))],
+    training_loss=(pinball_pos, (0.9,)),
+    nepochs=100,
+    batchsize=512,
+    opt=Adam(0.01),
+    monitor_names=[:Rb]
+    );
+
 ## legacy
 # ? test lossfn
 ps, st = LuxCore.setup(Random.default_rng(), RbQ10)
