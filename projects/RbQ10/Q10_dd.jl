@@ -110,6 +110,9 @@ ds_p_f = ds_yax[col=At(forcing_names ∪ predictor_names)]
 ds_t = ds_yax[col=At(target_names)]
 ds_t_nan = .!isnan.(ds_t) #  produces 1×35064 YAXArray{Float32, 2}, not a Bool
 ds_t_nan = map(x -> !isnan(x), ds_t) # 1×35064 YAXArray{Bool, 2}
+length(ds_t_nan)
+# is_no_nan = .!isnan.(y)
+
 
 ls = EasyHybrid.lossfn(RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss())
 ls_logs = EasyHybrid.lossfn(RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss(train_mode=false))
