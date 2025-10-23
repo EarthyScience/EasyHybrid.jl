@@ -61,9 +61,7 @@ makedocs(;
             "Cross-validation"       => "tutorials/folds.md",
         ],
         "Research" => [
-            "Overview"         => "research/overview.md",
-            "RbQ10"            => "research/RbQ10_results.md",
-            "BulkDensitySOC"   => "research/BulkDensitySOC_results.md",
+            "Overview"         => "research/overview.md"
         ],
         "API" => "api.md",
     ],
