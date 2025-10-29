@@ -86,6 +86,7 @@ end
     # Test data setup
     ŷ = Dict(:var1 => [1.0, 2.0, 3.0], :var2 => [2.0, 3.0, 4.0])
     y(target) = target == :var1 ? [1.1, 1.9, 3.2] : [1.8, 3.1, 3.9]
+    y_sigma(target) = target == :var1 ? [0.1, 0.2, 0.1] : [0.2, 0.1, 0.2]
     y_nan(target) = trues(3)
     targets = [:var1, :var2]
 
@@ -121,6 +122,17 @@ end
         complex_loss(ŷ, y, w; scale=1.0) = scale * w * mean(abs2, ŷ .- y)
         loss = compute_loss(ŷ, y, y_nan, targets, (complex_loss, (0.5,), (scale=2.0,)), sum)
         @test loss isa Number
+
+        # custom loss with uncertainty
+        function custom_loss_uncertainty(ŷ, y_and_sigma)
+            y_vals, y_σ = y_and_sigma
+            return mean(((ŷ .- y_vals).^2) ./ (y_σ .^2 .+ 1e-6))
+        end
+        loss = compute_loss(ŷ, (y, y_sigma), y_nan, targets, custom_loss_uncertainty, sum)
+        @test loss isa Number
+        # a single sigma number
+        # loss = compute_loss(ŷ, (y, 0.01), y_nan, targets, custom_loss_uncertainty, sum) # TODO
+        # @test loss isa Number
     end
 
     @testset "DimensionalData interface" begin

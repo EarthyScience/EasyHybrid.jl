@@ -41,6 +41,13 @@ loss = loss_fn(ŷ, y, y_nan, (scaled_loss, (scale=2.0,)))
 # With both args and kwargs
 complex_loss(ŷ, y, w; scale=1.0) = scale * w * mean(abs2, ŷ .- y)
 loss = loss_fn(ŷ, y, y_nan, (complex_loss, (0.5,), (scale=2.0,)))
+
+# Generic function: accepts y either as Array or as (y, σ)
+function uncertainty_loss(ŷ, y_y_σ::Tuple)
+    y, y_σ = y_y_σ
+    return mean(abs2, (ŷ .- y) ./ (y_σ .^2 .+ 1e-6))
+end
+loss = loss_fn(ŷ, y_y_σ::Tuple, y_nan, uncertainty_loss)
 ```
 
 You can define additional predefined loss functions by adding more methods:
@@ -52,6 +59,24 @@ end
 ```
 """
 function loss_fn end
+
+function _mask_y(y, y_nan)
+    return y[y_nan]
+end
+function _mask_y(y_tuple::Tuple, y_nan)
+    yvals, y_σ = y_tuple
+    y_σ_nan = y_σ isa AbstractArray ? y_σ[y_nan] : y_σ
+    return (yvals[y_nan], y_σ_nan)
+end
+
+"""
+    _mask_y(y, y_nan)
+    _mask_y((y, y_σ), y_nan)
+
+Helper function to mask target values based on NaN mask. Handles both Array and Tuple (y, y_σ) formats.
+"""
+function _mask_y end
+
 
 function loss_fn(ŷ, y, y_nan, ::Val{:rmse})
     return sqrt(mean(abs2, (ŷ[y_nan] .- y[y_nan])))
@@ -76,19 +101,26 @@ function loss_fn(ŷ, y, y_nan, ::Val{:nse})
     return sum((ŷ[y_nan] .- y[y_nan]).^2) / sum((y[y_nan] .- mean(y[y_nan])).^2)
 end
 
+# Generic function: accepts y either as Array or as (y, σ)
 function loss_fn(ŷ, y, y_nan, training_loss::Function)
-    return training_loss(ŷ[y_nan], y[y_nan])
+    masked_y = _mask_y(y, y_nan)
+    return training_loss(ŷ[y_nan], masked_y)
 end
+
 function loss_fn(ŷ, y, y_nan, training_loss::Tuple{Function, Tuple})
     f, args = training_loss
-    return f(ŷ[y_nan], y[y_nan], args...)
+    masked_y = _mask_y(y, y_nan)
+    return f(ŷ[y_nan], masked_y, args...)
 end
 
 function loss_fn(ŷ, y, y_nan, training_loss::Tuple{Function, NamedTuple})
     f, kwargs = training_loss
-    return f(ŷ[y_nan], y[y_nan]; kwargs...)
+    masked_y = _mask_y(y, y_nan)
+    return f(ŷ[y_nan], masked_y; kwargs...)
 end
+
 function loss_fn(ŷ, y, y_nan, training_loss::Tuple{Function, Tuple, NamedTuple})
     f, args, kwargs = training_loss
-    return f(ŷ[y_nan], y[y_nan], args...; kwargs...)
+    masked_y = _mask_y(y, y_nan)
+    return f(ŷ[y_nan], masked_y, args...; kwargs...)
 end
