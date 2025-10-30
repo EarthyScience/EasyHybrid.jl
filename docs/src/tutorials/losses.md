@@ -1,6 +1,10 @@
 # Losses and LoggingLoss
 
-This is a concise guide to EasyHybrid loss primitives: the low-level `loss_fn` API. Examples progress from simple to advanced (uncertainty-aware).
+This is a concise guide to EasyHybrid loss primitives: 
+- the low-level `loss_fn` API. 
+- The `LoggingLoss` helper aggregates per-target loss specifications for training and evaluation.
+    
+Examples progress from simple to advanced (uncertainty-aware).
 
 - `compute_loss(...)`: convenience over targets: aggregates per-target calls to `loss_fn`.
 - `loss_fn(ŷ, y, y_nan, loss_spec)`: low-level loss API. `loss_spec` may be:
@@ -19,11 +23,16 @@ Notes:
 Predefined metrics
 
 ```@example loss
+# toy data
 ŷ = Dict(:t1 => [1.0, 2.0], :t2 => [0.5, 1.0])
 y(t) = t == :t1 ? [1.1, 1.9] : [0.4, 1.1]
 y_nan(t) = trues(2)
 targets = [:t1, :t2]
+```
 
+```@example loss
+using EasyHybrid
+using EasyHybrid: compute_loss
 # total MSE across targets
 mse_total = compute_loss(ŷ, y, y_nan, targets, :mse, sum)
 
@@ -87,9 +96,7 @@ Behavior:
 
 ## LoggingLoss
 
-The `LoggingLoss` helper aggregates per-target loss specifications for training and evaluation.
-
-````@docs
+````@docs; canonical=false
 LoggingLoss
 ````
 
