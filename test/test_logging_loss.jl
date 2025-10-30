@@ -133,6 +133,8 @@ end
         # a single sigma number
         # loss = compute_loss(ŷ, (y, 0.01), y_nan, targets, custom_loss_uncertainty, sum) # TODO
         # @test loss isa Number
+        losses = compute_loss(ŷ, (y, y_sigma), y_nan, targets, [custom_loss_uncertainty,], sum)
+        @test losses isa NamedTuple
     end
 
     @testset "DimensionalData interface" begin

@@ -231,17 +231,18 @@ function compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
     return NamedTuple{Tuple(_names)}([out_loss_types...])
 end
 
-# function compute_loss(ŷ, (y, y_sigma), y_nan, targets, loss_types::Vector, agg::Function)
-#     out_loss_types = [
-#         begin
-#             losses = [_apply_loss(ŷ[k], (y(k), y_sigma(k)), y_nan(k), loss_type) for k in targets]
-#             agg_loss = agg(losses)
-#             NamedTuple{(targets..., Symbol(agg))}([losses..., agg_loss])
-#         end
-#         for loss_type in loss_types]
-#         _names = [_loss_name(lt) for lt in loss_types]
-#     return NamedTuple{Tuple(_names)}([out_loss_types...])
-# end
+function compute_loss(ŷ, y::Tuple, y_nan, targets, loss_types::Vector, agg::Function)
+    y_obs, y_sigma = y
+    out_loss_types = [
+        begin
+            losses = [_apply_loss(ŷ[k], (y_obs(k), y_sigma(k)), y_nan(k), loss_type) for k in targets]
+            agg_loss = agg(losses)
+            NamedTuple{(targets..., Symbol(agg))}([losses..., agg_loss])
+        end
+        for loss_type in loss_types]
+        _names = [_loss_name(lt) for lt in loss_types]
+    return NamedTuple{Tuple(_names)}([out_loss_types...])
+end
 
 function compute_loss(ŷ, y::AbstractDimArray, y_nan::AbstractDimArray, targets, loss_types::Vector, agg::Function)
     out_loss_types = [
