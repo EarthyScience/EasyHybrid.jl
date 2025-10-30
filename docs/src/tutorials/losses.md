@@ -1,22 +1,20 @@
-# Losses and LoggingLoss
+## Losses and LoggingLoss
 
-This is a concise guide to EasyHybrid loss primitives: 
-- the low-level `loss_fn` API. 
-- The `LoggingLoss` helper aggregates per-target loss specifications for training and evaluation.
-    
-Examples progress from simple to advanced (uncertainty-aware).
+```@example loss
+using EasyHybrid
+using EasyHybrid: compute_loss
+```
 
-- `compute_loss(...)`: convenience over targets: aggregates per-target calls to `loss_fn`.
-- `loss_fn(ŷ, y, y_nan, loss_spec)`: low-level loss API. `loss_spec` may be:
-  - `Val(:mse)`, `Val(:rmse)`, `Val(:mae)`, `Val(:pearson)`, `Val(:r2)`, etc. — predefined metrics.
-  - `f :: Function`: custom `f(ŷ_masked, y_masked)` (where `y_masked` is a vector or a `(y, σ)` tuple).
-  - `(f, (args...))`: positional args forwarded as `f(ŷ, y, args...)`.
-  - `(f, NamedTuple(...))`: kwargs forwarded as `f(ŷ, y; kwargs...)`.
-  - `(f, (args...), NamedTuple(...))`: both.
+````@docs; canonical=false
+EasyHybrid.compute_loss
+````
 
-Notes:
+::: warning
+
 - `y_nan` is a boolean mask (or function returning a mask per target) used to ignore missing values.
 - For uncertainty-aware losses, pass target values as `(y_vals, y_sigma)` and write custom losses to accept that tuple.
+
+:::
 
 ### Simple usage
 
@@ -30,9 +28,7 @@ y_nan(t) = trues(2)
 targets = [:t1, :t2]
 ```
 
-```@example loss
-using EasyHybrid
-using EasyHybrid: compute_loss
+```@ansi loss
 # total MSE across targets
 mse_total = compute_loss(ŷ, y, y_nan, targets, :mse, sum)
 
@@ -47,7 +43,8 @@ Custom losses receive masked predictions and masked targets:
 ```@example loss
 custom_loss(ŷ, y) = mean(abs2, ŷ .- y)
 weighted_loss(ŷ, y, w) = w * mean(abs2, ŷ .- y)
-scaled_loss(ŷ, y; scale=1.0) = scale * mean(abs2, ŷ .- y);
+scaled_loss(ŷ, y; scale=1.0) = scale * mean(abs2, ŷ .- y)
+complex_loss(ŷ, y, w; scale=1.0) = scale * w * mean(abs2, ŷ .- y);
 ```
 
 Use variants:
@@ -56,7 +53,7 @@ Use variants:
 compute_loss(ŷ, y, y_nan, targets, custom_loss, sum)
 compute_loss(ŷ, y, y_nan, targets, (weighted_loss, (0.5,)), sum)
 compute_loss(ŷ, y, y_nan, targets, (scaled_loss, (scale=2.0,)), sum)
-compute_loss(ŷ, y, y_nan, targets, (weighted_loss, (0.5,), (scale=2.0,)), sum)
+compute_loss(ŷ, y, y_nan, targets, (complex_loss, (0.5,), (scale=2.0,)), sum)
 ```
 
 ### Advanced: uncertainty-aware losses
@@ -74,15 +71,19 @@ Top-level usage (both `y` and `y_sigma` can be functions or containers):
 
 ```@example loss
 y_sigma(t) = t == :t1 ? [0.1, 0.2] : [0.2, 0.1]
-loss = compute_loss(ŷ, (y, y_sigma), y_nan, targets, custom_loss_uncertainty, sum)
+loss = compute_loss(ŷ, (y, y_sigma), y_nan, targets,
+    custom_loss_uncertainty, sum)
 ```
 
-Behavior:
-- `compute_loss` packs per-target `(y_vals_target, σ_target)` tuples and forwards them to `loss_fn`.
-<!-- TODO -->
-- Predefined metrics use only `y_vals` when a `(y, σ)` tuple is supplied. 
+::: info Behavior
 
-## Tips and quick reference
+- `compute_loss` packs per-target `(y_vals_target, σ_target)` tuples and forwards them to `loss_fn`.
+- Predefined metrics use only `y_vals` when a `(y, σ)` tuple is supplied. (TODO)
+
+:::
+
+
+::: tip Tips and quick reference
 
 - Prefer `f(ŷ_masked, y_masked)` for custom losses; `y_masked` may be a vector or `(y, σ)`.
 - Use `Val(:metric)` only for predefined `loss_fn` variants.
@@ -93,12 +94,15 @@ Behavior:
   - Kwargs: `compute_loss(..., (f, (kw=val,)), sum)`
   - Uncertainty: `compute_loss(..., (y, y_sigma), ..., custom_loss_uncertainty, sum)`
 
+:::
 
 ## LoggingLoss
+
+The `LoggingLoss` helper aggregates per-target loss specifications for training and evaluation.
 
 ````@docs; canonical=false
 LoggingLoss
 ````
 
-In training use `logging.training_loss`, in evaluation use `logging.loss_types`.
+Internally, in training we use `logging.training_loss` and in evaluation `logging.loss_types`.
 Note that `LoggingLoss` can mix symbols and functions.
