@@ -22,11 +22,11 @@ EasyHybrid.compute_loss
 - Use `Val(:metric)` only for predefined `loss_fn` variants.
 - Quick calls:
     - `compute_loss(..., :mse, sum)`: predefined
-    - `compute_loss(..., custom_loss, sum)` : custom
-    - `compute_loss(..., (f, (arg1, arg2, )), sum)`: args
-    - `compute_loss(..., (f, (kw=val,)), sum)`: kwargs
-    - `compute_loss(..., (f, (arg1, ), (kw=val,)), sum)`: args and kwargs
-    - `compute_loss(..., (y, y_sigma), ..., custom_loss_uncertainty, sum)`: uncertainty
+    - `compute_loss(..., custom_loss, sum)` : custom loss
+    - `compute_loss(..., (f, (arg1, arg2, )), sum)`: additional arguments 
+    - `compute_loss(..., (f, (kw=val,)), sum)`: with keyword arguments
+    - `compute_loss(..., (f, (arg1, ), (kw=val,)), sum)`: with additional arguments and keyword arguments
+    - `compute_loss(..., (y, y_sigma), ..., custom_loss_uncertainty, sum)`: with uncertainties
 
 :::
 
@@ -57,6 +57,7 @@ custom_loss(ŷ, y) = mean(abs2, ŷ .- y)
 weighted_loss(ŷ, y, w) = w * mean(abs2, ŷ .- y)
 scaled_loss(ŷ, y; scale=1.0) = scale * mean(abs2, ŷ .- y)
 complex_loss(ŷ, y, w; scale=1.0) = scale * w * mean(abs2, ŷ .- y);
+nothing # hide
 ```
 
 Use variants:
@@ -105,3 +106,49 @@ LoggingLoss
 
 Internally, in training we use `logging.training_loss` and in evaluation `logging.loss_types`.
 Note that `LoggingLoss` can mix symbols and functions.
+
+## Loss → train
+
+So, how do you specified your loss? and the additional metrics given by `loss_types`?
+
+### default losses
+
+You could select a different training or and a different vector for additional metrics
+
+```julia
+train(...;
+    training_loss = :mae,
+    loss_types = [:mse, :mae, :nse]
+    )
+```
+
+### without additional arguments
+
+Define your own custom function `fn(ŷ, y)` as above and pass it to the corresponding keyword argument:
+
+```julia
+train(...;
+    training_loss = fn,
+    loss_types = [fn, :mae, :nse]
+    )
+```
+
+### with additional arguments
+
+now your function will have additional arguments, i.e. `fn_args(ŷ, y, args...)`:
+
+```julia
+train(...;
+    training_loss = (fn_args, (args...,)),
+    loss_types = [(fn_args, (args...,)), :mae, :nse]
+    )
+```
+
+and possible keyword arguments, i.e. `fn_args(ŷ, y, args...; kwargs...)`:
+
+```julia
+train(...;
+    training_loss = (fn_args, (args...,), (kwargs...,)),
+    loss_types = [(fn_args, (args...,), (kwargs...,)), :mae, :nse]
+    )
+```
