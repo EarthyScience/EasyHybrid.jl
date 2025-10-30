@@ -16,12 +16,27 @@ EasyHybrid.compute_loss
 
 :::
 
+::: tip Tips and quick reference
+
+- Prefer `f(ŷ_masked, y_masked)` for custom losses; `y_masked` may be a vector or `(y, σ)`.
+- Use `Val(:metric)` only for predefined `loss_fn` variants.
+- Quick calls:
+    - `compute_loss(..., :mse, sum)`: predefined
+    - `compute_loss(..., custom_loss, sum)` : custom
+    - `compute_loss(..., (f, (arg1, arg2, )), sum)`: args
+    - `compute_loss(..., (f, (kw=val,)), sum)`: kwargs
+    - `compute_loss(..., (f, (arg1, ), (kw=val,)), sum)`: args and kwargs
+    - `compute_loss(..., (y, y_sigma), ..., custom_loss_uncertainty, sum)`: uncertainty
+
+:::
+
+
 ### Simple usage
 
 Predefined metrics
 
 ```@example loss
-# toy data
+# synthetic data
 ŷ = Dict(:t1 => [1.0, 2.0], :t2 => [0.5, 1.0])
 y(t) = t == :t1 ? [1.1, 1.9] : [0.4, 1.1]
 y_nan(t) = trues(2)
@@ -29,14 +44,11 @@ targets = [:t1, :t2]
 ```
 
 ```@ansi loss
-# total MSE across targets
-mse_total = compute_loss(ŷ, y, y_nan, targets, :mse, sum)
-
-# multiple metrics in a NamedTuple
-losses = compute_loss(ŷ, y, y_nan, targets, [:mse, :mae], sum)
+mse_total = compute_loss(ŷ, y, y_nan, targets, :mse, sum) # total MSE across targets
+losses = compute_loss(ŷ, y, y_nan, targets, [:mse, :mae], sum) # multiple metrics in a NamedTuple
 ```
 
-### Intermediate: custom functions, args, kwargs
+### Custom functions, args, kwargs
 
 Custom losses receive masked predictions and masked targets:
 
@@ -56,7 +68,7 @@ compute_loss(ŷ, y, y_nan, targets, (scaled_loss, (scale=2.0,)), sum)
 compute_loss(ŷ, y, y_nan, targets, (complex_loss, (0.5,), (scale=2.0,)), sum)
 ```
 
-### Advanced: uncertainty-aware losses
+### Uncertainty-aware losses
 
 Signal uncertainty by providing targets as `(y_vals, y_sigma)` and write the loss to accept that tuple:
 
@@ -82,19 +94,6 @@ loss = compute_loss(ŷ, (y, y_sigma), y_nan, targets,
 
 :::
 
-
-::: tip Tips and quick reference
-
-- Prefer `f(ŷ_masked, y_masked)` for custom losses; `y_masked` may be a vector or `(y, σ)`.
-- Use `Val(:metric)` only for predefined `loss_fn` variants.
-- Quick calls:
-  - Predefined: `compute_loss(..., :mse, sum)`
-  - Custom: `compute_loss(..., custom_loss, sum)`
-  - Args: `compute_loss(..., (f, (arg1,arg2)), sum)`
-  - Kwargs: `compute_loss(..., (f, (kw=val,)), sum)`
-  - Uncertainty: `compute_loss(..., (y, y_sigma), ..., custom_loss_uncertainty, sum)`
-
-:::
 
 ## LoggingLoss
 
