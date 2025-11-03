@@ -1,5 +1,14 @@
 export LoggingLoss
 
+"""
+    PerTarget(losses)
+
+A wrapper to indicate that a tuple of losses should be applied on a per-target basis.
+"""
+struct PerTarget{T<:Tuple}
+    losses::T
+end
+
 const LossSpec = Union{Symbol, Function, Tuple}
 
 """
@@ -237,15 +246,15 @@ function assemble_loss(ŷ, y, y_nan, targets, loss_spec)
     return losses
 end
 
-function assemble_loss(ŷ, y, y_nan, targets, loss_spec::Tuple)
-    @assert length(targets) == length(loss_spec) "Length of targets and losses tuple must match"
+function assemble_loss(ŷ, y, y_nan, targets, loss_spec::PerTarget)
+    @assert length(targets) == length(loss_spec.losses) "Length of targets and PerTarget losses tuple must match"
     losses = [
         _apply_loss(
             ŷ[target],
             _get_target_y(y, target),
             _get_target_nan(y_nan, target),
             loss_t
-        ) for (target, loss_t) in zip(targets, loss_spec)
+        ) for (target, loss_t) in zip(targets, loss_spec.losses)
     ]
     return losses
 end

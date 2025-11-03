@@ -1,5 +1,5 @@
 using Test
-using EasyHybrid
+using EasyHybrid: LoggingLoss, PerTarget
 using Statistics
 using DimensionalData
 import EasyHybrid: compute_loss
@@ -131,10 +131,27 @@ end
         loss = compute_loss(ŷ, (y, y_sigma), y_nan, targets, custom_loss_uncertainty, sum)
         @test loss isa Number
         # a single sigma number
-        # loss = compute_loss(ŷ, (y, 0.01), y_nan, targets, custom_loss_uncertainty, sum) # TODO
+        loss = compute_loss(ŷ, (y, 0.01), y_nan, targets, custom_loss_uncertainty, sum)
         # @test loss isa Number
         losses = compute_loss(ŷ, (y, y_sigma), y_nan, targets, [custom_loss_uncertainty,], sum)
         @test losses isa NamedTuple
+
+        @testset "Per-target losses" begin
+            # Mix of predefined and custom
+            loss_spec = PerTarget((:mse, custom_loss))
+            loss = compute_loss(ŷ, y, y_nan, targets, loss_spec, sum)
+            expected_loss = EasyHybrid.loss_fn(ŷ[:var1], y(:var1), y_nan(:var1), Val(:mse)) + custom_loss(ŷ[:var2], y(:var2))
+            @test loss ≈ expected_loss
+
+            # Mix of custom losses with arguments
+            loss_spec_args = PerTarget(((weighted_loss, (0.5,)), (scaled_loss, (scale=2.0,))))
+            loss_args = compute_loss(ŷ, y, y_nan, targets, loss_spec_args, sum)
+            expected_loss_args = weighted_loss(ŷ[:var1], y(:var1), 0.5) + scaled_loss(ŷ[:var2], y(:var2); scale=2.0)
+            @test loss_args ≈ expected_loss_args
+
+            # Mismatched number of losses and targets
+            @test_throws AssertionError compute_loss(ŷ, y, y_nan, targets, PerTarget((:mse,)), sum)
+        end
     end
 
     @testset "DimensionalData interface" begin
