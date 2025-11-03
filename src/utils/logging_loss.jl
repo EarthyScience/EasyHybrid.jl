@@ -94,19 +94,7 @@ Main loss function for hybrid models that handles both training and evaluation m
 - In evaluation mode (`logging.train_mode = false`):
   - `(loss_values, st, ŷ)`: NamedTuple of losses, state and predictions
 """
-function lossfn(HM::LuxCore.AbstractLuxContainerLayer, x, (y_t, y_nan), ps, st, logging::LoggingLoss)
-    targets = HM.targets
-    ŷ, y, y_nan, st = get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
-    if logging.train_mode
-        loss_value = compute_loss(ŷ, y, y_nan, targets, logging.training_loss, logging.agg)
-        return loss_value, st
-    else
-        loss_value = compute_loss(ŷ, y, y_nan, targets, logging.loss_types, logging.agg)
-        return loss_value, st, ŷ
-    end
-end
-
-function lossfn(HM::Union{SingleNNHybridModel, MultiNNHybridModel, SingleNNModel, MultiNNModel}, x, (y_t, y_nan), ps, st, logging::LoggingLoss)
+function lossfn(HM::Union{LuxCore.AbstractLuxContainerLayer, SingleNNHybridModel, MultiNNHybridModel, SingleNNModel, MultiNNModel}, x, (y_t, y_nan), ps, st, logging::LoggingLoss)
     targets = HM.targets
     ŷ, y, y_nan, st = get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
     if logging.train_mode
@@ -139,22 +127,9 @@ Get predictions and targets from the hybrid model and return them along with the
 - `st`: Updated model state
 """
 function get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
-    ŷ, st = HM(x, ps, st) #TODO the output st can contain more than st, e.g. Rb is that what we want?
-    y = y_t(HM.targets)
-    y_nan = y_nan(HM.targets)
-    return ŷ, y, y_nan, st #TODO has to be done otherwise e.g. Rb is passed as a st and messes up the training
-end
-
-function get_predictions_targets(
-    HM, 
-    x::AbstractDimArray, 
-    ys::Tuple{<:AbstractDimArray,<:AbstractDimArray}, 
-    ps, st, targets
-)
-    y_t, y_nan = ys
     ŷ, st = HM(x, ps, st)
-    y     = y_t[col=At(targets)]
-    y_nan = y_nan[col=At(targets)]
+    y = _get_target_y(y_t, targets)
+    y_nan = _get_target_nan(y_nan, targets)
     return ŷ, y, y_nan, st
 end
 
@@ -187,66 +162,25 @@ Helper function to apply the appropriate loss function based on the specificatio
 function _apply_loss end
 
 function compute_loss(ŷ, y, y_nan, targets, loss_spec, agg::Function)
-    losses = [_apply_loss(ŷ[k], y(k), y_nan(k), loss_spec) for k in targets]
+    losses = assemble_loss(ŷ, y, y_nan, targets, loss_spec)
     return agg(losses)
 end
 
-function compute_loss(ŷ, y::Tuple, y_nan, targets, loss_spec, agg::Function)
-    y_obs, y_sigma = y
-    losses = [_apply_loss(ŷ[k], (y_obs(k), y_sigma(k)), y_nan(k), loss_spec) for k in targets]
-    return agg(losses)
-end
-
-function compute_loss(ŷ, y::AbstractDimArray, y_nan::AbstractDimArray, targets, loss_spec, agg::Function)
-    losses = [_apply_loss(ŷ[k], y[col=At(k)], y_nan[col=At(k)], loss_spec) for k in targets]
-    return agg(losses)
-end
-
-function compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
+function compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
     out_loss_types = [
         begin
-            losses = [_apply_loss(ŷ[k], y(k), y_nan(k), loss_type) for k in targets]
+            losses = assemble_loss(ŷ, y, y_nan, targets, loss_type)
             agg_loss = agg(losses)
             NamedTuple{(targets..., Symbol(agg))}([losses..., agg_loss])
         end
         for loss_type in loss_types]
-        _names = [_loss_name(lt) for lt in loss_types]
-    return NamedTuple{Tuple(_names)}([out_loss_types...])
-end
-
-function compute_loss(ŷ, y::Tuple, y_nan, targets, loss_types::Vector, agg::Function)
-    y_obs, y_sigma = y
-    out_loss_types = [
-        begin
-            losses = [_apply_loss(ŷ[k], (y_obs(k), y_sigma(k)), y_nan(k), loss_type) for k in targets]
-            agg_loss = agg(losses)
-            NamedTuple{(targets..., Symbol(agg))}([losses..., agg_loss])
-        end
-        for loss_type in loss_types]
-        _names = [_loss_name(lt) for lt in loss_types]
-    return NamedTuple{Tuple(_names)}([out_loss_types...])
-end
-
-function compute_loss(ŷ, y::AbstractDimArray, y_nan::AbstractDimArray, targets, loss_types::Vector, agg::Function)
-    out_loss_types = [
-        begin
-            losses = [_apply_loss(ŷ[k], y[col=At(k)], y_nan[col=At(k)], loss_type) for k in targets]
-            agg_loss = agg(losses)
-            NamedTuple{(targets..., Symbol(agg))}([losses..., agg_loss])
-        end
-        for loss_type in loss_types]
-        _names = [_loss_name(lt) for lt in loss_types]
+    _names = [_loss_name(lt) for lt in loss_types]
     return NamedTuple{Tuple(_names)}([out_loss_types...])
 end
 
 """
     compute_loss(ŷ, y, y_nan, targets, training_loss, agg::Function)
     compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
-    compute_loss(ŷ, y::Tuple, y_nan, targets, training_loss, agg::Function)
-    compute_loss(ŷ, y::Tuple, y_nan, targets, loss_types::Vector, agg::Function)
-    compute_loss(ŷ, y::AbstractDimArray, y_nan::AbstractDimArray, targets, training_loss, agg::Function)
-    compute_loss(ŷ, y::AbstractDimArray, y_nan::AbstractDimArray, targets, loss_types::Vector, agg::Function)
-
 
 Compute the loss for the given predictions and targets using the specified training loss (or vector of losses) type and aggregation function.
 
@@ -263,12 +197,15 @@ Returns a single loss value if `training_loss` is provided, or a NamedTuple of l
 """
 function compute_loss end
 
-# Helper to get target-specific y values, handling uncertainty tuples.
 _get_target_y(y, target) = y(target)
+_get_target_y(y::AbstractDimArray, target) = y[col=At(target)]
+_get_target_y(y::AbstractDimArray, targets::Vector) = y[col=At(targets)]
+
 function _get_target_y(y::Tuple, target)
     y_obs, y_sigma = y
     sigma = y_sigma isa Number ? y_sigma : y_sigma(target)
-    return (y_obs(target), sigma)
+    y_obs_val = _get_target_y(y_obs, target)
+    return (y_obs_val, sigma)
 end
 
 """
@@ -277,12 +214,23 @@ Helper function to extract target-specific values from `y`, handling cases where
 """
 function _get_target_y end
 
+_get_target_nan(y_nan, target) = y_nan(target)
+_get_target_nan(y_nan::AbstractDimArray, target) = y_nan[col=At(target)]
+_get_target_nan(y_nan::AbstractDimArray, targets::Vector) = y_nan[col=At(targets)]
+
+"""
+    _get_target_nan(y_nan, target)
+
+Helper function to extract target-specific values from `y_nan`.
+"""
+function _get_target_nan end
+
 function assemble_loss(ŷ, y, y_nan, targets, loss_spec)
     losses = [
         _apply_loss(
             ŷ[target],
             _get_target_y(y, target),
-            y_nan(target),
+            _get_target_nan(y_nan, target),
             loss_spec
         ) for target in targets
     ]
@@ -292,7 +240,12 @@ end
 function assemble_loss(ŷ, y, y_nan, targets, loss_spec::Tuple)
     @assert length(targets) == length(loss_spec) "Length of targets and losses tuple must match"
     losses = [
-        _apply_loss(ŷ[target], _get_target_y(y, target), y_nan(target), loss_t) for (target, loss_t) in zip(targets, loss_spec)
+        _apply_loss(
+            ŷ[target],
+            _get_target_y(y, target),
+            _get_target_nan(y_nan, target),
+            loss_t
+        ) for (target, loss_t) in zip(targets, loss_spec)
     ]
     return losses
 end
