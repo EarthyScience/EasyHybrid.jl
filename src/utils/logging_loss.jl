@@ -263,41 +263,57 @@ Returns a single loss value if `training_loss` is provided, or a NamedTuple of l
 """
 function compute_loss end
 
-function assemble_loss(ŷ, y, y_nan, targets, loss_spec)
-    losses = [_apply_loss(ŷ[target], y(target), y_nan(target), loss_spec) for target in targets]
-    return losses
-end
-function assemble_loss(ŷ, y::Tuple, y_nan, targets, loss_spec)
+# Helper to get target-specific y values, handling uncertainty tuples.
+_get_target_y(y, target) = y(target)
+function _get_target_y(y::Tuple, target)
     y_obs, y_sigma = y
-    if y_sigma isa Number 
-        return [_apply_loss(ŷ[target], (y_obs(target), y_sigma), y_nan(target), loss_spec)
-            for target in targets]
-    else
-        return [_apply_loss(ŷ[target], (y_obs(target), y_sigma(target)), y_nan(target), loss_spec)
-            for target in targets]
-    end
+    sigma = y_sigma isa Number ? y_sigma : y_sigma(target)
+    return (y_obs(target), sigma)
+end
+
+"""
+    _get_target_y(y, target)
+Helper function to extract target-specific values from `y`, handling cases where `y` may be a tuple of `(y_obs, y_sigma)`.
+"""
+function _get_target_y end
+
+function assemble_loss(ŷ, y, y_nan, targets, loss_spec)
+    losses = [
+        _apply_loss(
+            ŷ[target],
+            _get_target_y(y, target),
+            y_nan(target),
+            loss_spec
+        ) for target in targets
+    ]
+    return losses
 end
 
 function assemble_loss(ŷ, y, y_nan, targets, loss_spec::Tuple)
     @assert length(targets) == length(loss_spec) "Length of targets and losses tuple must match"
-    losses = [_apply_loss(ŷ[target], y(target), y_nan(target), loss_t)
-        for (target, loss_t) in zip(targets, loss_spec)]
+    losses = [
+        _apply_loss(ŷ[target], _get_target_y(y, target), y_nan(target), loss_t) for (target, loss_t) in zip(targets, loss_spec)
+    ]
     return losses
 end
 
-function assemble_loss(ŷ, y::Tuple, y_nan, targets, loss_spec::Tuple)
-    @assert length(targets) == length(loss_spec) "Length of targets and losses tuple must match"
-    y_obs, y_sigma = y
-    if y_sigma isa Number 
-        return [_apply_loss(ŷ[target], (y_obs(target), y_sigma), y_nan(target), loss_t)
-            for (target, loss_t) in zip(targets, loss_spec)]
-    else
-        return [_apply_loss(ŷ[target], (y_obs(target), y_sigma(target)), y_nan(target), loss_t)
-            for (target, loss_t) in zip(targets, loss_spec)]
-    end
-end
+"""
+    assemble_loss(ŷ, y, y_nan, targets, loss_spec)
 
-# Helper to generate meaningful names for loss types
+Helper function to assemble a vector of losses for each target based on the provided loss specification.
+    
+# Arguments
+- `ŷ`: Predictions for all targets.
+- `y`: Target values (can be a function, tuple, or AbstractDimArray).
+- `y_nan`: NaN mask (function or array).
+- `targets`: List of target names.
+- `loss_spec`: Loss specification (Symbol, Function, or Tuple).
+
+# Returns
+- Vector of losses for each target.
+"""
+function assemble_loss end
+
 function _loss_name(loss_spec::Symbol)
     return loss_spec
 end
