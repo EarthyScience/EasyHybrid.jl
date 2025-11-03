@@ -263,6 +263,40 @@ Returns a single loss value if `training_loss` is provided, or a NamedTuple of l
 """
 function compute_loss end
 
+function assemble_loss(ŷ, y, y_nan, targets, loss_spec)
+    losses = [_apply_loss(ŷ[target], y(target), y_nan(target), loss_spec) for target in targets]
+    return losses
+end
+function assemble_loss(ŷ, y::Tuple, y_nan, targets, loss_spec)
+    y_obs, y_sigma = y
+    if y_sigma isa Number 
+        return [_apply_loss(ŷ[target], (y_obs(target), y_sigma), y_nan(target), loss_spec)
+            for target in targets]
+    else
+        return [_apply_loss(ŷ[target], (y_obs(target), y_sigma(target)), y_nan(target), loss_spec)
+            for target in targets]
+    end
+end
+
+function assemble_loss(ŷ, y, y_nan, targets, loss_spec::Tuple)
+    @assert length(targets) == length(loss_spec) "Length of targets and losses tuple must match"
+    losses = [_apply_loss(ŷ[target], y(target), y_nan(target), loss_t)
+        for (target, loss_t) in zip(targets, loss_spec)]
+    return losses
+end
+
+function assemble_loss(ŷ, y::Tuple, y_nan, targets, loss_spec::Tuple)
+    @assert length(targets) == length(loss_spec) "Length of targets and losses tuple must match"
+    y_obs, y_sigma = y
+    if y_sigma isa Number 
+        return [_apply_loss(ŷ[target], (y_obs(target), y_sigma), y_nan(target), loss_t)
+            for (target, loss_t) in zip(targets, loss_spec)]
+    else
+        return [_apply_loss(ŷ[target], (y_obs(target), y_sigma(target)), y_nan(target), loss_t)
+            for (target, loss_t) in zip(targets, loss_spec)]
+    end
+end
+
 # Helper to generate meaningful names for loss types
 function _loss_name(loss_spec::Symbol)
     return loss_spec
