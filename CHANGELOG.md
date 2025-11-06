@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+## v0.1.6 - 2025-11-06
+- introduces a generic custom input loss function feature in [#163](https://github.com/EarthyScience/EasyHybrid.jl/pull/163)
+
 ## v0.1.5 - 2025-09-29
 - initial option for cross-validation [#153](https://github.com/EarthyScience/EasyHybrid.jl/pull/153)
 - fix hyperopt script in projects (plotting, filenames, extra output) [#155](https://github.com/EarthyScience/EasyHybrid.jl/pull/155) [#156](https://github.com/EarthyScience/EasyHybrid.jl/pull/156)
