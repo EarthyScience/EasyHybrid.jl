@@ -124,3 +124,23 @@ function loss_fn(ŷ, y, y_nan, training_loss::Tuple{Function, Tuple, NamedTuple}
     masked_y = _mask_y(y, y_nan)
     return f(ŷ[y_nan], masked_y, args...; kwargs...)
 end
+
+function loss_fn(ŷ_all, y, y_nan, training_loss::LPPP{<:Function})
+    f = training_loss.loss
+    return f(ŷ_all)
+end
+
+function loss_fn(ŷ_all, y, y_nan, training_loss::LPPP{<:Tuple{Function, Tuple}})
+    f, args = training_loss.loss
+    return f(ŷ_all, args...)
+end
+
+function loss_fn(ŷ_all, y, y_nan, training_loss::LPPP{<:Tuple{Function, NamedTuple}})
+    f, kwargs = training_loss.loss
+    return f(ŷ_all; kwargs...)
+end
+
+function loss_fn(ŷ_all, y, y_nan, training_loss::LPPP{<:Tuple{Function, Tuple, NamedTuple}})
+    f, args, kwargs = training_loss.loss
+    return f(ŷ_all, args...; kwargs...)
+end

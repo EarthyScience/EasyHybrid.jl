@@ -1,4 +1,61 @@
-export LoggingLoss
+export LoggingLoss, DataAndPhysicsLoss, Physics
+import Base: +
+
+"""
+    LPPP(loss)
+Prior-penalty-physics loss
+
+Wrapper to indicate a physics-based loss that operates on the full prediction ŷ.
+Physics losses are computed once per batch, not per target.
+"""
+struct LPPP{L}
+    loss::L
+end
+
+"""
+    LDataPPP(data_loss, physics_loss)
+
+A container for an optional data-driven loss and one or more physics-based losses.
+The `physics_loss` can be a single `Physics` instance or a tuple of them.
+"""
+struct LDataPPP{D, P<:Tuple}
+    ℒ_data::D
+    ℒ_phys::P
+
+    function LDataPPP(ℒ_data, ℒ_phys::Tuple)
+        all(p -> p isa Physics, ℒ_phys) || throw(ArgumentError("All elements in physics_loss must be of type Physics."))
+        new{typeof(ℒ_data), typeof(ℒ_phys)}(ℒ_data, ℒ_phys)
+    end
+end
+
+LDataPPP(; ℒ_data = nothing, ℒ_phys = ()) = LDataPPP(ℒ_data, ℒ_phys)
+
+"""
+    +(loss1, loss2)
+
+Overloads the `+` operator to combine data and physics losses into a `DataAndPhysicsLoss` object.
+
+# Examples
+```julia
+:mse + Physics(smoothness_loss)
+custom_loss + Physics(conservation_loss)
+:mse + Physics(smoothness_loss) + Physics(conservation_loss)
+```
+"""
+const DataLossSpec = Union{Symbol, Function, Tuple}
+
+# Data loss + Physics loss
++(data_loss::DataLossSpec, physics_loss::LPPP) = LDataPPP(data_loss, (physics_loss,))
+
+# Physics loss + Data loss
++(physics_loss::LPPP, data_loss::DataLossSpec) = LDataPPP(data_loss, (physics_loss,))
+
+# Two physics losses
++(p1::LPPP, p2::LPPP) = LDataPPP(nothing, (p1, p2))
+
+# DataAndPhysicsLoss + Physics loss
++(dp::LDataPPP, p::LPPP) = LDataPPP(dp.data_loss, (dp.physics_loss..., p))
++(p::LPPP, dp::LDataPPP) = LDataPPP(dp.data_loss, (p, dp.physics_loss...))
 
 """
     PerTarget(losses)
@@ -9,7 +66,7 @@ struct PerTarget{T<:Tuple}
     losses::T
 end
 
-const LossSpec = Union{Symbol, Function, Tuple}
+const LossSpec = Union{Symbol, Function, Tuple, LPPP, PerTarget, LDataPPP}
 
 """
     LoggingLoss
@@ -154,6 +211,22 @@ function _apply_loss(ŷ, y, y_nan, loss_spec::Tuple)
     return loss_fn(ŷ, y, y_nan, loss_spec)
 end
 
+function _apply_loss(ŷ, y, y_nan, loss_spec::LPPP)
+    return loss_fn(ŷ, y, y_nan, loss_spec)
+end
+
+
+function _apply_loss(ŷ, y, y_nan, target, ℒ_mix::LDataPPP{D, P}) where {D, P}
+    data_loss = ℒ_mix.ℒ_data === nothing ? 0.0f0 : _apply_loss(ŷ[target], y, y_nan, ℒ.ℒ_data)
+    phys_loss = ℒ_mix.ℒ_phys === nothing ? 0.0f0 : sum(𝓁 -> _apply_loss(ŷ, y, y_nan, 𝓁), ℒ_mix.ℒ_phys; init=0.0f0)
+    return data_loss + phys_loss
+end
+
+function _apply_loss(ŷ_all, y, y_nan, target, ℒ_single)
+    return _apply_loss(ŷ_all[target], y, y_nan, ℒ_single)
+end
+
+
 """
     _apply_loss(ŷ, y, y_nan, loss_spec)
 
@@ -234,25 +307,23 @@ Helper function to extract target-specific values from `y_nan`.
 """
 function _get_target_nan end
 
-function assemble_loss(ŷ, y, y_nan, targets, loss_spec)
-    losses = [
-        _apply_loss(
-            ŷ[target],
-            _get_target_y(y, target),
-            _get_target_nan(y_nan, target),
-            loss_spec
-        ) for target in targets
-    ]
-    return losses
+function assemble_loss(ŷ, y, y_nan, targets, ℒ_mix::LDataPPP{D, P}) where {D, P}
+    data_losses = if ℒ_mix.ℒ_data != nothing
+        [_apply_loss(ŷ[target], _get_target_y(y, target), _get_target_nan(y_nan, target), ℒ.ℒ_data)
+            for target in targets]
+    end
+    phys_losses = [_apply_loss(ŷ, nothing, nothing, 𝓁) for 𝓁 in ℒ_mix.ℒ_phys]
+    return vcat(data_losses..., phys_losses...)
 end
 
 function assemble_loss(ŷ, y, y_nan, targets, loss_spec::PerTarget)
     @assert length(targets) == length(loss_spec.losses) "Length of targets and PerTarget losses tuple must match"
     losses = [
         _apply_loss(
-            ŷ[target],
+            ŷ,
             _get_target_y(y, target),
             _get_target_nan(y_nan, target),
+            target,
             loss_t
         ) for (target, loss_t) in zip(targets, loss_spec.losses)
     ]
@@ -288,6 +359,15 @@ end
 
 function _loss_name(loss_spec::Tuple)
     return _loss_name(loss_spec[1])
+end
+
+function _loss_name(loss_spec::DataAndPhysicsLoss)
+    data_name = loss_spec.data_loss === nothing ? "" : _loss_name(loss_spec.data_loss)
+    if isempty(loss_spec.physics_loss)
+        return Symbol(data_name)
+    end
+    num_physics = length(loss_spec.physics_loss)
+    return Symbol(data_name, "_plus_", num_physics, "_physics")
 end
 
 """
