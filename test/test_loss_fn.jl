@@ -7,11 +7,22 @@ using Statistics
     ŷ = [1.0, 2.0, 3.0, 4.0]
     y = [1.1, 1.9, 3.2, 3.8]
     y_nan = trues(4)  # all values are valid
+    y_sigma = [0.1, 0.2, 0.1, 0.2]
 
     simple_loss(ŷ, y) = mean(abs2, ŷ .- y)
     weighted_loss(ŷ, y, w) = w * mean(abs2, ŷ .- y)
     scaled_loss(ŷ, y; scale=1.0) = scale * mean(abs2, ŷ .- y)
     complex_loss(ŷ, y, w; scale=1.0) = scale * w * mean(abs2, ŷ .- y)
+
+    function custom_loss_uncertainty(ŷ, y_and_sigma::Tuple)
+        y_vals, σ = y_and_sigma
+        return mean(((ŷ .- y_vals).^2) ./ (σ .^2 .+ 1e-6))
+    end
+    
+    @testset "Uncertainty handling" begin
+        @test loss_fn(ŷ, (y, y_sigma), y_nan, custom_loss_uncertainty) ≈ mean(((ŷ .- y).^2) ./ (y_sigma .^2 .+ 1e-6))
+        @test loss_fn(ŷ, (y, 0.2), y_nan, custom_loss_uncertainty) ≈ mean(((ŷ .- y).^2) ./ (0.2 .^2 .+ 1e-6))    
+    end
 
     @testset "Predefined loss functions" begin
         # RMSE test

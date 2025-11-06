@@ -1,5 +1,5 @@
 using Test
-using EasyHybrid
+using EasyHybrid: LoggingLoss, PerTarget, LossSum, Physics
 using Statistics
 using DimensionalData
 import EasyHybrid: compute_loss
@@ -86,6 +86,7 @@ end
     # Test data setup
     ŷ = Dict(:var1 => [1.0, 2.0, 3.0], :var2 => [2.0, 3.0, 4.0])
     y(target) = target == :var1 ? [1.1, 1.9, 3.2] : [1.8, 3.1, 3.9]
+    y_sigma(target) = target == :var1 ? [0.1, 0.2, 0.1] : [0.2, 0.1, 0.2]
     y_nan(target) = trues(3)
     targets = [:var1, :var2]
 
@@ -121,6 +122,36 @@ end
         complex_loss(ŷ, y, w; scale=1.0) = scale * w * mean(abs2, ŷ .- y)
         loss = compute_loss(ŷ, y, y_nan, targets, (complex_loss, (0.5,), (scale=2.0,)), sum)
         @test loss isa Number
+
+        # custom loss with uncertainty
+        function custom_loss_uncertainty(ŷ, y_and_sigma)
+            y_vals, y_σ = y_and_sigma
+            return mean(((ŷ .- y_vals).^2) ./ (y_σ .^2 .+ 1e-6))
+        end
+        loss = compute_loss(ŷ, (y, y_sigma), y_nan, targets, custom_loss_uncertainty, sum)
+        @test loss isa Number
+        # a single sigma number
+        loss = compute_loss(ŷ, (y, 0.01), y_nan, targets, custom_loss_uncertainty, sum)
+        # @test loss isa Number
+        losses = compute_loss(ŷ, (y, y_sigma), y_nan, targets, [custom_loss_uncertainty,], sum)
+        @test losses isa NamedTuple
+
+        @testset "Per-target losses" begin
+            # Mix of predefined and custom
+            loss_spec = PerTarget((:mse, custom_loss))
+            loss = compute_loss(ŷ, y, y_nan, targets, loss_spec, sum)
+            expected_loss = EasyHybrid.loss_fn(ŷ[:var1], y(:var1), y_nan(:var1), Val(:mse)) + custom_loss(ŷ[:var2], y(:var2), y_nan(:var2))
+            @test loss ≈ expected_loss
+
+            # Mix of custom losses with arguments
+            loss_spec_args = PerTarget(((weighted_loss, (0.5,)), (scaled_loss, (scale=2.0,))))
+            loss_args = compute_loss(ŷ, y, y_nan, targets, loss_spec_args, sum)
+            expected_loss_args = weighted_loss(ŷ[:var1], y(:var1), y_nan(:var1), 0.5) + scaled_loss(ŷ[:var2], y(:var2), y_nan(:var2); scale=2.0)
+            @test loss_args ≈ expected_loss_args
+
+            # Mismatched number of losses and targets
+            @test_throws AssertionError compute_loss(ŷ, y, y_nan, targets, PerTarget((:mse,)), sum)
+        end
     end
 
     @testset "DimensionalData interface" begin

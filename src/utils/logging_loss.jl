@@ -1,6 +1,72 @@
-export LoggingLoss
+export LoggingLoss, DataAndPhysicsLoss, Physics
+import Base: +
 
-const LossSpec = Union{Symbol, Function, Tuple}
+"""
+    LPPP(loss)
+Prior-penalty-physics loss
+
+Wrapper to indicate a physics-based loss that operates on the full prediction ŷ.
+Physics losses are computed once per batch, not per target.
+"""
+struct LPPP{L}
+    loss::L
+end
+
+"""
+    LDataPPP(data_loss, physics_loss)
+
+A container for an optional data-driven loss and one or more physics-based losses.
+The `physics_loss` can be a single `Physics` instance or a tuple of them.
+"""
+struct LDataPPP{D, P<:Tuple}
+    ℒ_data::D
+    ℒ_phys::P
+
+    function LDataPPP(ℒ_data, ℒ_phys::Tuple)
+        all(p -> p isa Physics, ℒ_phys) || throw(ArgumentError("All elements in physics_loss must be of type Physics."))
+        new{typeof(ℒ_data), typeof(ℒ_phys)}(ℒ_data, ℒ_phys)
+    end
+end
+
+LDataPPP(; ℒ_data = nothing, ℒ_phys = ()) = LDataPPP(ℒ_data, ℒ_phys)
+
+"""
+    +(loss1, loss2)
+
+Overloads the `+` operator to combine data and physics losses into a `DataAndPhysicsLoss` object.
+
+# Examples
+```julia
+:mse + Physics(smoothness_loss)
+custom_loss + Physics(conservation_loss)
+:mse + Physics(smoothness_loss) + Physics(conservation_loss)
+```
+"""
+const DataLossSpec = Union{Symbol, Function, Tuple}
+
+# Data loss + Physics loss
++(data_loss::DataLossSpec, physics_loss::LPPP) = LDataPPP(data_loss, (physics_loss,))
+
+# Physics loss + Data loss
++(physics_loss::LPPP, data_loss::DataLossSpec) = LDataPPP(data_loss, (physics_loss,))
+
+# Two physics losses
++(p1::LPPP, p2::LPPP) = LDataPPP(nothing, (p1, p2))
+
+# DataAndPhysicsLoss + Physics loss
++(dp::LDataPPP, p::LPPP) = LDataPPP(dp.data_loss, (dp.physics_loss..., p))
++(p::LPPP, dp::LDataPPP) = LDataPPP(dp.data_loss, (p, dp.physics_loss...))
+
+"""
+    PerTarget(losses)
+
+A wrapper to indicate that a tuple of losses should be applied on a per-target basis.
+"""
+struct PerTarget{T<:Tuple}
+    losses::T
+end
+
+const LossSpec = Union{Symbol, Function, Tuple, LPPP, PerTarget, LDataPPP}
 
 """
     LoggingLoss
@@ -94,19 +160,7 @@ Main loss function for hybrid models that handles both training and evaluation m
 - In evaluation mode (`logging.train_mode = false`):
   - `(loss_values, st, ŷ)`: NamedTuple of losses, state and predictions
 """
-function lossfn(HM::LuxCore.AbstractLuxContainerLayer, x, (y_t, y_nan), ps, st, logging::LoggingLoss)
-    targets = HM.targets
-    ŷ, y, y_nan, st = get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
-    if logging.train_mode
-        loss_value = compute_loss(ŷ, y, y_nan, targets, logging.training_loss, logging.agg)
-        return loss_value, st
-    else
-        loss_value = compute_loss(ŷ, y, y_nan, targets, logging.loss_types, logging.agg)
-        return loss_value, st, ŷ
-    end
-end
-
-function lossfn(HM::Union{SingleNNHybridModel, MultiNNHybridModel, SingleNNModel, MultiNNModel}, x, (y_t, y_nan), ps, st, logging::LoggingLoss)
+function lossfn(HM::Union{LuxCore.AbstractLuxContainerLayer, SingleNNHybridModel, MultiNNHybridModel, SingleNNModel, MultiNNModel}, x, (y_t, y_nan), ps, st, logging::LoggingLoss)
     targets = HM.targets
     ŷ, y, y_nan, st = get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
     if logging.train_mode
@@ -139,53 +193,39 @@ Get predictions and targets from the hybrid model and return them along with the
 - `st`: Updated model state
 """
 function get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
-    ŷ, st = HM(x, ps, st) #TODO the output st can contain more than st, e.g. Rb is that what we want?
-    y = y_t(HM.targets)
-    y_nan = y_nan(HM.targets)
-    return ŷ, y, y_nan, st #TODO has to be done otherwise e.g. Rb is passed as a st and messes up the training
-end
-
-function get_predictions_targets(
-    HM, 
-    x::AbstractDimArray, 
-    ys::Tuple{<:AbstractDimArray,<:AbstractDimArray}, 
-    ps, st, targets
-)
-    y_t, y_nan = ys
     ŷ, st = HM(x, ps, st)
-    y     = y_t[col=At(targets)]
-    y_nan = y_nan[col=At(targets)]
+    y = _get_target_y(y_t, targets)
+    y_nan = _get_target_nan(y_nan, targets)
     return ŷ, y, y_nan, st
 end
 
-"""
-    compute_loss(ŷ, y, y_nan, targets, loss_spec, agg::Function)
-    compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
-
-Compute loss values for predictions against targets using specified loss functions.
-
-# Arguments
-- `ŷ`: Model predictions
-- `y`: Target values (function or AbstractDimArray)
-- `y_nan`: NaN mask (function or AbstractDimArray)
-- `targets`: Target variable names
-- `loss_spec`: Single loss specification (Symbol, Function, or Tuple)
-- `loss_types`: Vector of loss specifications
-- `agg`: Function to aggregate losses across targets
-
-# Returns
-- Single loss value when using `loss_spec`
-- NamedTuple of losses when using `loss_types`
-"""
-function compute_loss(ŷ, y, y_nan, targets, loss_spec, agg::Function)
-    losses = [_apply_loss(ŷ[k], y(k), y_nan(k), loss_spec) for k in targets]
-    return agg(losses)
+function _apply_loss(ŷ, y, y_nan, loss_spec::Symbol)
+    return loss_fn(ŷ, y, y_nan, Val(loss_spec))
 end
 
-function compute_loss(ŷ, y::AbstractDimArray, y_nan::AbstractDimArray, targets, loss_spec, agg::Function)
-    losses = [_apply_loss(ŷ[k], y[col=At(k)], y_nan[col=At(k)], loss_spec) for k in targets]
-    return agg(losses)
+function _apply_loss(ŷ, y, y_nan, loss_spec::Function)
+    return loss_fn(ŷ, y, y_nan, loss_spec)
 end
+
+function _apply_loss(ŷ, y, y_nan, loss_spec::Tuple)
+    return loss_fn(ŷ, y, y_nan, loss_spec)
+end
+
+function _apply_loss(ŷ, y, y_nan, loss_spec::LPPP)
+    return loss_fn(ŷ, y, y_nan, loss_spec)
+end
+
+
+function _apply_loss(ŷ, y, y_nan, target, ℒ_mix::LDataPPP{D, P}) where {D, P}
+    data_loss = ℒ_mix.ℒ_data === nothing ? 0.0f0 : _apply_loss(ŷ[target], y, y_nan, ℒ.ℒ_data)
+    phys_loss = ℒ_mix.ℒ_phys === nothing ? 0.0f0 : sum(𝓁 -> _apply_loss(ŷ, y, y_nan, 𝓁), ℒ_mix.ℒ_phys; init=0.0f0)
+    return data_loss + phys_loss
+end
+
+function _apply_loss(ŷ_all, y, y_nan, target, ℒ_single)
+    return _apply_loss(ŷ_all[target], y, y_nan, ℒ_single)
+end
+
 
 """
     _apply_loss(ŷ, y, y_nan, loss_spec)
@@ -201,42 +241,112 @@ Helper function to apply the appropriate loss function based on the specificatio
 # Returns
 - Computed loss value
 """
-function _apply_loss(ŷ, y, y_nan, loss_spec::Symbol)
-    return loss_fn(ŷ, y, y_nan, Val(loss_spec))
+function _apply_loss end
+
+function compute_loss(ŷ, y, y_nan, targets, loss_spec, agg::Function)
+    losses = assemble_loss(ŷ, y, y_nan, targets, loss_spec)
+    return agg(losses)
 end
 
-function _apply_loss(ŷ, y, y_nan, loss_spec::Function)
-    return loss_fn(ŷ, y, y_nan, loss_spec)
-end
-
-function _apply_loss(ŷ, y, y_nan, loss_spec::Tuple)
-    return loss_fn(ŷ, y, y_nan, loss_spec)
-end
-
-function compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
+function compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
     out_loss_types = [
         begin
-            losses = [_apply_loss(ŷ[k], y(k), y_nan(k), loss_type) for k in targets]
+            losses = assemble_loss(ŷ, y, y_nan, targets, loss_type)
             agg_loss = agg(losses)
             NamedTuple{(targets..., Symbol(agg))}([losses..., agg_loss])
         end
         for loss_type in loss_types]
-        _names = [_loss_name(lt) for lt in loss_types]
-    return NamedTuple{Tuple(_names)}([out_loss_types...])
-end
-function compute_loss(ŷ, y::AbstractDimArray, y_nan::AbstractDimArray, targets, loss_types::Vector, agg::Function)
-    out_loss_types = [
-        begin
-            losses = [_apply_loss(ŷ[k], y[col=At(k)], y_nan[col=At(k)], loss_type) for k in targets]
-            agg_loss = agg(losses)
-            NamedTuple{(targets..., Symbol(agg))}([losses..., agg_loss])
-        end
-        for loss_type in loss_types]
-        _names = [_loss_name(lt) for lt in loss_types]
+    _names = [_loss_name(lt) for lt in loss_types]
     return NamedTuple{Tuple(_names)}([out_loss_types...])
 end
 
-# Helper to generate meaningful names for loss types
+"""
+    compute_loss(ŷ, y, y_nan, targets, training_loss, agg::Function)
+    compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
+
+Compute the loss for the given predictions and targets using the specified training loss (or vector of losses) type and aggregation function.
+
+# Arguments:
+- `ŷ`: Predicted values.
+- `y`: Target values (as a function, tuple `(y, y_sigma)`, or AbstractDimArray).
+- `y_nan`: Mask for NaN values.
+- `targets`: The targets for which the loss is computed.
+- `training_loss`: The loss type to use during training, e.g., `:mse` or a custom function.
+- `loss_types::Vector`: A vector of loss types to compute, e.g., `[:mse, :mae]`.
+- `agg::Function`: The aggregation function to apply to the computed losses, e.g., `sum` or `mean`.
+
+Returns a single loss value if `training_loss` is provided, or a NamedTuple of losses for each type in `loss_types`.
+"""
+function compute_loss end
+
+_get_target_y(y, target) = y(target)
+_get_target_y(y::AbstractDimArray, target) = y[col=At(target)]
+_get_target_y(y::AbstractDimArray, targets::Vector) = y[col=At(targets)]
+
+function _get_target_y(y::Tuple, target)
+    y_obs, y_sigma = y
+    sigma = y_sigma isa Number ? y_sigma : y_sigma(target)
+    y_obs_val = _get_target_y(y_obs, target)
+    return (y_obs_val, sigma)
+end
+
+"""
+    _get_target_y(y, target)
+Helper function to extract target-specific values from `y`, handling cases where `y` may be a tuple of `(y_obs, y_sigma)`.
+"""
+function _get_target_y end
+
+_get_target_nan(y_nan, target) = y_nan(target)
+_get_target_nan(y_nan::AbstractDimArray, target) = y_nan[col=At(target)]
+_get_target_nan(y_nan::AbstractDimArray, targets::Vector) = y_nan[col=At(targets)]
+
+"""
+    _get_target_nan(y_nan, target)
+
+Helper function to extract target-specific values from `y_nan`.
+"""
+function _get_target_nan end
+
+function assemble_loss(ŷ, y, y_nan, targets, ℒ_mix::LDataPPP{D, P}) where {D, P}
+    data_losses = if ℒ_mix.ℒ_data != nothing
+        [_apply_loss(ŷ[target], _get_target_y(y, target), _get_target_nan(y_nan, target), ℒ.ℒ_data)
+            for target in targets]
+    end
+    phys_losses = [_apply_loss(ŷ, nothing, nothing, 𝓁) for 𝓁 in ℒ_mix.ℒ_phys]
+    return vcat(data_losses..., phys_losses...)
+end
+
+function assemble_loss(ŷ, y, y_nan, targets, loss_spec::PerTarget)
+    @assert length(targets) == length(loss_spec.losses) "Length of targets and PerTarget losses tuple must match"
+    losses = [
+        _apply_loss(
+            ŷ,
+            _get_target_y(y, target),
+            _get_target_nan(y_nan, target),
+            target,
+            loss_t
+        ) for (target, loss_t) in zip(targets, loss_spec.losses)
+    ]
+    return losses
+end
+
+"""
+    assemble_loss(ŷ, y, y_nan, targets, loss_spec)
+
+Helper function to assemble a vector of losses for each target based on the provided loss specification.
+    
+# Arguments
+- `ŷ`: Predictions for all targets.
+- `y`: Target values (can be a function, tuple, or AbstractDimArray).
+- `y_nan`: NaN mask (function or array).
+- `targets`: List of target names.
+- `loss_spec`: Loss specification (Symbol, Function, or Tuple).
+
+# Returns
+- Vector of losses for each target.
+"""
+function assemble_loss end
+
 function _loss_name(loss_spec::Symbol)
     return loss_spec
 end
@@ -251,21 +361,18 @@ function _loss_name(loss_spec::Tuple)
     return _loss_name(loss_spec[1])
 end
 
+function _loss_name(loss_spec::DataAndPhysicsLoss)
+    data_name = loss_spec.data_loss === nothing ? "" : _loss_name(loss_spec.data_loss)
+    if isempty(loss_spec.physics_loss)
+        return Symbol(data_name)
+    end
+    num_physics = length(loss_spec.physics_loss)
+    return Symbol(data_name, "_plus_", num_physics, "_physics")
+end
+
 """
-    compute_loss(ŷ, y, y_nan, targets, training_loss, agg::Function)
-    compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
+    _loss_name(loss_spec::Symbol|Function|Tuple)
 
-Compute the loss for the given predictions and targets using the specified training loss (or vector of losses) type and aggregation function.
-
-# Arguments:
-- `ŷ`: Predicted values.
-- `y`: Target values.
-- `y_nan`: Mask for NaN values.
-- `targets`: The targets for which the loss is computed.
-- `training_loss`: The loss type to use during training, e.g., `:mse`.
-- `loss_types::Vector`: A vector of loss types to compute, e.g., `[:mse, :mae]`.
-- `agg::Function`: The aggregation function to apply to the computed losses, e.g., `sum` or `mean`.
-
-Returns a single loss value if `training_loss` is provided, or a NamedTuple of losses for each type in `loss_types`.
+Helper function to generate a meaningful name for a loss specification
 """
-function compute_loss end
+function _loss_name end
