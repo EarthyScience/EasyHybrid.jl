@@ -57,7 +57,17 @@ function loss_fn(ŷ, y, y_nan, ::Val{:rmse})
     return sqrt(mean(abs2, (ŷ[y_nan] .- y[y_nan])))
 end
 function loss_fn(ŷ, y, y_nan, ::Val{:mse})
-    return mean(abs2, (ŷ[y_nan] .- y[y_nan]))
+    # Option 1: Convert to Array and compute MSE
+    #yh = Array(ŷ[y_nan])
+    #yt = Array(y[y_nan])
+    #return mean(abs2, yh .- yt)
+
+    # Option 2: Use YAXArray directly but map has to be used
+    return mean(x -> x, map((a,b)->(a-b)^2, ŷ[y_nan], y[y_nan]))
+    
+    # Option 3 gives an error
+    #return mean(abs2, (ŷ[y_nan] .- y[y_nan])) # errors with ERROR: MethodError: no method matching to_yax(::Vector{Float32}) The function `to_yax` exists, but no method is defined for this combination of argument types.
+    # I guess our model output would need to yax and not Vector{Float32}
 end
 function loss_fn(ŷ, y, y_nan, ::Val{:mae})
     return mean(abs, (ŷ[y_nan] .- y[y_nan]))

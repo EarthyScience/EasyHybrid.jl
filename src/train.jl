@@ -122,8 +122,10 @@ function train(hybridModel, data, save_ps;
     opt_state = Optimisers.setup(opt, ps)
 
     # ? initial losses
-    is_no_nan_t = .!isnan.(y_train)
-    is_no_nan_v = .!isnan.(y_val)
+    # is_no_nan_t = .!isnan.(y_train)
+    is_no_nan_t = map(x -> !isnan(x), y_train)
+    # is_no_nan_v = .!isnan.(y_val)
+    is_no_nan_v = map(x -> !isnan(x), y_val)
 
     l_init_train, _, init_ŷ_train =  evaluate_acc(hybridModel, x_train, y_train, is_no_nan_t, ps, st, loss_types, training_loss, agg)
     l_init_val, _, init_ŷ_val = evaluate_acc(hybridModel, x_val, y_val, is_no_nan_v, ps, st, loss_types, training_loss, agg)
@@ -195,7 +197,9 @@ function train(hybridModel, data, save_ps;
         for epoch in 1:nepochs
             for (x, y) in train_loader
                 # ? check NaN indices before going forward, and pass filtered `x, y`.
-                is_no_nan = .!isnan.(y)
+                # is_no_nan = .!isnan.(y)
+                is_no_nan = map(x -> !isnan(x), y) # doing this due to YAXArray Bool issue
+
                 if length(is_no_nan)>0 # ! be careful here, multivariate needs fine tuning
                     l, backtrace = Zygote.pullback((ps) -> lossfn(hybridModel, x, (y, is_no_nan), ps, st,
                         LoggingLoss(training_loss=training_loss, agg=agg)), ps)
