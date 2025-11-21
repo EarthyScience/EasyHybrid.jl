@@ -1,7 +1,7 @@
 name = "EasyHybrid"
 uuid = "61bb816a-e6af-4913-ab9e-91bff2e122e3"
-authors = ["Lazaro Alonso", "Bernhard Ahrens", "Markus Reichstein"]
 version = "0.1.6"
+authors = ["Lazaro Alonso", "Bernhard Ahrens", "Markus Reichstein"]
 
 [deps]
 AxisKeys = "94b1ba4f-4ee9-5380-92f1-94cde586c3c5"
@@ -54,7 +54,7 @@ Hyperopt = "0.5.6"
 JLD2 = "0.5.13, 0.6"
 Lux = "1.12.4"
 LuxCore = "1.2.4"
-MLJ = "0.20"
+MLJ = "0.20, 0.22"
 MLUtils = "0.4.8"
 Makie = "0.22, 0.23, 0.24"
 NCDatasets = "0.14.8"
