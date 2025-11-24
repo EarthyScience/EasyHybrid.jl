@@ -14,8 +14,8 @@ Compute the loss for given predictions and targets using various loss specificat
     - `Val(:rmse)`: Root Mean Square Error
     - `Val(:mse)`: Mean Square Error 
     - `Val(:mae)`: Mean Absolute Error
-    - `Val(:pearson)`: Pearson correlation coefficient
-    - `Val(:r2)`: R-squared
+    - `Val(:pearson)`: 1 -Pearson correlation coefficient
+    - `Val(:nse)`: 1 - NSE
     - `::Function`: Custom loss function with signature `f(ŷ, y)`
     - `::Tuple{Function, Tuple}`: Custom loss with args `f(ŷ, y, args...)`
     - `::Tuple{Function, NamedTuple}`: Custom loss with kwargs `f(ŷ, y; kwargs...)`
@@ -64,11 +64,7 @@ function loss_fn(ŷ, y, y_nan, ::Val{:mae})
 end
 # pearson correlation coefficient
 function loss_fn(ŷ, y, y_nan, ::Val{:pearson})
-    return cor(ŷ[y_nan], y[y_nan])
-end
-function loss_fn(ŷ, y, y_nan, ::Val{:r2})
-    r = cor(ŷ[y_nan], y[y_nan])
-    return r*r
+    return one(eltype(ŷ)) - (cor(ŷ[y_nan], y[y_nan]))
 end
 
 # one minus nse
