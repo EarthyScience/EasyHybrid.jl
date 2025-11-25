@@ -14,8 +14,10 @@ Compute the loss for given predictions and targets using various loss specificat
     - `Val(:rmse)`: Root Mean Square Error
     - `Val(:mse)`: Mean Square Error 
     - `Val(:mae)`: Mean Absolute Error
-    - `Val(:pearson)`: 1 -Pearson correlation coefficient
-    - `Val(:nse)`: 1 - NSE
+    - `Val(:pearson)`: Pearson correlation coefficient
+    - `Val(:r2)`: R-squared
+    - `Val(:pearsonLoss)`: 1 - Pearson correlation coefficient
+    - `Val(:nseLoss)`: 1 - NSE
     - `::Function`: Custom loss function with signature `f(ŷ, y)`
     - `::Tuple{Function, Tuple}`: Custom loss with args `f(ŷ, y, args...)`
     - `::Tuple{Function, NamedTuple}`: Custom loss with kwargs `f(ŷ, y; kwargs...)`
@@ -64,12 +66,24 @@ function loss_fn(ŷ, y, y_nan, ::Val{:mae})
 end
 # pearson correlation coefficient
 function loss_fn(ŷ, y, y_nan, ::Val{:pearson})
+    return cor(ŷ[y_nan], y[y_nan])
+end
+function loss_fn(ŷ, y, y_nan, ::Val{:r2})
+    r = cor(ŷ[y_nan], y[y_nan])
+    return r*r
+end
+
+function loss_fn(ŷ, y, y_nan, ::Val{:pearsonLoss})
     return one(eltype(ŷ)) - (cor(ŷ[y_nan], y[y_nan]))
+end
+
+function loss_fn(ŷ, y, y_nan, ::Val{:nseLoss})
+    return sum((ŷ[y_nan] .- y[y_nan]).^2) / sum((y[y_nan] .- mean(y[y_nan])).^2)
 end
 
 # one minus nse
 function loss_fn(ŷ, y, y_nan, ::Val{:nse})
-    return sum((ŷ[y_nan] .- y[y_nan]).^2) / sum((y[y_nan] .- mean(y[y_nan])).^2)
+    return one(eltype(ŷ)) - (sum((ŷ[y_nan] .- y[y_nan]).^2) / sum((y[y_nan] .- mean(y[y_nan])).^2))
 end
 
 function loss_fn(ŷ, y, y_nan, training_loss::Function)

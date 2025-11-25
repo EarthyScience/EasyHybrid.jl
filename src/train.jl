@@ -16,7 +16,7 @@ end
 
 """
     train(hybridModel, data, save_ps; nepochs=200, batchsize=10, opt=Adam(0.01), patience=typemax(Int),
-          file_name=nothing, loss_types=[:mse, :nse], training_loss=:mse, agg=sum, train_from=nothing,
+          file_name=nothing, loss_types=[:mse, :r2], training_loss=:mse, agg=sum, train_from=nothing,
           random_seed=161803, yscale=log10, monitor_names=[], return_model=:best, 
           plotting=true, show_progress=true, hybrid_name=randstring(10), kwargs...)
 
@@ -36,7 +36,7 @@ Default output file is `trained_model.jld2` at the current working directory und
 
 ## Loss and Evaluation:
 - `training_loss`: The loss type to use during training (default: `:mse`).
-- `loss_types`: A vector of loss types to compute during training (default: `[:mse, :nse]`).
+- `loss_types`: A vector of loss types to compute during training (default: `[:mse, :r2]`).
 - `agg`: The aggregation function to apply to the computed losses (default: `sum`).
 
 ## Data Handling (passed via kwargs):
@@ -71,7 +71,7 @@ function train(hybridModel, data, save_ps;
                
                # Loss and evaluation
                training_loss=:mse,
-               loss_types=[:mse, :nse], 
+               loss_types=[:mse, :r2], 
                agg=sum, 
                
                # Data handling parameters are now passed via kwargs...
