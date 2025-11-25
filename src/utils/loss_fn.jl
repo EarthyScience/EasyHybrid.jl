@@ -74,7 +74,7 @@ function loss_fn(ŷ, y, y_nan, ::Val{:r2})
 end
 
 function loss_fn(ŷ, y, y_nan, ::Val{:pearsonLoss})
-    return one(eltype(ŷ)) - (cor(ŷ[y_nan], y[y_nan]))
+    return one(eltype(ŷ)) .- (cor(ŷ[y_nan], y[y_nan]))
 end
 
 function loss_fn(ŷ, y, y_nan, ::Val{:nseLoss})
