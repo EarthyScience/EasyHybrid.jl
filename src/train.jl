@@ -36,7 +36,7 @@ Default output file is `trained_model.jld2` at the current working directory und
 
 ## Loss and Evaluation:
 - `training_loss`: The loss type to use during training (default: `:mse`).
-- `loss_types`: A vector of loss types to compute during training (default: `[:mse, :r2]`).
+- `loss_types`: A vector of loss types to compute during training (default: `[:mse, :r2]`). The first entry is used for plotting in the dynamic trainboard. This loss can be increasing (e.g. NSE) or decreasing (e.g. RMSE).
 - `agg`: The aggregation function to apply to the computed losses (default: `sum`).
 
 ## Data Handling (passed via kwargs):
@@ -141,7 +141,7 @@ function train(hybridModel, data, save_ps;
             y_val,
             l_init_train,
             l_init_val,
-            training_loss,
+            loss_types[1],
             agg,
             target_names;
             monitor_names
@@ -233,7 +233,7 @@ function train(hybridModel, data, save_ps;
                     init_observables...,
                     l_train,
                     l_val,
-                    training_loss,
+                    loss_types[1],
                     agg,
                     current_ŷ_train,
                     current_ŷ_val,
@@ -274,15 +274,15 @@ function train(hybridModel, data, save_ps;
                 EasyHybrid.save_fig(img_name, EasyHybrid.dashboard_figure())
             end
 
-            _headers, paddings = header_and_paddings(get_loss_entries(l_init_train, training_loss))
+            _headers, paddings = header_and_paddings(get_loss_entries(l_init_train, loss_types[1]))
 
             next!(prog; showvalues = [
                 ("epoch ", epoch),
                 ("targets ", join(_headers, "  ")),
-                (styled"{red:training-start }", styled_values(get_loss_entries(l_init_train, training_loss); paddings)),
-                (styled"{bright_red:current }", styled_values(get_loss_entries(l_train, training_loss); color=:bright_red, paddings)),
-                (styled"{cyan:validation-start }", styled_values(get_loss_entries(l_init_val, training_loss); paddings)),
-                (styled"{bright_cyan:current }", styled_values(get_loss_entries(l_val, training_loss); color=:bright_cyan, paddings)),
+                (styled"{red:training-start }", styled_values(get_loss_entries(l_init_train, loss_types[1]); paddings)),
+                (styled"{bright_red:current }", styled_values(get_loss_entries(l_train, loss_types[1]); color=:bright_red, paddings)),
+                (styled"{cyan:validation-start }", styled_values(get_loss_entries(l_init_val, loss_types[1]); paddings)),
+                (styled"{bright_cyan:current }", styled_values(get_loss_entries(l_val, loss_types[1]); color=:bright_cyan, paddings)),
                 ]
                 )
                 # TODO: log metrics
