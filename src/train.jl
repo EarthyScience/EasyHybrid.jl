@@ -111,7 +111,7 @@ function train(hybridModel, data, save_ps;
     
     (x_train, y_train), (x_val, y_val) = split_data(data, hybridModel; kwargs...)
 
-    train_loader = DataLoader((x_train, y_train), batchsize=batchsize, shuffle=true);
+    train_loader = DataLoader((x_train, y_train), batchsize=batchsize, shuffle=false);
 
     if isnothing(train_from)
         ps, st = LuxCore.setup(Random.default_rng(), hybridModel)
@@ -120,6 +120,7 @@ function train(hybridModel, data, save_ps;
     end
 
     opt_state = Optimisers.setup(opt, ps)
+    train_state = Lux.Training.TrainState(hybridModel, ps, st, opt);
 
     # ? initial losses
     is_no_nan_t = .!isnan.(y_train)
@@ -191,17 +192,17 @@ function train(hybridModel, data, save_ps;
     @info "Check the saved output (.png, .mp4, .jld2) from training at: $(tmp_folder)"
 
     prog = Progress(nepochs, desc="Training loss", enabled=show_progress)
+    loss = HybridLoss(parent_loss=MSELoss(), inner_agg = mean, outer_agg = mean, targets=target_names)
     maybe_record_history(!isnothing(ext), fig, joinpath(tmp_folder, "training_history_$(hybrid_name).mp4"); framerate=24) do io
         for epoch in 1:nepochs
             for (x, y) in train_loader
                 # ? check NaN indices before going forward, and pass filtered `x, y`.
                 is_no_nan = .!isnan.(y)
                 if length(is_no_nan)>0 # ! be careful here, multivariate needs fine tuning
-                    l, backtrace = Zygote.pullback((ps) -> lossfn(hybridModel, x, (y, is_no_nan), ps, st,
-                        LoggingLoss(training_loss=training_loss, agg=agg)), ps)
-                    grads = backtrace(l)[1]
-                    Optimisers.update!(opt_state, ps, grads)
-                    st =(; l[2].st...)
+# _, loss, _, train_state = Lux.Training.single_train_step!(AutoEnzyme(), lossfn, (x, (y, is_no_nan)
+                    Main.@infiltrate
+                    _, l, _, train_state = Lux.Training.single_train_step!(AutoZygote(), loss, (x,y), train_state)
+                    # st =(; l[2].st...)
                 end
             end
 
