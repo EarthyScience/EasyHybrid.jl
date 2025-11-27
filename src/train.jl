@@ -68,6 +68,7 @@ function train(hybridModel, data, save_ps;
                batchsize=64, 
                opt=AdamW(0.01), 
                patience=typemax(Int),
+               autodiff_backend=AutoZygote(),
                
                # Loss and evaluation
                training_loss=:mse,
@@ -111,7 +112,7 @@ function train(hybridModel, data, save_ps;
     
     (x_train, y_train), (x_val, y_val) = split_data(data, hybridModel; kwargs...)
 
-    train_loader = DataLoader((x_train, y_train), batchsize=batchsize, shuffle=false);
+    train_loader = DataLoader((x_train, y_train), batchsize=batchsize, shuffle=true);
 
     if isnothing(train_from)
         ps, st = LuxCore.setup(Random.default_rng(), hybridModel)
@@ -199,10 +200,7 @@ function train(hybridModel, data, save_ps;
                 # ? check NaN indices before going forward, and pass filtered `x, y`.
                 is_no_nan = .!isnan.(y)
                 if length(is_no_nan)>0 # ! be careful here, multivariate needs fine tuning
-# _, loss, _, train_state = Lux.Training.single_train_step!(AutoEnzyme(), lossfn, (x, (y, is_no_nan)
-                    Main.@infiltrate
-                    _, l, _, train_state = Lux.Training.single_train_step!(AutoZygote(), loss, (x,y), train_state)
-                    # st =(; l[2].st...)
+                    _, l, _, train_state = Lux.Training.single_train_step!(autodiff_backend, loss, (x,y), train_state; return_gradients=Val(false))
                 end
             end
 
