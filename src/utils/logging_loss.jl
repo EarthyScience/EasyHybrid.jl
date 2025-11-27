@@ -1,4 +1,4 @@
-export LoggingLoss
+export LoggingLoss, HybridLoss
 
 const LossSpec = Union{Symbol, Function, Tuple}
 
@@ -118,6 +118,21 @@ function lossfn(HM::Union{SingleNNHybridModel, MultiNNHybridModel, SingleNNModel
     end
 end
 
+@kwdef struct HybridLoss <: Lux.AbstractLossFunction
+    parent_loss = LossFunctionImpl.l2_distance_loss
+    inner_agg = mean
+    outer_agg = mean
+    targets = Vector{Symbol}([])
+end
+
+function unsafe_apply_loss(loss::HybridLoss, ŷ, y)
+    is_no_nan = .!isnan.(y)
+    return compute_loss(ŷ, y, is_no_nan, loss.targets, :mse, sum)
+end
+
+function (loss::HybridLoss)(ŷ, y)
+    return unsafe_apply_loss(loss, ŷ, y)
+end
 
 """
     get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
@@ -178,6 +193,7 @@ Compute loss values for predictions against targets using specified loss functio
 - NamedTuple of losses when using `loss_types`
 """
 function compute_loss(ŷ, y, y_nan, targets, loss_spec, agg::Function)
+    # Main.@infiltrate
     losses = [_apply_loss(ŷ[k], y(k), y_nan(k), loss_spec) for k in targets]
     return agg(losses)
 end
