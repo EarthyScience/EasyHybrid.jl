@@ -33,12 +33,12 @@ using Zygote: Zygote
 
 @reexport begin
     import LuxCore
-    using Lux: Lux, Dense, Chain, Dropout, relu
+    using Lux: Lux, Dense, Chain, Dropout, relu, sigmoid, swish
     using Random
     using Statistics
     using DataFrames
     using CSV
-    using OptimizationOptimisers: OptimizationOptimisers, Optimisers, Adam, AdamW
+    using OptimizationOptimisers: OptimizationOptimisers, Optimisers, Adam, AdamW, RMSProp
     using ComponentArrays
 end
 
