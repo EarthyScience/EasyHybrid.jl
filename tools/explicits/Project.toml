@@ -1,0 +1,9 @@
+[deps]
+EasyHybrid = "61bb816a-e6af-4913-ab9e-91bff2e122e3"
+ExplicitImports = "7d51a73a-1435-4ff3-83d9-f097790105c7"
+
+[sources]
+EasyHybrid = {path = "/Users/lalonso/Documents/EasyHybrid.jl/tools/explicits/../.."}
+
+[compat]
+ExplicitImports = "1.14"

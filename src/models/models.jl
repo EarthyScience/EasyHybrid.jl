@@ -1,4 +1,3 @@
-
 abstract type EasyHybridModels end
 
 # include("neural_networks.jl")

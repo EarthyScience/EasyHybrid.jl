@@ -6,10 +6,10 @@ using ..EasyHybrid: hard_sigmoid
 # Pure Neural Network Models (no mechanistic component)
 
 struct SingleNNModel
-    NN               :: Chain
-    predictors       :: Vector{Symbol}
-    targets          :: Vector{Symbol}
-    scale_nn_outputs :: Bool
+    NN::Chain
+    predictors::Vector{Symbol}
+    targets::Vector{Symbol}
+    scale_nn_outputs::Bool
 end
 
 """
@@ -37,32 +37,32 @@ Construct a neural network `Chain` for use in NN models.
 where `h₁` is the first hidden size and `hₖ` the last.
 """
 function prepare_hidden_chain(
-    hidden_layers::Union{Vector{Int}, Chain},
-    in_dim::Int,
-    out_dim::Int;
-    activation = tanh,
-    input_batchnorm = false # apply batchnorm to input as an easy way for normalization
-)
+        hidden_layers::Union{Vector{Int}, Chain},
+        in_dim::Int,
+        out_dim::Int;
+        activation = tanh,
+        input_batchnorm = false # apply batchnorm to input as an easy way for normalization
+    )
     if hidden_layers isa Chain
         # user gave a chain of hidden layers only
         first_h = hidden_layers[1].out_dims
-        last_h  = hidden_layers[end].out_dims
+        last_h = hidden_layers[end].out_dims
 
         return Chain(
-            input_batchnorm ? BatchNorm(in_dim, affine=false) : identity,
+            input_batchnorm ? BatchNorm(in_dim, affine = false) : identity,
             Dense(in_dim, first_h, activation),
-            hidden_layers.layers...,    
+            hidden_layers.layers...,
             Dense(last_h, out_dim)
         )
     else
         # user gave a vector of hidden‐layer sizes
         hs = hidden_layers
         # build the hidden‐to‐hidden part
-        hidden_chain = length(hs) > 1 ? 
-            Chain((Dense(hs[i], hs[i+1], activation) for i in 1:length(hs)-1)...) :
+        hidden_chain = length(hs) > 1 ?
+            Chain((Dense(hs[i], hs[i + 1], activation) for i in 1:(length(hs) - 1))...) :
             Chain()
         return Chain(
-            input_batchnorm ? BatchNorm(in_dim, affine=false) : identity,
+            input_batchnorm ? BatchNorm(in_dim, affine = false) : identity,
             Dense(in_dim, hs[1], activation),
             hidden_chain.layers...,
             Dense(hs[end], out_dim)
@@ -78,41 +78,43 @@ Main constructor: `hidden_layers` can be either
   • a `Chain` of hidden-layer `Dense` blocks.
 """
 function constructNNModel(
-    predictors::Vector{Symbol},
-    targets::Vector{Symbol};
-    hidden_layers::Union{Vector{Int}, Chain} = [32, 16, 16],
-    activation = tanh,
-    scale_nn_outputs::Bool = true,
-    input_batchnorm = false
-)
-    in_dim  = length(predictors)
+        predictors::Vector{Symbol},
+        targets::Vector{Symbol};
+        hidden_layers::Union{Vector{Int}, Chain} = [32, 16, 16],
+        activation = tanh,
+        scale_nn_outputs::Bool = true,
+        input_batchnorm = false
+    )
+    in_dim = length(predictors)
     out_dim = length(targets)
 
-    NN = prepare_hidden_chain(hidden_layers, in_dim, out_dim;
-                              activation = activation,
-                              input_batchnorm = input_batchnorm)
+    NN = prepare_hidden_chain(
+        hidden_layers, in_dim, out_dim;
+        activation = activation,
+        input_batchnorm = input_batchnorm
+    )
 
     return SingleNNModel(NN, predictors, targets, scale_nn_outputs)
 end
 
 # MultiNNModel remains as before
 struct MultiNNModel
-    NNs             :: NamedTuple
-    predictors      :: NamedTuple
-    targets         :: Vector{Symbol}
-    scale_nn_outputs  :: Bool
+    NNs::NamedTuple
+    predictors::NamedTuple
+    targets::Vector{Symbol}
+    scale_nn_outputs::Bool
 end
 
 function constructNNModel(
-    predictors::NamedTuple,
-    targets;
-    scale_nn_outputs = true
-)
+        predictors::NamedTuple,
+        targets;
+        scale_nn_outputs = true
+    )
     @assert collect(keys(predictors)) == targets "predictor names must match targets"
     NNs = NamedTuple()
     for (nn_name, preds) in pairs(predictors)
         nn = Chain(
-            BatchNorm(length(preds), affine=false),
+            BatchNorm(length(preds), affine = false),
             Dense(length(preds), 15, sigmoid),
             Dense(15, 15, sigmoid),
             Dense(15, 1, x -> x^2)
@@ -211,7 +213,7 @@ end
 function Base.display(m::SingleNNModel)
     println("Neural Network: ", m.NN)
     println("Predictors: ", m.predictors)
-    println("scale NN outputs: ", m.scale_nn_outputs)
+    return println("scale NN outputs: ", m.scale_nn_outputs)
 end
 
 function Base.display(m::MultiNNModel)
@@ -223,5 +225,5 @@ function Base.display(m::MultiNNModel)
     for (name, preds) in pairs(m.predictors)
         println("  $name: ", preds)
     end
-    println("scale NN outputs: ", m.scale_nn_outputs)
-end 
+    return println("scale NN outputs: ", m.scale_nn_outputs)
+end

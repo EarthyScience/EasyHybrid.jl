@@ -62,44 +62,46 @@ Default output file is `trained_model.jld2` at the current working directory und
 - `show_progress`: Whether to show progress bars during training (default: true).
 - `yscale`: The scale to apply to the y-axis for plotting (default: `log10`).
 """
-function train(hybridModel, data, save_ps; 
-               # Core training parameters
-               nepochs=200, 
-               batchsize=64, 
-               opt=AdamW(0.01), 
-               patience=typemax(Int),
-               
-               # Loss and evaluation
-               training_loss=:mse,
-               loss_types=[:mse, :r2], 
-               agg=sum, 
-               
-               # Data handling parameters are now passed via kwargs...
-               
-               # Training state and reproducibility
-               train_from=nothing,
-               random_seed=161803, 
-               
-               # Output and monitoring
-               file_name=nothing, 
-               hybrid_name=randstring(10),
-               return_model=:best,
-               monitor_names=[],
-               folder_to_save="",
+function train(
+        hybridModel, data, save_ps;
+        # Core training parameters
+        nepochs = 200,
+        batchsize = 64,
+        opt = AdamW(0.01),
+        patience = typemax(Int),
 
-               # Visualization and UI
-               plotting=true, 
-               show_progress=true,
-               yscale=log10,
-               kwargs...)
-               
+        # Loss and evaluation
+        training_loss = :mse,
+        loss_types = [:mse, :r2],
+        agg = sum,
+
+        # Data handling parameters are now passed via kwargs...
+
+        # Training state and reproducibility
+        train_from = nothing,
+        random_seed = 161803,
+
+        # Output and monitoring
+        file_name = nothing,
+        hybrid_name = randstring(10),
+        return_model = :best,
+        monitor_names = [],
+        folder_to_save = "",
+
+        # Visualization and UI
+        plotting = true,
+        show_progress = true,
+        yscale = log10,
+        kwargs...
+    )
+
     #! check if the EasyHybridMakie extension is loaded.
     ext = Base.get_extension(@__MODULE__, :EasyHybridMakie)
-    
+
     if ext === nothing
         @warn "Makie extension not loaded, no plots will be generated."
     end
-    
+
     if !plotting
         ext = nothing
         @info "Plotting disabled."
@@ -108,10 +110,10 @@ function train(hybridModel, data, save_ps;
     if !isnothing(random_seed)
         Random.seed!(random_seed)
     end
-    
+
     (x_train, y_train), (x_val, y_val) = split_data(data, hybridModel; kwargs...)
 
-    train_loader = DataLoader((x_train, y_train), batchsize=batchsize, shuffle=true);
+    train_loader = DataLoader((x_train, y_train), batchsize = batchsize, shuffle = true)
 
     if isnothing(train_from)
         ps, st = LuxCore.setup(Random.default_rng(), hybridModel)
@@ -125,7 +127,7 @@ function train(hybridModel, data, save_ps;
     is_no_nan_t = .!isnan.(y_train)
     is_no_nan_v = .!isnan.(y_val)
 
-    l_init_train, _, init_ŷ_train =  evaluate_acc(hybridModel, x_train, y_train, is_no_nan_t, ps, st, loss_types, training_loss, agg)
+    l_init_train, _, init_ŷ_train = evaluate_acc(hybridModel, x_train, y_train, is_no_nan_t, ps, st, loss_types, training_loss, agg)
     l_init_val, _, init_ŷ_val = evaluate_acc(hybridModel, x_val, y_val, is_no_nan_v, ps, st, loss_types, training_loss, agg)
 
     train_history = [l_init_train]
@@ -145,7 +147,7 @@ function train(hybridModel, data, save_ps;
             agg,
             target_names;
             monitor_names
-            )
+        )
         zoom_epochs = min(patience, 50)
         # ! Launch dashboard if extension is loaded
         train_board(init_observables..., fixed_observations..., yscale, target_names; monitor_names, zoom_epochs)
@@ -171,46 +173,50 @@ function train(hybridModel, data, save_ps;
     best_loss = l_init_val
     best_epoch = 0
     cnt_patience = 0
-    
+
     # Initialize best_agg_loss for early stopping comparison based on the first loss_types in [:mse, :r2]
     best_agg_loss = getproperty(l_init_val[1], Symbol(agg))
     val_metric_name = first(keys(l_init_val))
     current_agg_loss = best_agg_loss  # Initialize for potential use in final logging
-    
+
     file_name = resolve_path(file_name; folder_to_save)
     save_ps_st(file_name, hybridModel, ps, st, save_ps)
     suffix = hybrid_name == "" ? "" : "_" * hybrid_name
     file_name_best = resolve_path("best_model$(suffix).jld2"; folder_to_save)
     save_ps_st(file_name_best, hybridModel, ps, st, save_ps)
-    
-    save_train_val_loss!(file_name,l_init_train, "training_loss", 0)
-    save_train_val_loss!(file_name,l_init_val, "validation_loss", 0)
+
+    save_train_val_loss!(file_name, l_init_train, "training_loss", 0)
+    save_train_val_loss!(file_name, l_init_val, "validation_loss", 0)
 
     # save/record
     tmp_folder = get_output_path(; folder_to_save)
     @info "Check the saved output (.png, .mp4, .jld2) from training at: $(tmp_folder)"
 
-    prog = Progress(nepochs, desc="Training loss", enabled=show_progress)
-    maybe_record_history(!isnothing(ext), fig, joinpath(tmp_folder, "training_history_$(hybrid_name).mp4"); framerate=24) do io
+    prog = Progress(nepochs, desc = "Training loss", enabled = show_progress)
+    maybe_record_history(!isnothing(ext), fig, joinpath(tmp_folder, "training_history_$(hybrid_name).mp4"); framerate = 24) do io
         for epoch in 1:nepochs
             for (x, y) in train_loader
                 # ? check NaN indices before going forward, and pass filtered `x, y`.
                 is_no_nan = .!isnan.(y)
-                if length(is_no_nan)>0 # ! be careful here, multivariate needs fine tuning
-                    l, backtrace = Zygote.pullback((ps) -> lossfn(hybridModel, x, (y, is_no_nan), ps, st,
-                        LoggingLoss(training_loss=training_loss, agg=agg)), ps)
+                if length(is_no_nan) > 0 # ! be careful here, multivariate needs fine tuning
+                    l, backtrace = Zygote.pullback(
+                        (ps) -> lossfn(
+                            hybridModel, x, (y, is_no_nan), ps, st,
+                            LoggingLoss(training_loss = training_loss, agg = agg)
+                        ), ps
+                    )
                     grads = backtrace(l)[1]
                     Optimisers.update!(opt_state, ps, grads)
-                    st =(; l[2].st...)
+                    st = (; l[2].st...)
                 end
             end
 
             ps_values = [copy(getproperty(ps, e)[1]) for e in save_ps]
             tmp_e = NamedTuple{save_ps}(ps_values)
-            
+
             l_train, _, current_ŷ_train = evaluate_acc(hybridModel, x_train, y_train, is_no_nan_t, ps, st, loss_types, training_loss, agg)
             l_val, _, current_ŷ_val = evaluate_acc(hybridModel, x_val, y_val, is_no_nan_v, ps, st, loss_types, training_loss, agg)
-             # save also monitored names
+            # save also monitored names
             current_monitor_train_values = [vec(getfield(current_ŷ_train, m)) for m in monitor_names]
             c_ps_monitor_train = NamedTuple{Tuple(monitor_names)}(current_monitor_train_values)
             current_monitor_val_values = [vec(getfield(current_ŷ_val, m)) for m in monitor_names]
@@ -223,7 +229,7 @@ function train(hybridModel, data, save_ps;
             save_ps_st!(file_name, hybridModel, ps, st, save_ps, epoch)
             save_train_val_loss!(file_name, l_train, "training_loss", epoch)
             save_train_val_loss!(file_name, l_val, "validation_loss", epoch)
-            
+
             push!(train_history, l_train)
             push!(val_history, l_val)
 
@@ -239,13 +245,14 @@ function train(hybridModel, data, save_ps;
                     current_ŷ_val,
                     target_names,
                     epoch;
-                    monitor_names)
+                    monitor_names
+                )
                 # record a new frame
                 recordframe!(io)
             end
 
             current_agg_loss = getproperty(l_val[1], Symbol(agg))
-            
+
             if current_agg_loss < best_agg_loss
                 best_agg_loss = current_agg_loss
                 best_ps = deepcopy(ps)
@@ -276,16 +283,17 @@ function train(hybridModel, data, save_ps;
 
             _headers, paddings = header_and_paddings(get_loss_entries(l_init_train, training_loss))
 
-            next!(prog; showvalues = [
-                ("epoch ", epoch),
-                ("targets ", join(_headers, "  ")),
-                (styled"{red:training-start }", styled_values(get_loss_entries(l_init_train, training_loss); paddings)),
-                (styled"{bright_red:current }", styled_values(get_loss_entries(l_train, training_loss); color=:bright_red, paddings)),
-                (styled"{cyan:validation-start }", styled_values(get_loss_entries(l_init_val, training_loss); paddings)),
-                (styled"{bright_cyan:current }", styled_values(get_loss_entries(l_val, training_loss); color=:bright_cyan, paddings)),
+            next!(
+                prog; showvalues = [
+                    ("epoch ", epoch),
+                    ("targets ", join(_headers, "  ")),
+                    (styled"{red:training-start }", styled_values(get_loss_entries(l_init_train, training_loss); paddings)),
+                    (styled"{bright_red:current }", styled_values(get_loss_entries(l_train, training_loss); color = :bright_red, paddings)),
+                    (styled"{cyan:validation-start }", styled_values(get_loss_entries(l_init_val, training_loss); paddings)),
+                    (styled"{bright_cyan:current }", styled_values(get_loss_entries(l_val, training_loss); color = :bright_cyan, paddings)),
                 ]
-                )
-                # TODO: log metrics
+            )
+            # TODO: log metrics
         end
     end
 
@@ -327,7 +335,7 @@ function train(hybridModel, data, save_ps;
     # ? diffs, additional predictions without observational counterparts!
     # TODO: better!
     set_diff = setdiff(keys(ŷ_train), target_names)
-    train_diffs = !isempty(set_diff) ? NamedTuple{Tuple(set_diff)}([getproperty(ŷ_train, e) for e in set_diff]) : nothing 
+    train_diffs = !isempty(set_diff) ? NamedTuple{Tuple(set_diff)}([getproperty(ŷ_train, e) for e in set_diff]) : nothing
     val_diffs = !isempty(set_diff) ? NamedTuple{Tuple(set_diff)}([getproperty(ŷ_val, e) for e in set_diff]) : nothing
 
     # TODO: save/output metrics
@@ -347,14 +355,15 @@ function train(hybridModel, data, save_ps;
 end
 
 function evaluate_acc(ghm, x, y, y_no_nan, ps, st, loss_types, training_loss, agg)
-    loss_val, sts, ŷ = lossfn(ghm, x, (y, y_no_nan), ps, LuxCore.testmode(st),
-        LoggingLoss(train_mode=false, loss_types=loss_types, training_loss=training_loss, agg=agg)
-        )
+    loss_val, sts, ŷ = lossfn(
+        ghm, x, (y, y_no_nan), ps, LuxCore.testmode(st),
+        LoggingLoss(train_mode = false, loss_types = loss_types, training_loss = training_loss, agg = agg)
+    )
     return loss_val, sts, ŷ
 end
-function maybe_record_history(block, should_record, fig, output_path; framerate=24)
-    if should_record
-        record_history(fig, output_path; framerate=framerate) do io
+function maybe_record_history(block, should_record, fig, output_path; framerate = 24)
+    return if should_record
+        record_history(fig, output_path; framerate = framerate) do io
             block(io)
         end
     else
@@ -362,19 +371,19 @@ function maybe_record_history(block, should_record, fig, output_path; framerate=
     end
 end
 
-function styled_values(nt; digits=5, color=nothing, paddings=nothing)
+function styled_values(nt; digits = 5, color = nothing, paddings = nothing)
     formatted = [
         begin
-            value_str = @sprintf("%.*f", digits, v)
-            padded = isnothing(paddings) ? value_str : rpad(value_str, paddings[i])
-            isnothing(color) ? padded  : styled"{$color:$padded}"
-        end
-        for (i,v) in enumerate(values(nt))
+                value_str = @sprintf("%.*f", digits, v)
+                padded = isnothing(paddings) ? value_str : rpad(value_str, paddings[i])
+                isnothing(color) ? padded : styled"{$color:$padded}"
+            end
+            for (i, v) in enumerate(values(nt))
     ]
     return join(formatted, "  ")
 end
 
-function header_and_paddings(nt; digits=5)
+function header_and_paddings(nt; digits = 5)
     min_val_width = digits + 2  # 1 for "0", 1 for ".", rest for digits
     paddings = map(k -> max(length(string(k)), min_val_width), keys(nt))
     headers = [rpad(string(k), w) for (k, w) in zip(keys(nt), paddings)]
@@ -387,28 +396,28 @@ function split_data(data::Tuple{Tuple, Tuple}, hybridModel; kwargs...)
 end
 
 function split_data(
-    data::Union{DataFrame, KeyedArray, Tuple, AbstractDimArray},
-    hybridModel;
-    split_by_id::Union{Nothing,Symbol,AbstractVector}=nothing,
-    folds::Union{Nothing,AbstractVector,Symbol}=nothing,
-    val_fold::Union{Nothing,Int}=nothing,
-    shuffleobs::Bool=false,
-    split_data_at::Real=0.8,
-    kwargs...
-)
+        data::Union{DataFrame, KeyedArray, Tuple, AbstractDimArray},
+        hybridModel;
+        split_by_id::Union{Nothing, Symbol, AbstractVector} = nothing,
+        folds::Union{Nothing, AbstractVector, Symbol} = nothing,
+        val_fold::Union{Nothing, Int} = nothing,
+        shuffleobs::Bool = false,
+        split_data_at::Real = 0.8,
+        kwargs...
+    )
     data_ = prepare_data(hybridModel, data)
 
     if split_by_id !== nothing && folds !== nothing
-        
+
         throw(ArgumentError("split_by_id and folds are not supported together; do the split when constructing folds"))
-    
+
     elseif split_by_id !== nothing
         # --- Option A: split by ID ---
         ids = isa(split_by_id, Symbol) ? getbyname(data, split_by_id) : split_by_id
         unique_ids = unique(ids)
-        train_ids, val_ids = splitobs(unique_ids; at=split_data_at, shuffle=shuffleobs)
+        train_ids, val_ids = splitobs(unique_ids; at = split_data_at, shuffle = shuffleobs)
         train_idx = findall(in(train_ids), ids)
-        val_idx   = findall(in(val_ids),  ids)
+        val_idx = findall(in(val_ids), ids)
 
         @info "Splitting data by $(split_by_id)"
         @info "Number of unique $(split_by_id): $(length(unique_ids))"
@@ -416,7 +425,7 @@ function split_data(
 
         x_all, y_all = data_
         x_train, y_train = view(x_all, :, train_idx), view(y_all, :, train_idx)
-        x_val,   y_val   = view(x_all, :, val_idx),   view(y_all, :, val_idx)
+        x_val, y_val = view(x_all, :, val_idx), view(y_all, :, val_idx)
         return (x_train, y_train), (x_val, y_val)
 
     elseif folds !== nothing || val_fold !== nothing
@@ -430,19 +439,19 @@ function split_data(
         @assert length(f) == n "length(folds) ($(length(f))) must equal number of samples/columns ($n)."
         @assert 1 ≤ val_fold ≤ maximum(f) "val_fold=$val_fold is out of range 1:$(maximum(f))."
 
-        val_idx   = findall(==(val_fold), f)
+        val_idx = findall(==(val_fold), f)
         @assert !isempty(val_idx) "No samples assigned to validation fold $val_fold."
         train_idx = setdiff(1:n, val_idx)
 
         @info "K-fold via external assignments: val_fold=$val_fold → train=$(length(train_idx)) val=$(length(val_idx))"
 
         x_train, y_train = view(x_all, :, train_idx), view(y_all, :, train_idx)
-        x_val,   y_val   = view(x_all, :, val_idx),   view(y_all, :, val_idx)
+        x_val, y_val = view(x_all, :, val_idx), view(y_all, :, val_idx)
         return (x_train, y_train), (x_val, y_val)
 
     else
         # --- Fallback: simple random/chronological split of prepared data ---
-        (x_train, y_train), (x_val, y_val) = splitobs(data_; at=split_data_at, shuffle=shuffleobs)
+        (x_train, y_train), (x_val, y_val) = splitobs(data_; at = split_data_at, shuffle = shuffleobs)
         return (x_train, y_train), (x_val, y_val)
     end
 end
@@ -484,8 +493,8 @@ end
 function prepare_data(hm, data::DataFrame)
     predictors_forcing, targets = get_prediction_target_names(hm)
 
-    all_predictor_cols  = unique(vcat(values(predictors_forcing)...))
-    col_to_select       = unique([all_predictor_cols; targets])
+    all_predictor_cols = unique(vcat(values(predictors_forcing)...))
+    col_to_select = unique([all_predictor_cols; targets])
 
     # subset to only the cols we care about
     sdf = data[!, col_to_select]
@@ -497,10 +506,10 @@ function prepare_data(hm, data::DataFrame)
 
     # For each row, check if *any* predictor/forcing is missing
     mask_missing_predforce = map(row -> any(isnan, row), eachrow(sdf[:, predforce_cols]))
-    
+
     # For each row, check if *at least one* target is present (i.e. not all missing)
     mask_at_least_one_target = map(row -> any(!isnan, row), eachrow(sdf[:, targets]))
-    
+
     # Keep rows where predictors/forcings are *complete* AND there's some target present
     keep = .!mask_missing_predforce .& mask_at_least_one_target
     sdf = sdf[keep, col_to_select]
@@ -512,7 +521,7 @@ end
 
 function prepare_data(hm, data::AbstractDimArray)
     predictors_forcing, targets = get_prediction_target_names(hm)
-    return (data[col=At(predictors_forcing)], data[col=At(targets)]) # TODO check what this should be rows or cols, I would say rows, but maybe it does not matter 
+    return (data[col = At(predictors_forcing)], data[col = At(targets)]) # TODO check what this should be rows or cols, I would say rows, but maybe it does not matter
 end
 
 function prepare_data(hm, data::Tuple)
@@ -550,7 +559,7 @@ Returns a tuple of (predictors_forcing, targets) names.
 function get_prediction_target_names(hm)
     targets = hm.targets
     predictors_forcing = Symbol[]
-     for prop in propertynames(hm)
+    for prop in propertynames(hm)
         if occursin("predictors", string(prop))
             val = getproperty(hm, prop)
             if isa(val, AbstractVector)
@@ -571,7 +580,7 @@ function get_prediction_target_names(hm)
         end
     end
     predictors_forcing = unique(predictors_forcing)
-    
+
     if isempty(predictors_forcing)
         @warn "Note that you don't have predictors or forcing variables."
     end
