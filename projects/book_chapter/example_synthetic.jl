@@ -35,7 +35,7 @@ ds = ds[1:20000, :]
 #   - Q10: temperature sensitivity factor [-]
 #   - rb: basal respiration rate [μmol/m²/s]
 #   - tref: reference temperature [°C] (default: 15.0)
-function RbQ10(;ta, Q10, rb, tref = 15.0f0)
+function RbQ10(; ta, Q10, rb, tref = 15.0f0)
     reco = rb .* Q10 .^ (0.1f0 .* (ta .- tref))
     return (; reco, Q10, rb)
 end
@@ -45,9 +45,9 @@ end
 # =============================================================================
 # Parameter specification: (default, lower_bound, upper_bound)
 parameters = (
-# Parameter name | Default | Lower | Upper      | Description
-    rb       = ( 3.0f0,      0.0f0,  13.0f0 ),  # Basal respiration [μmol/m²/s]
-    Q10      = ( 2.0f0,      1.0f0,  4.0f0 ),   # Temperature sensitivity factor [-]
+    # Parameter name | Default | Lower | Upper      | Description
+    rb = (3.0f0, 0.0f0, 13.0f0),  # Basal respiration [μmol/m²/s]
+    Q10 = (2.0f0, 1.0f0, 4.0f0),   # Temperature sensitivity factor [-]
 )
 
 # =============================================================================
@@ -89,9 +89,9 @@ using WGLMakie
 
 # Train the hybrid model
 out = train(
-    hybrid_model, 
-    ds, 
-    (); 
+    hybrid_model,
+    ds,
+    ();
     nepochs = 100,           # Number of training epochs
     batchsize = 512,         # Batch size for training
     opt = AdamW(0.1),   # Optimizer and learning rate
@@ -113,10 +113,10 @@ using WGLMakie
 mspempty = ModelSpec()
 
 nhyper = 4
-ho = @thyperopt for i=nhyper,
-    opt = [AdamW(0.01), AdamW(0.1), RMSProp(0.001), RMSProp(0.01)],
-    input_batchnorm = [true, false]
-    hyper_parameters = (;opt, input_batchnorm)
+ho = @thyperopt for i in nhyper,
+        opt in [AdamW(0.01), AdamW(0.1), RMSProp(0.001), RMSProp(0.01)],
+        input_batchnorm in [true, false]
+    hyper_parameters = (; opt, input_batchnorm)
     println("Hyperparameter run: \n", i, " of ", nhyper, "\t with hyperparameters \t", hyper_parameters, "\t")
     out = EasyHybrid.tune(hybrid_model, ds, mspempty; hyper_parameters..., nepochs = 10, plotting = false, show_progress = false, file_name = "test$i.jld2")
     #out.best_loss
@@ -146,11 +146,13 @@ sorted_hyperps = hyperps[idx]
 fig = Figure(figure_padding = 50)
 # Prepare tick labels with hyperparameter info for each trial (sorted)
 sorted_ticklabels = [
-    join([
-        k == :opt ? "opt=$(short_opt_name(v))" : "$k=$(repr(v))"
-        for (k, v) in pairs(hp)
-    ], "\n")
-    for hp in sorted_hyperps
+    join(
+            [
+                k == :opt ? "opt=$(short_opt_name(v))" : "$k=$(repr(v))"
+                for (k, v) in pairs(hp)
+            ], "\n"
+        )
+        for hp in sorted_hyperps
 ]
 ax = Makie.Axis(
     fig[1, 1];
@@ -162,7 +164,7 @@ ax = Makie.Axis(
     xticks = (1:length(sorted_losses), sorted_ticklabels),
     xticklabelrotation = 45
 )
-scatter!(ax, 1:length(sorted_losses), sorted_losses; markersize=15, color=:dodgerblue)
+scatter!(ax, 1:length(sorted_losses), sorted_losses; markersize = 15, color = :dodgerblue)
 
 # Get the best trial
 best_idx = argmin(losses)
@@ -180,7 +182,7 @@ using Plots.PlotMeasures
 ho2 = deepcopy(ho)
 ho2.results = getfield.(ho.results, :best_loss)
 
-Plots.plot(ho2, xrotation=25, left_margin=[100mm 0mm], bottom_margin=60mm, ylab = "loss", size = (900, 900)) 
+Plots.plot(ho2, xrotation = 25, left_margin = [100mm 0mm], bottom_margin = 60mm, ylab = "loss", size = (900, 900))
 
 # Train the model with the best hyperparameters
 best_hyperp = best_hyperparams(ho)

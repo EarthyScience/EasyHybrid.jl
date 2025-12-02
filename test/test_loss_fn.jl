@@ -10,8 +10,8 @@ using Statistics
 
     simple_loss(ŷ, y) = mean(abs2, ŷ .- y)
     weighted_loss(ŷ, y, w) = w * mean(abs2, ŷ .- y)
-    scaled_loss(ŷ, y; scale=1.0) = scale * mean(abs2, ŷ .- y)
-    complex_loss(ŷ, y, w; scale=1.0) = scale * w * mean(abs2, ŷ .- y)
+    scaled_loss(ŷ, y; scale = 1.0) = scale * mean(abs2, ŷ .- y)
+    complex_loss(ŷ, y, w; scale = 1.0) = scale * w * mean(abs2, ŷ .- y)
 
     @testset "Predefined loss functions" begin
         # RMSE test
@@ -31,7 +31,7 @@ using Statistics
         @test loss_fn(ŷ, y, y_nan, Val(:r2)) ≈ r^2
 
         # NSE test
-        nse = sum((ŷ .- y).^2) / sum((y .- mean(y)).^2)
+        nse = sum((ŷ .- y) .^ 2) / sum((y .- mean(y)) .^ 2)
         @test loss_fn(ŷ, y, y_nan, Val(:nse)) ≈ nse
     end
 
@@ -43,10 +43,10 @@ using Statistics
         @test loss_fn(ŷ, y, y_nan, (weighted_loss, (2.0,))) ≈ 2.0 * mean(abs2, ŷ .- y)
 
         # Function with keyword arguments
-        @test loss_fn(ŷ, y, y_nan, (scaled_loss, (scale=2.0,))) ≈ 2.0 * mean(abs2, ŷ .- y)
+        @test loss_fn(ŷ, y, y_nan, (scaled_loss, (scale = 2.0,))) ≈ 2.0 * mean(abs2, ŷ .- y)
 
         # Function with both positional and keyword arguments
-        @test loss_fn(ŷ, y, y_nan, (complex_loss, (2.0,), (scale=3.0,))) ≈ 6.0 * mean(abs2, ŷ .- y)
+        @test loss_fn(ŷ, y, y_nan, (complex_loss, (2.0,), (scale = 3.0,))) ≈ 6.0 * mean(abs2, ŷ .- y)
     end
 
     @testset "NaN handling" begin

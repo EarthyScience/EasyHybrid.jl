@@ -9,14 +9,14 @@ struct RbQ10_2p{T2, T3, T4} <: LuxCore.AbstractLuxContainerLayer{(:forcing, :tar
     Q10
     Rb
     function RbQ10_2p(forcing::T2, targets::T3, Q10::T4, Rb::T4) where {T2, T3, T4}
-        new{T2, T3, T4}(collect(forcing), collect(targets), [Q10], [Rb])
+        return new{T2, T3, T4}(collect(forcing), collect(targets), [Q10], [Rb])
     end
 end
 
 # ? Q10 is a parameter, so expand the initialparameters!
 function LuxCore.initialparameters(::AbstractRNG, layer::RbQ10_2p)
     #ps, _ = LuxCore.setup(Random.default_rng(), layer.NN)
-    return (; Q10 = layer.Q10, Rb = layer.Rb, )
+    return (; Q10 = layer.Q10, Rb = layer.Rb)
 end
 # TODO: trainable vs non-trainable! set example!
 # see: https://lux.csail.mit.edu/stable/manual/migrate_from_flux#Implementing-Custom-Layers
@@ -42,4 +42,3 @@ function (hm::RbQ10_2p)(ds_k, ps, st)
 
     return (; R_soil), (; st)
 end
-

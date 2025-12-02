@@ -31,14 +31,14 @@ end
 )
 """
 function FluxPartModel_NEE_ET2(
-    RUE_predictors::AbstractArray{Symbol},
-    Rb_predictors::AbstractArray{Symbol},
-    WUE_predictors::AbstractArray{Symbol},
-    Ecoeff_predictors::AbstractArray{Symbol};
-    forcing=[:SW_IN, :TA],
-    Q10=[1.5f0],
-    neurons=15
-)
+        RUE_predictors::AbstractArray{Symbol},
+        Rb_predictors::AbstractArray{Symbol},
+        WUE_predictors::AbstractArray{Symbol},
+        Ecoeff_predictors::AbstractArray{Symbol};
+        forcing = [:SW_IN, :TA],
+        Q10 = [1.5f0],
+        neurons = 15
+    )
     in_dim_p = length(RUE_predictors)
     in_dim_Rb_p = length(Rb_predictors)
     in_dim_Ecoeff = length(Ecoeff_predictors)
@@ -49,7 +49,7 @@ function FluxPartModel_NEE_ET2(
     Ecoeff_ch = Dense_RUE_Rb(in_dim_Ecoeff; neurons)
     WUE_ch = Dense_RUE_Rb(in_dim_wue; neurons)
 
-    FluxPartModel_NEE_ET2(
+    return FluxPartModel_NEE_ET2(
         RUE_ch,
         RUE_predictors,
         Rb_ch,
@@ -60,7 +60,8 @@ function FluxPartModel_NEE_ET2(
         Ecoeff_predictors,
         union(RUE_predictors, Rb_predictors, Ecoeff_predictors),
         forcing,
-        Q10)
+        Q10
+    )
 end
 
 function (m::FluxPartModel_NEE_ET2)(dk, ::Val{:infer})
@@ -83,7 +84,7 @@ function (m::FluxPartModel_NEE_ET2)(dk, ::Val{:infer})
     Tr = GPP / WUE
     Evap = Ecoeff .* sw_in
 
-    return (; RUE, Rb, Tr, Evap, GPP=GPP, RECO=Reco, NEE=Reco - GPP, ET=Tr + Evap)
+    return (; RUE, Rb, Tr, Evap, GPP = GPP, RECO = Reco, NEE = Reco - GPP, ET = Tr + Evap)
 end
 
 function (m::FluxPartModel_NEE_ET2)(dk)
