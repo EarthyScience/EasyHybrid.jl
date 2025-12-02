@@ -1,11 +1,55 @@
 # EasyHybrid.jl
-<img src="docs/src/assets/logo.png" align="right" width="30%"></img>
-[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://earthyscience.github.io/EasyHybrid.jl/stable/)
-[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://earthyscience.github.io/EasyHybrid.jl/dev/)
-[![Downloads](https://img.shields.io/badge/dynamic/json?url=http%3A%2F%2Fjuliapkgstats.com%2Fapi%2Fv1%2Fmonthly_downloads%2FEasyHybrid&query=total_requests&suffix=%2Fmonth&label=Downloads)](https://juliapkgstats.com/pkg/EasyHybrid)
-[![CI](https://github.com/EarthyScience/EasyHybrid.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/EarthyScience/EasyHybrid.jl/actions/workflows/CI.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/EarthyScience/EasyHybrid.jl/blob/main/LICENSE)
 
+<div align="center">
+
+[![][ask-img]][ask-url]
+[![][docs-stable-img]][docs-stable-url]
+[![][docs-dev-img]][docs-dev-url]
+[![][ci-img]][ci-url]
+
+[![][downloads-img]][downloads-url]
+[![][total-downloads-img]][total-downloads-url]
+
+[![][latest-release-img]][latest-release-url]
+[![][julia-img]][julia-url]
+[![][code-style-img]][code-style-url]
+[![][license-img]][license-url]
+
+</div>
+
+<img src="docs/src/assets/logo.png" align="right" width="150" style="padding-left:10px;"/>
+
+<!-- Badge definitions -->
+
+[latest-release-img]: https://img.shields.io/github/v/tag/EarthyScience/EasyHybrid.jl?include_prereleases&label=latest%20version&logo=github&sort=semver&style=round-square
+[latest-release-url]: https://github.com/EarthyScience/EasyHybrid.jl/releases
+
+[docs-stable-img]: https://img.shields.io/badge/documentation-stable%20release-blue?style=round-square
+[docs-stable-url]: https://earthyscience.github.io/EasyHybrid.jl/stable/
+
+[docs-dev-img]: https://img.shields.io/badge/documentation-in%20development-orange?style=round-square
+[docs-dev-url]: https://earthyscience.github.io/EasyHybrid.jl/dev/
+
+[ask-img]: https://img.shields.io/badge/Ask%20us-anything-1abc9c.svg?style=round-square
+[ask-url]: https://github.com/EarthyScience/EasyHybrid.jl/discussions
+
+[downloads-img]: https://img.shields.io/badge/dynamic/json?url=http%3A%2F%2Fjuliapkgstats.com%2Fapi%2Fv1%2Fmonthly_downloads%2FEasyHybrid&query=total_requests&suffix=%2Fmonth&label=Downloads&style=round-square
+[downloads-url]: https://juliapkgstats.com/pkg/EasyHybrid
+
+[total-downloads-img]: https://img.shields.io/badge/dynamic/json?url=http%3A%2F%2Fjuliapkgstats.com%2Fapi%2Fv1%2Ftotal_downloads%2FEasyHybrid&query=total_requests&label=Total%20Downloads&style=round-square
+[total-downloads-url]: https://juliapkgstats.com/pkg/EasyHybrid
+
+[ci-img]: https://github.com/EarthyScience/EasyHybrid.jl/actions/workflows/CI.yml/badge.svg?style=round-square
+[ci-url]: https://github.com/EarthyScience/EasyHybrid.jl/actions/workflows/CI.yml
+
+[julia-img]: https://img.shields.io/badge/julia-v1.10+-blue.svg?style=round-square
+[julia-url]: https://julialang.org/
+
+[code-style-img]: https://img.shields.io/badge/code_style-%E1%9A%B1%E1%9A%A2%E1%9A%BE%E1%9B%81%E1%9A%B2-black
+[code-style-url]: https://github.com/fredrikekre/Runic.jl
+
+[license-img]: https://img.shields.io/badge/License-MIT-green.svg?style=round-square
+[license-url]: https://github.com/EarthyScience/EasyHybrid.jl/blob/main/LICENSE
 
 
 > [!CAUTION]
