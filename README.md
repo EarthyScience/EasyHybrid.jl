@@ -7,6 +7,7 @@
 [![][docs-dev-img]][docs-dev-url]
 [![][ci-img]][ci-url]
 
+[![][zenodo-img]][zenodo-url]
 [![][downloads-img]][downloads-url]
 [![][total-downloads-img]][total-downloads-url]
 
@@ -45,6 +46,9 @@
 
 [code-style-img]: https://img.shields.io/badge/code_style-%E1%9A%B1%E1%9A%A2%E1%9A%BE%E1%9B%81%E1%9A%B2-black
 [code-style-url]: https://github.com/fredrikekre/Runic.jl
+
+[zenodo-img]: https://zenodo.org/badge/DOI/10.5281/zenodo.17794982.svg
+[zenodo-url]: https://doi.org/10.5281/zenodo.17794982
 
 [license-img]: https://img.shields.io/badge/License-MIT-green.svg?style=round-square
 [license-url]: https://github.com/EarthyScience/EasyHybrid.jl/blob/main/LICENSE
