@@ -246,7 +246,7 @@ function train(hybridModel, data, save_ps;
 
             current_agg_loss = getproperty(l_val[1], Symbol(agg))
             
-            if current_agg_loss < best_agg_loss
+            if isbetter(current_agg_loss, best_agg_loss, Val(loss_types[1]))
                 best_agg_loss = current_agg_loss
                 best_ps = deepcopy(ps)
                 best_st = deepcopy(st)

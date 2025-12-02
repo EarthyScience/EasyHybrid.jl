@@ -102,3 +102,39 @@ function loss_fn(ŷ, y, y_nan, training_loss::Tuple{Function, Tuple, NamedTuple}
     f, args, kwargs = training_loss
     return f(ŷ[y_nan], y[y_nan], args...; kwargs...)
 end
+
+# Kling–Gupta Efficiency loss (to MINIMIZE)
+function loss_fn(ŷ, y, y_nan, ::Val{:kgeLoss})
+    ŷv = ŷ[y_nan]
+    yv  = y[y_nan]
+
+    μ_s = mean(ŷv)
+    μ_o = mean(yv)
+
+    σ_s = std(ŷv)
+    σ_o = std(yv)
+
+    r = cor(ŷv, yv)
+
+    α = σ_s / σ_o
+    β = μ_s / μ_o
+
+    # KGE_loss = sqrt((r - 1)^2 + (α - 1)^2 + (β - 1)^2)
+    return sqrt((r - one(eltype(ŷ)))^2 +
+                (α - one(eltype(ŷ)))^2 +
+                (β - one(eltype(ŷ)))^2)
+end
+
+# Kling–Gupta Efficiency metric (to MAXIMIZE, e.g. for reporting)
+function loss_fn(ŷ, y, y_nan, ::Val{:kge})
+    kge_loss = loss_fn(ŷ, y, y_nan, Val(:kgeLoss))
+    return one(eltype(ŷ)) - kge_loss
+end
+
+isbetter(new, best, loss_type) = new < best
+
+# overrides for metrics to pick best model here largest value is best
+isbetter(new, best, ::Val{:pearson}) = new > best
+isbetter(new, best, ::Val{:r2})      = new > best
+isbetter(new, best, ::Val{:nse})     = new > best
+isbetter(new, best, ::Val{:kge})     = new > best
