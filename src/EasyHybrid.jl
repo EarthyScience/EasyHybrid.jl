@@ -25,6 +25,7 @@ using Random
 using JLD2
 using StyledStrings
 using Printf
+using PrettyTables
 using Reexport: @reexport
 using Hyperopt
 
