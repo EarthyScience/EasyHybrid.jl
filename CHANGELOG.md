@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+## v0.1.7 - 2025-12-02
+- cleaned up dependencies, i.e. rm Flux and others, added explicit imports and formatter [#183](https://github.com/EarthyScience/EasyHybrid.jl/pull/183)
+
 ## v0.1.6 - 2025-11-06
 - introduces a generic custom input loss function feature in [#163](https://github.com/EarthyScience/EasyHybrid.jl/pull/163)
 
