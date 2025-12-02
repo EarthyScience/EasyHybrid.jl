@@ -69,7 +69,7 @@ function train(hybridModel, data, save_ps;
                opt=AdamW(0.01), 
                patience=typemax(Int),
                autodiff_backend=AutoZygote(),
-               
+               return_gradients=True(),
                # Loss and evaluation
                training_loss=:mse,
                loss_types=[:mse, :r2], 
@@ -120,7 +120,7 @@ function train(hybridModel, data, save_ps;
         ps, st = get_ps_st(train_from)
     end
 
-    opt_state = Optimisers.setup(opt, ps)
+    # opt_state = Optimisers.setup(opt, ps)
     train_state = Lux.Training.TrainState(hybridModel, ps, st, opt);
 
     # ? initial losses
@@ -200,7 +200,11 @@ function train(hybridModel, data, save_ps;
                 # ? check NaN indices before going forward, and pass filtered `x, y`.
                 is_no_nan = .!isnan.(y)
                 if length(is_no_nan)>0 # ! be careful here, multivariate needs fine tuning
-                    _, l, _, train_state = Lux.Training.single_train_step!(autodiff_backend, loss, (x,y), train_state; return_gradients=Val(false))
+                    # ? let's keep grads, they might be useful for mixed gradient methods
+                    grads, loss_val, stats, train_state = Lux.Training.single_train_step!(
+                        autodiff_backend, loss, (x,y), train_state;
+                        return_gradients
+                        )
                 end
             end
 

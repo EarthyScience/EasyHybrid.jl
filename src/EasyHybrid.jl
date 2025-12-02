@@ -27,6 +27,7 @@ using StyledStrings
 using Printf
 using Reexport: @reexport
 using Hyperopt
+using Static: False, True
 
 @reexport begin
     import LuxCore

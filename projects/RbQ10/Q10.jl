@@ -7,9 +7,10 @@ using Pkg
 
 # start using the package
 using EasyHybrid
+using Enzyme
 
 # for Plotting
-using GLMakie
+# using GLMakie
 # using AlgebraOfGraphics
 
 # Local Path (MPI-BGC server):
@@ -33,6 +34,18 @@ NN = Chain(Dense(2, 15, relu), Dense(15, 15, relu), Dense(15, 1));
 RbQ10 = RespirationRbQ10(NN, predictor_names, forcing_names, target_names, 2.5f0) # ? do different initial Q10s
 # train model
 out = train(RbQ10, ds_keyed, (:Q10, ); nepochs=100, batchsize=512, opt=Adam(0.01), monitor_names=[:Rb]);
+
+# ? with AutoEnzyme()
+# ! KeyedArrays failed!
+using DimensionalData, ChainRulesCore
+# mat = Matrix(df)'
+mat = Array(Matrix(df)')
+da = DimArray(mat, (Dim{:col}(Symbol.(names(df))), Dim{:row}(1:size(df,1))))
+
+out = train(RbQ10, da, (:Q10, ); nepochs=100, batchsize=512, opt=Adam(0.01),
+    autodiff_backend=AutoEnzyme(),
+    monitor_names=[:Rb]
+    );
 
 # test custom loss function, keyword arguments
 function pinball(ŷ, y; τ=0.9)
