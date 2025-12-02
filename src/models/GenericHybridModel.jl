@@ -17,7 +17,7 @@ mutable struct ParameterContainer{NT<:NamedTuple, T} <: AbstractHybridModel
     table::T
 
     function ParameterContainer(values::NT) where {NT<:NamedTuple}
-        table = EasyHybrid.build_parameter_matrix(values)
+        table = build_parameter_matrix(values)
         new{NT,typeof(table)}(values, table)
     end
 end

@@ -21,7 +21,7 @@ function tune(hybrid_model, data, mspec::ModelSpec; kwargs...)
 
     hm = constructHybridModel(;kwargs_model...)
 
-    a, b = EasyHybrid.split_data(data, hm)
+    a, b = split_data(data, hm)
 
     out = train(
         hm, 

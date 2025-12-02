@@ -148,8 +148,8 @@ function train(hybridModel, data, save_ps;
             )
         zoom_epochs = min(patience, 50)
         # ! Launch dashboard if extension is loaded
-        EasyHybrid.train_board(init_observables..., fixed_observations..., yscale, target_names; monitor_names, zoom_epochs)
-        fig = EasyHybrid.dashboard_figure()
+        train_board(init_observables..., fixed_observations..., yscale, target_names; monitor_names, zoom_epochs)
+        fig = dashboard_figure()
     end
 
     # track physical parameters
@@ -229,7 +229,7 @@ function train(hybridModel, data, save_ps;
 
             # Update plotting observables if extension is loaded
             if !isnothing(ext)
-                EasyHybrid.update_plotting_observables(
+                update_plotting_observables(
                     init_observables...,
                     l_train,
                     l_val,
@@ -241,7 +241,7 @@ function train(hybridModel, data, save_ps;
                     epoch;
                     monitor_names)
                 # record a new frame
-                EasyHybrid.recordframe!(io)
+                recordframe!(io)
             end
 
             current_agg_loss = getproperty(l_val[1], Symbol(agg))
@@ -259,9 +259,9 @@ function train(hybridModel, data, save_ps;
                 metric_name = first(keys(l_val))
                 if !isnothing(ext)
                     img_name = joinpath(tmp_folder, "train_history_best_epoch_$(best_epoch).png")
-                    EasyHybrid.save_fig(img_name, EasyHybrid.dashboard_figure())
+                    save_fig(img_name, dashboard_figure())
                     img_name = joinpath(tmp_folder, "train_history_$(hybrid_name).png")
-                    EasyHybrid.save_fig(img_name, EasyHybrid.dashboard_figure())
+                    save_fig(img_name, dashboard_figure())
                 end
                 @warn "Early stopping at epoch $epoch with best validation loss wrt $metric_name: $best_agg_loss"
                 break
@@ -269,9 +269,9 @@ function train(hybridModel, data, save_ps;
 
             if !isnothing(ext) && epoch == nepochs
                 img_name = joinpath(tmp_folder, "train_history_best_epoch_$(best_epoch).png")
-                EasyHybrid.save_fig(img_name, EasyHybrid.dashboard_figure())
+                save_fig(img_name, dashboard_figure())
                 img_name = joinpath(tmp_folder, "train_history_$(hybrid_name).png")
-                EasyHybrid.save_fig(img_name, EasyHybrid.dashboard_figure())
+                save_fig(img_name, dashboard_figure())
             end
 
             _headers, paddings = header_and_paddings(get_loss_entries(l_init_train, training_loss))
@@ -354,7 +354,7 @@ function evaluate_acc(ghm, x, y, y_no_nan, ps, st, loss_types, training_loss, ag
 end
 function maybe_record_history(block, should_record, fig, output_path; framerate=24)
     if should_record
-        EasyHybrid.record_history(fig, output_path; framerate=framerate) do io
+        record_history(fig, output_path; framerate=framerate) do io
             block(io)
         end
     else

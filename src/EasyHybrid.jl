@@ -4,41 +4,41 @@
 EasyHybrid is a Julia package for hybrid machine learning models, combining neural networks and traditional statistical methods. It provides tools for data preprocessing, model training, and evaluation, making it easier to build and deploy hybrid models.
 """
 module EasyHybrid
-import LuxCore: LuxCore.setup, LuxCore.AbstractLuxContainerLayer
-import Flux
-using DataFrames
-using DataFrameMacros
-using DimensionalData
+
+using AxisKeys: AxisKeys, KeyedArray, axiskeys, wrapdims
+using CSV: CSV
 using Chain: @chain
-using CSV
-using MLUtils
-using AxisKeys
+using ChainRulesCore: ChainRulesCore
+using ComponentArrays: ComponentArrays, ComponentArray
+using DataFrameMacros: DataFrameMacros, @transform
+using DataFrames: DataFrames, DataFrame, GroupedDataFrame, Missing, coalesce, mapcols, select, missing, All
+using DimensionalData: DimensionalData, AbstractDimArray, At, dims, groupby
+using Downloads: Downloads
+using Hyperopt: Hyperopt, Hyperoptimizer
+using JLD2: JLD2, jldopen
+using LuxCore: LuxCore
+using Lux: Lux
 using MLJ: partition
-using Random
-using LuxCore
-using ChainRulesCore
-using Zygote
-using Optimisers
-using Statistics: mean, cor
-using ProgressMeter
-using Random
-using JLD2
-using StyledStrings
-using Printf
-using PrettyTables
+using MLUtils: MLUtils, DataLoader, kfolds, numobs, rpad, splitobs
+using NCDatasets: NCDatasets, NCDataset, close, name
+using OptimizationOptimisers: OptimizationOptimisers, AdamW, Adam, Optimisers
+using PrettyTables: PrettyTables
+using Printf: Printf, @sprintf
+using ProgressMeter: ProgressMeter, Progress, next!
+using Random: Random, AbstractRNG, randperm, randstring
 using Reexport: @reexport
-using Hyperopt
+using Statistics: Statistics, mean, cor, quantile, var
+using StyledStrings: StyledStrings, @styled_str
+using Zygote: Zygote
 
 @reexport begin
     import LuxCore
-    using Lux
-    using Lux: Dense, Chain, Dropout, relu
+    using Lux: Lux, Dense, Chain, Dropout, relu
     using Random
     using Statistics
     using DataFrames
     using CSV
-    using Optimisers
-    using OptimizationOptimisers
+    using OptimizationOptimisers: OptimizationOptimisers, Optimisers, Adam, AdamW
     using ComponentArrays
 end
 

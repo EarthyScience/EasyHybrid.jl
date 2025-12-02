@@ -51,12 +51,12 @@ Initialize plotting observables for training visualization if the Makie extensio
 function initialize_plotting_observables(init_ŷ_train, init_ŷ_val, y_train, y_val, l_init_train, l_init_val, training_loss, agg, target_names; monitor_names)
     # Initialize loss history observables
     l_value = get_loss_value(l_init_train, training_loss, Symbol("$agg"))
-    p = EasyHybrid.to_point2f(0, l_value)
-    train_h_obs = EasyHybrid.to_obs([p])
+    p = to_point2f(0, l_value)
+    train_h_obs = to_obs([p])
     
     l_value_val = get_loss_value(l_init_val, training_loss, Symbol("$agg"))
-    p_val = EasyHybrid.to_point2f(0, l_value_val)
-    val_h_obs = EasyHybrid.to_obs([p_val])
+    p_val = to_point2f(0, l_value_val)
+    val_h_obs = to_obs([p_val])
 
     # build NamedTuples of Observables for preds and obs
     train_preds = to_obs_tuple(init_ŷ_train, target_names)
@@ -110,7 +110,7 @@ function get_loss_entries(losses, loss_spec)
 end
 
 function to_obs_tuple(y, target_names)
-    return (; (t => EasyHybrid.to_obs(vec(getfield(y, t))) for t in target_names)...)
+    return (; (t => to_obs(vec(getfield(y, t))) for t in target_names)...)
 end
 
 function to_tuple(y::KeyedArray, target_names)
@@ -126,10 +126,10 @@ function monitor_to_obs(ŷ, monitor_names; cuts = (0.25, 0.5, 0.75))
         m => begin
             v = vec(getfield(ŷ, m))
             if length(v) > 1
-                (; (qx_ = Symbol("q$(Int(q*100))") => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, quantile(v, q))])
+                (; (qx_ = Symbol("q$(Int(q*100))") => to_obs([to_point2f(0, quantile(v, q))])
                     for q in cuts)...)
             else
-                (; :scalar => EasyHybrid.to_obs([EasyHybrid.to_point2f(0, v[1])]))
+                (; :scalar => to_obs([to_point2f(0, v[1])]))
             end
         end for m in monitor_names)...)
 end

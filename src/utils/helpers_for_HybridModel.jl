@@ -37,14 +37,14 @@ Constructs a parameter container from a named tuple of parameter bounds and wrap
 - An instance of the user-defined `AbstractHybridModel` subtype containing the parameter container.
 """
 function build_parameters(parameters::NamedTuple, f::DataType)
-    ca = EasyHybrid.ParameterContainer(parameters)
+    ca = ParameterContainer(parameters)
     return f(ca)
 end
 
 # the “core” build_parameters that knows how to turn a NamedTuple + a
 # subtype of AbstractHybridModel into an actual model instance:
 function build_parameters(params::NamedTuple, ::Type{P}) where {P<:AbstractHybridModel}
-    return P(EasyHybrid.ParameterContainer(params))
+    return P(ParameterContainer(params))
 end
 
 function build_parameters(params::NamedTuple, f::M) where {M<:Function}
