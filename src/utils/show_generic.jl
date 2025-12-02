@@ -10,7 +10,7 @@ function Base.show(io::IO, pc::ParameterContainer)
     println(io)
     PrettyTables.pretty_table(
         io, table;
-        header     = collect(keys(table.axes[2])),
+        column_labels = collect(keys(table.axes[2])),
         row_labels = collect(keys(table.axes[1])),
         alignment  = :r,
     )

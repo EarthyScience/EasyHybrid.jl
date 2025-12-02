@@ -155,7 +155,7 @@ function display_parameter_bounds(parameter_container::T; alignment=:r) where {T
     table = parameter_container.hybrid.table
     PrettyTables.pretty_table(
         table;  
-        header     = collect(keys(table.axes[2])),
+        column_labels = collect(keys(table.axes[2])),
         row_labels = collect(keys(table.axes[1])),
         alignment  = alignment
     )
