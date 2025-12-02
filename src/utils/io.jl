@@ -8,7 +8,7 @@ function save_ps_st(file_name, hm, ps, st, save_ps)
         NamedTuple{save_ps}(ps_values)
     end
 
-    jldopen(file_name, "w") do file
+    return jldopen(file_name, "w") do file
         file["HybridModel_$hm_name/epoch_0"] = (ps, st)
         if !isempty(save_ps)
             file["physical_params/epoch_0"] = tmp_e
@@ -24,7 +24,7 @@ function save_ps_st!(file_name, hm, ps, st, save_ps, epoch)
         NamedTuple{save_ps}(ps_values)
     end
 
-    jldopen(file_name, "a+") do file
+    return jldopen(file_name, "a+") do file
         file["HybridModel_$hm_name/epoch_$epoch"] = (ps, st)
         if !isempty(save_ps)
             file["physical_params/epoch_$epoch"] = tmp_e
@@ -33,13 +33,13 @@ function save_ps_st!(file_name, hm, ps, st, save_ps, epoch)
 end
 
 function save_train_val_loss!(file_name, train_val, train_or_val_name, epoch)
-    jldopen(file_name, "a+") do file
+    return jldopen(file_name, "a+") do file
         file["$train_or_val_name/epoch_$epoch"] = train_val
     end
 end
 
 function save_predictions!(file_name, predictions, states, train_or_val_name)
-    jldopen(file_name, "a+") do file
+    return jldopen(file_name, "a+") do file
         file["predictions/$train_or_val_name"] = predictions
         file["predictions/$(train_or_val_name)_states"] = states
     end
@@ -47,7 +47,7 @@ end
 function save_observations!(file_name, target_names, yobs, train_or_val_name)
     # keyed array to NamedTuple
     named_yobs = to_named_tuple(yobs, target_names)
-    jldopen(file_name, "a+") do file
+    return jldopen(file_name, "a+") do file
         file["observations/$train_or_val_name"] = named_yobs
     end
 end
@@ -58,7 +58,7 @@ function to_named_tuple(ka, target_names)
 end
 
 function to_named_tuple(ka::AbstractDimArray, target_names)
-    arrays = [Array(ka[col=At(k)]) for k in target_names]
+    arrays = [Array(ka[col = At(k)]) for k in target_names]
     return NamedTuple{Tuple(target_names)}(arrays)
 end
 
@@ -78,7 +78,7 @@ end
 function get_all_groups(filename)
     groups = Symbol[]
     JLD2.jldopen(filename, "r") do file
-        function recurse_groups(g, path="")
+        function recurse_groups(g, path = "")
             for k in keys(g)
                 obj = g[k]
                 newpath = joinpath(path, k)
@@ -87,13 +87,14 @@ function get_all_groups(filename)
                     recurse_groups(obj, newpath)
                 end
             end
+            return
         end
         recurse_groups(file)
     end
     return groups
 end
 
-function resolve_path(file_name; folder_to_save="")
+function resolve_path(file_name; folder_to_save = "")
     file_name = isnothing(file_name) ? "trained_model.jld2" : file_name
     if !endswith(file_name, ".jld2")
         error("This needs to be a jld2 file, please include the extension as in `file_name.jld2`")
@@ -106,16 +107,18 @@ function resolve_path(file_name; folder_to_save="")
     end
     return file_name
 end
-function get_output_path(; folder_to_save="")
+function get_output_path(; folder_to_save = "")
     base_path = dirname(Base.active_project())
-    
+
     # Check if we're in a docs environment (common indicators)
-    is_docs = any([
-        basename(pwd()) == "docs",
-        isdir("src") && isfile("make.jl"),
-        occursin("docs", base_path),
-    ])
-    
+    is_docs = any(
+        [
+            basename(pwd()) == "docs",
+            isdir("src") && isfile("make.jl"),
+            occursin("docs", base_path),
+        ]
+    )
+
     if is_docs
         return mkpath(joinpath(base_path, "build"))
     elseif folder_to_save == ""

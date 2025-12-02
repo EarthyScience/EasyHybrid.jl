@@ -43,31 +43,31 @@ logging = LoggingLoss(
 )
 ```
 """
-struct LoggingLoss{T<:Function, L<:AbstractVector{<:LossSpec}, TL<:LossSpec}
+struct LoggingLoss{T <: Function, L <: AbstractVector{<:LossSpec}, TL <: LossSpec}
     loss_types::L
     training_loss::TL
     agg::T
     train_mode::Bool
 
-    function LoggingLoss{T,L,TL}(;
-        loss_types = [:mse],
-        training_loss = :mse,
-        agg::T = sum,
-        train_mode::Bool = true
-    ) where {T<:Function, L<:AbstractVector{<:LossSpec}, TL<:LossSpec}
+    function LoggingLoss{T, L, TL}(;
+            loss_types = [:mse],
+            training_loss = :mse,
+            agg::T = sum,
+            train_mode::Bool = true
+        ) where {T <: Function, L <: AbstractVector{<:LossSpec}, TL <: LossSpec}
         lt = Vector{LossSpec}(loss_types)
-        new{T, typeof(lt), typeof(training_loss)}(lt, training_loss, agg, train_mode)
+        return new{T, typeof(lt), typeof(training_loss)}(lt, training_loss, agg, train_mode)
     end
 end
 
 # Outer constructor
 function LoggingLoss(;
-    loss_types = [:mse],
-    training_loss = :mse,
-    agg::F = sum,
-    train_mode::Bool = true
-) where {F<:Function}
-    LoggingLoss{F, Vector{LossSpec}, typeof(training_loss)}(;
+        loss_types = [:mse],
+        training_loss = :mse,
+        agg::F = sum,
+        train_mode::Bool = true
+    ) where {F <: Function}
+    return LoggingLoss{F, Vector{LossSpec}, typeof(training_loss)}(;
         loss_types = loss_types,
         training_loss = training_loss,
         agg = agg,
@@ -161,15 +161,15 @@ function get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
 end
 
 function get_predictions_targets(
-    HM, 
-    x::AbstractDimArray, 
-    ys::Tuple{<:AbstractDimArray,<:AbstractDimArray}, 
-    ps, st, targets
-)
+        HM,
+        x::AbstractDimArray,
+        ys::Tuple{<:AbstractDimArray, <:AbstractDimArray},
+        ps, st, targets
+    )
     y_t, y_nan = ys
     ŷ, st = HM(x, ps, st)
-    y     = y_t[col=At(targets)]
-    y_nan = y_nan[col=At(targets)]
+    y = y_t[col = At(targets)]
+    y_nan = y_nan[col = At(targets)]
     return ŷ, y, y_nan, st
 end
 
@@ -199,7 +199,7 @@ function compute_loss(ŷ, y, y_nan, targets, loss_spec, agg::Function)
 end
 
 function compute_loss(ŷ, y::AbstractDimArray, y_nan::AbstractDimArray, targets, loss_spec, agg::Function)
-    losses = [_apply_loss(ŷ[k], y[col=At(k)], y_nan[col=At(k)], loss_spec) for k in targets]
+    losses = [_apply_loss(ŷ[k], y[col = At(k)], y_nan[col = At(k)], loss_spec) for k in targets]
     return agg(losses)
 end
 
@@ -232,23 +232,25 @@ end
 function compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
     out_loss_types = [
         begin
-            losses = [_apply_loss(ŷ[k], y(k), y_nan(k), loss_type) for k in targets]
-            agg_loss = agg(losses)
-            NamedTuple{(targets..., Symbol(agg))}([losses..., agg_loss])
-        end
-        for loss_type in loss_types]
-        _names = [_loss_name(lt) for lt in loss_types]
+                losses = [_apply_loss(ŷ[k], y(k), y_nan(k), loss_type) for k in targets]
+                agg_loss = agg(losses)
+                NamedTuple{(targets..., Symbol(agg))}([losses..., agg_loss])
+            end
+            for loss_type in loss_types
+    ]
+    _names = [_loss_name(lt) for lt in loss_types]
     return NamedTuple{Tuple(_names)}([out_loss_types...])
 end
 function compute_loss(ŷ, y::AbstractDimArray, y_nan::AbstractDimArray, targets, loss_types::Vector, agg::Function)
     out_loss_types = [
         begin
-            losses = [_apply_loss(ŷ[k], y[col=At(k)], y_nan[col=At(k)], loss_type) for k in targets]
-            agg_loss = agg(losses)
-            NamedTuple{(targets..., Symbol(agg))}([losses..., agg_loss])
-        end
-        for loss_type in loss_types]
-        _names = [_loss_name(lt) for lt in loss_types]
+                losses = [_apply_loss(ŷ[k], y[col = At(k)], y_nan[col = At(k)], loss_type) for k in targets]
+                agg_loss = agg(losses)
+                NamedTuple{(targets..., Symbol(agg))}([losses..., agg_loss])
+            end
+            for loss_type in loss_types
+    ]
+    _names = [_loss_name(lt) for lt in loss_types]
     return NamedTuple{Tuple(_names)}([out_loss_types...])
 end
 

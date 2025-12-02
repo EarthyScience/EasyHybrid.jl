@@ -5,7 +5,7 @@ export WrappedTuples
 
 Wraps a vector of named tuples to allow dot-access to each field as a vector.
 """
-struct WrappedTuples{T<:AbstractVector{<:NamedTuple}} <: AbstractVector{NamedTuple}
+struct WrappedTuples{T <: AbstractVector{<:NamedTuple}} <: AbstractVector{NamedTuple}
     data::T
 end
 
@@ -15,7 +15,7 @@ Base.getindex(w::WrappedTuples, i::Int) = w.data[i]
 Base.getindex(w::WrappedTuples, r::AbstractRange) = WrappedTuples(w.data[r])
 Base.IndexStyle(::Type{<:WrappedTuples}) = IndexLinear()
 Base.length(w::WrappedTuples) = length(w.data)
-Base.iterate(w::WrappedTuples, state=1) = state > length(w.data) ? nothing : (w.data[state], state+1)
+Base.iterate(w::WrappedTuples, state = 1) = state > length(w.data) ? nothing : (w.data[state], state + 1)
 
 # Dot-access to fields (e.g., wrapped.a)
 function Base.getproperty(w::WrappedTuples, field::Symbol)
@@ -29,8 +29,8 @@ end
 Base.keys(w::WrappedTuples) = propertynames(first(w.data))
 
 # Enable tab-completion and introspection
-function Base.propertynames(w::WrappedTuples, private::Bool=false)
-    return (:data, ) ∪ propertynames(first(w.data), private)
+function Base.propertynames(w::WrappedTuples, private::Bool = false)
+    return (:data,) ∪ propertynames(first(w.data), private)
 end
 function Base.Matrix(w::WrappedTuples)
     n, m = size(w)

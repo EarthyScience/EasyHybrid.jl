@@ -1,4 +1,3 @@
-
 export LinearHM
 
 """
@@ -13,14 +12,14 @@ struct LinearHM{D, T1, T2, T3, T4} <: LuxCore.AbstractLuxContainerLayer{(:NN, :p
     targets
     β
     function LinearHM(NN::D, predictors::T1, forcing::T2, targets::T3, β::T4) where {D, T1, T2, T3, T4}
-        new{D, T1, T2, T3, T4}(NN, collect(predictors), collect(forcing), collect(targets), [β])
+        return new{D, T1, T2, T3, T4}(NN, collect(predictors), collect(forcing), collect(targets), [β])
     end
 end
 
 # ? β is a parameter, so expand the initialparameters!
 function LuxCore.initialparameters(::AbstractRNG, layer::LinearHM)
     ps, _ = LuxCore.setup(Random.default_rng(), layer.NN)
-    return (; ps, β = layer.β,)
+    return (; ps, β = layer.β)
 end
 
 function LuxCore.initialstates(::AbstractRNG, layer::LinearHM)
@@ -65,5 +64,5 @@ function (lhm::LinearHM)(ds_k, ps, st::NamedTuple)
     α, st = LuxCore.apply(lhm.NN, p, ps.ps, st.st)
     ŷ = α .* x .+ ps.β
 
-    return (; obs = ŷ), (;  st = (; st))
+    return (; obs = ŷ), (; st = (; st))
 end

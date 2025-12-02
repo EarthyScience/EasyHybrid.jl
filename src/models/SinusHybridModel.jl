@@ -1,6 +1,6 @@
 export SinusHybridModel
 ########################################
-# Model definition y = ax + b, where 
+# Model definition y = ax + b, where
 ########################################
 struct SinusHybridModel <: EasyHybridModels
     DenseLayers::Flux.Chain
@@ -12,10 +12,10 @@ end
 """
 SinusHybridModel(predictors, forcing, out_dim; neurons=15, b=[1.5f0])
 """
-function SinusHybridModel(predictors, forcing, out_dim; neurons=15, b=[1.5f0])
+function SinusHybridModel(predictors, forcing, out_dim; neurons = 15, b = [1.5f0])
     in_dim = length(predictors)
-    ch = DenseNN(in_dim, out_dim, neurons; activation=Flux.softplus)
-    SinusHybridModel(ch, predictors, forcing, b)
+    ch = DenseNN(in_dim, out_dim, neurons; activation = Flux.softplus)
+    return SinusHybridModel(ch, predictors, forcing, b)
 end
 
 
