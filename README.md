@@ -17,8 +17,6 @@
 
 </div>
 
-<img src="docs/src/assets/logo.png" align="right" width="150" style="padding-left:10px;"/>
-
 <!-- Badge definitions -->
 
 [latest-release-img]: https://img.shields.io/github/v/tag/EarthyScience/EasyHybrid.jl?include_prereleases&label=latest%20version&logo=github&sort=semver&style=round-square
@@ -51,6 +49,7 @@
 [license-img]: https://img.shields.io/badge/License-MIT-green.svg?style=round-square
 [license-url]: https://github.com/EarthyScience/EasyHybrid.jl/blob/main/LICENSE
 
+<img src="docs/src/assets/logo.png" align="right" width="200" style="padding-left:10px;"/>
 
 > [!CAUTION]
 > Work in progress
