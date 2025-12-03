@@ -34,7 +34,9 @@ end
 
 # ───────────────────────────────────────────────────────────────────────────
 # Single NN Hybrid Model Structure (optimized for performance)
-struct SingleNNHybridModel
+struct SingleNNHybridModel <: LuxCore.AbstractLuxContainerLayer{(:NN, :predictors, :forcing, :targets,
+    :mechanistic_model, :parameters, :neural_param_names, :global_param_names, :fixed_param_names,
+    :scale_nn_outputs, :start_from_default)}
     NN              :: Chain
     predictors      :: Vector{Symbol}
     forcing         :: Vector{Symbol}
@@ -49,7 +51,9 @@ struct SingleNNHybridModel
 end
 
 # Multi-NN Hybrid Model Structure (optimized for performance)
-struct MultiNNHybridModel
+struct MultiNNHybridModel <: LuxCore.AbstractLuxContainerLayer{(:NN, :predictors, :forcing, :targets,
+    :mechanistic_model, :parameters, :neural_param_names, :global_param_names, :fixed_param_names,
+    :scale_nn_outputs, :start_from_default)}
     NNs             :: NamedTuple
     predictors      :: NamedTuple
     forcing         :: Vector{Symbol}
@@ -376,7 +380,7 @@ function (m::SingleNNHybridModel)(ds_k::KeyedArray, ps, st)
     out = (;y_pred..., parameters = all_params)
     st_new = (; st = st_NN, fixed = st.fixed)
 
-    return out, (; st = st_new)
+    return out, st_new
 end
 
 function (m::SingleNNHybridModel)(df::DataFrame, ps, st)
@@ -471,9 +475,9 @@ function (m::MultiNNHybridModel)(ds_k::KeyedArray, ps, st)
 
     out = (;y_pred..., parameters = all_params, nn_outputs = nn_outputs)
 
-    st_new = (; nn_states..., fixed = st.fixed)
+    # st_new = (; nn_states..., fixed = st.fixed)
 
-    return out, (; st = st_new)
+    return out, (;st = st)#(; st = st_new)
 end
 
 function (m::MultiNNHybridModel)(df::DataFrame, ps, st)
