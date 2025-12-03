@@ -131,10 +131,38 @@ function loss_fn(ŷ, y, y_nan, ::Val{:kge})
     return one(eltype(ŷ)) - kge_loss
 end
 
-isbetter(new, best, loss_type) = new < best
+# Kling–Gupta Efficiency loss (to MINIMIZE)
+function loss_fn(ŷ, y, y_nan, ::Val{:pbkgeLoss})
+    ŷv = ŷ[y_nan]
+    yv  = y[y_nan]
 
-# overrides for metrics to pick best model here largest value is best
-isbetter(new, best, ::Val{:pearson}) = new > best
-isbetter(new, best, ::Val{:r2})      = new > best
-isbetter(new, best, ::Val{:nse})     = new > best
-isbetter(new, best, ::Val{:kge})     = new > best
+    μ_s = mean(ŷv)
+    μ_o = mean(yv)
+
+    r = cor(ŷv, yv)
+
+    β = μ_s / μ_o
+
+    return sqrt((r - one(eltype(ŷ)))^2 +
+                (β - one(eltype(ŷ)))^2)
+end
+
+function loss_fn(ŷ, y, y_nan, ::Val{:pbkge})
+    pbkge_loss = loss_fn(ŷ, y, y_nan, Val(:pbkgeLoss))
+    return one(eltype(ŷ)) - pbkge_loss
+end
+
+abstract type BestDirection end
+struct Minimize <: BestDirection end
+struct Maximize <: BestDirection end
+
+# default: everything is minimized
+bestdirection(::Any) = Minimize()
+
+bestdirection(::Union{Val{:pearson}, Val{:r2}, Val{:nse}, Val{:kge}}) = Maximize()
+
+isbetter(new, best, loss_type) = isbetter(new, best, bestdirection(loss_type))
+
+# trait-dispatched implementations
+isbetter(new, best, ::Minimize) = new < best
+isbetter(new, best, ::Maximize) = new > best
