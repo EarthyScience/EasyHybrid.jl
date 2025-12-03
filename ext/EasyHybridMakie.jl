@@ -259,7 +259,8 @@ function EasyHybrid.train_board(
     train_obs,
     val_obs,
     yscale,
-    target_names;
+    target_names,
+    loss_type;
     monitor_names,
     zoom_epochs
 )
@@ -287,7 +288,7 @@ function EasyHybrid.train_board(
     end
 
     # gd_losses
-    ax_loss = Makie.Axis(gd_losses[1, 1]; yscale = yscale, xlabel = "Epoch", ylabel = "Loss", aspect=1)
+    ax_loss = Makie.Axis(gd_losses[1, 1]; yscale = yscale, xlabel = "Epoch", ylabel = "$(string(loss_type))", aspect=1)
     Makie.lines!(ax_loss, train_loss; color = :grey25, label = "Training", linewidth = 2)
     Makie.lines!(ax_loss, val_loss;   color = :tomato, label = "Validation", linewidth = 2)
     # Zoomed loss in last zoom_epochs
