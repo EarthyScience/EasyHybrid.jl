@@ -44,6 +44,8 @@ function tune(hybrid_model, data; kwargs...)
         ();
         kwargs...
     )
+
+    return out
 end
 
 function best_hyperparams(ho::Hyperoptimizer)
