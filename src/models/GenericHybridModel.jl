@@ -481,7 +481,7 @@ function (m::MultiNNHybridModel)(ds_k::KeyedArray, ps, st)
 
     # st_new = (; nn_states..., fixed = st.fixed)
 
-    return out, (;st = st)#(; st = st_new)
+    return out, (; st = st) #(; st = st_new)
 end
 
 function (m::MultiNNHybridModel)(df::DataFrame, ps, st)

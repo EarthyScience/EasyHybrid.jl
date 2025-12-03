@@ -60,5 +60,5 @@ function (hm::BulkDensitySOC)(ds_p, ps, st::NamedTuple)
 
     SOCdensity = @. SOCconc * BD * (1 - CF)
 
-    return (; SOCconc, CF, BD, SOCdensity, mBD), (;st = stSOC) # removed oBD from here since its logged via ps.oBD
+    return (; SOCconc, CF, BD, SOCdensity, mBD), (; st = stSOC) # removed oBD from here since its logged via ps.oBD
 end

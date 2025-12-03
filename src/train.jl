@@ -69,8 +69,8 @@ function train(
         batchsize = 64,
         opt = AdamW(0.01),
         patience = typemax(Int),
-autodiff_backend=AutoZygote(),
-               return_gradients=True(),
+        autodiff_backend = AutoZygote(),
+        return_gradients = True(),
         # Loss and evaluation
         training_loss = :mse,
         loss_types = [:mse, :r2],
@@ -123,7 +123,7 @@ autodiff_backend=AutoZygote(),
     end
 
     # opt_state = Optimisers.setup(opt, ps)
-    train_state = Lux.Training.TrainState(hybridModel, ps, st, opt);
+    train_state = Lux.Training.TrainState(hybridModel, ps, st, opt)
 
     # ? initial losses
     is_no_nan_t = .!isnan.(y_train)
@@ -195,18 +195,18 @@ autodiff_backend=AutoZygote(),
     @info "Check the saved output (.png, .mp4, .jld2) from training at: $(tmp_folder)"
 
     prog = Progress(nepochs, desc = "Training loss", enabled = show_progress)
-    loss = HybridLoss(parent_loss=MSELoss(), inner_agg = mean, outer_agg = mean, targets=target_names)
+    loss = HybridLoss(parent_loss = MSELoss(), inner_agg = mean, outer_agg = mean, targets = target_names)
     maybe_record_history(!isnothing(ext), fig, joinpath(tmp_folder, "training_history_$(hybrid_name).mp4"); framerate = 24) do io
         for epoch in 1:nepochs
             for (x, y) in train_loader
                 # ? check NaN indices before going forward, and pass filtered `x, y`.
                 is_no_nan = .!isnan.(y)
-                if length(is_no_nan)>0 # ! be careful here, multivariate needs fine tuning
+                if length(is_no_nan) > 0 # ! be careful here, multivariate needs fine tuning
                     # ? let's keep grads, they might be useful for mixed gradient methods
                     grads, loss_val, stats, train_state = Lux.Training.single_train_step!(
-                        autodiff_backend, loss, (x,y), train_state;
+                        autodiff_backend, loss, (x, y), train_state;
                         return_gradients
-                        )
+                    )
                 end
             end
 
