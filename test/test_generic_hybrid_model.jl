@@ -248,7 +248,7 @@ end
         @test haskey(output.parameters, :b)
         @test haskey(output.parameters, :c)
         @test haskey(new_st, :st)
-        @test haskey(new_st.st, :fixed)
+        @test haskey(new_st, :fixed)
     end
     
     @testset "SingleNNHybridModel with scale_nn_outputs=true" begin
