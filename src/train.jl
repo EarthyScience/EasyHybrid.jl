@@ -96,6 +96,9 @@ function train(hybridModel, data, save_ps;
     #! check if the EasyHybridMakie extension is loaded.
     ext = Base.get_extension(@__MODULE__, :EasyHybridMakie)
     
+    #! check if the training loss is a minimizing loss.
+    check_training_loss(training_loss)
+
     if ext === nothing
         @warn "Makie extension not loaded, no plots will be generated."
     end
@@ -248,7 +251,7 @@ function train(hybridModel, data, save_ps;
 
             current_agg_loss = getproperty(l_val[1], Symbol(agg))
             
-            if isbetter(current_agg_loss, best_agg_loss, Val(eval_metric))
+            if isbetter(current_agg_loss, best_agg_loss, eval_metric)
                 best_agg_loss = current_agg_loss
                 best_ps = deepcopy(ps)
                 best_st = deepcopy(st)

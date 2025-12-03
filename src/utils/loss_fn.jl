@@ -161,8 +161,17 @@ bestdirection(::Any) = Minimize()
 
 bestdirection(::Union{Val{:pearson}, Val{:r2}, Val{:nse}, Val{:kge}}) = Maximize()
 
-isbetter(new, best, loss_type) = isbetter(new, best, bestdirection(loss_type))
+isbetter(new, best, loss_type) = isbetter(new, best, bestdirection(Val(loss_type)))
 
 # trait-dispatched implementations
 isbetter(new, best, ::Minimize) = new < best
 isbetter(new, best, ::Maximize) = new > best
+
+function check_training_loss(loss_type)
+    if bestdirection(Val(loss_type)) isa Maximize
+        error("Got a metric that is defined as `to be maximized` as a training loss: $(loss_type).\n" *
+              "For training you must use a true loss (to be minimized), e.g. " *
+              ":nseLoss (1-NSE), :kgeLoss (1-KGE), :pearsonLoss (1-Pearson), or :mse.")
+    end
+    return nothing
+end
