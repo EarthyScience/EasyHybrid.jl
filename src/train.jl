@@ -36,7 +36,7 @@ Default output file is `trained_model.jld2` at the current working directory und
 
 ## Loss and Evaluation:
 - `training_loss`: The loss type to use during training (default: `:mse`).
-- `loss_types`: A vector of loss types to compute during training (default: `[:mse, :r2]`).
+- `loss_types`: A vector of loss types to compute during training (default: `[:mse, :r2]`). The first entry is used for plotting in the dynamic trainboard. This loss can be increasing (e.g. NSE) or decreasing (e.g. RMSE).
 - `agg`: The aggregation function to apply to the computed losses (default: `sum`).
 
 ## Data Handling (passed via kwargs):
@@ -97,6 +97,9 @@ function train(
 
     #! check if the EasyHybridMakie extension is loaded.
     ext = Base.get_extension(@__MODULE__, :EasyHybridMakie)
+    
+    #! check if the training loss is a minimizing loss.
+    check_training_loss(training_loss)
 
     if ext === nothing
         @warn "Makie extension not loaded, no plots will be generated."
@@ -127,7 +130,9 @@ function train(
     is_no_nan_t = .!isnan.(y_train)
     is_no_nan_v = .!isnan.(y_val)
 
-    l_init_train, _, init_ŷ_train = evaluate_acc(hybridModel, x_train, y_train, is_no_nan_t, ps, st, loss_types, training_loss, agg)
+    eval_metric = loss_types[1]
+
+    l_init_train, _, init_ŷ_train =  evaluate_acc(hybridModel, x_train, y_train, is_no_nan_t, ps, st, loss_types, training_loss, agg)
     l_init_val, _, init_ŷ_val = evaluate_acc(hybridModel, x_val, y_val, is_no_nan_v, ps, st, loss_types, training_loss, agg)
 
     train_history = [l_init_train]
@@ -143,15 +148,15 @@ function train(
             y_val,
             l_init_train,
             l_init_val,
-            training_loss,
+            eval_metric,
             agg,
             target_names;
             monitor_names
         )
         zoom_epochs = min(patience, 50)
         # ! Launch dashboard if extension is loaded
-        train_board(init_observables..., fixed_observations..., yscale, target_names; monitor_names, zoom_epochs)
-        fig = dashboard_figure()
+        EasyHybrid.train_board(init_observables..., fixed_observations..., yscale, target_names, string(eval_metric); monitor_names, zoom_epochs)
+        fig = EasyHybrid.dashboard_figure()
     end
 
     # track physical parameters
@@ -239,7 +244,7 @@ function train(
                     init_observables...,
                     l_train,
                     l_val,
-                    training_loss,
+                    eval_metric,
                     agg,
                     current_ŷ_train,
                     current_ŷ_val,
@@ -252,8 +257,8 @@ function train(
             end
 
             current_agg_loss = getproperty(l_val[1], Symbol(agg))
-
-            if current_agg_loss < best_agg_loss
+            
+            if isbetter(current_agg_loss, best_agg_loss, eval_metric)
                 best_agg_loss = current_agg_loss
                 best_ps = deepcopy(ps)
                 best_st = deepcopy(st)
@@ -281,16 +286,15 @@ function train(
                 save_fig(img_name, dashboard_figure())
             end
 
-            _headers, paddings = header_and_paddings(get_loss_entries(l_init_train, training_loss))
+            _headers, paddings = header_and_paddings(get_loss_entries(l_init_train, eval_metric))
 
-            next!(
-                prog; showvalues = [
-                    ("epoch ", epoch),
-                    ("targets ", join(_headers, "  ")),
-                    (styled"{red:training-start }", styled_values(get_loss_entries(l_init_train, training_loss); paddings)),
-                    (styled"{bright_red:current }", styled_values(get_loss_entries(l_train, training_loss); color = :bright_red, paddings)),
-                    (styled"{cyan:validation-start }", styled_values(get_loss_entries(l_init_val, training_loss); paddings)),
-                    (styled"{bright_cyan:current }", styled_values(get_loss_entries(l_val, training_loss); color = :bright_cyan, paddings)),
+            next!(prog; showvalues = [
+                ("epoch ", epoch),
+                ("targets ", join(_headers, "  ")),
+                (styled"{red:training-start }", styled_values(get_loss_entries(l_init_train, eval_metric); paddings)),
+                (styled"{bright_red:current }", styled_values(get_loss_entries(l_train, eval_metric); color=:bright_red, paddings)),
+                (styled"{cyan:validation-start }", styled_values(get_loss_entries(l_init_val, eval_metric); paddings)),
+                (styled"{bright_cyan:current }", styled_values(get_loss_entries(l_val, eval_metric); color=:bright_cyan, paddings)),
                 ]
             )
             # TODO: log metrics
