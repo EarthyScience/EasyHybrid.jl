@@ -16,12 +16,12 @@ ModelSpec(; hyper_model = NamedTuple(), hyper_train = NamedTuple()) = ModelSpec(
 end
 
 function tune(hybrid_model, data, mspec::ModelSpec; kwargs...)
-    kwargs_model = merge(to_namedtuple(hybrid_model), (; kwargs...), mspec.hyper_model)
+    kwargs_model = merge(to_namedtuple(hybrid_model), hybrid_model.config, (; kwargs...), mspec.hyper_model)
     kwargs_train = merge((; kwargs...), mspec.hyper_train)
 
     hm = constructHybridModel(; kwargs_model...)
 
-    a, b = split_data(data, hm)
+    a, b = split_data(data, hm; kwargs_train...)
 
     return out = train(
         hm,
@@ -29,6 +29,23 @@ function tune(hybrid_model, data, mspec::ModelSpec; kwargs...)
         ();
         kwargs_train...
     )
+end
+
+function tune(hybrid_model, data; kwargs...)
+    kwargs_model = merge(to_namedtuple(hybrid_model), hybrid_model.config, (;kwargs...))
+
+    hm = constructHybridModel(;kwargs_model...)
+
+    a, b = EasyHybrid.split_data(data, hm; kwargs...)
+
+    out = train(
+        hm, 
+        (a, b), 
+        ();
+        kwargs...
+    )
+
+    return out
 end
 
 function best_hyperparams(ho::Hyperoptimizer)
