@@ -11,20 +11,22 @@ using ChainRulesCore
 # ------------------------------------------------------------------------------
 # Synthetic data similar to the example's columns (no network calls)
 # ------------------------------------------------------------------------------
-function make_synth_df(n::Int=512; seed::Int=42)
+function make_synth_df(n::Int = 512; seed::Int = 42)
     rng = MersenneTwister(seed)
     ta = 10 .+ 10 .* randn(rng, n)                # air temperature [°C]
     sw_pot = abs.(50 .+ 20 .* randn(rng, n))      # solar radiation-ish
     dsw_pot = vcat(0.0, diff(sw_pot))             # simple derivative
     true_Q10 = 2.0
-    true_rb  = 3.0 .+ 0.02 .* (sw_pot .- mean(sw_pot))
+    true_rb = 3.0 .+ 0.02 .* (sw_pot .- mean(sw_pot))
     tref = 15.0
     reco = true_rb .* (true_Q10 .^ (0.1 .* (ta .- tref))) .+ 0.1 .* randn(rng, n)
-    DataFrame(; ta = Float32.(ta),
-                 sw_pot = Float32.(sw_pot),
-                 dsw_pot = Float32.(dsw_pot),
-                 reco = Float32.(reco),
-                 id = 1:n)
+    return DataFrame(;
+        ta = Float32.(ta),
+        sw_pot = Float32.(sw_pot),
+        dsw_pot = Float32.(dsw_pot),
+        reco = Float32.(reco),
+        id = 1:n
+    )
 end
 
 # ------------------------------------------------------------------------------
@@ -37,7 +39,7 @@ end
 
 # Parameter spec analogous to the example
 const RbQ10_PARAMS = (
-    rb  = (3.0f0, 0.0f0, 13.0f0),
+    rb = (3.0f0, 0.0f0, 13.0f0),
     Q10 = (2.0f0, 1.0f0, 4.0f0),
 )
 
@@ -47,9 +49,9 @@ const RbQ10_PARAMS = (
 @testset "Book Chapter Example - RbQ10 Hybrid" begin
     df = make_synth_df(32)  # keep it small/fast
 
-    forcing   = [:ta]
+    forcing = [:ta]
     predictors = [:sw_pot, :dsw_pot]
-    target    = [:reco]
+    target = [:reco]
     global_param_names = [:Q10]
     neural_param_names = [:rb]
 
@@ -63,7 +65,8 @@ const RbQ10_PARAMS = (
         ka = prepare_data(model, df)
         @test !isnothing(ka)
 
-        trainshort(ka; kwargs...) = train(model, ka, ();
+        trainshort(ka; kwargs...) = train(
+            model, ka, ();
             nepochs = 1,
             batchsize = 12,
             plotting = false,
@@ -97,7 +100,7 @@ const RbQ10_PARAMS = (
         out = trainshort(ka, split_by_id = df.id, shuffleobs = false)
         @test !isnothing(out)
 
-        folds = make_folds(df, k=3, shuffle=true)
+        folds = make_folds(df, k = 3, shuffle = true)
         @test !isnothing(folds)
 
         df.folds = folds
@@ -120,14 +123,14 @@ const RbQ10_PARAMS = (
         @test !isnothing(out)
 
         mat = vcat(ka[1], ka[2])
-        da = DimArray(mat, (Dim{:col}(mat.keys[1]), Dim{:row}(1:size(mat,2))))'
+        da = DimArray(mat, (Dim{:col}(mat.keys[1]), Dim{:row}(1:size(mat, 2))))'
         ka = prepare_data(model, da)
         @test !isnothing(ka)
-        
+
         # TODO: this is not working, transpose da columns to rows?
         #dtuple_tuple = split_data(da, model)
         #@test !isnothing(dtuple_tuple)
-        # TODO: this is not working, need to fix GenericHybrid Model for DimensionalData 
+        # TODO: this is not working, need to fix GenericHybrid Model for DimensionalData
         # out = trainshort(dtuple_tuple)
     end
 end

@@ -4,7 +4,7 @@ using EasyHybrid
 using EasyHybrid.MLUtils
 
 # ? move the `csv` file into the `BulkDSOC/data` folder (create folder)
-df_o = CSV.read(joinpath(@__DIR__, "./data/lucas_overlaid.csv"), DataFrame, normalizenames=true)
+df_o = CSV.read(joinpath(@__DIR__, "./data/lucas_overlaid.csv"), DataFrame, normalizenames = true)
 println(size(df_o))
 
 coords = collect(zip(df_o.lat, df_o.lon))
@@ -30,34 +30,34 @@ end
 
 # rm missing values: 1. >5%, drop col; 2. <=5%, drop row
 cols_to_drop_row = Symbol[]
-cols_to_drop_col = Symbol[] 
+cols_to_drop_col = Symbol[]
 for col in names_cov
     n_missing = count(ismissing, df_o[!, col])
     frac_missing = n_missing / nrow(df_o)
     if frac_missing > 0.05
         println(n_missing, " ", col)
         select!(df_o, Not(col))  # drop the column
-        push!(cols_to_drop_col, col)  
+        push!(cols_to_drop_col, col)
     elseif n_missing > 0
         # println(n_missing, " ", col)
         push!(cols_to_drop_row, col)  # collect column name
     end
 
-    if occursin("CHELSA_kg", String(col)) 
-        push!(cols_to_drop_col, col) 
+    if occursin("CHELSA_kg", String(col))
+        push!(cols_to_drop_col, col)
         select!(df_o, Not(col))  # rm kg catagorical col
-    end 
+    end
 end
 
 names_cov = filter(x -> !(x in cols_to_drop_col), names_cov) # remove cols-to-drop from names_cov
-if !isempty(cols_to_drop_row) 
+if !isempty(cols_to_drop_row)
     df_o = subset(df_o, cols_to_drop_row .=> ByRow(!ismissing)) # drop rows with missing values in cols_to_drop_row
 end
 println(size(df_o))
 
-cols_to_drop_col = Symbol[] 
+cols_to_drop_col = Symbol[]
 for col in names_cov
-    if std(df_o[:,col])==0
+    if std(df_o[:, col]) == 0
         push!(cols_to_drop_col, col)  # rm constant col (std==0)
         select!(df_o, Not(col))
     end
@@ -75,7 +75,7 @@ rename!(df, :bulk_density_fe => :BD, :soc => :SOCconc, :coarse_vol => :CF) # ren
 df[:, :SOCconc] .= df[:, :SOCconc] ./ 1000 # convert to fraction
 
 # ? calculate SOC density
-df[!,:SOCdensity] = df.BD .* df.SOCconc .* (1 .- df.CF) # SOCdensity ton/m3
+df[!, :SOCdensity] = df.BD .* df.SOCconc .* (1 .- df.CF) # SOCdensity ton/m3
 target_names = [:BD, :SOCconc, :CF, :SOCdensity]
 # df[:, target_names] = replace.(df[:, target_names], missing => NaN) # replace missing with NaN
 
@@ -97,18 +97,18 @@ println(size(df))
 
 
 # plot BD vs SOCconc
-bd_lims = extrema(skipmissing(df[:, "BD"]))      
+bd_lims = extrema(skipmissing(df[:, "BD"]))
 soc_lims = extrema(skipmissing(df[:, "SOCconc"]))
 plt = histogram2d(
     df[:, "BD"], df[:, "SOCconc"];
-    nbins      = (30, 30),
-    cbar       = true,
-    xlab       = "BD",
-    ylab       = "SOCconc",
-    xlims=bd_lims, ylims=soc_lims,
+    nbins = (30, 30),
+    cbar = true,
+    xlab = "BD",
+    ylab = "SOCconc",
+    xlims = bd_lims, ylims = soc_lims,
     #title      = "SOCdensity-MTD\nR2=$(round(r2, digits=3)), MAE=$(round(mae, digits=3)), bias=$(round(bias, digits=3))",
-    color      = cgrad(:bamako, rev=true),
-    normalize  = false,
+    color = cgrad(:bamako, rev = true),
+    normalize = false,
     size = (460, 400)
-)   
+)
 savefig(plt, joinpath(@__DIR__, "./eval/00_truth_BD.vs.SOCconc.png"))

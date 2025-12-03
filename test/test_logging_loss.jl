@@ -16,19 +16,19 @@ import EasyHybrid: compute_loss
     @testset "Custom constructor" begin
         # Simple custom loss function
         custom_loss(ŷ, y) = mean(abs2, ŷ .- y)
-        
+
         # Loss function with args
         weighted_loss(ŷ, y, w) = w * mean(abs2, ŷ .- y)
-        
+
         # Loss function with kwargs
-        scaled_loss(ŷ, y; scale=1.0) = scale * mean(abs2, ŷ .- y)
+        scaled_loss(ŷ, y; scale = 1.0) = scale * mean(abs2, ŷ .- y)
 
         @testset "Basic custom constructor" begin
             logging = LoggingLoss(
-                loss_types=[:mse, :mae],
-                training_loss=:mae,
-                agg=mean,
-                train_mode=false
+                loss_types = [:mse, :mae],
+                training_loss = :mae,
+                agg = mean,
+                train_mode = false
             )
             @test logging.loss_types == [:mse, :mae]
             @test logging.training_loss == :mae
@@ -38,46 +38,46 @@ import EasyHybrid: compute_loss
 
         @testset "Mixed loss_types" begin
             logging = LoggingLoss(
-                loss_types=[:mse, custom_loss, (weighted_loss, (0.5,)), (scaled_loss, (scale=2.0,))],
-                training_loss=:mse,
-                agg=sum
+                loss_types = [:mse, custom_loss, (weighted_loss, (0.5,)), (scaled_loss, (scale = 2.0,))],
+                training_loss = :mse,
+                agg = sum
             )
             @test length(logging.loss_types) == 4
             @test logging.loss_types[1] == :mse
             @test logging.loss_types[2] == custom_loss
             @test logging.loss_types[3] == (weighted_loss, (0.5,))
-            @test logging.loss_types[4] == (scaled_loss, (scale=2.0,))
+            @test logging.loss_types[4] == (scaled_loss, (scale = 2.0,))
         end
 
         @testset "Custom training_loss variations" begin
             # Function as training_loss
             logging = LoggingLoss(
-                loss_types=[:mse],
-                training_loss=custom_loss
+                loss_types = [:mse],
+                training_loss = custom_loss
             )
             @test logging.training_loss == custom_loss
 
             # Tuple with args as training_loss
             logging = LoggingLoss(
-                loss_types=[:mse],
-                training_loss=(weighted_loss, (0.5,))
+                loss_types = [:mse],
+                training_loss = (weighted_loss, (0.5,))
             )
             @test logging.training_loss == (weighted_loss, (0.5,))
 
             # Tuple with kwargs as training_loss
             logging = LoggingLoss(
-                loss_types=[:mse],
-                training_loss=(scaled_loss, (scale=2.0,))
+                loss_types = [:mse],
+                training_loss = (scaled_loss, (scale = 2.0,))
             )
-            @test logging.training_loss == (scaled_loss, (scale=2.0,))
+            @test logging.training_loss == (scaled_loss, (scale = 2.0,))
 
             # Tuple with both args and kwargs
-            complex_loss(x, y, w; scale=1.0) = scale * w * mean(abs2, x .- y)
+            complex_loss(x, y, w; scale = 1.0) = scale * w * mean(abs2, x .- y)
             logging = LoggingLoss(
-                loss_types=[:mse],
-                training_loss=(complex_loss, (0.5,), (scale=2.0,))
+                loss_types = [:mse],
+                training_loss = (complex_loss, (0.5,), (scale = 2.0,))
             )
-            @test logging.training_loss == (complex_loss, (0.5,), (scale=2.0,))
+            @test logging.training_loss == (complex_loss, (0.5,), (scale = 2.0,))
         end
     end
 end
@@ -93,7 +93,7 @@ end
         # Test single predefined loss
         loss = compute_loss(ŷ, y, y_nan, targets, :mse, sum)
         @test loss isa Number
-        
+
         # Test multiple predefined losses
         losses = compute_loss(ŷ, y, y_nan, targets, [:mse, :mae], sum)
         @test losses isa NamedTuple
@@ -113,13 +113,13 @@ end
         @test loss isa Number
 
         # Custom loss with kwargs
-        scaled_loss(ŷ, y; scale=1.0) = scale * mean(abs2, ŷ .- y)
-        loss = compute_loss(ŷ, y, y_nan, targets, (scaled_loss, (scale=2.0,)), sum)
+        scaled_loss(ŷ, y; scale = 1.0) = scale * mean(abs2, ŷ .- y)
+        loss = compute_loss(ŷ, y, y_nan, targets, (scaled_loss, (scale = 2.0,)), sum)
         @test loss isa Number
 
         # Custom loss with both
-        complex_loss(ŷ, y, w; scale=1.0) = scale * w * mean(abs2, ŷ .- y)
-        loss = compute_loss(ŷ, y, y_nan, targets, (complex_loss, (0.5,), (scale=2.0,)), sum)
+        complex_loss(ŷ, y, w; scale = 1.0) = scale * w * mean(abs2, ŷ .- y)
+        loss = compute_loss(ŷ, y, y_nan, targets, (complex_loss, (0.5,), (scale = 2.0,)), sum)
         @test loss isa Number
     end
 
@@ -130,7 +130,7 @@ end
             :var2 => DimArray([2.0, 3.0, 4.0], (Ti(1:3),))
         )
         y_dim = DimArray([1.1 1.8; 1.9 3.1; 3.2 3.9], (Ti(1:3), Dim{:col}([:var1, :var2])))
-        y_nan_dim = DimArray(trues(3,2), (Ti(1:3), Dim{:col}([:var1, :var2])))
+        y_nan_dim = DimArray(trues(3, 2), (Ti(1:3), Dim{:col}([:var1, :var2])))
 
         # Test single predefined loss
         loss = compute_loss(ŷ_dim, y_dim, y_nan_dim, targets, :mse, sum)

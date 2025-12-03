@@ -16,12 +16,14 @@ end
 
     - nn_chain :: DenseNN, a Dense neural network
 """
-function LinearHybridModel_2outputs(predictors::AbstractArray{Symbol}, forcing::AbstractArray{Symbol},
-    out_dim::Int, neurons::Int, nn_chain; a=[1.0f0], b=[1.5f0])
+function LinearHybridModel_2outputs(
+        predictors::AbstractArray{Symbol}, forcing::AbstractArray{Symbol},
+        out_dim::Int, neurons::Int, nn_chain; a = [1.0f0], b = [1.5f0]
+    )
 
     in_dim = length(predictors)
     ch = nn_chain(in_dim, out_dim, neurons)
-    LinearHybridModel_2outputs(ch, predictors, forcing, a, b)
+    return LinearHybridModel_2outputs(ch, predictors, forcing, a, b)
 end
 
 

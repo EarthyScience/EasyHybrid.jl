@@ -39,19 +39,19 @@ end
 
 # Parameter specification: (default, lower_bound, upper_bound)
 parameters = (
-    rb  = (3.0f0, 0.0f0, 13.0f0),
-    Q10 = (2.0f0, 1.0f0, 4.0f0)
+    rb = (3.0f0, 0.0f0, 13.0f0),
+    Q10 = (2.0f0, 1.0f0, 4.0f0),
 )
 
 # ## 5. Configure Hybrid Model Components
 
 # Define input variables
 # Forcing variables (temperature)
-forcing     = [:ta]
+forcing = [:ta]
 # Predictor variables (solar radiation, and its derivative)
-predictors  = [:sw_pot, :dsw_pot]
+predictors = [:sw_pot, :dsw_pot]
 # Target variable (respiration)
-target      = [:reco]
+target = [:reco]
 
 # Parameter classification
 # Global parameters (same for all samples)
@@ -86,9 +86,9 @@ results = Vector{Any}(undef, k)
     @info "Split data outside of train function. Training fold $val_fold of $k"
     sdata = split_data(df, hybrid_model; val_fold = val_fold, folds = folds)
     out = train(
-        hybrid_model, 
-        sdata, 
-        (); 
+        hybrid_model,
+        sdata,
+        ();
         nepochs = 10,
         patience = 10,
         batchsize = 512,         # Batch size for training
