@@ -10,7 +10,7 @@ struct WrappedTuples{T <: AbstractVector{<:NamedTuple}} <: AbstractVector{NamedT
 end
 
 # Required methods for AbstractVector
-Base.size(w::WrappedTuples) = (length(w.data), length(first(w.data)))
+Base.size(w::WrappedTuples) = (length(w.data),)
 Base.getindex(w::WrappedTuples, i::Int) = w.data[i]
 Base.getindex(w::WrappedTuples, r::AbstractRange) = WrappedTuples(w.data[r])
 Base.IndexStyle(::Type{<:WrappedTuples}) = IndexLinear()
