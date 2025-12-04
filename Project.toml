@@ -1,7 +1,7 @@
 name = "EasyHybrid"
 uuid = "61bb816a-e6af-4913-ab9e-91bff2e122e3"
-authors = ["Lazaro Alonso", "Bernhard Ahrens", "Markus Reichstein"]
 version = "0.1.7"
+authors = ["Lazaro Alonso", "Bernhard Ahrens", "Markus Reichstein"]
 
 [deps]
 AxisKeys = "94b1ba4f-4ee9-5380-92f1-94cde586c3c5"
@@ -60,6 +60,7 @@ OptimizationOptimisers = "0.3.7"
 PrettyTables = "2.4.0, 3.1.2"
 ProgressMeter = "1.10.4"
 Reexport = "1.2.2"
+Statistics = "1"
 StyledStrings = "1.0.3, 1.11.0"
 Zygote = "0.7.7"
 julia = "1.10"
