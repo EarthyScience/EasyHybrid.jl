@@ -78,12 +78,12 @@ function loss_fn(ŷ, y, y_nan, ::Val{:pearsonLoss})
 end
 
 function loss_fn(ŷ, y, y_nan, ::Val{:nseLoss})
-    return sum((ŷ[y_nan] .- y[y_nan]).^2) / sum((y[y_nan] .- mean(y[y_nan])).^2)
+    return sum((ŷ[y_nan] .- y[y_nan]) .^ 2) / sum((y[y_nan] .- mean(y[y_nan])) .^ 2)
 end
 
 # one minus nse
 function loss_fn(ŷ, y, y_nan, ::Val{:nse})
-    return one(eltype(ŷ)) - (sum((ŷ[y_nan] .- y[y_nan]).^2) / sum((y[y_nan] .- mean(y[y_nan])).^2))
+    return one(eltype(ŷ)) - (sum((ŷ[y_nan] .- y[y_nan]) .^ 2) / sum((y[y_nan] .- mean(y[y_nan])) .^ 2))
 end
 
 function loss_fn(ŷ, y, y_nan, training_loss::Function)
@@ -106,7 +106,7 @@ end
 # Kling–Gupta Efficiency loss (to MINIMIZE)
 function loss_fn(ŷ, y, y_nan, ::Val{:kgeLoss})
     ŷv = ŷ[y_nan]
-    yv  = y[y_nan]
+    yv = y[y_nan]
 
     μ_s = mean(ŷv)
     μ_o = mean(yv)
@@ -120,9 +120,11 @@ function loss_fn(ŷ, y, y_nan, ::Val{:kgeLoss})
     β = μ_s / μ_o
 
     # KGE_loss = sqrt((r - 1)^2 + (α - 1)^2 + (β - 1)^2)
-    return sqrt((r - one(eltype(ŷ)))^2 +
-                (α - one(eltype(ŷ)))^2 +
-                (β - one(eltype(ŷ)))^2)
+    return sqrt(
+        (r - one(eltype(ŷ)))^2 +
+            (α - one(eltype(ŷ)))^2 +
+            (β - one(eltype(ŷ)))^2
+    )
 end
 
 # Kling–Gupta Efficiency metric (to MAXIMIZE, e.g. for reporting)
@@ -134,7 +136,7 @@ end
 # Kling–Gupta Efficiency loss (to MINIMIZE)
 function loss_fn(ŷ, y, y_nan, ::Val{:pbkgeLoss})
     ŷv = ŷ[y_nan]
-    yv  = y[y_nan]
+    yv = y[y_nan]
 
     μ_s = mean(ŷv)
     μ_o = mean(yv)
@@ -143,8 +145,10 @@ function loss_fn(ŷ, y, y_nan, ::Val{:pbkgeLoss})
 
     β = μ_s / μ_o
 
-    return sqrt((r - one(eltype(ŷ)))^2 +
-                (β - one(eltype(ŷ)))^2)
+    return sqrt(
+        (r - one(eltype(ŷ)))^2 +
+            (β - one(eltype(ŷ)))^2
+    )
 end
 
 function loss_fn(ŷ, y, y_nan, ::Val{:pbkge})
@@ -169,9 +173,11 @@ isbetter(new, best, ::Maximize) = new > best
 
 function check_training_loss(loss_type)
     if bestdirection(Val(loss_type)) isa Maximize
-        error("Got a metric that is defined as `to be maximized` as a training loss: $(loss_type).\n" *
-              "For training you must use a true loss (to be minimized), e.g. " *
-              ":nseLoss (1-NSE), :kgeLoss (1-KGE), :pearsonLoss (1-Pearson), or :mse.")
+        error(
+            "Got a metric that is defined as `to be maximized` as a training loss: $(loss_type).\n" *
+                "For training you must use a true loss (to be minimized), e.g. " *
+                ":nseLoss (1-NSE), :kgeLoss (1-KGE), :pearsonLoss (1-Pearson), or :mse."
+        )
     end
     return nothing
 end

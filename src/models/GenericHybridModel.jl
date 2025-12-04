@@ -62,7 +62,7 @@ struct MultiNNHybridModel
     fixed_param_names::Vector{Symbol}
     scale_nn_outputs::Bool
     start_from_default::Bool
-    config :: NamedTuple
+    config::NamedTuple
 end
 
 # Unified constructor that dispatches based on predictors type
@@ -106,14 +106,16 @@ function constructHybridModel(
 
     fixed_param_names = [ n for n in all_names if !(n in [neural_param_names..., global_param_names...]) ]
 
-        # capture the configuration used for construction
-    config = (; hidden_layers,
+    # capture the configuration used for construction
+    config = (;
+        hidden_layers,
         activation,
         scale_nn_outputs,
         input_batchnorm,
         start_from_default,
-        kwargs...)
-    
+        kwargs...,
+    )
+
     return SingleNNHybridModel(NN, predictors, forcing, targets, mechanistic_model, parameters, neural_param_names, global_param_names, fixed_param_names, scale_nn_outputs, start_from_default, config)
 end
 
@@ -171,13 +173,15 @@ function constructHybridModel(
     fixed_param_names = [ n for n in all_names if !(n in [neural_param_names..., global_param_names...]) ]
 
     # capture the configuration used for construction
-    config = (; hidden_layers,
-               activation,
-               scale_nn_outputs,
-               input_batchnorm,
-               start_from_default,
-               kwargs...)
-    
+    config = (;
+        hidden_layers,
+        activation,
+        scale_nn_outputs,
+        input_batchnorm,
+        start_from_default,
+        kwargs...,
+    )
+
     return MultiNNHybridModel(NNs, predictors, forcing, targets, mechanistic_model, parameters, neural_param_names, global_param_names, fixed_param_names, scale_nn_outputs, start_from_default, config)
 end
 

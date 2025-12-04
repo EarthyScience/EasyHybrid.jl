@@ -250,21 +250,21 @@ loss curves, and time‑series for additional monitored outputs.
 - `zoom_epochs`: Number of epochs to zoom in on loss curve
 """
 function EasyHybrid.train_board(
-    train_loss,
-    val_loss,
-    train_preds,
-    val_preds,
-    train_monitor,
-    val_monitor,
-    train_obs,
-    val_obs,
-    yscale,
-    target_names,
-    loss_type;
-    monitor_names,
-    zoom_epochs
-)
-    n_targets  = length(target_names)
+        train_loss,
+        val_loss,
+        train_preds,
+        val_preds,
+        train_monitor,
+        val_monitor,
+        train_obs,
+        val_obs,
+        yscale,
+        target_names,
+        loss_type;
+        monitor_names,
+        zoom_epochs
+    )
+    n_targets = length(target_names)
     n_monitors = length(monitor_names)
     # total_rows = max(n_targets, n_monitors)
     total_gds = (n_targets + n_monitors)
@@ -288,7 +288,7 @@ function EasyHybrid.train_board(
     end
 
     # gd_losses
-    ax_loss = Makie.Axis(gd_losses[1, 1]; yscale = yscale, xlabel = "Epoch", ylabel = "$(string(loss_type))", aspect=1)
+    ax_loss = Makie.Axis(gd_losses[1, 1]; yscale = yscale, xlabel = "Epoch", ylabel = "$(string(loss_type))", aspect = 1)
     Makie.lines!(ax_loss, train_loss; color = :grey25, label = "Training", linewidth = 2)
     Makie.lines!(ax_loss, val_loss; color = :tomato, label = "Validation", linewidth = 2)
     # Zoomed loss in last zoom_epochs

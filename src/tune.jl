@@ -32,15 +32,15 @@ function tune(hybrid_model, data, mspec::ModelSpec; kwargs...)
 end
 
 function tune(hybrid_model, data; kwargs...)
-    kwargs_model = merge(to_namedtuple(hybrid_model), hybrid_model.config, (;kwargs...))
+    kwargs_model = merge(to_namedtuple(hybrid_model), hybrid_model.config, (; kwargs...))
 
-    hm = constructHybridModel(;kwargs_model...)
+    hm = constructHybridModel(; kwargs_model...)
 
     a, b = EasyHybrid.split_data(data, hm; kwargs...)
 
     out = train(
-        hm, 
-        (a, b), 
+        hm,
+        (a, b),
         ();
         kwargs...
     )
