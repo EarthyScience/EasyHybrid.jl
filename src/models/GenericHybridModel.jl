@@ -34,9 +34,13 @@ end
 
 # ───────────────────────────────────────────────────────────────────────────
 # Single NN Hybrid Model Structure (optimized for performance)
-struct SingleNNHybridModel <: LuxCore.AbstractLuxContainerLayer{(:NN, :predictors, :forcing, :targets,
-    :mechanistic_model, :parameters, :neural_param_names, :global_param_names, :fixed_param_names,
-    :scale_nn_outputs, :start_from_default)}
+struct SingleNNHybridModel <: LuxCore.AbstractLuxContainerLayer{
+        (
+            :NN, :predictors, :forcing, :targets,
+            :mechanistic_model, :parameters, :neural_param_names, :global_param_names, :fixed_param_names,
+            :scale_nn_outputs, :start_from_default,
+        ),
+    }
     NN::Chain
     predictors::Vector{Symbol}
     forcing::Vector{Symbol}
@@ -51,9 +55,13 @@ struct SingleNNHybridModel <: LuxCore.AbstractLuxContainerLayer{(:NN, :predictor
 end
 
 # Multi-NN Hybrid Model Structure (optimized for performance)
-struct MultiNNHybridModel <: LuxCore.AbstractLuxContainerLayer{(:NN, :predictors, :forcing, :targets,
-    :mechanistic_model, :parameters, :neural_param_names, :global_param_names, :fixed_param_names,
-    :scale_nn_outputs, :start_from_default)}
+struct MultiNNHybridModel <: LuxCore.AbstractLuxContainerLayer{
+        (
+            :NN, :predictors, :forcing, :targets,
+            :mechanistic_model, :parameters, :neural_param_names, :global_param_names, :fixed_param_names,
+            :scale_nn_outputs, :start_from_default,
+        ),
+    }
 
     NNs::NamedTuple
     predictors::NamedTuple
