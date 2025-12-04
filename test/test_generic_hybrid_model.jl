@@ -413,9 +413,9 @@ end
         @test haskey(output.parameters, :b)
         @test haskey(output.parameters, :c)
         @test haskey(output.parameters, :d)
-        @test haskey(new_st.st, :a)
-        @test haskey(new_st.st, :d)
-        @test haskey(new_st.st, :fixed)
+        @test haskey(new_st, :a)
+        @test haskey(new_st, :d)
+        @test haskey(new_st, :fixed)
     end
 
     @testset "MultiNNHybridModel with scale_nn_outputs=true" begin
