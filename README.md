@@ -13,6 +13,8 @@
 
 [![][latest-release-img]][latest-release-url]
 [![][julia-img]][julia-url]
+
+[![][contributors-img]][contributors-url]
 [![][code-style-img]][code-style-url]
 [![][license-img]][license-url]
 
@@ -49,6 +51,9 @@
 
 [zenodo-img]: https://zenodo.org/badge/DOI/10.5281/zenodo.17794982.svg
 [zenodo-url]: https://doi.org/10.5281/zenodo.17794982
+
+[contributors-img]: https://img.shields.io/badge/Contributor's%20Guide-blueviolet?style=round-square
+[contributors-url]: https://github.com/EarthyScience/EasyHybrid.jl/blob/main/CONTRIBUTING.md
 
 [license-img]: https://img.shields.io/badge/License-MIT-green.svg?style=round-square
 [license-url]: https://github.com/EarthyScience/EasyHybrid.jl/blob/main/LICENSE
