@@ -97,7 +97,7 @@ function train(
 
     #! check if the EasyHybridMakie extension is loaded.
     ext = Base.get_extension(@__MODULE__, :EasyHybridMakie)
-    
+
     #! check if the training loss is a minimizing loss.
     check_training_loss(training_loss)
 
@@ -132,7 +132,7 @@ function train(
 
     eval_metric = loss_types[1]
 
-    l_init_train, _, init_ŷ_train =  evaluate_acc(hybridModel, x_train, y_train, is_no_nan_t, ps, st, loss_types, training_loss, agg)
+    l_init_train, _, init_ŷ_train = evaluate_acc(hybridModel, x_train, y_train, is_no_nan_t, ps, st, loss_types, training_loss, agg)
     l_init_val, _, init_ŷ_val = evaluate_acc(hybridModel, x_val, y_val, is_no_nan_v, ps, st, loss_types, training_loss, agg)
 
     train_history = [l_init_train]
@@ -257,7 +257,7 @@ function train(
             end
 
             current_agg_loss = getproperty(l_val[1], Symbol(agg))
-            
+
             if isbetter(current_agg_loss, best_agg_loss, eval_metric)
                 best_agg_loss = current_agg_loss
                 best_ps = deepcopy(ps)
@@ -288,13 +288,14 @@ function train(
 
             _headers, paddings = header_and_paddings(get_loss_entries(l_init_train, eval_metric))
 
-            next!(prog; showvalues = [
-                ("epoch ", epoch),
-                ("targets ", join(_headers, "  ")),
-                (styled"{red:training-start }", styled_values(get_loss_entries(l_init_train, eval_metric); paddings)),
-                (styled"{bright_red:current }", styled_values(get_loss_entries(l_train, eval_metric); color=:bright_red, paddings)),
-                (styled"{cyan:validation-start }", styled_values(get_loss_entries(l_init_val, eval_metric); paddings)),
-                (styled"{bright_cyan:current }", styled_values(get_loss_entries(l_val, eval_metric); color=:bright_cyan, paddings)),
+            next!(
+                prog; showvalues = [
+                    ("epoch ", epoch),
+                    ("targets ", join(_headers, "  ")),
+                    (styled"{red:training-start }", styled_values(get_loss_entries(l_init_train, eval_metric); paddings)),
+                    (styled"{bright_red:current }", styled_values(get_loss_entries(l_train, eval_metric); color = :bright_red, paddings)),
+                    (styled"{cyan:validation-start }", styled_values(get_loss_entries(l_init_val, eval_metric); paddings)),
+                    (styled"{bright_cyan:current }", styled_values(get_loss_entries(l_val, eval_metric); color = :bright_cyan, paddings)),
                 ]
             )
             # TODO: log metrics
