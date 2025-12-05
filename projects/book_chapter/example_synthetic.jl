@@ -160,7 +160,6 @@ single_nn_model.targets
 # TODO does not train well build on top of MultiNNHybridModel
 
 
-
 # =============================================================================
 # Results Analysis
 # =============================================================================

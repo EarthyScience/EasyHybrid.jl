@@ -194,9 +194,10 @@ function train(
     @info "Check the saved output (.png, .mp4, .jld2) from training at: $(tmp_folder)"
 
     prog = Progress(nepochs, desc = "Training loss", enabled = show_progress)
-    loss(hybridModel, ps, st, (x, y)) = lossfn(hybridModel, ps, st, (x, y);
-                            logging=LoggingLoss(train_mode = true, loss_types = loss_types, training_loss = training_loss, agg = agg)
-                        )
+    loss(hybridModel, ps, st, (x, y)) = lossfn(
+        hybridModel, ps, st, (x, y);
+        logging = LoggingLoss(train_mode = true, loss_types = loss_types, training_loss = training_loss, agg = agg)
+    )
     maybe_record_history(!isnothing(ext), fig, joinpath(tmp_folder, "training_history_$(hybrid_name).mp4"); framerate = 24) do io
         for epoch in 1:nepochs
             for (x, y) in train_loader
@@ -206,7 +207,8 @@ function train(
                     # ? let's keep grads, they might be useful for mixed gradient methods
                     grads, loss_val, stats, train_state = Lux.Training.single_train_step!(
                         autodiff_backend, loss, (x, (y, is_no_nan)), train_state;
-                        return_gradients)
+                        return_gradients
+                    )
                 end
             end
 
@@ -358,7 +360,7 @@ function train(
 end
 
 function evaluate_acc(ghm, x, y, y_no_nan, ps, st, loss_types, training_loss, agg)
-    loss_val, sts, ŷ = lossfn(ghm, ps, st, (x, (y, y_no_nan)),logging=LoggingLoss(train_mode = false, loss_types = loss_types, training_loss = training_loss, agg = agg))
+    loss_val, sts, ŷ = lossfn(ghm, ps, st, (x, (y, y_no_nan)), logging = LoggingLoss(train_mode = false, loss_types = loss_types, training_loss = training_loss, agg = agg))
     return loss_val, sts, ŷ
 end
 function maybe_record_history(block, should_record, fig, output_path; framerate = 24)

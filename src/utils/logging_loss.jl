@@ -103,7 +103,7 @@ function lossfn(HM::LuxCore.AbstractLuxContainerLayer, ps, st, (x, (y_t, y_nan))
     else
         ŷ, y, y_nan, _ = get_predictions_targets(HM, x, (y_t, y_nan), ps, LuxCore.testmode(st), targets)
         loss_value = compute_loss(ŷ, y, y_nan, targets, logging.loss_types, logging.agg)
-        stats = (;ŷ...)
+        stats = (; ŷ...)
     end
     return loss_value, st, stats
 end

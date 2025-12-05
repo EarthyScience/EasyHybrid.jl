@@ -6,10 +6,10 @@ using ..EasyHybrid: hard_sigmoid
 # Pure Neural Network Models (no mechanistic component)
 
 struct SingleNNModel <: LuxCore.AbstractLuxContainerLayer{
-    (
-        :NN, :predictors, :targets, :scale_nn_outputs,
-    ),
-}
+        (
+            :NN, :predictors, :targets, :scale_nn_outputs,
+        ),
+    }
     NN::Chain
     predictors::Vector{Symbol}
     targets::Vector{Symbol}
