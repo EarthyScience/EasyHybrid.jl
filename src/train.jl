@@ -207,6 +207,7 @@ function train(
                         autodiff_backend, loss, (x, y), train_state;
                         return_gradients
                     )
+                train_state.st = (;train_state.st...)
                 end
             end
 
