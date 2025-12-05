@@ -357,7 +357,7 @@ function (m::SingleNNHybridModel)(ds_k::KeyedArray, ps, st)
 
     # 3) scale NN parameters (handle empty case)
     if !isempty(m.neural_param_names)
-        nn_out, st_NN = LuxCore.apply(m.NN, predictors, ps.ps, st.st_nn)
+        nn_out, st_nn = LuxCore.apply(m.NN, predictors, ps.ps, st.st_nn)
         nn_cols = eachrow(nn_out)
         nn_params = NamedTuple(zip(m.neural_param_names, nn_cols))
 
@@ -373,7 +373,7 @@ function (m::SingleNNHybridModel)(ds_k::KeyedArray, ps, st)
         scaled_nn_params = NamedTuple(zip(m.neural_param_names, scaled_nn_vals))
     else
         scaled_nn_params = NamedTuple()
-        st_NN = st.st_nn
+        st_nn = st.st_nn
     end
 
     # 4) pick fixed parameters (handle empty case)
@@ -395,7 +395,7 @@ function (m::SingleNNHybridModel)(ds_k::KeyedArray, ps, st)
     y_pred = m.mechanistic_model(; all_kwargs...)
 
     out = (; y_pred..., parameters = all_params)
-    st_new = (; st_nn = st_NN, fixed = st.fixed)
+    st_new = (; st_nn = st_nn, fixed = st.fixed)
 
     return out, st_new
 end

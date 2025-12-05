@@ -171,7 +171,7 @@ end
 # Forward pass for SingleNNModel
 function (m::SingleNNModel)(ds_k, ps, st)
     predictors = ds_k(m.predictors)
-    nn_out, st_NN = LuxCore.apply(m.NN, predictors, ps.ps, st.st_nn)
+    nn_out, st_nn = LuxCore.apply(m.NN, predictors, ps.ps, st.st_nn)
     nn_cols = eachrow(nn_out)
     nn_params = NamedTuple(zip(m.targets, nn_cols))
     if m.scale_nn_outputs
@@ -182,7 +182,7 @@ function (m::SingleNNModel)(ds_k, ps, st)
     scaled_nn_params = NamedTuple(zip(m.targets, scaled_nn_vals))
 
     out = (; scaled_nn_params...)
-    st_new = (; st_nn = st_NN)
+    st_new = (; st_nn = st_nn)
     return out, st_new
 end
 
