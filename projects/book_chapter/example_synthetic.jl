@@ -13,6 +13,8 @@ using Pkg
 
 # Set project path and activate environment
 project_path = "projects/book_chapter"
+#Pkg.resolve()
+#Pkg.instantiate()
 Pkg.activate(project_path)
 
 using EasyHybrid
@@ -79,7 +81,7 @@ hybrid_model = constructHybridModel(
     hidden_layers = [16, 16], # Neural network architecture
     activation = sigmoid,      # Activation function
     scale_nn_outputs = true, # Scale neural network outputs
-    input_batchnorm = false   # Apply batch normalization to inputs
+    input_batchnorm = true   # Apply batch normalization to inputs
 )
 
 # =============================================================================
