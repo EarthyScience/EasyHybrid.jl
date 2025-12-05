@@ -212,6 +212,10 @@ function train(
                 end
             end
 
+            # sync ps and st from train_state
+            ps = train_state.parameters
+            st = train_state.states
+
             ps_values = [copy(getproperty(ps, e)[1]) for e in save_ps]
             tmp_e = NamedTuple{save_ps}(ps_values)
 
