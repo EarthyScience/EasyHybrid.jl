@@ -5,7 +5,7 @@ function print_key_value(io, key, value; color = :light_red)
     return println(io)
 end
 
-function Base.show(io::IO, pc::ParameterContainer)
+function Base.show(io::IO, ::MIME"text/plain", pc::ParameterContainer)
     table = pc.table
     println(io)
     return PrettyTables.pretty_table(
@@ -16,7 +16,7 @@ function Base.show(io::IO, pc::ParameterContainer)
     )
 end
 
-function Base.show(io::IO, hm::SingleNNHybridModel)
+function Base.show(io::IO, ::MIME"text/plain", hm::SingleNNHybridModel)
     println(io, "Neural Network:")
     show(IndentedIO(io), MIME"text/plain"(), hm.NN)
     println(io)
@@ -32,7 +32,7 @@ function Base.show(io::IO, hm::SingleNNHybridModel)
     return show(IndentedIO(io), MIME"text/plain"(), hm.parameters)
 end
 
-function Base.show(io::IO, hm::MultiNNHybridModel)
+function Base.show(io::IO, ::MIME"text/plain", hm::MultiNNHybridModel)
     printstyled(io, "Neural Networks:"; color = :light_yellow)
     println(io)
     for (name, nn) in pairs(hm.NNs)

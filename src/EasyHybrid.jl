@@ -30,6 +30,7 @@ using Reexport: @reexport
 using Statistics: Statistics, mean, cor, quantile, var
 using StyledStrings: StyledStrings, @styled_str
 using Zygote: Zygote
+using Static: False, True
 
 @reexport begin
     import LuxCore

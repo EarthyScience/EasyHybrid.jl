@@ -9,7 +9,6 @@ abstract type EasyHybridModels end
 # include("SinusHybridModel.jl")
 include("LinearHM.jl")
 include("Respiration_Rb_Q10.jl")
-include("BulkDensity_SOC.jl")
 include("Rs_components.jl")
 include("simple_Rb_Q10_PBM.jl")
 include("GenericHybridModel.jl")
