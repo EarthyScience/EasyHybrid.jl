@@ -96,15 +96,16 @@ Main loss function for hybrid models that handles both training and evaluation m
 """
 function lossfn(HM::LuxCore.AbstractLuxContainerLayer, ps, st, (x, (y_t, y_nan)); logging::LoggingLoss)
     targets = HM.targets
-    ŷ, y, y_nan, st_new = get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
     if logging.train_mode
+        ŷ, y, y_nan, st = get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
         loss_value = compute_loss(ŷ, y, y_nan, targets, logging.training_loss, logging.agg)
         stats = NamedTuple()
     else
+        ŷ, y, y_nan, _ = get_predictions_targets(HM, x, (y_t, y_nan), ps, LuxCore.testmode(st), targets)
         loss_value = compute_loss(ŷ, y, y_nan, targets, logging.loss_types, logging.agg)
         stats = (;ŷ...)
     end
-    return loss_value, st_new, stats
+    return loss_value, st, stats
 end
 
 function lossfn(HM::Union{SingleNNHybridModel, MultiNNHybridModel, SingleNNModel, MultiNNModel}, ps, st, (x, (y_t, y_nan)); logging::LoggingLoss)
@@ -112,12 +113,11 @@ function lossfn(HM::Union{SingleNNHybridModel, MultiNNHybridModel, SingleNNModel
     ŷ, y, y_nan, st_new = get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
     if logging.train_mode
         loss_value = compute_loss(ŷ, y, y_nan, targets, logging.training_loss, logging.agg)
-        stats = NamedTuple()
+        return loss_value, st_new, NamedTuple()
     else
         loss_value = compute_loss(ŷ, y, y_nan, targets, logging.loss_types, logging.agg)
-        stats = (;ŷ...)
+        return loss_value, st, (;ŷ...)
     end
-    return loss_value, st_new, stats
 end
 
 @kwdef struct HybridLoss <: Lux.AbstractLossFunction
