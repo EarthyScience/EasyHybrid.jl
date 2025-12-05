@@ -122,7 +122,6 @@ function train(
         ps, st = get_ps_st(train_from)
     end
 
-    # opt_state = Optimisers.setup(opt, ps)
     train_state = Lux.Training.TrainState(hybridModel, ps, st, opt)
 
     # ? initial losses
@@ -198,7 +197,6 @@ function train(
     loss(hybridModel, ps, st, (x, y)) = lossfn(hybridModel, ps, st, (x, y);
                             logging=LoggingLoss(train_mode = true, loss_types = loss_types, training_loss = training_loss, agg = agg)
                         )
-    #loss = HybridLoss(parent_loss = MSELoss(), inner_agg = mean, outer_agg = mean, targets = target_names)
     maybe_record_history(!isnothing(ext), fig, joinpath(tmp_folder, "training_history_$(hybrid_name).mp4"); framerate = 24) do io
         for epoch in 1:nepochs
             for (x, y) in train_loader
