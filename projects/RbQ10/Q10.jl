@@ -29,11 +29,15 @@ forcing_names = [:cham_temp_filled]
 predictor_names = [:moisture_filled, :rgpot2]
 
 # Define neural network
-NN = Chain(Dense(2, 15, relu), Dense(15, 15, relu), Dense(15, 1));
+NN = Chain(Lux.BatchNorm(2, affine = false), Dense(2, 15, relu), Dense(15, 15, relu), Dense(15, 1));
 # instantiate Hybrid Model
 RbQ10 = RespirationRbQ10(NN, predictor_names, forcing_names, target_names, 2.5f0) # ? do different initial Q10s
 # train model
 out = train(RbQ10, ds_keyed, (:Q10,); nepochs = 100, batchsize = 512, opt = Adam(0.01), monitor_names = [:Rb]);
+
+out.st
+mean(ds_keyed(:moisture_filled))
+mean(ds_keyed(:rgpot2)) # BatchNorm works as expected
 
 # ? with AutoEnzyme()
 # ! KeyedArrays failed!
