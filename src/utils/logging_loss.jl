@@ -94,28 +94,30 @@ Main loss function for hybrid models that handles both training and evaluation m
 - In evaluation mode (`logging.train_mode = false`):
   - `(loss_values, st, ŷ)`: NamedTuple of losses, state and predictions
 """
-function lossfn(HM::LuxCore.AbstractLuxContainerLayer, x, (y_t, y_nan), ps, st, logging::LoggingLoss)
+function lossfn(HM::LuxCore.AbstractLuxContainerLayer, ps, st, (x, (y_t, y_nan)); logging::LoggingLoss)
     targets = HM.targets
-    ŷ, y, y_nan, st = get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
+    ŷ, y, y_nan, st_new = get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
     if logging.train_mode
         loss_value = compute_loss(ŷ, y, y_nan, targets, logging.training_loss, logging.agg)
-        return loss_value, st
+        stats = NamedTuple()
     else
         loss_value = compute_loss(ŷ, y, y_nan, targets, logging.loss_types, logging.agg)
-        return loss_value, st, ŷ
+        stats = (;ŷ...)
     end
+    return loss_value, st_new, stats
 end
 
-function lossfn(HM::Union{SingleNNHybridModel, MultiNNHybridModel, SingleNNModel, MultiNNModel}, x, (y_t, y_nan), ps, st, logging::LoggingLoss)
+function lossfn(HM::Union{SingleNNHybridModel, MultiNNHybridModel, SingleNNModel, MultiNNModel}, ps, st, (x, (y_t, y_nan)); logging::LoggingLoss)
     targets = HM.targets
-    ŷ, y, y_nan, st = get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
+    ŷ, y, y_nan, st_new = get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
     if logging.train_mode
         loss_value = compute_loss(ŷ, y, y_nan, targets, logging.training_loss, logging.agg)
-        return loss_value, st
+        stats = NamedTuple()
     else
         loss_value = compute_loss(ŷ, y, y_nan, targets, logging.loss_types, logging.agg)
-        return loss_value, st, ŷ
+        stats = (;ŷ...)
     end
+    return loss_value, st_new, stats
 end
 
 @kwdef struct HybridLoss <: Lux.AbstractLossFunction
