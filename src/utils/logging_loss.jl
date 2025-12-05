@@ -108,18 +108,6 @@ function lossfn(HM::LuxCore.AbstractLuxContainerLayer, ps, st, (x, (y_t, y_nan))
     return loss_value, st, stats
 end
 
-function lossfn(HM::Union{SingleNNHybridModel, MultiNNHybridModel, SingleNNModel, MultiNNModel}, ps, st, (x, (y_t, y_nan)); logging::LoggingLoss)
-    targets = HM.targets
-    ŷ, y, y_nan, st_new = get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
-    if logging.train_mode
-        loss_value = compute_loss(ŷ, y, y_nan, targets, logging.training_loss, logging.agg)
-        return loss_value, st_new, NamedTuple()
-    else
-        loss_value = compute_loss(ŷ, y, y_nan, targets, logging.loss_types, logging.agg)
-        return loss_value, st, (;ŷ...)
-    end
-end
-
 @kwdef struct HybridLoss <: Lux.AbstractLossFunction
     parent_loss = LossFunctionImpl.l2_distance_loss
     inner_agg = mean
