@@ -36,6 +36,8 @@ function tune(hybrid_model, data; kwargs...)
 
     hm = constructHybridModel(; kwargs_model...)
 
+    display(hm)
+
     a, b = EasyHybrid.split_data(data, hm; kwargs...)
 
     out = train(
