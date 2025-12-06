@@ -14,6 +14,7 @@ using DataFrameMacros: DataFrameMacros, @transform
 using DataFrames: DataFrames, DataFrame, GroupedDataFrame, Missing, coalesce, mapcols, select, missing, All
 using DimensionalData: DimensionalData, AbstractDimArray, At, dims, groupby
 using Downloads: Downloads
+using Enzyme: Enzyme, Reverse, ConcretePJRTArray, make_zero
 using Hyperopt: Hyperopt, Hyperoptimizer
 using JLD2: JLD2, jldopen
 using LuxCore: LuxCore

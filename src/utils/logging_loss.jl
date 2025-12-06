@@ -1,6 +1,6 @@
 export LoggingLoss
 
-const LossSpec = Union{Symbol, Function, Tuple}
+const LossSpec = Symbol #Union{Symbol, Function, Tuple}
 
 """
     LoggingLoss
@@ -94,11 +94,11 @@ Main loss function for hybrid models that handles both training and evaluation m
 - In evaluation mode (`logging.train_mode = false`):
   - `(loss_values, st, ŷ)`: NamedTuple of losses, state and predictions
 """
-function lossfn(HM::LuxCore.AbstractLuxContainerLayer, ps, st, (x, (y_t, y_nan)); logging::LoggingLoss)
+function lossfn(HM::LuxCore.AbstractLuxContainerLayer, ps, st, (x, (y_t, y_nan)); logging::LoggingLoss, dev::AbstractDevice)
     targets = HM.targets
     if logging.train_mode
-        ŷ, y, y_nan, st = get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
-        loss_value = compute_loss(ŷ, y, y_nan, targets, logging.training_loss, logging.agg)
+        ŷ, st = get_predictions_targets(HM, x, ps, st, dev)
+        loss_value = compute_loss(ŷ, y_t, y_nan, targets, logging.training_loss, logging.agg)
         stats = NamedTuple()
     else
         ŷ, y, y_nan, _ = get_predictions_targets(HM, x, (y_t, y_nan), ps, LuxCore.testmode(st), targets)
@@ -127,11 +127,11 @@ Get predictions and targets from the hybrid model and return them along with the
 - `y_nan`: NaN mask
 - `st`: Updated model state
 """
-function get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
-    ŷ, st = HM(x, ps, st) #TODO the output st can contain more than st, e.g. Rb is that what we want?
-    y = y_t(HM.targets)
-    y_nan = y_nan(HM.targets)
-    return ŷ, y, y_nan, st #TODO has to be done otherwise e.g. Rb is passed as a st and messes up the training
+function get_predictions_targets(HM, x, ps, st, dev::AbstractDevice)
+    ŷ, st = HM(x, ps, st, dev) #TODO the output st can contain more than st, e.g. Rb is that what we want?
+    #y = y_t(HM.targets)
+    #y_nan = y_nan(HM.targets)
+    return ŷ, st #TODO has to be done otherwise e.g. Rb is passed as a st and messes up the training
 end
 
 function get_predictions_targets(
@@ -166,12 +166,14 @@ Compute loss values for predictions against targets using specified loss functio
 - Single loss value when using `loss_spec`
 - NamedTuple of losses when using `loss_types`
 """
-function compute_loss(ŷ, y, y_nan, targets, loss_spec, agg::Function)
-    losses = [_apply_loss(ŷ[k], y(k), y_nan(k), loss_spec) for k in targets]
+function compute_loss(ŷ, y, y_nan, targets, loss_spec, agg::Function, dev::AbstractDevice)
+    println("here5")
+    losses = [_apply_loss(ŷ[k], Array(y(k)), Array(y_nan(k)), loss_spec) for k in targets]
     return agg(losses)
 end
 
 function compute_loss(ŷ, y::AbstractDimArray, y_nan::AbstractDimArray, targets, loss_spec, agg::Function)
+    println("here4")
     losses = [_apply_loss(ŷ[k], y[col = At(k)], y_nan[col = At(k)], loss_spec) for k in targets]
     return agg(losses)
 end
@@ -203,9 +205,10 @@ function _apply_loss(ŷ, y, y_nan, loss_spec::Tuple)
 end
 
 function compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
+    println("here1")
     out_loss_types = [
         begin
-                losses = [_apply_loss(ŷ[k], y(k), y_nan(k), loss_type) for k in targets]
+                losses = [_apply_loss(ŷ[k], Array(y(k)), Array(y_nan(k)), loss_type) for k in targets]
                 agg_loss = agg(losses)
                 NamedTuple{(targets..., Symbol(agg))}([losses..., agg_loss])
             end
@@ -215,6 +218,7 @@ function compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
     return NamedTuple{Tuple(_names)}([out_loss_types...])
 end
 function compute_loss(ŷ, y::AbstractDimArray, y_nan::AbstractDimArray, targets, loss_types::Vector, agg::Function)
+    println("here2")
     out_loss_types = [
         begin
                 losses = [_apply_loss(ŷ[k], y[col = At(k)], y_nan[col = At(k)], loss_type) for k in targets]

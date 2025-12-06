@@ -338,9 +338,10 @@ end
 
 # ───────────────────────────────────────────────────────────────────────────
 # Forward pass for SingleNNHybridModel (optimized, no branching)
-function (m::SingleNNHybridModel)(ds_k::KeyedArray, ps, st)
+function (m::SingleNNHybridModel)(ds_k::KeyedArray, ps, st, dev::AbstractDevice)
     # 1) get features
-    predictors = ds_k(m.predictors)
+    predictors = Array(ds_k(m.predictors))
+    predictors = predictors |> dev
 
     parameters = m.parameters
 
@@ -357,6 +358,79 @@ function (m::SingleNNHybridModel)(ds_k::KeyedArray, ps, st)
 
     # 3) scale NN parameters (handle empty case)
     if !isempty(m.neural_param_names)
+        println(typeof(m.NN))
+        println(typeof(predictors))
+        println(typeof(ps.ps))
+        println(typeof(st.st_nn))
+        nn_out, st_nn = LuxCore.apply(m.NN, predictors, ps.ps, st.st_nn)
+        nn_cols = eachrow(nn_out)
+        nn_params = NamedTuple(zip(m.neural_param_names, nn_cols))
+
+        # Use appropriate scaling based on setting
+        if m.scale_nn_outputs
+            scaled_nn_vals = Tuple(
+                scale_single_param(name, nn_params[name], parameters)
+                    for name in m.neural_param_names
+            )
+        else
+            scaled_nn_vals = Tuple(nn_params[name] for name in m.neural_param_names)
+        end
+        scaled_nn_params = NamedTuple(zip(m.neural_param_names, scaled_nn_vals))
+    else
+        scaled_nn_params = NamedTuple()
+        st_nn = st.st_nn
+    end
+
+    # 4) pick fixed parameters (handle empty case)
+    if !isempty(m.fixed_param_names)
+        fixed_vals = Tuple(st.fixed[f] for f in m.fixed_param_names)
+        fixed_params = NamedTuple{Tuple(m.fixed_param_names), Tuple{typeof.(fixed_vals)...}}(fixed_vals)
+    else
+        fixed_params = NamedTuple()
+    end
+
+    # 5) unpack forcing data
+    forcing_data = unpack_keyedarray(ds_k, m.forcing)
+
+    # 6) merge all parameters
+    all_params = merge(scaled_nn_params, global_params, fixed_params)
+    all_kwargs = merge(forcing_data, all_params)
+    all_kwargs = all_kwargs |> dev
+
+    # 7) physics
+    y_pred = m.mechanistic_model(; all_kwargs...)
+
+    out = (; y_pred..., parameters = all_params)
+    st_new = (; st_nn = st_nn, fixed = st.fixed)
+
+    return out, st_new
+end
+
+# ───────────────────────────────────────────────────────────────────────────
+# Forward pass for SingleNNHybridModel (optimized, no branching)
+function (m::SingleNNHybridModel)(ds_k::Enzyme.ConcretePJRTArray, ps, st)
+    # 1) get features
+    predictors = ds_k[length(m.predictors),:]
+
+    parameters = m.parameters
+
+    # 2) scale global parameters (handle empty case)
+    if !isempty(m.global_param_names)
+        global_vals = Tuple(
+            scale_single_param(g, ps[g], parameters)
+                for g in m.global_param_names
+        )
+        global_params = NamedTuple{Tuple(m.global_param_names), Tuple{typeof.(global_vals)...}}(global_vals)
+    else
+        global_params = NamedTuple()
+    end
+
+    # 3) scale NN parameters (handle empty case)
+    if !isempty(m.neural_param_names)
+        println(typeof(m.NN))
+        println(typeof(predictors))
+        println(typeof(ps.ps))
+        println(typeof(st.st_nn))
         nn_out, st_nn = LuxCore.apply(m.NN, predictors, ps.ps, st.st_nn)
         nn_cols = eachrow(nn_out)
         nn_params = NamedTuple(zip(m.neural_param_names, nn_cols))
@@ -399,6 +473,7 @@ function (m::SingleNNHybridModel)(ds_k::KeyedArray, ps, st)
 
     return out, st_new
 end
+
 
 function (m::SingleNNHybridModel)(df::DataFrame, ps, st)
     @warn "Only makes sense in test mode, not training!"

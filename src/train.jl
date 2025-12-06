@@ -112,14 +112,20 @@ function train(
         Random.seed!(random_seed)
     end
 
+    if autodiff_backend == AutoEnzyme()
+        dev = reactant_device()
+    else
+        dev = cpu_device()
+    end
+
     (x_train, y_train), (x_val, y_val) = split_data(data, hybridModel; kwargs...)
 
-    train_loader = DataLoader((x_train, y_train), batchsize = batchsize, shuffle = true)
+    train_loader = dev(DataLoader((x_train, y_train), batchsize = batchsize, shuffle = true))
 
     if isnothing(train_from)
-        ps, st = LuxCore.setup(Random.default_rng(), hybridModel)
+        ps, st = dev(LuxCore.setup(Random.default_rng(), hybridModel))
     else
-        ps, st = get_ps_st(train_from)
+        ps, st = dev(get_ps_st(train_from))
     end
 
     train_state = Lux.Training.TrainState(hybridModel, ps, st, opt)
@@ -194,6 +200,7 @@ function train(
     @info "Check the saved output (.png, .mp4, .jld2) from training at: $(tmp_folder)"
 
     prog = Progress(nepochs, desc = "Training loss", enabled = show_progress)
+
     loss(hybridModel, ps, st, (x, y)) = lossfn(
         hybridModel, ps, st, (x, y);
         logging = LoggingLoss(train_mode = true, loss_types = loss_types, training_loss = training_loss, agg = agg)

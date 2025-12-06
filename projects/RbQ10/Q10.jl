@@ -1,8 +1,8 @@
 # CC BY-SA 4.0
 # activate the project's environment and instantiate dependencies
 using Pkg
-# Pkg.activate("projects/RbQ10")
-# Pkg.develop(path=pwd())
+Pkg.activate("projects/RbQ10")
+Pkg.develop(path=pwd())
 # Pkg.instantiate()
 
 # start using the package
@@ -31,9 +31,9 @@ predictor_names = [:moisture_filled, :rgpot2]
 # Define neural network
 NN = Chain(Lux.BatchNorm(2, affine = false), Dense(2, 15, relu), Dense(15, 15, relu), Dense(15, 1));
 # instantiate Hybrid Model
-RbQ10 = RespirationRbQ10(NN, predictor_names, forcing_names, target_names, 2.5f0) # ? do different initial Q10s
+RbQ102 = RespirationRbQ10(NN, predictor_names, forcing_names, target_names, 2.5f0) # ? do different initial Q10s
 # train model
-out = train(RbQ10, ds_keyed, (:Q10,); nepochs = 100, batchsize = 512, opt = Adam(0.01), monitor_names = [:Rb]);
+out = train(RbQ102, ds_keyed, (:Q10,); nepochs = 100, batchsize = 512, opt = Adam(0.01), monitor_names = [:Rb]);
 
 out.st
 mean(ds_keyed(:moisture_filled))
@@ -47,8 +47,8 @@ mat = Array(Matrix(df)')
 da = DimArray(mat, (Dim{:col}(Symbol.(names(df))), Dim{:row}(1:size(df, 1))))
 
 out = train(
-    RbQ10, da, (:Q10,); nepochs = 100, batchsize = 512, opt = Adam(0.01),
-    autodiff_backend = AutoEnzyme(),
+    RbQ102, da, (:Q10,); nepochs = 100, batchsize = 512, opt = Adam(0.01),
+    autodiff_backend = Lux.AutoEnzyme(),
     monitor_names = [:Rb]
 );
 

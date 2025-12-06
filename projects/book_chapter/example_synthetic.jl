@@ -11,6 +11,8 @@
 # =============================================================================
 using Pkg
 
+using Revise
+
 # Set project path and activate environment
 project_path = "projects/book_chapter"
 Pkg.activate(project_path)
@@ -20,7 +22,8 @@ Pkg.develop(path = EasyHybrid_path)
 #Pkg.instantiate()
 
 using EasyHybrid
-
+using Enzyme
+using Reactant
 # =============================================================================
 # Data Loading and Preprocessing
 # =============================================================================
@@ -85,8 +88,138 @@ single_nn_hybrid_model = constructHybridModel(
     hidden_layers = [16, 16], # Neural network architecture
     activation = sigmoid,      # Activation function
     scale_nn_outputs = true, # Scale neural network outputs
-    input_batchnorm = true   # Apply batch normalization to inputs
+    input_batchnorm = true,   # Apply batch normalization to inputs
 )
+
+(x_train, y_train), (x_val, y_val) = split_data(ds, single_nn_hybrid_model)
+
+using MLUtils
+train_loader = MLUtils.DataLoader((x_train, y_train), batchsize = 32, shuffle = true)
+
+loss_types = [:mse]
+training_loss = :mse
+agg = sum
+
+x, y = first(train_loader)
+
+is_no_nan = .!isnan.(y)
+
+logging = EasyHybrid.LoggingLoss(train_mode = true, loss_types = loss_types, training_loss = training_loss, agg = agg)
+loss_function(hybridModel, ps, st, (x, y)) = EasyHybrid.lossfn(
+    hybridModel, ps, st, (x, y);
+    logging = logging
+)[1]
+
+ps, st = Lux.setup(Random.default_rng(), single_nn_hybrid_model)
+
+loss_function(single_nn_hybrid_model, ps, st, (x, (y, is_no_nan)))
+
+using Zygote
+∂ps_zyg = only(Zygote.gradient(ps -> loss_function(single_nn_hybrid_model, ps, st, (x, (y, is_no_nan))), ps))
+
+using Reactant
+using AxisKeys
+
+x
+Array(x)
+
+x_ra =Array(x) |> dev
+y_ra = Array(y) |> dev
+is_no_nan_ra = Array(is_no_nan) |> dev
+ps_ra = ps |> dev
+st_ra = st |> dev
+
+predictors = Array(x(single_nn_hybrid_model.predictors)) |> dev
+forcing = unpack_keyedarray(x, single_nn_hybrid_model.forcing) |> dev
+typeof(forcing)
+
+function enzyme_gradient(model, ps_ra, st_ra, (x, (y, is_no_nan)))
+    return Enzyme.gradient(Enzyme.Reverse, Const(loss_function), Const(model),
+        ps_ra, st_ra, (x, (y, is_no_nan)))[2]
+end
+
+
+try
+    ∂ps_enzyme = enzyme_gradient(single_nn_hybrid_model, ps_ra, st_ra, (x, (y, is_no_nan)))
+catch err
+    @show err                     # prints the EnzymeRuntimeActivityError
+    typed = code_typed(err)       # <-- this is the important bit
+    display(typed)
+end
+
+logging = LoggingLoss(
+    train_mode    = true,
+    loss_types    = loss_types,        # Vector{Symbol}
+    training_loss = training_loss,     # Symbol
+    agg           = agg,
+    #dev           = dev,
+)
+
+dev = Lux.cpu_device()
+
+x, y = first(train_loader)
+x = x |> dev
+y = y |> dev
+is_no_nan = .!isnan.(y)
+is_no_nan = is_no_nan |> dev
+
+ps, st = dev(LuxCore.setup(Random.default_rng(), single_nn_hybrid_model))
+
+loss_for_enzyme(ps_en, st_en) =
+    EasyHybrid.lossfn(single_nn_hybrid_model, ps_en, st_en, (x, (y, is_no_nan));
+                      logging = logging)[1]
+
+loss_for_enzyme(ps, st)
+
+# =============================================
+# enzyme_gradient
+dev = Lux.reactant_device()
+
+x, y = first(train_loader) 
+#x = Array(x) |> dev
+#y = Array(y) |> dev
+#is_no_nan = .!isnan.(y) 
+#is_no_nan = Array(is_no_nan) |> dev
+
+ps, st = dev(LuxCore.setup(Random.default_rng(), single_nn_hybrid_model))
+
+loss_for_enzyme(ps_en, st_en) =
+    EasyHybrid.lossfn(single_nn_hybrid_model, ps_en, st_en, (x, (y, is_no_nan));
+                      logging = logging, dev = dev)[1]
+
+loss_for_enzyme_compiled = @compile loss_for_enzyme(ps, st)
+loss_for_enzyme_compiled(ps, st)
+
+# DimensionalData
+df = ds[!, Not(:time)]
+mat = Array(Matrix(df)')
+using DimensionalData, ChainRulesCore
+da = DimArray(mat, (Dim{:col}(Symbol.(names(df))), Dim{:row}(1:size(df, 1))))
+
+da |> dev
+
+mode = Enzyme.Reverse
+# or: mode = Enzyme.set_runtime_activity(Enzyme.Reverse)
+
+
+
+
+ps, st = dev(LuxCore.setup(Random.default_rng(), single_nn_hybrid_model))
+loss_for_enzyme_compiled = @compile loss_for_enzyme(ps_ra, st_ra)
+loss_for_enzyme_compiled(ps_ra, st_ra)
+
+loss_for_enzyme(Enzyme.Duplicated(ps_ra, Enzyme.make_zero(ps_ra)), Enzyme.Duplicated(st_ra, Enzyme.make_zero(st_ra)))
+
+dps, dst = Enzyme.autodiff(
+    mode,
+    loss_for_enzyme,
+    Enzyme.Active,  # activity of the RETURN (the scalar loss)
+    Enzyme.Duplicated(ps_ra, Enzyme.make_zero(ps_ra)),
+    Enzyme.Duplicated(st_ra, Enzyme.make_zero(st_ra)),
+)
+
+dps
+
 # Train the hybrid model
 single_nn_out = train(
     single_nn_hybrid_model,
@@ -97,7 +230,8 @@ single_nn_out = train(
     opt = AdamW(0.1),   # Optimizer and learning rate
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
     yscale = identity,       # Scaling for outputs
-    shuffleobs = true
+    shuffleobs = true,
+    autodiff_backend = Lux.AutoEnzyme()
 )
 
 LuxCore.testmode(single_nn_out.st)
