@@ -1,4 +1,4 @@
-export extract_histories, extract_parameters, stack_extracts, wide_params, wide_histories
+export extract_histories, extract_parameters, stack_extracts, wide_params, wide_histories, long_histories
 
 """
     extract_histories(obj; metric::Union{Symbol,AbstractVector{Symbol}},
@@ -29,6 +29,11 @@ end
 function _history_df(history, metrics::AbstractVector{Symbol}, targets::AbstractVector{Symbol})
     cols  = Any[]
     names = Symbol[]
+
+    # Add epoch column as the first column
+    n_epochs = length(history)
+    push!(cols, 1:n_epochs)
+    push!(names, :epoch)
 
     single_metric = (length(metrics) == 1)
 
@@ -123,6 +128,50 @@ function wide_histories(tr::TrainResults;
 
     histories = extract_histories(tr, metric = ms, target = ts)
     stack_extracts(histories)
+end
+
+"""
+    long_histories(tr::TrainResults; metrics=:all, targets=:all)
+
+Return a long-format DataFrame of the training/validation history.
+Columns: `epoch`, `set`, `metric`, `target`, `value`.
+"""
+function long_histories(tr::TrainResults;
+    metrics::Union{Symbol,AbstractVector{Symbol}} = :all,
+    targets::Union{Symbol,AbstractVector{Symbol}} = :all,
+)
+    ms = metrics
+    ts = targets
+
+    if ms == :all
+        ms = collect(keys(tr.train_history[1]))
+    end
+    if ts == :all
+        ts = collect(keys(tr.train_history[1][1]))
+    end
+
+    ms = _asvec(ms)
+    ts = _asvec(ts)
+
+    function _process(history, set_val)
+        dfs = DataFrame[]
+        for m in ms, t in ts
+            vals = metric_target_history(history, m, t)
+            push!(dfs, DataFrame(
+                :epoch  => 1:length(vals),
+                :set    => set_val,
+                :metric => m,
+                :target => t,
+                :value  => vals
+            ))
+        end
+        vcat(dfs...)
+    end
+
+    df_train = _process(tr.train_history, "train")
+    df_val   = _process(tr.val_history,   "val")
+
+    vcat(df_train, df_val)
 end
 
 _asvec(x::AbstractVector) = x
