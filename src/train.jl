@@ -121,7 +121,7 @@ function train(
     else
         ps, st = get_ps_st(train_from)
     end
-
+    ps = ComponentArray(ps)
     train_state = Lux.Training.TrainState(hybridModel, ps, st, opt)
 
     # ? initial losses
