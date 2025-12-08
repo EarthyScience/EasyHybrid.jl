@@ -14,6 +14,10 @@ using Pkg
 # Set project path and activate environment
 project_path = "projects/book_chapter"
 Pkg.activate(project_path)
+EasyHybrid_path = joinpath(pwd())
+Pkg.develop(path = EasyHybrid_path)
+#Pkg.resolve()
+#Pkg.instantiate()
 
 using EasyHybrid
 
@@ -55,7 +59,6 @@ parameters = (
 # =============================================================================
 # Define input variables
 forcing = [:ta]                    # Forcing variables (temperature)
-predictors = [:sw_pot, :dsw_pot]   # Predictor variables (solar radiation, and its derivative)
 
 # Target variable
 target = [:reco]                   # Target variable (respiration)
@@ -65,11 +68,14 @@ global_param_names = [:Q10]        # Global parameters (same for all samples)
 neural_param_names = [:rb]         # Neural network predicted parameters
 
 # =============================================================================
-# Construct the Hybrid Model
+# Single NN Hybrid Model Training
 # =============================================================================
-# Create hybrid model using the unified constructor
-hybrid_model = constructHybridModel(
-    predictors,              # Input features
+using WGLMakie
+# Create single NN hybrid model using the unified constructor
+predictors_single_nn = [:sw_pot, :dsw_pot]   # Predictor variables (solar radiation, and its derivative)
+
+single_nn_hybrid_model = constructHybridModel(
+    predictors_single_nn,              # Input features
     forcing,                 # Forcing variables
     target,                  # Target variables
     RbQ10,                  # Process-based model function
@@ -79,25 +85,80 @@ hybrid_model = constructHybridModel(
     hidden_layers = [16, 16], # Neural network architecture
     activation = sigmoid,      # Activation function
     scale_nn_outputs = true, # Scale neural network outputs
-    input_batchnorm = false   # Apply batch normalization to inputs
+    input_batchnorm = true   # Apply batch normalization to inputs
 )
-
-# =============================================================================
-# Model Training
-# =============================================================================
-using WGLMakie
-
 # Train the hybrid model
-out = train(
-    hybrid_model,
+single_nn_out = train(
+    single_nn_hybrid_model,
     ds,
     ();
-    nepochs = 100,           # Number of training epochs
+    nepochs = 10,           # Number of training epochs
     batchsize = 512,         # Batch size for training
     opt = AdamW(0.1),   # Optimizer and learning rate
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
-    yscale = identity       # Scaling for outputs
+    yscale = identity,       # Scaling for outputs
+    shuffleobs = true
 )
+
+LuxCore.testmode(single_nn_out.st)
+mean(ds.dsw_pot)
+mean(ds.sw_pot)
+
+# =============================================================================
+# Multi NN Hybrid Model Training
+# =============================================================================
+predictors_multi_nn = (rb = [:sw_pot, :dsw_pot],)
+
+multi_nn_hybrid_model = constructHybridModel(
+    predictors_multi_nn,              # Input features
+    forcing,                 # Forcing variables
+    target,                  # Target variables
+    RbQ10,                  # Process-based model function
+    parameters,              # Parameter definitions
+    global_param_names,      # Global parameters
+    hidden_layers = [16, 16], # Neural network architecture
+    activation = sigmoid,      # Activation function
+    scale_nn_outputs = true, # Scale neural network outputs
+    input_batchnorm = true   # Apply batch normalization to inputs
+)
+
+multi_nn_out = train(
+    multi_nn_hybrid_model,
+    ds,
+    ();
+    nepochs = 10,           # Number of training epochs
+    batchsize = 512,         # Batch size for training
+    opt = AdamW(0.1),   # Optimizer and learning rate
+    monitor_names = [:rb, :Q10], # Parameters to monitor during training
+    yscale = identity,       # Scaling for outputs
+    shuffleobs = true
+)
+
+LuxCore.testmode(multi_nn_out.st)
+mean(ds.dsw_pot)
+mean(ds.sw_pot)
+
+# =============================================================================
+# Pure ML Single NN Model Training
+# =============================================================================
+
+# TODO does not train well build on top of SingleNNHybridModel
+predictors_single_nn_ml = [:sw_pot, :dsw_pot, :ta]
+
+single_nn_model = constructNNModel(predictors_single_nn_ml, target; input_batchnorm = true, activation = tanh)
+single_nn_out = train(single_nn_model, ds, (); nepochs = 10, batchsize = 512, opt = AdamW(0.01), yscale = identity, shuffleobs = true)
+LuxCore.testmode(single_nn_out.st)
+mean(ds.dsw_pot)
+mean(ds.sw_pot)
+
+single_nn_model.targets
+
+# =============================================================================
+# Pure ML Multi NN Model Training
+# =============================================================================
+
+# TODO does not train well build on top of MultiNNHybridModel
+
 
 # =============================================================================
 # Results Analysis

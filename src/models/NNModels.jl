@@ -5,7 +5,11 @@ using ..EasyHybrid: hard_sigmoid
 
 # Pure Neural Network Models (no mechanistic component)
 
-struct SingleNNModel
+struct SingleNNModel <: LuxCore.AbstractLuxContainerLayer{
+        (
+            :NN, :predictors, :targets, :scale_nn_outputs,
+        ),
+    }
     NN::Chain
     predictors::Vector{Symbol}
     targets::Vector{Symbol}
@@ -98,7 +102,11 @@ function constructNNModel(
 end
 
 # MultiNNModel remains as before
-struct MultiNNModel
+struct MultiNNModel <: LuxCore.AbstractLuxContainerLayer{
+        (
+            :NNs, :predictors, :targets, :scale_nn_outputs,
+        ),
+    }
     NNs::NamedTuple
     predictors::NamedTuple
     targets::Vector{Symbol}
@@ -145,7 +153,7 @@ end
 # LuxCore initial states for SingleNNModel
 function LuxCore.initialstates(rng::AbstractRNG, m::SingleNNModel)
     _, st_nn = LuxCore.setup(rng, m.NN)
-    nt = (; st = st_nn)
+    nt = (; st_nn = st_nn)
     return nt
 end
 
@@ -163,7 +171,7 @@ end
 # Forward pass for SingleNNModel
 function (m::SingleNNModel)(ds_k, ps, st)
     predictors = ds_k(m.predictors)
-    nn_out, st_NN = LuxCore.apply(m.NN, predictors, ps.ps, st.st)
+    nn_out, st_nn = LuxCore.apply(m.NN, predictors, ps.ps, st.st_nn)
     nn_cols = eachrow(nn_out)
     nn_params = NamedTuple(zip(m.targets, nn_cols))
     if m.scale_nn_outputs
@@ -174,8 +182,8 @@ function (m::SingleNNModel)(ds_k, ps, st)
     scaled_nn_params = NamedTuple(zip(m.targets, scaled_nn_vals))
 
     out = (; scaled_nn_params...)
-    st_new = (; st = st_NN)
-    return out, (; st = st_new)
+    st_new = (; st_nn = st_nn)
+    return out, st_new
 end
 
 # Forward pass for MultiNNModel
@@ -206,17 +214,17 @@ function (m::MultiNNModel)(ds_k, ps, st)
     end
     out = (; scaled_nn_params..., nn_outputs = nn_outputs)
     st_new = (; nn_states...)
-    return out, (; st = st_new)
+    return out, st_new
 end
 
 # Display functions
-function Base.display(m::SingleNNModel)
+function Base.show(io::IO, ::MIME"text/plain", m::SingleNNModel)
     println("Neural Network: ", m.NN)
     println("Predictors: ", m.predictors)
     return println("scale NN outputs: ", m.scale_nn_outputs)
 end
 
-function Base.display(m::MultiNNModel)
+function Base.show(io::IO, ::MIME"text/plain", m::MultiNNModel)
     println("Neural Networks:")
     for (name, nn) in pairs(m.NNs)
         println("  $name: ", nn)

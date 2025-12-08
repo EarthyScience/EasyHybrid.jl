@@ -208,7 +208,7 @@ end
         rng = Random.default_rng()
         st = LuxCore.initialstates(rng, model)
 
-        @test haskey(st, :st)    # Neural network states
+        @test haskey(st, :st_nn)    # Neural network states
         @test haskey(st, :fixed) # Fixed parameters
         @test haskey(st.fixed, :c)
         @test length(st.fixed.c) == 1
@@ -247,8 +247,8 @@ end
         @test haskey(output.parameters, :a)
         @test haskey(output.parameters, :b)
         @test haskey(output.parameters, :c)
-        @test haskey(new_st, :st)
-        @test haskey(new_st.st, :fixed)
+        @test haskey(new_st, :st_nn)
+        @test haskey(new_st, :fixed)
     end
 
     @testset "SingleNNHybridModel with scale_nn_outputs=true" begin
@@ -413,9 +413,9 @@ end
         @test haskey(output.parameters, :b)
         @test haskey(output.parameters, :c)
         @test haskey(output.parameters, :d)
-        @test haskey(new_st.st, :a)
-        @test haskey(new_st.st, :d)
-        @test haskey(new_st.st, :fixed)
+        @test haskey(new_st, :a)
+        @test haskey(new_st, :d)
+        @test haskey(new_st, :fixed)
     end
 
     @testset "MultiNNHybridModel with scale_nn_outputs=true" begin

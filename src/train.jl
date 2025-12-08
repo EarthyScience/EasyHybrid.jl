@@ -69,7 +69,8 @@ function train(
         batchsize = 64,
         opt = AdamW(0.01),
         patience = typemax(Int),
-
+        autodiff_backend = AutoZygote(),
+        return_gradients = True(),
         # Loss and evaluation
         training_loss = :mse,
         loss_types = [:mse, :r2],
@@ -123,8 +124,8 @@ function train(
     else
         ps, st = get_ps_st(train_from)
     end
-
-    opt_state = Optimisers.setup(opt, ps)
+    ps = ComponentArray(ps)
+    train_state = Lux.Training.TrainState(hybridModel, ps, st, opt)
 
     # ? initial losses
     is_no_nan_t = .!isnan.(y_train)
@@ -198,23 +199,27 @@ function train(
     @info "Check the saved output (.png, .mp4, .jld2) from training at: $(tmp_folder)"
 
     prog = Progress(nepochs, desc = "Training loss", enabled = show_progress)
+    loss(hybridModel, ps, st, (x, y)) = lossfn(
+        hybridModel, ps, st, (x, y);
+        logging = LoggingLoss(train_mode = true, loss_types = loss_types, training_loss = training_loss, agg = agg)
+    )
     maybe_record_history(!isnothing(ext), fig, joinpath(tmp_folder, "training_history_$(hybrid_name).mp4"); framerate = 24) do io
         for epoch in 1:nepochs
             for (x, y) in train_loader
                 # ? check NaN indices before going forward, and pass filtered `x, y`.
                 is_no_nan = .!isnan.(y)
                 if length(is_no_nan) > 0 # ! be careful here, multivariate needs fine tuning
-                    l, backtrace = Zygote.pullback(
-                        (ps) -> lossfn(
-                            hybridModel, x, (y, is_no_nan), ps, st,
-                            LoggingLoss(training_loss = training_loss, agg = agg)
-                        ), ps
+                    # ? let's keep grads, they might be useful for mixed gradient methods
+                    grads, loss_val, stats, train_state = Lux.Training.single_train_step!(
+                        autodiff_backend, loss, (x, (y, is_no_nan)), train_state;
+                        return_gradients
                     )
-                    grads = backtrace(l)[1]
-                    Optimisers.update!(opt_state, ps, grads)
-                    st = (; l[2].st...)
                 end
             end
+
+            # sync ps and st from train_state
+            ps = train_state.parameters
+            st = train_state.states
 
             ps_values = [copy(getproperty(ps, e)[1]) for e in save_ps]
             tmp_e = NamedTuple{save_ps}(ps_values)
@@ -360,10 +365,7 @@ function train(
 end
 
 function evaluate_acc(ghm, x, y, y_no_nan, ps, st, loss_types, training_loss, agg)
-    loss_val, sts, ŷ = lossfn(
-        ghm, x, (y, y_no_nan), ps, LuxCore.testmode(st),
-        LoggingLoss(train_mode = false, loss_types = loss_types, training_loss = training_loss, agg = agg)
-    )
+    loss_val, sts, ŷ = lossfn(ghm, ps, st, (x, (y, y_no_nan)), logging = LoggingLoss(train_mode = false, loss_types = loss_types, training_loss = training_loss, agg = agg))
     return loss_val, sts, ŷ
 end
 function maybe_record_history(block, should_record, fig, output_path; framerate = 24)
