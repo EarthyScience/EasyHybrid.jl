@@ -73,9 +73,7 @@ import{_ as a,C as t,c as e,o as n,G as l,aA as h}from"./chunks/framework.BJcyea
 <span class="line"><span style="--shiki-light:#22863a;--shiki-dark:#85e89d;">    Q10         </span><span style="--shiki-light:#959da5;--shiki-dark:#959da5;">(1,)</span></span>
 <span class="line"><span style="--shiki-light:#22863a;--shiki-dark:#85e89d;">    rb          </span><span style="--shiki-light:#959da5;--shiki-dark:#959da5;">(4000,)</span></span>
 <span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">    parameters  (rb, Q10)</span></span>
-<span class="line"><span style="--shiki-light:#1b7c83;--shiki-dark:#39c5cf;">  ps</span><span style="--shiki-light:#dbab09;--shiki-dark:#ffea7f;">: </span></span>
-<span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">    ps   (layer_1, layer_2, layer_3, layer_4)</span></span>
-<span class="line"><span style="--shiki-light:#22863a;--shiki-dark:#85e89d;">    Q10  </span><span style="--shiki-light:#959da5;--shiki-dark:#959da5;">(1,)</span></span>
+<span class="line"><span style="--shiki-light:#1b7c83;--shiki-dark:#39c5cf;">  ps</span><span style="--shiki-light:#dbab09;--shiki-dark:#ffea7f;">: </span><span style="--shiki-light:#959da5;--shiki-dark:#959da5;">(338,)</span></span>
 <span class="line"><span style="--shiki-light:#1b7c83;--shiki-dark:#39c5cf;">  st</span><span style="--shiki-light:#dbab09;--shiki-dark:#ffea7f;">: </span></span>
 <span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">    st_nn  (layer_1, layer_2, layer_3, layer_4)</span></span>
 <span class="line"><span style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;">    fixed  ()</span></span>
