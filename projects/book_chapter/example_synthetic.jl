@@ -20,15 +20,26 @@ Pkg.develop(path = EasyHybrid_path)
 #Pkg.instantiate()
 
 using EasyHybrid
+using AxisKeys
+using DimensionalData
 
 # =============================================================================
 # Data Loading and Preprocessing
 # =============================================================================
-# Load synthetic dataset from GitHub
-ds = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc")
+# Load synthetic dataset from GitHub into DataFrame
+df = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc")
 
 # Select a subset of data for faster execution
-ds = ds[1:20000, :]
+df = df[1:20000, :]
+
+# KeyedArray from AxisKeys.jl works, but cannot handle DateTime type
+dfnot = Float32.(df[!, Not(:time)])
+
+ka = to_keyedArray(dfnot)
+
+# DimensionalData
+mat = Array(Matrix(dfnot)')
+da = DimArray(mat, (Dim{:col}(Symbol.(names(dfnot))), Dim{:row}(1:size(dfnot, 1))))
 
 # =============================================================================
 # Define the Physical Model
@@ -87,10 +98,44 @@ single_nn_hybrid_model = constructHybridModel(
     scale_nn_outputs = true, # Scale neural network outputs
     input_batchnorm = true   # Apply batch normalization to inputs
 )
+
+# =============================================================================
+# train on DataFrame
+# =============================================================================
 # Train the hybrid model
 single_nn_out = train(
     single_nn_hybrid_model,
-    ds,
+    df,
+    ();
+    nepochs = 10,           # Number of training epochs
+    batchsize = 512,         # Batch size for training
+    opt = AdamW(0.1),   # Optimizer and learning rate
+    monitor_names = [:rb, :Q10], # Parameters to monitor during training
+    yscale = identity,       # Scaling for outputs
+    shuffleobs = true
+)
+
+# =============================================================================
+# train on KeyedArray
+# =============================================================================
+single_nn_out = train(
+    single_nn_hybrid_model,
+    ka,
+    ();
+    nepochs = 10,           # Number of training epochs
+    batchsize = 512,         # Batch size for training
+    opt = AdamW(0.1),   # Optimizer and learning rate
+    monitor_names = [:rb, :Q10], # Parameters to monitor during training
+    yscale = identity,       # Scaling for outputs
+    shuffleobs = true
+)
+
+# =============================================================================
+# train on DimensionalData
+# =============================================================================
+single_nn_out = train(
+    single_nn_hybrid_model,
+    da,
     ();
     nepochs = 10,           # Number of training epochs
     batchsize = 512,         # Batch size for training
@@ -101,8 +146,8 @@ single_nn_out = train(
 )
 
 LuxCore.testmode(single_nn_out.st)
-mean(ds.dsw_pot)
-mean(ds.sw_pot)
+mean(df.dsw_pot)
+mean(df.sw_pot)
 
 # =============================================================================
 # Multi NN Hybrid Model Training
@@ -124,7 +169,7 @@ multi_nn_hybrid_model = constructHybridModel(
 
 multi_nn_out = train(
     multi_nn_hybrid_model,
-    ds,
+    ka,
     ();
     nepochs = 10,           # Number of training epochs
     batchsize = 512,         # Batch size for training
@@ -135,8 +180,8 @@ multi_nn_out = train(
 )
 
 LuxCore.testmode(multi_nn_out.st)
-mean(ds.dsw_pot)
-mean(ds.sw_pot)
+mean(df.dsw_pot)
+mean(df.sw_pot)
 
 # =============================================================================
 # Pure ML Single NN Model Training
@@ -146,10 +191,10 @@ mean(ds.sw_pot)
 predictors_single_nn_ml = [:sw_pot, :dsw_pot, :ta]
 
 single_nn_model = constructNNModel(predictors_single_nn_ml, target; input_batchnorm = true, activation = tanh)
-single_nn_out = train(single_nn_model, ds, (); nepochs = 10, batchsize = 512, opt = AdamW(0.01), yscale = identity, shuffleobs = true)
+single_nn_out = train(single_nn_model, da, (); nepochs = 10, batchsize = 512, opt = AdamW(0.01), yscale = identity, shuffleobs = true)
 LuxCore.testmode(single_nn_out.st)
-mean(ds.dsw_pot)
-mean(ds.sw_pot)
+mean(df.dsw_pot)
+mean(df.sw_pot)
 
 single_nn_model.targets
 
@@ -179,7 +224,7 @@ ho = @thyperopt for i in nhyper,
         input_batchnorm in [true, false]
     hyper_parameters = (; opt, input_batchnorm)
     println("Hyperparameter run: \n", i, " of ", nhyper, "\t with hyperparameters \t", hyper_parameters, "\t")
-    out = EasyHybrid.tune(hybrid_model, ds, mspempty; hyper_parameters..., nepochs = 10, plotting = false, show_progress = false, file_name = "test$i.jld2")
+    out = EasyHybrid.tune(hybrid_model, df, mspempty; hyper_parameters..., nepochs = 10, plotting = false, show_progress = false, file_name = "test$i.jld2")
     #out.best_loss
     # out.best_loss, has to be first element of the tuple, return a rich record for this trial (stored in ho.results[i])
     (out.best_loss, hyperps = hyper_parameters, ps_st = (out.ps, out.st), i = i)
@@ -247,4 +292,4 @@ Plots.plot(ho2, xrotation = 25, left_margin = [100mm 0mm], bottom_margin = 60mm,
 
 # Train the model with the best hyperparameters
 best_hyperp = best_hyperparams(ho)
-out = EasyHybrid.tune(hybrid_model, ds, mspempty; best_hyperp..., nepochs = 100, train_from = best_params)
+out = EasyHybrid.tune(hybrid_model, df, mspempty; best_hyperp..., nepochs = 100, train_from = best_params)
