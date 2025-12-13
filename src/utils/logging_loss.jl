@@ -97,54 +97,15 @@ Main loss function for hybrid models that handles both training and evaluation m
 function lossfn(HM::LuxCore.AbstractLuxContainerLayer, ps, st, (x, (y_t, y_nan)); logging::LoggingLoss)
     targets = HM.targets
     if logging.train_mode
-        ŷ, y, y_nan, st = get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
+        ŷ, st = HM(x, ps, st)
         loss_value = compute_loss(ŷ, y, y_nan, targets, logging.training_loss, logging.agg)
         stats = NamedTuple()
     else
-        ŷ, y, y_nan, _ = get_predictions_targets(HM, x, (y_t, y_nan), ps, LuxCore.testmode(st), targets)
+        ŷ, _ = HM(x, ps, LuxCore.testmode(st))
         loss_value = compute_loss(ŷ, y, y_nan, targets, logging.loss_types, logging.agg)
         stats = (; ŷ...)
     end
     return loss_value, st, stats
-end
-
-"""
-    get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
-
-Get predictions and targets from the hybrid model and return them along with the NaN mask.
-
-# Arguments
-- `HM`: The hybrid model
-- `x`: Input data
-- `(y_t, y_nan)`: Tuple of target values and NaN mask (functions or arrays)
-- `ps`: Model parameters
-- `st`: Model state
-- `targets`: Target variable names
-
-# Returns
-- `ŷ`: Model predictions
-- `y`: Target values
-- `y_nan`: NaN mask
-- `st`: Updated model state
-"""
-function get_predictions_targets(HM, x, (y_t, y_nan), ps, st, targets)
-    ŷ, st = HM(x, ps, st) #TODO the output st can contain more than st, e.g. Rb is that what we want?
-    y = y_t(HM.targets)
-    y_nan = y_nan(HM.targets)
-    return ŷ, y, y_nan, st #TODO has to be done otherwise e.g. Rb is passed as a st and messes up the training
-end
-
-function get_predictions_targets(
-        HM,
-        x::AbstractDimArray,
-        ys::Tuple{<:AbstractDimArray, <:AbstractDimArray},
-        ps, st, targets
-    )
-    y_t, y_nan = ys
-    ŷ, st = HM(x, ps, st)
-    y = y_t[col = At(targets)]
-    y_nan = y_nan[col = At(targets)]
-    return ŷ, y, y_nan, st
 end
 
 """
