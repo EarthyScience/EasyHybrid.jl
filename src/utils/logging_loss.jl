@@ -98,11 +98,11 @@ function lossfn(HM::LuxCore.AbstractLuxContainerLayer, ps, st, (x, (y_t, y_nan))
     targets = HM.targets
     if logging.train_mode
         ŷ, st = HM(x, ps, st)
-        loss_value = compute_loss(ŷ, y, y_nan, targets, logging.training_loss, logging.agg)
+        loss_value = compute_loss(ŷ, y_t, y_nan, targets, logging.training_loss, logging.agg)
         stats = NamedTuple()
     else
         ŷ, _ = HM(x, ps, LuxCore.testmode(st))
-        loss_value = compute_loss(ŷ, y, y_nan, targets, logging.loss_types, logging.agg)
+        loss_value = compute_loss(ŷ, y_t, y_nan, targets, logging.loss_types, logging.agg)
         stats = (; ŷ...)
     end
     return loss_value, st, stats
