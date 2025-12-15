@@ -67,7 +67,7 @@ function train(
     # Core training parameters
     nepochs=200,
     batchsize=64,
-    opt=AdamW(0.01),
+    opt=Adam(0.01),
     patience=typemax(Int),
     autodiff_backend=AutoZygote(),
     return_gradients=True(),
@@ -85,7 +85,7 @@ function train(
 
     # Output and monitoring
     file_name=nothing,
-    hybrid_name=randstring(10),
+    hybrid_name="",
     return_model=:best,
     monitor_names=[],
     folder_to_save="",
@@ -93,8 +93,8 @@ function train(
     # Visualization and UI
     plotting=true,
     show_progress=true,
-    yscale=log10,
-    kwargs...
+    yscale=identity,
+    kwargs...   
 )
 
     #! check if the EasyHybridMakie extension is loaded.
