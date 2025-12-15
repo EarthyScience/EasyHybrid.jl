@@ -186,7 +186,7 @@ function toNamedTuple(ka::KeyedArray, variables::NTuple{N, Symbol}) where {N}
 end
 
 function toNamedTuple(ka::AbstractDimArray, variables::NTuple{N, Symbol}) where {N}
-    ntuple(i -> vec( ka[col = At([variables[i]])] ), N)
+    ntuple(i -> vec(ka[col = At([variables[i]])]), N)
     return NamedTuple{variables}(vals)
 end
 
