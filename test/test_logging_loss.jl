@@ -7,8 +7,9 @@ import EasyHybrid: compute_loss
 @testset "LoggingLoss" begin
     @testset "Constructor defaults" begin
         logging = LoggingLoss()
-        @test logging.loss_types == [:mse]
-        @test logging.training_loss == :mse
+        @test loss_types(logging) == [:mse]
+        @test training_loss(logging) == :mse
+        @test extra_loss(logging) === nothing
         @test logging.agg == sum
         @test logging.train_mode == true
     end
@@ -22,16 +23,20 @@ import EasyHybrid: compute_loss
 
         # Loss function with kwargs
         scaled_loss(ŷ, y; scale = 1.0) = scale * mean(abs2, ŷ .- y)
+        # extra loss
+        extra(ŷ) = sum(abs, ŷ)
 
         @testset "Basic custom constructor" begin
             logging = LoggingLoss(
                 loss_types = [:mse, :mae],
                 training_loss = :mae,
                 agg = mean,
+                extra_loss = extra,
                 train_mode = false
             )
-            @test logging.loss_types == [:mse, :mae]
-            @test logging.training_loss == :mae
+            @test loss_types(logging) == [:mse, :mae]
+            @test training_loss(logging) == :mae
+            @test extra_loss(logging) === extra
             @test logging.agg == mean
             @test logging.train_mode == false
         end
@@ -42,11 +47,11 @@ import EasyHybrid: compute_loss
                 training_loss = :mse,
                 agg = sum
             )
-            @test length(logging.loss_types) == 4
-            @test logging.loss_types[1] == :mse
-            @test logging.loss_types[2] == custom_loss
-            @test logging.loss_types[3] == (weighted_loss, (0.5,))
-            @test logging.loss_types[4] == (scaled_loss, (scale = 2.0,))
+            @test length(loss_types(logging)) == 4
+            @test loss_types(logging)[1] == :mse
+            @test loss_types(logging)[2] == custom_loss
+            @test loss_types(logging)[3] == (weighted_loss, (0.5,))
+            @test loss_types(logging)[4] == (scaled_loss, (scale = 2.0,))
         end
 
         @testset "Custom training_loss variations" begin
@@ -55,21 +60,21 @@ import EasyHybrid: compute_loss
                 loss_types = [:mse],
                 training_loss = custom_loss
             )
-            @test logging.training_loss == custom_loss
+            @test training_loss(logging) == custom_loss
 
             # Tuple with args as training_loss
             logging = LoggingLoss(
                 loss_types = [:mse],
                 training_loss = (weighted_loss, (0.5,))
             )
-            @test logging.training_loss == (weighted_loss, (0.5,))
+            @test training_loss(logging) == (weighted_loss, (0.5,))
 
             # Tuple with kwargs as training_loss
             logging = LoggingLoss(
                 loss_types = [:mse],
                 training_loss = (scaled_loss, (scale = 2.0,))
             )
-            @test logging.training_loss == (scaled_loss, (scale = 2.0,))
+            @test training_loss(logging) == (scaled_loss, (scale = 2.0,))
 
             # Tuple with both args and kwargs
             complex_loss(x, y, w; scale = 1.0) = scale * w * mean(abs2, x .- y)
@@ -77,7 +82,7 @@ import EasyHybrid: compute_loss
                 loss_types = [:mse],
                 training_loss = (complex_loss, (0.5,), (scale = 2.0,))
             )
-            @test logging.training_loss == (complex_loss, (0.5,), (scale = 2.0,))
+            @test training_loss(logging) == (complex_loss, (0.5,), (scale = 2.0,))
         end
     end
 end

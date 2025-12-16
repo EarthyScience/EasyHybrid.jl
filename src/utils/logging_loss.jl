@@ -1,6 +1,28 @@
-export LoggingLoss
+export LoggingLoss, LossSpec, loss_types, training_loss, extra_loss
 
-const LossSpec = Union{Symbol, Function, Tuple}
+abstract type LossSpec end
+
+struct SymbolicLoss <: LossSpec
+    name::Symbol
+end
+
+struct FunctionLoss <: LossSpec
+    f::Function
+end
+
+struct ParameterizedLoss <: LossSpec
+    f::Function
+    args::Tuple
+    kwargs::NamedTuple
+end
+
+ParameterizedLoss(f::Function) = ParameterizedLoss(f, (), NamedTuple())
+ParameterizedLoss(f::Function, args::Tuple) = ParameterizedLoss(f, args, NamedTuple())
+ParameterizedLoss(f::Function, kwargs::NamedTuple) = ParameterizedLoss(f, (), kwargs)
+
+struct ExtraLoss <: LossSpec
+    f::Union{Function, Nothing}
+end
 
 """
     LoggingLoss
@@ -44,26 +66,14 @@ logging = LoggingLoss(
 )
 ```
 """
-struct LoggingLoss{T <: Function, L <: AbstractVector{<:LossSpec}, TL <: LossSpec, EL <: Union{Nothing, Function}}
-    loss_types::L
-    training_loss::TL
-    extra_loss::EL
+struct LoggingLoss{T <: Function}
+    loss_types::Vector{LossSpec}
+    training_loss::LossSpec
+    extra_loss::LossSpec
     agg::T
     train_mode::Bool
-
-    function LoggingLoss{T, L, TL, EL}(;
-            loss_types = [:mse],
-            training_loss = :mse,
-            extra_loss::EL = nothing,
-            agg::T = sum,
-            train_mode::Bool = true
-        ) where {T <: Function, L <: AbstractVector{<:LossSpec}, TL <: LossSpec, EL <: Union{Nothing, Function}}
-        lt = Vector{LossSpec}(loss_types)
-        return new{T, typeof(lt), typeof(training_loss), typeof(extra_loss)}(lt, training_loss, extra_loss, agg, train_mode)
-    end
 end
 
-# Outer constructor
 function LoggingLoss(;
         loss_types = [:mse],
         training_loss = :mse,
@@ -71,14 +81,45 @@ function LoggingLoss(;
         agg::F = sum,
         train_mode::Bool = true
     ) where {F <: Function}
-    return LoggingLoss{F, Vector{LossSpec}, typeof(training_loss), typeof(extra_loss)}(;
-        loss_types = loss_types,
-        training_loss = training_loss,
-        extra_loss = extra_loss,
-        agg = agg,
-        train_mode = train_mode
-    )
+
+    lt = map(_to_loss_spec, loss_types)
+    tl = _to_loss_spec(training_loss)
+    el = _to_extra_loss_spec(extra_loss)
+
+    return LoggingLoss{F}(lt, tl, el, agg, train_mode)
 end
+
+
+_to_loss_spec(s::Symbol) = SymbolicLoss(s)
+_to_loss_spec(f::Function) = FunctionLoss(f)
+_to_loss_spec(ls::LossSpec) = ls
+
+_to_loss_spec(t::Tuple{<:Function, <:Tuple}) = ParameterizedLoss(t[1], t[2])
+_to_loss_spec(t::Tuple{<:Function, <:NamedTuple}) = ParameterizedLoss(t[1], (), t[2])
+_to_loss_spec(t::Tuple{<:Function, <:Tuple, <:NamedTuple}) = ParameterizedLoss(t[1], t[2], t[3])
+_to_loss_spec(x) = throw(ArgumentError("Invalid loss specification: $x"))
+
+_to_extra_loss_spec(::Nothing) = ExtraLoss(nothing)
+_to_extra_loss_spec(f::Function) = ExtraLoss(f)
+_to_extra_loss_spec(el::ExtraLoss) = el
+
+# unwrapping / getters
+loss_name(ls::SymbolicLoss) = ls.name
+loss_name(::LossSpec) = nothing
+
+loss_spec(ls::SymbolicLoss) = ls.name
+loss_spec(ls::FunctionLoss) = ls.f
+loss_spec(ls::ParameterizedLoss) =
+    isempty(ls.args) && isempty(ls.kwargs) ? ls.f :
+    isempty(ls.kwargs) ? (ls.f, ls.args) :
+    isempty(ls.args) ? (ls.f, ls.kwargs) :
+    (ls.f, ls.args, ls.kwargs)
+
+loss_spec(el::ExtraLoss) = el.f
+
+loss_types(logging::LoggingLoss) = map(loss_spec, logging.loss_types)
+training_loss(logging::LoggingLoss) = loss_spec(logging.training_loss)
+extra_loss(logging::LoggingLoss) = loss_spec(logging.extra_loss)
 
 """
     lossfn(HM, x, (y_t, y_nan), ps, st, logging::LoggingLoss)
@@ -101,21 +142,22 @@ Main loss function for hybrid models that handles both training and evaluation m
 """
 function lossfn(HM::LuxCore.AbstractLuxContainerLayer, ps, st, (x, (y_t, y_nan)); logging::LoggingLoss)
     targets = HM.targets
+    ext_loss = extra_loss(logging)
     if logging.train_mode
         ŷ, st = HM(x, ps, st)
-        loss_value = compute_loss(ŷ, y_t, y_nan, targets, logging.training_loss, logging.agg)
+        loss_value = compute_loss(ŷ, y_t, y_nan, targets, training_loss(logging), logging.agg)
         # Add extra_loss if provided
-        if !isnothing(logging.extra_loss)
-            extra_loss_value = logging.extra_loss(ŷ)
+        if ext_loss !== nothing
+            extra_loss_value = ext_loss(ŷ)
             loss_value = logging.agg([loss_value, extra_loss_value...])
         end
         stats = NamedTuple()
     else
         ŷ, _ = HM(x, ps, LuxCore.testmode(st))
-        loss_value = compute_loss(ŷ, y_t, y_nan, targets, logging.loss_types, logging.agg)
+        loss_value = compute_loss(ŷ, y_t, y_nan, targets, loss_types(logging), logging.agg)
         # Add extra_loss entries if provided
-        if !isnothing(logging.extra_loss)
-            extra_loss_values = logging.extra_loss(ŷ)
+        if ext_loss !== nothing
+            extra_loss_values = ext_loss(ŷ)
             agg_extra_loss_value = logging.agg(extra_loss_values)
             loss_value = (; loss_value..., extra_loss = (; extra_loss_values..., Symbol(logging.agg) => agg_extra_loss_value))
         end
