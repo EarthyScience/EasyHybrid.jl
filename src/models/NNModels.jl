@@ -49,8 +49,23 @@ function prepare_hidden_chain(
     )
     if hidden_layers isa Chain
         # user gave a chain of hidden layers only
-        first_h = hidden_layers[1].out_dims
-        last_h = hidden_layers[end].out_dims
+        # find first layer with out_dims from the front
+        first_h = nothing
+        for layer in hidden_layers.layers
+            if hasfield(typeof(layer), :out_dims)
+                first_h = layer.out_dims
+                break
+            end
+        end
+        # find first layer with out_dims from the back
+        last_h = nothing
+        for i in length(hidden_layers.layers):-1:1
+            layer = hidden_layers.layers[i]
+            if hasfield(typeof(layer), :out_dims)
+                last_h = layer.out_dims
+                break
+            end
+        end
 
         return Chain(
             input_batchnorm ? BatchNorm(in_dim, affine = false) : identity,
