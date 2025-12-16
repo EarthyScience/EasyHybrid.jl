@@ -5,7 +5,7 @@ function construct_dispatch_functions(f)
 
     println("constructing on KeyedArray function for $f")
     function new_f(forcing_data::KeyedArray, parameters::NamedTuple, forcing_names::Vector{Symbol})
-        forcing = unpack_keyedarray(forcing_data, forcing_names)
+        forcing = toNamedTuple(forcing_data, forcing_names)
         parameter_container = build_parameters(parameters, f)
         return f(; forcing..., values(default(parameter_container))...)
     end

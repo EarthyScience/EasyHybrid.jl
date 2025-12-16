@@ -67,13 +67,14 @@ function train(
         # Core training parameters
         nepochs = 200,
         batchsize = 64,
-        opt = AdamW(0.01),
+        opt = Adam(0.01),
         patience = typemax(Int),
         autodiff_backend = AutoZygote(),
         return_gradients = True(),
         # Loss and evaluation
         training_loss = :mse,
         loss_types = [:mse, :r2],
+        extra_loss = nothing,
         agg = sum,
 
         # Data handling parameters are now passed via kwargs...
@@ -84,7 +85,7 @@ function train(
 
         # Output and monitoring
         file_name = nothing,
-        hybrid_name = randstring(10),
+        hybrid_name = "",
         return_model = :best,
         monitor_names = [],
         folder_to_save = "",
@@ -92,7 +93,7 @@ function train(
         # Visualization and UI
         plotting = true,
         show_progress = true,
-        yscale = log10,
+        yscale = identity,
         kwargs...
     )
 
@@ -133,8 +134,8 @@ function train(
 
     eval_metric = loss_types[1]
 
-    l_init_train, _, init_ŷ_train = evaluate_acc(hybridModel, x_train, y_train, is_no_nan_t, ps, st, loss_types, training_loss, agg)
-    l_init_val, _, init_ŷ_val = evaluate_acc(hybridModel, x_val, y_val, is_no_nan_v, ps, st, loss_types, training_loss, agg)
+    l_init_train, _, init_ŷ_train = evaluate_acc(hybridModel, x_train, y_train, is_no_nan_t, ps, st, loss_types, training_loss, extra_loss, agg)
+    l_init_val, _, init_ŷ_val = evaluate_acc(hybridModel, x_val, y_val, is_no_nan_v, ps, st, loss_types, training_loss, extra_loss, agg)
 
     train_history = [l_init_train]
     val_history = [l_init_val]
@@ -201,7 +202,7 @@ function train(
     prog = Progress(nepochs, desc = "Training loss", enabled = show_progress)
     loss(hybridModel, ps, st, (x, y)) = lossfn(
         hybridModel, ps, st, (x, y);
-        logging = LoggingLoss(train_mode = true, loss_types = loss_types, training_loss = training_loss, agg = agg)
+        logging = LoggingLoss(train_mode = true, loss_types = loss_types, training_loss = training_loss, extra_loss = extra_loss, agg = agg)
     )
     maybe_record_history(!isnothing(ext), fig, joinpath(tmp_folder, "training_history_$(hybrid_name).mp4"); framerate = 24) do io
         for epoch in 1:nepochs
@@ -224,8 +225,8 @@ function train(
             ps_values = [copy(getproperty(ps, e)[1]) for e in save_ps]
             tmp_e = NamedTuple{save_ps}(ps_values)
 
-            l_train, _, current_ŷ_train = evaluate_acc(hybridModel, x_train, y_train, is_no_nan_t, ps, st, loss_types, training_loss, agg)
-            l_val, _, current_ŷ_val = evaluate_acc(hybridModel, x_val, y_val, is_no_nan_v, ps, st, loss_types, training_loss, agg)
+            l_train, _, current_ŷ_train = evaluate_acc(hybridModel, x_train, y_train, is_no_nan_t, ps, st, loss_types, training_loss, extra_loss, agg)
+            l_val, _, current_ŷ_val = evaluate_acc(hybridModel, x_val, y_val, is_no_nan_v, ps, st, loss_types, training_loss, extra_loss, agg)
             # save also monitored names
             current_monitor_train_values = [vec(getfield(current_ŷ_train, m)) for m in monitor_names]
             c_ps_monitor_train = NamedTuple{Tuple(monitor_names)}(current_monitor_train_values)
@@ -364,8 +365,8 @@ function train(
     )
 end
 
-function evaluate_acc(ghm, x, y, y_no_nan, ps, st, loss_types, training_loss, agg)
-    loss_val, sts, ŷ = lossfn(ghm, ps, st, (x, (y, y_no_nan)), logging = LoggingLoss(train_mode = false, loss_types = loss_types, training_loss = training_loss, agg = agg))
+function evaluate_acc(ghm, x, y, y_no_nan, ps, st, loss_types, training_loss, extra_loss, agg)
+    loss_val, sts, ŷ = lossfn(ghm, ps, st, (x, (y, y_no_nan)), logging = LoggingLoss(train_mode = false, loss_types = loss_types, training_loss = training_loss, extra_loss = extra_loss, agg = agg))
     return loss_val, sts, ŷ
 end
 function maybe_record_history(block, should_record, fig, output_path; framerate = 24)

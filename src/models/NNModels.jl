@@ -170,7 +170,7 @@ end
 
 # Forward pass for SingleNNModel
 function (m::SingleNNModel)(ds_k, ps, st)
-    predictors = ds_k(m.predictors)
+    predictors = toArray(ds_k, m.predictors)
     nn_out, st_nn = LuxCore.apply(m.NN, predictors, ps.ps, st.st_nn)
     nn_cols = eachrow(nn_out)
     nn_params = NamedTuple(zip(m.targets, nn_cols))
@@ -190,7 +190,8 @@ end
 function (m::MultiNNModel)(ds_k, ps, st)
     nn_inputs = NamedTuple()
     for (nn_name, predictors) in pairs(m.predictors)
-        nn_inputs = merge(nn_inputs, NamedTuple{(nn_name,), Tuple{typeof(ds_k(predictors))}}((ds_k(predictors),)))
+        da = toArray(ds_k, predictors)
+        nn_inputs = merge(nn_inputs, NamedTuple{(nn_name,), Tuple{typeof(da)}}((da,)))
     end
     nn_outputs = NamedTuple()
     nn_states = NamedTuple()
