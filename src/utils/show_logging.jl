@@ -4,11 +4,11 @@ function _format_loss_spec(io::IO, spec::SymbolicLoss)
 end
 
 function _format_loss_spec(io::IO, spec::FunctionLoss)
-    return printstyled(io, nameof(spec.f), color = :magenta)
+    return printstyled(io, nameof(spec.f), color = :light_blue)
 end
 
 function _format_loss_spec(io::IO, spec::ParameterizedLoss)
-    printstyled(io, nameof(spec.f), color = :magenta)
+    printstyled(io, nameof(spec.f), color = :light_blue)
     return if !isempty(spec.args) && !isempty(spec.kwargs)
         print(io, "(")
         printstyled(io, join(spec.args, ", "), color = :yellow)
@@ -30,7 +30,7 @@ function _format_loss_spec(io::IO, spec::ExtraLoss)
     return if spec.f === nothing
         printstyled(io, "nothing", color = :light_black)
     else
-        printstyled(io, nameof(spec.f), color = :magenta)
+        printstyled(io, nameof(spec.f), color = :light_blue)
     end
 end
 
@@ -66,7 +66,7 @@ function Base.show(io::IO, ::MIME"text/plain", ll::LoggingLoss)
 
         printstyled(io, "  agg", color = :light_black)
         print(io, " = ")
-        printstyled(io, nameof(ll.agg), color = :magenta)
+        printstyled(io, nameof(ll.agg), color = :light_blue)
         print(io, ",\n")
 
         printstyled(io, "  train_mode", color = :light_black)
