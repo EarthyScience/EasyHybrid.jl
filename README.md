@@ -5,7 +5,8 @@
 [![][ask-img]][ask-url]
 [![][docs-stable-img]][docs-stable-url]
 [![][docs-dev-img]][docs-dev-url]
-[![][ci-img]][ci-url]<br>
+[![][ci-img]][ci-url]
+[![][codecov-img]][codecov-url]<br>
 [![][zenodo-img]][zenodo-url]
 [![][downloads-img]][downloads-url]
 [![][total-downloads-img]][total-downloads-url]<br>
@@ -54,6 +55,10 @@
 
 [license-img]: https://img.shields.io/badge/License-MIT-green.svg?style=round-square
 [license-url]: https://github.com/EarthyScience/EasyHybrid.jl/blob/main/LICENSE
+
+[codecov-img]: https://codecov.io/gh/EarthyScience/EasyHybrid.jl/graph/badge.svg?token=TJXSF34IL4
+[codecov-url]: https://codecov.io/gh/EarthyScience/EasyHybrid.jl
+
 
 <img src="docs/src/assets/logo.png" align="right" width="200" style="padding-left:10px;"/>
 
