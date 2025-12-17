@@ -52,6 +52,25 @@ test_parameters = (
         @test pc.values == params
     end
 
+    @testset "ParameterContainer printing" begin
+        pc = ParameterContainer(test_parameters)
+
+        expected = """
+        ┌───┬─────────┬───────┬───────┐
+        │   │ default │ lower │ upper │
+        ├───┼─────────┼───────┼───────┤
+        │ a │     1.0 │   0.0 │   5.0 │
+        │ b │     2.0 │   0.0 │  10.0 │
+        │ c │     0.5 │   0.0 │   2.0 │
+        │ d │     0.5 │   0.0 │   2.0 │
+        └───┴─────────┴───────┴───────┘
+        """
+
+        result = sprint(show, MIME"text/plain"(), pc)
+
+        @test result == expected
+    end
+
     @testset "HybridParams construction" begin
         params = (a = (1.0f0, 0.0f0, 2.0f0),)
         pc = ParameterContainer(params)
