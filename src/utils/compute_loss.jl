@@ -152,9 +152,11 @@ Main loss function for hybrid models that handles both training and evaluation m
 - In evaluation mode (`logging.train_mode = false`):
   - `(loss_values, st, ŷ)`: NamedTuple of losses, state and predictions
 """
-function compute_loss(HM::LuxCore.AbstractLuxContainerLayer, ps, st, (x, (y_t, y_nan));
-    logging::LoggingLoss)
-    
+function compute_loss(
+        HM::LuxCore.AbstractLuxContainerLayer, ps, st, (x, (y_t, y_nan));
+        logging::LoggingLoss
+    )
+
     targets = HM.targets
     ext_loss = extra_loss(logging)
     if logging.train_mode
