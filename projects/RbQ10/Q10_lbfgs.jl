@@ -47,9 +47,9 @@ end
 # the Tuple `ds_p, ds_t` is later used for batching in the `dataloader`.
 ds_p_f, ds_t = EasyHybrid.prepare_data(RbQ10, ds_keyed)
 ds_t_nan = .!isnan.(ds_t)
-ls = EasyHybrid.lossfn(RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss(train_mode = false))
+ls = EasyHybrid.compute_loss(RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss(train_mode = false))
 
-ls2 = (p, data) -> EasyHybrid.lossfn(RbQ10, ds_p_f, (ds_t, ds_t_nan), p, st, LoggingLoss())[1]
+ls2 = (p, data) -> EasyHybrid.compute_loss(RbQ10, ds_p_f, (ds_t, ds_t_nan), p, st, LoggingLoss())[1]
 
 dta = (ds_p_f, ds_t, ds_t_nan)
 

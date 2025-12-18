@@ -200,7 +200,7 @@ function train(
     @info "Check the saved output (.png, .mp4, .jld2) from training at: $(tmp_folder)"
 
     prog = Progress(nepochs, desc = "Training loss", enabled = show_progress)
-    loss(hybridModel, ps, st, (x, y)) = lossfn(
+    loss(hybridModel, ps, st, (x, y)) = compute_loss(
         hybridModel, ps, st, (x, y);
         logging = LoggingLoss(train_mode = true, loss_types = loss_types, training_loss = training_loss, extra_loss = extra_loss, agg = agg)
     )
@@ -366,7 +366,7 @@ function train(
 end
 
 function evaluate_acc(ghm, x, y, y_no_nan, ps, st, loss_types, training_loss, extra_loss, agg)
-    loss_val, sts, ŷ = lossfn(ghm, ps, st, (x, (y, y_no_nan)), logging = LoggingLoss(train_mode = false, loss_types = loss_types, training_loss = training_loss, extra_loss = extra_loss, agg = agg))
+    loss_val, sts, ŷ = compute_loss(ghm, ps, st, (x, (y, y_no_nan)), logging = LoggingLoss(train_mode = false, loss_types = loss_types, training_loss = training_loss, extra_loss = extra_loss, agg = agg))
     return loss_val, sts, ŷ
 end
 function maybe_record_history(block, should_record, fig, output_path; framerate = 24)

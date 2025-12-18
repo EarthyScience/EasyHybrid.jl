@@ -65,7 +65,7 @@ dta = (ds_p_f, ds_t, ds_t_nan)
 dataloader = DataLoader((x_train, y_train, nan_train), batchsize = 512, shuffle = true);
 
 # wrap loss function to get arguments as required by Optimization.jl
-ls2 = (p, data) -> EasyHybrid.lossfn(RbQ10, data[1], (data[2], data[3]), p, st, LoggingLoss())[1]
+ls2 = (p, data) -> EasyHybrid.compute_loss(RbQ10, data[1], (data[2], data[3]), p, st, LoggingLoss())[1]
 
 # convert to Float64 for optimization
 ps_ca = ComponentArray(ps) .|> Float64

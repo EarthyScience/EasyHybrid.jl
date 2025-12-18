@@ -134,7 +134,7 @@ training_loss(logging::LoggingLoss) = loss_spec(logging.training_loss)
 extra_loss(logging::LoggingLoss) = loss_spec(logging.extra_loss)
 
 """
-    lossfn(HM, x, (y_t, y_nan), ps, st, logging::LoggingLoss)
+    compute_loss(HM, x, (y_t, y_nan), ps, st, logging::LoggingLoss)
 
 Main loss function for hybrid models that handles both training and evaluation modes.
 
@@ -152,12 +152,14 @@ Main loss function for hybrid models that handles both training and evaluation m
 - In evaluation mode (`logging.train_mode = false`):
   - `(loss_values, st, ŷ)`: NamedTuple of losses, state and predictions
 """
-function lossfn(HM::LuxCore.AbstractLuxContainerLayer, ps, st, (x, (y_t, y_nan)); logging::LoggingLoss)
+function compute_loss(HM::LuxCore.AbstractLuxContainerLayer, ps, st, (x, (y_t, y_nan));
+    logging::LoggingLoss)
+    
     targets = HM.targets
     ext_loss = extra_loss(logging)
     if logging.train_mode
         ŷ, st = HM(x, ps, st)
-        loss_value = compute_loss(ŷ, y_t, y_nan, targets, training_loss(logging), logging.agg)
+        loss_value = _compute_loss(ŷ, y_t, y_nan, targets, training_loss(logging), logging.agg)
         # Add extra_loss if provided
         if ext_loss !== nothing
             extra_loss_value = ext_loss(ŷ)
@@ -166,7 +168,7 @@ function lossfn(HM::LuxCore.AbstractLuxContainerLayer, ps, st, (x, (y_t, y_nan))
         stats = NamedTuple()
     else
         ŷ, _ = HM(x, ps, LuxCore.testmode(st))
-        loss_value = compute_loss(ŷ, y_t, y_nan, targets, loss_types(logging), logging.agg)
+        loss_value = _compute_loss(ŷ, y_t, y_nan, targets, loss_types(logging), logging.agg)
         # Add extra_loss entries if provided
         if ext_loss !== nothing
             extra_loss_values = ext_loss(ŷ)
@@ -179,8 +181,8 @@ function lossfn(HM::LuxCore.AbstractLuxContainerLayer, ps, st, (x, (y_t, y_nan))
 end
 
 """
-    compute_loss(ŷ, y, y_nan, targets, loss_spec, agg::Function)
-    compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
+    _compute_loss(ŷ, y, y_nan, targets, loss_spec, agg::Function)
+    _compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
 
 Compute loss values for predictions against targets using specified loss functions.
 
@@ -197,7 +199,7 @@ Compute loss values for predictions against targets using specified loss functio
 - Single loss value when using `loss_spec`
 - NamedTuple of losses when using `loss_types`
 """
-function compute_loss(ŷ, y, y_nan, targets, loss_spec, agg::Function)
+function _compute_loss(ŷ, y, y_nan, targets, loss_spec, agg::Function)
     losses = assemble_loss(ŷ, y, y_nan, targets, loss_spec)
     return agg(losses)
 end
@@ -282,7 +284,7 @@ function _apply_loss(ŷ, y, y_nan, target, loss_spec)
     return _apply_loss(ŷ[target], y, y_nan, loss_spec)
 end
 
-function compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
+function _compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
     out_loss_types = [
         begin
                 losses = assemble_loss(ŷ, y, y_nan, targets, loss_type)
@@ -311,8 +313,8 @@ function _loss_name(loss_spec::Tuple)
 end
 
 """
-    compute_loss(ŷ, y, y_nan, targets, training_loss, agg::Function)
-    compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
+    _compute_loss(ŷ, y, y_nan, targets, training_loss, agg::Function)
+    _compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
 
 Compute the loss for the given predictions and targets using the specified training loss (or vector of losses) type and aggregation function.
 
@@ -327,4 +329,4 @@ Compute the loss for the given predictions and targets using the specified train
 
 Returns a single loss value if `training_loss` is provided, or a NamedTuple of losses for each type in `loss_types`.
 """
-function compute_loss end
+function _compute_loss end
