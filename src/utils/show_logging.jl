@@ -26,6 +26,18 @@ function _format_loss_spec(io::IO, spec::ParameterizedLoss)
     end
 end
 
+function _format_loss_spec(io::IO, pt::PerTarget)
+    printstyled(io, "PerTarget(", color = :light_red)
+    # Format each loss recursively, joining with ", "
+    for (i, loss) in enumerate(pt.losses)
+        _format_loss_spec(io, loss)
+        if i < length(pt.losses)
+            print(io, ", ")
+        end
+    end
+    return printstyled(io, ")", color = :light_red)
+end
+
 function _format_loss_spec(io::IO, spec::ExtraLoss)
     return if spec.f === nothing
         printstyled(io, "nothing", color = :light_black)

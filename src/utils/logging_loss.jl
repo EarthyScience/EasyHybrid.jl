@@ -1,4 +1,5 @@
-export LoggingLoss, LossSpec, loss_types, training_loss, extra_loss
+export LoggingLoss
+export loss_types, training_loss, extra_loss
 
 abstract type LossSpec end
 
@@ -22,6 +23,15 @@ ParameterizedLoss(f::Function, kwargs::NamedTuple) = ParameterizedLoss(f, (), kw
 
 struct ExtraLoss <: LossSpec
     f::Union{Function, Nothing}
+end
+
+"""
+    PerTarget(losses)
+
+A wrapper to indicate that a tuple of losses should be applied on a per-target basis.
+"""
+struct PerTarget{T <: Tuple}
+    losses::T
 end
 
 """
@@ -66,9 +76,9 @@ logging = LoggingLoss(
 )
 ```
 """
-struct LoggingLoss{T <: Function}
+struct LoggingLoss{L <: Union{LossSpec, PerTarget}, T <: Function}
     loss_types::Vector{LossSpec}
-    training_loss::LossSpec
+    training_loss::L
     extra_loss::LossSpec
     agg::T
     train_mode::Bool
@@ -86,7 +96,7 @@ function LoggingLoss(;
     tl = _to_loss_spec(training_loss)
     el = _to_extra_loss_spec(extra_loss)
 
-    return LoggingLoss{F}(lt, tl, el, agg, train_mode)
+    return LoggingLoss{typeof(tl), F}(lt, tl, el, agg, train_mode)
 end
 
 
@@ -98,6 +108,7 @@ _to_loss_spec(t::Tuple{<:Function, <:Tuple}) = ParameterizedLoss(t[1], t[2])
 _to_loss_spec(t::Tuple{<:Function, <:NamedTuple}) = ParameterizedLoss(t[1], (), t[2])
 _to_loss_spec(t::Tuple{<:Function, <:Tuple, <:NamedTuple}) = ParameterizedLoss(t[1], t[2], t[3])
 _to_loss_spec(x) = throw(ArgumentError("Invalid loss specification: $x"))
+_to_loss_spec(pt::Tuple) = PerTarget(map(_to_loss_spec, pt))
 
 _to_extra_loss_spec(::Nothing) = ExtraLoss(nothing)
 _to_extra_loss_spec(f::Function) = ExtraLoss(f)
@@ -116,6 +127,7 @@ loss_spec(ls::ParameterizedLoss) =
     (ls.f, ls.args, ls.kwargs)
 
 loss_spec(el::ExtraLoss) = el.f
+loss_spec(pt::PerTarget) = PerTarget(map(loss_spec, pt.losses))
 
 loss_types(logging::LoggingLoss) = map(loss_spec, logging.loss_types)
 training_loss(logging::LoggingLoss) = loss_spec(logging.training_loss)
@@ -186,14 +198,60 @@ Compute loss values for predictions against targets using specified loss functio
 - NamedTuple of losses when using `loss_types`
 """
 function compute_loss(ŷ, y, y_nan, targets, loss_spec, agg::Function)
-    losses = [_apply_loss(ŷ[k], y(k), y_nan(k), loss_spec) for k in targets]
+    losses = assemble_loss(ŷ, y, y_nan, targets, loss_spec)
     return agg(losses)
 end
 
-function compute_loss(ŷ, y::AbstractDimArray, y_nan::AbstractDimArray, targets, loss_spec, agg::Function)
-    losses = [_apply_loss(ŷ[k], y[col = At(k)], y_nan[col = At(k)], loss_spec) for k in targets]
-    return agg(losses)
+function assemble_loss(ŷ, y, y_nan, targets, loss_spec)
+    return [
+        _apply_loss(ŷ[target], _get_target_y(y, target), _get_target_nan(y_nan, target), loss_spec)
+            for target in targets
+    ]
 end
+
+function assemble_loss(ŷ, y, y_nan, targets, loss_spec::PerTarget)
+    @assert length(targets) == length(loss_spec.losses) "Length of targets and PerTarget losses tuple must match"
+    losses = [
+        _apply_loss(
+                ŷ,
+                _get_target_y(y, target),
+                _get_target_nan(y_nan, target),
+                target,
+                loss_t
+            ) for (target, loss_t) in zip(targets, loss_spec.losses)
+    ]
+    return losses
+end
+
+_get_target_y(y, target) = y(target)
+_get_target_y(y::AbstractDimArray, target) = y[col = At(target)] # assumes the DimArray uses :col indexing
+_get_target_y(y::AbstractDimArray, targets::Vector) = y[col = At(targets)] # for multiple targets
+
+function _get_target_y(y::Tuple, target)
+    y_obs, y_sigma = y
+    sigma = y_sigma isa Number ? y_sigma : y_sigma(target)
+    y_obs_val = _get_target_y(y_obs, target)
+    return (y_obs_val, sigma)
+end
+
+
+"""
+    _get_target_y(y, target)
+Helper function to extract target-specific values from `y`, handling cases where `y` can be a tuple of `(y_obs, y_sigma)`.
+"""
+function _get_target_y end
+
+_get_target_nan(y_nan, target) = y_nan(target)
+_get_target_nan(y_nan::AbstractDimArray, target) = y_nan[col = At(target)] # assumes the DimArray uses :col indexing
+_get_target_nan(y_nan::AbstractDimArray, targets::Vector) = y_nan[col = At(targets)] # for multiple targets
+
+"""
+    _get_target_nan(y_nan, target)
+
+Helper function to extract target-specific values from `y_nan`.
+"""
+function _get_target_nan end
+
 
 """
     _apply_loss(ŷ, y, y_nan, loss_spec)
@@ -220,23 +278,14 @@ end
 function _apply_loss(ŷ, y, y_nan, loss_spec::Tuple)
     return loss_fn(ŷ, y, y_nan, loss_spec)
 end
+function _apply_loss(ŷ, y, y_nan, target, loss_spec)
+    return _apply_loss(ŷ[target], y, y_nan, loss_spec)
+end
 
 function compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
     out_loss_types = [
         begin
-                losses = [_apply_loss(ŷ[k], y(k), y_nan(k), loss_type) for k in targets]
-                agg_loss = agg(losses)
-                NamedTuple{(targets..., Symbol(agg))}([losses..., agg_loss])
-            end
-            for loss_type in loss_types
-    ]
-    _names = [_loss_name(lt) for lt in loss_types]
-    return NamedTuple{Tuple(_names)}([out_loss_types...])
-end
-function compute_loss(ŷ, y::AbstractDimArray, y_nan::AbstractDimArray, targets, loss_types::Vector, agg::Function)
-    out_loss_types = [
-        begin
-                losses = [_apply_loss(ŷ[k], y[col = At(k)], y_nan[col = At(k)], loss_type) for k in targets]
+                losses = assemble_loss(ŷ, y, y_nan, targets, loss_type)
                 agg_loss = agg(losses)
                 NamedTuple{(targets..., Symbol(agg))}([losses..., agg_loss])
             end
