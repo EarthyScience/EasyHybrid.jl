@@ -1,5 +1,3 @@
-using EasyHybrid
-using Test
 using Lux
 using Random
 using AxisKeys
