@@ -1,7 +1,5 @@
 # test/book_chapter_example_tests.jl
-using Test
 using Random
-using EasyHybrid
 using Lux
 using DataFrames
 using Statistics

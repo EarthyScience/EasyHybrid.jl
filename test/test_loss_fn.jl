@@ -1,5 +1,3 @@
-using Test
-using EasyHybrid
 using Statistics
 
 @testset "loss_fn methods" begin
@@ -31,7 +29,7 @@ using Statistics
         @test loss_fn(ŷ, y, y_nan, Val(:r2)) ≈ r^2
 
         # NSE test
-        nse = sum((ŷ .- y) .^ 2) / sum((y .- mean(y)) .^ 2)
+        nse = 1 - sum((ŷ .- y) .^ 2) / sum((y .- mean(y)) .^ 2)
         @test loss_fn(ŷ, y, y_nan, Val(:nse)) ≈ nse
     end
 
