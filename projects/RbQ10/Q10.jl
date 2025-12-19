@@ -87,14 +87,14 @@ out_pinball = train(
 );
 
 ## legacy
-# ? test lossfn
+# ? test compute_loss
 ps, st = LuxCore.setup(Random.default_rng(), RbQ10)
 # the Tuple `ds_p, ds_t` is later used for batching in the `dataloader`.
 ds_p_f, ds_t = EasyHybrid.prepare_data(RbQ10, ds_keyed)
 ds_t_nan = .!isnan.(ds_t)
-ls = EasyHybrid.lossfn(RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss())
+ls = EasyHybrid.compute_loss(RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss())
 
-ls_logs = EasyHybrid.lossfn(RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss(train_mode = false))
+ls_logs = EasyHybrid.compute_loss(RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss(train_mode = false))
 
 # ? play with :Temp as predictors in NN, temperature sensitivity!
 # TODO: variance effect due to LSTM vs NN
