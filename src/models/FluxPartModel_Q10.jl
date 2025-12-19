@@ -15,10 +15,10 @@ end
 """
 FluxPartModel_Q10(RUE_predictors, Rb_predictors; Q10=[1.5f0])
 """
-function FluxPartModel_Q10(RUE_predictors, Rb_predictors; forcing=[:SW_IN, :TA], Q10=[1.5f0], neurons=15)
+function FluxPartModel_Q10(RUE_predictors, Rb_predictors; forcing = [:SW_IN, :TA], Q10 = [1.5f0], neurons = 15)
     RUE_ch = Dense_RUE_Rb(length(RUE_predictors); neurons)
     Rb_ch = Dense_RUE_Rb(length(Rb_predictors); neurons)
-    FluxPartModel_Q10(
+    return FluxPartModel_Q10(
         RUE_ch,
         RUE_predictors,
         Rb_ch,
@@ -42,7 +42,7 @@ function (m::FluxPartModel_Q10)(dk, ::Val{:infer})
 
     GPP = sw_in .* RUE ./ 12.011f0
     Reco = Rb .* m.Q10[1] .^ (0.1f0(ta .- 15.0f0))
-    return (; RUE, Rb, GPP=GPP, RECO=Reco, NEE=Reco - GPP)
+    return (; RUE, Rb, GPP = GPP, RECO = Reco, NEE = Reco - GPP)
 end
 
 function (m::FluxPartModel_Q10)(dk)

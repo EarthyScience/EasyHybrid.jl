@@ -7,7 +7,7 @@ literate_root = joinpath(@__DIR__, "literate")
 jl_files = isdir(literate_root) ?
     [joinpath(root, f) for (root, _, files) in walkdir(literate_root) for f in files if endswith(f, ".jl")] :
     String[]
-    
+
 if !isempty(jl_files)
     @info "Running Literate.jl on $(length(jl_files)) files..."
     using Literate
@@ -31,11 +31,12 @@ if !isempty(jl_files)
                 )
             end
         end
+        return
     end
 
     # Typical folders you might want; add/remove as you wish
     render_tree(joinpath(literate_root, "tutorials"), joinpath(src_root, "tutorials"))
-    render_tree(joinpath(literate_root, "research"),  joinpath(src_root, "research"))
+    render_tree(joinpath(literate_root, "research"), joinpath(src_root, "research"))
 else
     @info "No Literate sources found — skipping Literate.jl step."
 end
@@ -55,14 +56,14 @@ makedocs(;
         "Home" => "index.md",
         "Get Started" => "get_started.md",
         "Tutorial" => [
-            "Exponential Response"   => "tutorials/exponential_res.md",
-            "Hyperparameter Tuning"  => "tutorials/hyperparameter_tuning.md",
-            "Slurm"                  => "tutorials/slurm.md",
-            "Cross-validation"       => "tutorials/folds.md",
-            "Loss Functions"         => "tutorials/losses.md",
+            "Exponential Response" => "tutorials/exponential_res.md",
+            "Hyperparameter Tuning" => "tutorials/hyperparameter_tuning.md",
+            "Slurm" => "tutorials/slurm.md",
+            "Cross-validation" => "tutorials/folds.md",
+            "Loss Functions" => "tutorials/losses.md",
         ],
         "Research" => [
-            "Overview"         => "research/overview.md"
+            "Overview" => "research/overview.md",
         ],
         "API" => "api.md",
     ],

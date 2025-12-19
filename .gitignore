@@ -6,7 +6,6 @@ Manifest.toml
 .DS_Store
 *.csv
 *.nc
-/projects/BulkDSOC/eval/
 
 build/
 node_modules/
@@ -26,3 +25,6 @@ Manifest.toml
 *.err
 *.out
 /docs/src/tutorials/folds.md
+*.jl.cov
+*.jl.*.cov
+coverage/lcov.info

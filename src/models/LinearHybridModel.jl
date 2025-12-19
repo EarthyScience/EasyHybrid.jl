@@ -1,6 +1,6 @@
 export LinearHybridModel
 ########################################
-# Model definition y = ax + b, where 
+# Model definition y = ax + b, where
 ########################################
 
 struct LinearHybridModel <: EasyHybridModels # lhm
@@ -17,13 +17,15 @@ LinearHybridModel(predictors::AbstractArray{Symbol}, forcing::AbstractArray{Symb
     out_dim::Int, neurons::Int; b=[1.5f0])
 
 """
-function LinearHybridModel(predictors::AbstractArray{Symbol}, forcing::AbstractArray{Symbol},
-    out_dim::Int, neurons::Int; b=[1.5f0])
+function LinearHybridModel(
+        predictors::AbstractArray{Symbol}, forcing::AbstractArray{Symbol},
+        out_dim::Int, neurons::Int; b = [1.5f0]
+    )
 
     in_dim = length(predictors)
     #ch = nn_chain(in_dim, out_dim, neurons)
     ch = Flux.Chain(Flux.Dense(in_dim, neurons), Flux.Dense(neurons, out_dim))
-    LinearHybridModel(ch, predictors, forcing, b)
+    return LinearHybridModel(ch, predictors, forcing, b)
 end
 
 

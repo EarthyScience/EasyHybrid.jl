@@ -14,17 +14,32 @@ using Pkg
 # Set project path and activate environment
 project_path = "projects/book_chapter"
 Pkg.activate(project_path)
+EasyHybrid_path = joinpath(pwd())
+Pkg.develop(path = EasyHybrid_path)
+#Pkg.resolve()
+#Pkg.instantiate()
 
 using EasyHybrid
+using AxisKeys
+using DimensionalData
 
 # =============================================================================
 # Data Loading and Preprocessing
 # =============================================================================
-# Load synthetic dataset from GitHub
-ds = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc")
+# Load synthetic dataset from GitHub into DataFrame
+df = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc")
 
 # Select a subset of data for faster execution
-ds = ds[1:20000, :]
+df = df[1:20000, :]
+
+# KeyedArray from AxisKeys.jl works, but cannot handle DateTime type
+dfnot = Float32.(df[!, Not(:time)])
+
+ka = to_keyedArray(dfnot)
+
+# DimensionalData
+mat = Array(Matrix(dfnot)')
+da = DimArray(mat, (Dim{:col}(Symbol.(names(dfnot))), Dim{:row}(1:size(dfnot, 1))))
 
 # =============================================================================
 # Define the Physical Model
@@ -35,7 +50,7 @@ ds = ds[1:20000, :]
 #   - Q10: temperature sensitivity factor [-]
 #   - rb: basal respiration rate [μmol/m²/s]
 #   - tref: reference temperature [°C] (default: 15.0)
-function RbQ10(;ta, Q10, rb, tref = 15.0f0)
+function RbQ10(; ta, Q10, rb, tref = 15.0f0)
     reco = rb .* Q10 .^ (0.1f0 .* (ta .- tref))
     return (; reco, Q10, rb)
 end
@@ -45,9 +60,9 @@ end
 # =============================================================================
 # Parameter specification: (default, lower_bound, upper_bound)
 parameters = (
-# Parameter name | Default | Lower | Upper      | Description
-    rb       = ( 3.0f0,      0.0f0,  13.0f0 ),  # Basal respiration [μmol/m²/s]
-    Q10      = ( 2.0f0,      1.0f0,  4.0f0 ),   # Temperature sensitivity factor [-]
+    # Parameter name | Default | Lower | Upper      | Description
+    rb = (3.0f0, 0.0f0, 13.0f0),  # Basal respiration [μmol/m²/s]
+    Q10 = (2.0f0, 1.0f0, 4.0f0),   # Temperature sensitivity factor [-]
 )
 
 # =============================================================================
@@ -55,7 +70,6 @@ parameters = (
 # =============================================================================
 # Define input variables
 forcing = [:ta]                    # Forcing variables (temperature)
-predictors = [:sw_pot, :dsw_pot]   # Predictor variables (solar radiation, and its derivative)
 
 # Target variable
 target = [:reco]                   # Target variable (respiration)
@@ -65,11 +79,14 @@ global_param_names = [:Q10]        # Global parameters (same for all samples)
 neural_param_names = [:rb]         # Neural network predicted parameters
 
 # =============================================================================
-# Construct the Hybrid Model
+# Single NN Hybrid Model Training
 # =============================================================================
-# Create hybrid model using the unified constructor
-hybrid_model = constructHybridModel(
-    predictors,              # Input features
+using WGLMakie
+# Create single NN hybrid model using the unified constructor
+predictors_single_nn = [:sw_pot, :dsw_pot]   # Predictor variables (solar radiation, and its derivative)
+
+single_nn_hybrid_model = constructHybridModel(
+    predictors_single_nn,              # Input features
     forcing,                 # Forcing variables
     target,                  # Target variables
     RbQ10,                  # Process-based model function
@@ -79,25 +96,121 @@ hybrid_model = constructHybridModel(
     hidden_layers = [16, 16], # Neural network architecture
     activation = sigmoid,      # Activation function
     scale_nn_outputs = true, # Scale neural network outputs
-    input_batchnorm = false   # Apply batch normalization to inputs
+    input_batchnorm = true   # Apply batch normalization to inputs
 )
 
 # =============================================================================
-# Model Training
+# train on DataFrame
 # =============================================================================
-using WGLMakie
+
+extra_loss = function (ŷ)
+    return (; a = sum((5.0 .- ŷ.rb) .^ 2))
+end
 
 # Train the hybrid model
-out = train(
-    hybrid_model, 
-    ds, 
-    (); 
-    nepochs = 100,           # Number of training epochs
+single_nn_out = train(
+    single_nn_hybrid_model,
+    df,
+    ();
+    nepochs = 10,           # Number of training epochs
     batchsize = 512,         # Batch size for training
     opt = AdamW(0.1),   # Optimizer and learning rate
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
-    yscale = identity       # Scaling for outputs
+    yscale = identity,       # Scaling for outputs
+    shuffleobs = true,
+    loss_types = [:mse, :nse],
+    extra_loss = extra_loss
 )
+
+# =============================================================================
+# train on KeyedArray
+# =============================================================================
+single_nn_out = train(
+    single_nn_hybrid_model,
+    ka,
+    ();
+    nepochs = 10,           # Number of training epochs
+    batchsize = 512,         # Batch size for training
+    opt = AdamW(0.1),   # Optimizer and learning rate
+    monitor_names = [:rb, :Q10], # Parameters to monitor during training
+    yscale = identity,       # Scaling for outputs
+    shuffleobs = true
+)
+
+# =============================================================================
+# train on DimensionalData
+# =============================================================================
+single_nn_out = train(
+    single_nn_hybrid_model,
+    da,
+    ();
+    nepochs = 10,           # Number of training epochs
+    batchsize = 512,         # Batch size for training
+    opt = AdamW(0.1),   # Optimizer and learning rate
+    monitor_names = [:rb, :Q10], # Parameters to monitor during training
+    yscale = identity,       # Scaling for outputs
+    shuffleobs = true
+)
+
+LuxCore.testmode(single_nn_out.st)
+mean(df.dsw_pot)
+mean(df.sw_pot)
+
+# =============================================================================
+# Multi NN Hybrid Model Training
+# =============================================================================
+predictors_multi_nn = (rb = [:sw_pot, :dsw_pot],)
+
+multi_nn_hybrid_model = constructHybridModel(
+    predictors_multi_nn,              # Input features
+    forcing,                 # Forcing variables
+    target,                  # Target variables
+    RbQ10,                  # Process-based model function
+    parameters,              # Parameter definitions
+    global_param_names,      # Global parameters
+    hidden_layers = [16, 16], # Neural network architecture
+    activation = sigmoid,      # Activation function
+    scale_nn_outputs = true, # Scale neural network outputs
+    input_batchnorm = true   # Apply batch normalization to inputs
+)
+
+multi_nn_out = train(
+    multi_nn_hybrid_model,
+    ka,
+    ();
+    nepochs = 10,           # Number of training epochs
+    batchsize = 512,         # Batch size for training
+    opt = AdamW(0.1),   # Optimizer and learning rate
+    monitor_names = [:rb, :Q10], # Parameters to monitor during training
+    yscale = identity,       # Scaling for outputs
+    shuffleobs = true
+)
+
+LuxCore.testmode(multi_nn_out.st)
+mean(df.dsw_pot)
+mean(df.sw_pot)
+
+# =============================================================================
+# Pure ML Single NN Model Training
+# =============================================================================
+
+# TODO does not train well build on top of SingleNNHybridModel
+predictors_single_nn_ml = [:sw_pot, :dsw_pot, :ta]
+
+single_nn_model = constructNNModel(predictors_single_nn_ml, target; input_batchnorm = true, activation = tanh)
+single_nn_out = train(single_nn_model, da, (); nepochs = 10, batchsize = 512, opt = AdamW(0.01), yscale = identity, shuffleobs = true)
+LuxCore.testmode(single_nn_out.st)
+mean(df.dsw_pot)
+mean(df.sw_pot)
+
+single_nn_model.targets
+
+# =============================================================================
+# Pure ML Multi NN Model Training
+# =============================================================================
+
+# TODO does not train well build on top of MultiNNHybridModel
+
 
 # =============================================================================
 # Results Analysis
@@ -113,12 +226,13 @@ using WGLMakie
 mspempty = ModelSpec()
 
 nhyper = 4
-ho = @thyperopt for i=nhyper,
-    opt = [AdamW(0.01), AdamW(0.1), RMSProp(0.001), RMSProp(0.01)],
-    input_batchnorm = [true, false]
-    hyper_parameters = (;opt, input_batchnorm)
+ho = @thyperopt for i in nhyper,
+        opt in [AdamW(0.01), AdamW(0.1), RMSProp(0.001), RMSProp(0.01)],
+        input_batchnorm in [true, false]
+
+    hyper_parameters = (; opt, input_batchnorm)
     println("Hyperparameter run: \n", i, " of ", nhyper, "\t with hyperparameters \t", hyper_parameters, "\t")
-    out = EasyHybrid.tune(hybrid_model, ds, mspempty; hyper_parameters..., nepochs = 10, plotting = false, show_progress = false, file_name = "test$i.jld2")
+    out = EasyHybrid.tune(hybrid_model, df, mspempty; hyper_parameters..., nepochs = 10, plotting = false, show_progress = false, file_name = "test$i.jld2")
     #out.best_loss
     # out.best_loss, has to be first element of the tuple, return a rich record for this trial (stored in ho.results[i])
     (out.best_loss, hyperps = hyper_parameters, ps_st = (out.ps, out.st), i = i)
@@ -146,11 +260,13 @@ sorted_hyperps = hyperps[idx]
 fig = Figure(figure_padding = 50)
 # Prepare tick labels with hyperparameter info for each trial (sorted)
 sorted_ticklabels = [
-    join([
-        k == :opt ? "opt=$(short_opt_name(v))" : "$k=$(repr(v))"
-        for (k, v) in pairs(hp)
-    ], "\n")
-    for hp in sorted_hyperps
+    join(
+            [
+                k == :opt ? "opt=$(short_opt_name(v))" : "$k=$(repr(v))"
+                for (k, v) in pairs(hp)
+            ], "\n"
+        )
+        for hp in sorted_hyperps
 ]
 ax = Makie.Axis(
     fig[1, 1];
@@ -162,7 +278,7 @@ ax = Makie.Axis(
     xticks = (1:length(sorted_losses), sorted_ticklabels),
     xticklabelrotation = 45
 )
-scatter!(ax, 1:length(sorted_losses), sorted_losses; markersize=15, color=:dodgerblue)
+scatter!(ax, 1:length(sorted_losses), sorted_losses; markersize = 15, color = :dodgerblue)
 
 # Get the best trial
 best_idx = argmin(losses)
@@ -180,8 +296,8 @@ using Plots.PlotMeasures
 ho2 = deepcopy(ho)
 ho2.results = getfield.(ho.results, :best_loss)
 
-Plots.plot(ho2, xrotation=25, left_margin=[100mm 0mm], bottom_margin=60mm, ylab = "loss", size = (900, 900)) 
+Plots.plot(ho2, xrotation = 25, left_margin = [100mm 0mm], bottom_margin = 60mm, ylab = "loss", size = (900, 900))
 
 # Train the model with the best hyperparameters
 best_hyperp = best_hyperparams(ho)
-out = EasyHybrid.tune(hybrid_model, ds, mspempty; best_hyperp..., nepochs = 100, train_from = best_params)
+out = EasyHybrid.tune(hybrid_model, df, mspempty; best_hyperp..., nepochs = 100, train_from = best_params)

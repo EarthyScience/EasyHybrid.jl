@@ -1,6 +1,14 @@
 # Changelog
 
 ## Unreleased
+- Maximizing and Minimizing metric, e.g. :nse and :nseLoss - this is breaking. In training_loss, you now have to use :nseLoss if you want to use 1 - NSE as loss function, :nse is now the real NSE -> 1 not the loss anymore. In loss_types for monitoring and plotting training and validation metrics, you can now also have functions that need to be maximized, e.g. :nse, :pearson (#179)
+- in loss_types [:nse, :mse] the first element, i.e. :nse in this example, is used in train_board plot - now you can use different metrics in training_loss and loss_types (#179)
+- first element in loss_types as y-axis label in train_board (#179)
+- :kge and :kgeLoss, Kling-Gupta efficiency and respective loss can be used in loss_types and training_loss, respectively (#179)
+- new functionality in the tune function that allows to switch targets for a hybrid_model. Only train on SOC: tune(hm, df, targets = [:SOC]), train same hybrid model hm but on SOC and MAOC: tune(hm, df, targets = [:SOC, :MAOC]) (#189)
+
+## v0.1.7 - 2025-12-02
+- cleaned up dependencies, i.e. rm Flux and others, added explicit imports and formatter [#183](https://github.com/EarthyScience/EasyHybrid.jl/pull/183)
 
 ## v0.1.6 - 2025-11-06
 - introduces a generic custom input loss function feature in [#163](https://github.com/EarthyScience/EasyHybrid.jl/pull/163)

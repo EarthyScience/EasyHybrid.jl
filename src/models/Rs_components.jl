@@ -1,4 +1,3 @@
-
 export Rs_components
 
 """
@@ -15,14 +14,14 @@ struct Rs_components{D, T1, T2, T3, T4} <: LuxCore.AbstractLuxContainerLayer{(:N
     Q10_root
     Q10_myc
     function Rs_components(NN::D, predictors::T1, forcing::T2, targets::T3, Q10_het::T4, Q10_root::T4, Q10_myc::T4) where {D, T1, T2, T3, T4}
-        new{D, T1, T2, T3, T4}(NN, collect(predictors), collect(forcing), collect(targets), [Q10_het], [Q10_root], [Q10_myc])
+        return new{D, T1, T2, T3, T4}(NN, collect(predictors), collect(forcing), collect(targets), [Q10_het], [Q10_root], [Q10_myc])
     end
 end
 
 # ? Q10 is a parameter, so expand the initialparameters!
 function LuxCore.initialparameters(::AbstractRNG, layer::Rs_components)
     ps, _ = LuxCore.setup(Random.default_rng(), layer.NN)
-    return (; ps, Q10_het = layer.Q10_het, Q10_root = layer.Q10_root, Q10_myc = layer.Q10_myc, )
+    return (; ps, Q10_het = layer.Q10_het, Q10_root = layer.Q10_root, Q10_myc = layer.Q10_myc)
 end
 
 function LuxCore.initialstates(::AbstractRNG, layer::Rs_components)
@@ -41,16 +40,16 @@ ŷ (respiration rate) is computed as a function of the neural network output `R
 function (hm::Rs_components)(ds_k, ps, st::NamedTuple)
     p = ds_k(hm.predictors)
     x = Array(ds_k(hm.forcing)) # don't propagate names after this
-    
-    out, stRs = LuxCore.apply(hm.NN, p, ps.ps, st.st)
-    
-    Rb_het = out[1,:]
-    Rb_root = out[2,:]
-    Rb_myc = out[3,:]
 
-    R_het = mRbQ10(Rb_het, ps.Q10_het, x[1,:], 15.f0)	
-    R_root = mRbQ10(Rb_root, ps.Q10_root, x[1,:], 15.f0)
-    R_myc = mRbQ10(Rb_myc, ps.Q10_myc, x[1,:], 15.f0)
+    out, stRs = LuxCore.apply(hm.NN, p, ps.ps, st.st)
+
+    Rb_het = out[1, :]
+    Rb_root = out[2, :]
+    Rb_myc = out[3, :]
+
+    R_het = mRbQ10(Rb_het, ps.Q10_het, x[1, :], 15.0f0)
+    R_root = mRbQ10(Rb_root, ps.Q10_root, x[1, :], 15.0f0)
+    R_myc = mRbQ10(Rb_myc, ps.Q10_myc, x[1, :], 15.0f0)
 
     R_soil = R_het .+ R_root .+ R_myc
 

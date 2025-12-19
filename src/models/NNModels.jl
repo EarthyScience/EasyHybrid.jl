@@ -5,11 +5,15 @@ using ..EasyHybrid: hard_sigmoid
 
 # Pure Neural Network Models (no mechanistic component)
 
-struct SingleNNModel
-    NN               :: Chain
-    predictors       :: Vector{Symbol}
-    targets          :: Vector{Symbol}
-    scale_nn_outputs :: Bool
+struct SingleNNModel <: LuxCore.AbstractLuxContainerLayer{
+        (
+            :NN, :predictors, :targets, :scale_nn_outputs,
+        ),
+    }
+    NN::Chain
+    predictors::Vector{Symbol}
+    targets::Vector{Symbol}
+    scale_nn_outputs::Bool
 end
 
 """
@@ -37,32 +41,32 @@ Construct a neural network `Chain` for use in NN models.
 where `h₁` is the first hidden size and `hₖ` the last.
 """
 function prepare_hidden_chain(
-    hidden_layers::Union{Vector{Int}, Chain},
-    in_dim::Int,
-    out_dim::Int;
-    activation = tanh,
-    input_batchnorm = false # apply batchnorm to input as an easy way for normalization
-)
+        hidden_layers::Union{Vector{Int}, Chain},
+        in_dim::Int,
+        out_dim::Int;
+        activation = tanh,
+        input_batchnorm = false # apply batchnorm to input as an easy way for normalization
+    )
     if hidden_layers isa Chain
         # user gave a chain of hidden layers only
         first_h = hidden_layers[1].out_dims
-        last_h  = hidden_layers[end].out_dims
+        last_h = hidden_layers[end].out_dims
 
         return Chain(
-            input_batchnorm ? BatchNorm(in_dim, affine=false) : identity,
+            input_batchnorm ? BatchNorm(in_dim, affine = false) : identity,
             Dense(in_dim, first_h, activation),
-            hidden_layers.layers...,    
+            hidden_layers.layers...,
             Dense(last_h, out_dim)
         )
     else
         # user gave a vector of hidden‐layer sizes
         hs = hidden_layers
         # build the hidden‐to‐hidden part
-        hidden_chain = length(hs) > 1 ? 
-            Chain((Dense(hs[i], hs[i+1], activation) for i in 1:length(hs)-1)...) :
+        hidden_chain = length(hs) > 1 ?
+            Chain((Dense(hs[i], hs[i + 1], activation) for i in 1:(length(hs) - 1))...) :
             Chain()
         return Chain(
-            input_batchnorm ? BatchNorm(in_dim, affine=false) : identity,
+            input_batchnorm ? BatchNorm(in_dim, affine = false) : identity,
             Dense(in_dim, hs[1], activation),
             hidden_chain.layers...,
             Dense(hs[end], out_dim)
@@ -78,41 +82,47 @@ Main constructor: `hidden_layers` can be either
   • a `Chain` of hidden-layer `Dense` blocks.
 """
 function constructNNModel(
-    predictors::Vector{Symbol},
-    targets::Vector{Symbol};
-    hidden_layers::Union{Vector{Int}, Chain} = [32, 16, 16],
-    activation = tanh,
-    scale_nn_outputs::Bool = true,
-    input_batchnorm = false
-)
-    in_dim  = length(predictors)
+        predictors::Vector{Symbol},
+        targets::Vector{Symbol};
+        hidden_layers::Union{Vector{Int}, Chain} = [32, 16, 16],
+        activation = tanh,
+        scale_nn_outputs::Bool = true,
+        input_batchnorm = false
+    )
+    in_dim = length(predictors)
     out_dim = length(targets)
 
-    NN = prepare_hidden_chain(hidden_layers, in_dim, out_dim;
-                              activation = activation,
-                              input_batchnorm = input_batchnorm)
+    NN = prepare_hidden_chain(
+        hidden_layers, in_dim, out_dim;
+        activation = activation,
+        input_batchnorm = input_batchnorm
+    )
 
     return SingleNNModel(NN, predictors, targets, scale_nn_outputs)
 end
 
 # MultiNNModel remains as before
-struct MultiNNModel
-    NNs             :: NamedTuple
-    predictors      :: NamedTuple
-    targets         :: Vector{Symbol}
-    scale_nn_outputs  :: Bool
+struct MultiNNModel <: LuxCore.AbstractLuxContainerLayer{
+        (
+            :NNs, :predictors, :targets, :scale_nn_outputs,
+        ),
+    }
+    NNs::NamedTuple
+    predictors::NamedTuple
+    targets::Vector{Symbol}
+    scale_nn_outputs::Bool
 end
 
 function constructNNModel(
-    predictors::NamedTuple,
-    targets;
-    scale_nn_outputs = true
-)
+        predictors::NamedTuple,
+        targets;
+        scale_nn_outputs = true
+    )
     @assert collect(keys(predictors)) == targets "predictor names must match targets"
     NNs = NamedTuple()
     for (nn_name, preds) in pairs(predictors)
         nn = Chain(
-            BatchNorm(length(preds), affine=false),
+            BatchNorm(length(preds), affine = false),
             Dense(length(preds), 15, sigmoid),
             Dense(15, 15, sigmoid),
             Dense(15, 1, x -> x^2)
@@ -143,7 +153,7 @@ end
 # LuxCore initial states for SingleNNModel
 function LuxCore.initialstates(rng::AbstractRNG, m::SingleNNModel)
     _, st_nn = LuxCore.setup(rng, m.NN)
-    nt = (; st = st_nn)
+    nt = (; st_nn = st_nn)
     return nt
 end
 
@@ -160,8 +170,8 @@ end
 
 # Forward pass for SingleNNModel
 function (m::SingleNNModel)(ds_k, ps, st)
-    predictors = ds_k(m.predictors)
-    nn_out, st_NN = LuxCore.apply(m.NN, predictors, ps.ps, st.st)
+    predictors = toArray(ds_k, m.predictors)
+    nn_out, st_nn = LuxCore.apply(m.NN, predictors, ps.ps, st.st_nn)
     nn_cols = eachrow(nn_out)
     nn_params = NamedTuple(zip(m.targets, nn_cols))
     if m.scale_nn_outputs
@@ -172,15 +182,16 @@ function (m::SingleNNModel)(ds_k, ps, st)
     scaled_nn_params = NamedTuple(zip(m.targets, scaled_nn_vals))
 
     out = (; scaled_nn_params...)
-    st_new = (; st = st_NN)
-    return out, (; st = st_new)
+    st_new = (; st_nn = st_nn)
+    return out, st_new
 end
 
 # Forward pass for MultiNNModel
 function (m::MultiNNModel)(ds_k, ps, st)
     nn_inputs = NamedTuple()
     for (nn_name, predictors) in pairs(m.predictors)
-        nn_inputs = merge(nn_inputs, NamedTuple{(nn_name,), Tuple{typeof(ds_k(predictors))}}((ds_k(predictors),)))
+        da = toArray(ds_k, predictors)
+        nn_inputs = merge(nn_inputs, NamedTuple{(nn_name,), Tuple{typeof(da)}}((da,)))
     end
     nn_outputs = NamedTuple()
     nn_states = NamedTuple()
@@ -204,17 +215,17 @@ function (m::MultiNNModel)(ds_k, ps, st)
     end
     out = (; scaled_nn_params..., nn_outputs = nn_outputs)
     st_new = (; nn_states...)
-    return out, (; st = st_new)
+    return out, st_new
 end
 
 # Display functions
-function Base.display(m::SingleNNModel)
+function Base.show(io::IO, ::MIME"text/plain", m::SingleNNModel)
     println("Neural Network: ", m.NN)
     println("Predictors: ", m.predictors)
-    println("scale NN outputs: ", m.scale_nn_outputs)
+    return println("scale NN outputs: ", m.scale_nn_outputs)
 end
 
-function Base.display(m::MultiNNModel)
+function Base.show(io::IO, ::MIME"text/plain", m::MultiNNModel)
     println("Neural Networks:")
     for (name, nn) in pairs(m.NNs)
         println("  $name: ", nn)
@@ -223,5 +234,5 @@ function Base.display(m::MultiNNModel)
     for (name, preds) in pairs(m.predictors)
         println("  $name: ", preds)
     end
-    println("scale NN outputs: ", m.scale_nn_outputs)
-end 
+    return println("scale NN outputs: ", m.scale_nn_outputs)
+end

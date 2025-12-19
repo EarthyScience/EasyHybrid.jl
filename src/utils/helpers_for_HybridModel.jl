@@ -5,20 +5,20 @@ function construct_dispatch_functions(f)
 
     println("constructing on KeyedArray function for $f")
     function new_f(forcing_data::KeyedArray, parameters::NamedTuple, forcing_names::Vector{Symbol})
-        forcing = unpack_keyedarray(forcing_data, forcing_names)
+        forcing = toNamedTuple(forcing_data, forcing_names)
         parameter_container = build_parameters(parameters, f)
-        f(;forcing..., values(default(parameter_container))...)
+        return f(; forcing..., values(default(parameter_container))...)
     end
 
     function new_f(forcing_data::DataFrame, parameters::NamedTuple, forcing_names::Vector{Symbol})
         forcing = (; (name => forcing_data[!, name] for name in forcing_names)...)
         parameter_container = build_parameters(parameters, f)
-        f(;forcing..., values(default(parameter_container))...)
+        return f(; forcing..., values(default(parameter_container))...)
     end
 
     println("repeating kwargs style functions for $f (orignal function: $f)")
-    function new_f(;kwargs...)
-        f(;kwargs...)
+    function new_f(; kwargs...)
+        return f(; kwargs...)
     end
 
     return new_f
@@ -37,17 +37,17 @@ Constructs a parameter container from a named tuple of parameter bounds and wrap
 - An instance of the user-defined `AbstractHybridModel` subtype containing the parameter container.
 """
 function build_parameters(parameters::NamedTuple, f::DataType)
-    ca = EasyHybrid.ParameterContainer(parameters)
+    ca = ParameterContainer(parameters)
     return f(ca)
 end
 
 # the “core” build_parameters that knows how to turn a NamedTuple + a
 # subtype of AbstractHybridModel into an actual model instance:
-function build_parameters(params::NamedTuple, ::Type{P}) where {P<:AbstractHybridModel}
-    return P(EasyHybrid.ParameterContainer(params))
+function build_parameters(params::NamedTuple, ::Type{P}) where {P <: AbstractHybridModel}
+    return P(ParameterContainer(params))
 end
 
-function build_parameters(params::NamedTuple, f::M) where {M<:Function}
+function build_parameters(params::NamedTuple, f::M) where {M <: Function}
     return build_parameters(params, HybridParams{M})
 end
 """
@@ -93,70 +93,10 @@ parameter_matrix[:, :upper]   # Get all upper bounds
 - The resulting ComponentArray can be used for parameter optimization and constraint handling
 """
 function build_parameter_matrix(parameter_defaults_and_bounds::NamedTuple)
-    param_names     = collect(keys(parameter_defaults_and_bounds))
+    param_names = collect(keys(parameter_defaults_and_bounds))
     bound_names = (:default, :lower, :upper)
     data = [ parameter_defaults_and_bounds[p][i] for p in param_names, i in 1:length(bound_names) ]
     row_ax = ComponentArrays.Axis(param_names)
     col_ax = ComponentArrays.Axis(bound_names)
     return ComponentArray(data, row_ax, col_ax)
-end
-
-"""
-    Base.display(io::IO, parameter_container::ParameterContainer)
-
-Display a ParameterContainer containing parameter bounds in a formatted table.
-
-This function creates a nicely formatted table showing parameter names as row labels
-and bound types (default, lower, upper) as column headers.
-
-# Arguments
-- `io::IO`: Output stream
-- `parameter_container::ParameterContainer`: A ParameterContainer with parameter bounds (typically created by `build_parameter_matrix`)
-
-# Returns
-- Displays a formatted table using PrettyTables.jl
-
-# Example
-```julia
-# Create parameter defaults and bounds
-parameter_defaults_and_bounds = (
-    θ_s = (0.464f0, 0.302f0, 0.700f0),
-    α   = (log(0.103f0), log(0.01f0), log(7.874f0)),
-    n   = (log(3.163f0 - 1), log(1.100f0 - 1), log(20.000f0 - 1)),
-)
-
-# Build ParameterContainer and display
-parameter_container = ParameterContainer(parameter_defaults_and_bounds)
-display(parameter_container)  # or just parameter_container
-```
-
-# Notes
-- Requires PrettyTables.jl to be loaded
-- The table shows parameter names as row labels and bound types as column headers
-- Default alignment is right-aligned for all columns
-"""
-function Base.display(parameter_container::T) where T <: AbstractHybridModel
-    display_parameter_bounds(parameter_container)
-end
-
-"""
-    display_parameter_bounds(parameter_container::ParameterContainer; alignment=:r)
-
-Legacy function for displaying parameter bounds with custom alignment.
-
-# Arguments
-- `parameter_container::ParameterContainer`: A ParameterContainer with parameter bounds
-- `alignment`: Alignment for table columns (default: right-aligned for all columns)
-
-# Returns
-- Displays a formatted table using PrettyTables.jl
-"""
-function display_parameter_bounds(parameter_container::T; alignment=:r) where {T <: AbstractHybridModel}
-    table = parameter_container.hybrid.table
-    PrettyTables.pretty_table(
-        table;  
-        header     = collect(keys(table.axes[2])),
-        row_labels = collect(keys(table.axes[1])),
-        alignment  = alignment
-    )
 end
