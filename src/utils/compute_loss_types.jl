@@ -34,6 +34,16 @@ struct PerTarget{T <: Tuple}
     losses::T
 end
 
+Base.length(pt::PerTarget) = length(pt.losses)
+Base.getindex(pt::PerTarget, i::Int) = pt.losses[i]
+
+Base.iterate(pt::PerTarget) = iterate(pt.losses)
+Base.iterate(pt::PerTarget, state) = iterate(pt.losses, state)
+Base.first(pt::PerTarget) = first(pt.losses)
+Base.last(pt::PerTarget) = last(pt.losses)
+Base.keys(pt::PerTarget) = keys(pt.losses)
+Base.eltype(::Type{PerTarget{T}}) where {T <: Tuple} = eltype(T)
+
 """
     LoggingLoss
 
