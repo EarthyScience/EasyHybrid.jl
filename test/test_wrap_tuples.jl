@@ -2,7 +2,7 @@ using Test
 using EasyHybrid: WrappedTuples
 
 @testset "WrappedTuples" begin
-    vec = [(a=1, b=2.0), (a=3, b=4.0)]
+    vec = [(a = 1, b = 2.0), (a = 3, b = 4.0)]
     wt = WrappedTuples(vec)
 
     # Basic properties
@@ -33,7 +33,7 @@ using EasyHybrid: WrappedTuples
     # Matrix conversion (checks promotion and column layout)
     M = Matrix(wt)
     @test size(M) == (2, 2)
-    @test M[1,1] == 1.0 && M[2,1] == 3.0 && M[1,2] == 2.0 && M[2,2] == 4.0
+    @test M[1, 1] == 1.0 && M[2, 1] == 3.0 && M[1, 2] == 2.0 && M[2, 2] == 4.0
 
     # Missing field raises FieldError
     @test_throws FieldError wt.x
