@@ -10,7 +10,7 @@ struct WrappedTuples{T <: AbstractVector{<:NamedTuple}} <: AbstractVector{NamedT
 end
 
 # Required methods for AbstractVector
-Base.size(w::WrappedTuples) = (length(w.data), length(first(w.data)))
+Base.size(w::WrappedTuples) = (length(w.data),)
 Base.getindex(w::WrappedTuples, i::Int) = w.data[i]
 Base.getindex(w::WrappedTuples, r::AbstractRange) = WrappedTuples(w.data[r])
 Base.IndexStyle(::Type{<:WrappedTuples}) = IndexLinear()
@@ -33,8 +33,9 @@ function Base.propertynames(w::WrappedTuples, private::Bool = false)
     return (:data,) ∪ propertynames(first(w.data), private)
 end
 function Base.Matrix(w::WrappedTuples)
-    n, m = size(w)
+    n = length(w)
     fields = propertynames(first(w.data))
+    m = length(fields)
     T = promote_type(map(f -> eltype(getproperty(w, f)), fields)...)
     mat = Array{T}(undef, n, m)
     for (j, f) in enumerate(fields)
