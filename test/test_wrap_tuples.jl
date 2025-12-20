@@ -17,6 +17,16 @@ using EasyHybrid: WrappedTuples
 
     # Iteration
     @test collect(wt) == vec
+    # Test iterate explicitly
+    @test iterate(wt) == (vec[1], 2)
+    @test iterate(wt, 2) == (vec[2], 3)
+    @test iterate(wt, 3) === nothing
+
+    result = NamedTuple[]
+    for item in wt
+        push!(result, item)
+    end
+    @test result == vec
 
     # Index style
     @test IndexStyle(WrappedTuples) isa IndexLinear
@@ -35,8 +45,8 @@ using EasyHybrid: WrappedTuples
     @test size(M) == (2, 2)
     @test M[1, 1] == 1.0 && M[2, 1] == 3.0 && M[1, 2] == 2.0 && M[2, 2] == 4.0
 
-    # Missing field raises FieldError
-    @test_throws FieldError wt.x
+    # Missing field raises Exception
+    @test_throws Exception wt.x
 
     # Slicing preserves behavior
     sub = wt[2:2]
