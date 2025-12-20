@@ -100,6 +100,26 @@ using EasyHybrid: _print_field, _print_header, IndentedIO
         )
 
         @test occursin("  line1", result) && occursin("  line2", result)
+
+        # Test flush, isopen, close, readavailable methods
+        io1 = IOBuffer()
+        ido1 = IndentedIO(io1; indent = "  ")
+        @test isopen(ido1) == isopen(io1)
+        print(ido1, "test")
+        flush(ido1)
+        @test String(take!(io1)) == "  test"
+
+        # Test readavailable (for IOBuffer)
+        io2 = IOBuffer("data")
+        ido2 = IndentedIO(io2)
+        @test readavailable(ido2) == UInt8[0x64, 0x61, 0x74, 0x61]
+
+        # Test close
+        io3 = IOBuffer()
+        ido3 = IndentedIO(io3)
+        @test isopen(ido3)
+        close(ido3)
+        @test !isopen(ido3)
     end
 
 end

@@ -6,13 +6,21 @@ using DataFrames
 @testset "show_train.jl" begin
 
     @testset "_print_nested_keys" begin
-        # Test scalars, arrays, nested NamedTuples, and tuples
-        nt = (scalar = 1.0, array = [1, 2, 3], nested = (x = 1.0, y = 2.0), empty_tuple = ())
+        # Test scalars, arrays, nested NamedTuples, empty and non-empty tuples
+        nt = (
+            scalar = 1.0,
+            array = [1, 2, 3],
+            nested = (x = 1.0, y = 2.0),
+            empty_tuple = (),
+            non_empty_tuple = (1.0, 2.0, 3.0),  # Non-empty tuple to cover tuple length printing
+        )
         result = sprint(io -> EasyHybrid._print_nested_keys(io, nt; indent = 4), context = :color => false)
 
         @test occursin("scalar", result) && occursin("array", result) && occursin("nested", result)
         @test occursin("(x, y)", result)  # Nested property names
         @test occursin("(3,)", result)  # Array size
+        @test occursin("non_empty_tuple", result) && occursin("(3,)", result)  # Non-empty tuple length
+        @test occursin("empty_tuple", result) && occursin("()", result)  # Empty tuple
     end
 
     @testset "Base.show for TrainResults" begin
