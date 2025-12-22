@@ -103,7 +103,7 @@ function constructHybridModel(
     @assert all(n in all_names for n in neural_param_names) "neural_param_names ⊆ param_names"
 
     # if empty predictors do not construct NN
-    if length(predictors) > 0
+    if length(predictors) > 0 && length(neural_param_names) > 0
 
         in_dim = length(predictors)
         out_dim = length(neural_param_names)

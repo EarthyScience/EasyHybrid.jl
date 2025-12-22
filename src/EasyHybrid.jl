@@ -59,6 +59,7 @@ include("train.jl")
 include("utils/show_train.jl")
 include("utils/helpers_for_HybridModel.jl")
 include("utils/helpers_data_loading.jl")
+include("utils/helpers_result_extraction.jl")
 include("tune.jl")
 include("utils/helpers_cross_validation.jl")
 

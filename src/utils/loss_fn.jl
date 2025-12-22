@@ -127,6 +127,29 @@ function loss_fn(ŷ, y, y_nan, ::Val{:kgeLoss})
     )
 end
 
+function loss_fn(ŷ, y, y_nan, ::Val{:β})
+    ŷv = ŷ[y_nan]
+    yv = y[y_nan]
+
+    μ_s = mean(ŷv)
+    μ_o = mean(yv)
+
+    β = μ_s / μ_o
+
+    return β
+end
+
+function loss_fn(ŷ, y, y_nan, ::Val{:α})
+    ŷv = ŷ[y_nan]
+    yv = y[y_nan]
+
+    σ_s = std(ŷv)
+    σ_o = std(yv)
+    α = σ_s / σ_o
+
+    return α
+end
+
 # Kling–Gupta Efficiency metric (to MAXIMIZE, e.g. for reporting)
 function loss_fn(ŷ, y, y_nan, ::Val{:kge})
     kge_loss = loss_fn(ŷ, y, y_nan, Val(:kgeLoss))

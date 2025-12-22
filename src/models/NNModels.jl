@@ -49,8 +49,40 @@ function prepare_hidden_chain(
     )
     if hidden_layers isa Chain
         # user gave a chain of hidden layers only
-        first_h = hidden_layers[1].out_dims
-        last_h = hidden_layers[end].out_dims
+        
+        # Helper to safely extract dimensions from layers
+        function get_layer_dim(l, type)
+            if type == :input
+                hasproperty(l, :in_dims) && return l.in_dims
+                (l isa BatchNorm && hasproperty(l, :dims)) && return l.dims
+            elseif type == :output
+                hasproperty(l, :out_dims) && return l.out_dims
+                (l isa BatchNorm && hasproperty(l, :dims)) && return l.dims
+            end
+            return nothing
+        end
+
+        # Determine first_h by searching forward
+        first_h = nothing
+        for i in 1:length(hidden_layers)
+            d = get_layer_dim(hidden_layers[i], :input)
+            if !isnothing(d)
+                first_h = d
+                break
+            end
+        end
+        isnothing(first_h) && error("Could not determine input dimension of hidden_layers Chain (found no Dense or BatchNorm layer).")
+
+        # Determine last_h by searching backward
+        last_h = nothing
+        for i in length(hidden_layers):-1:1
+            d = get_layer_dim(hidden_layers[i], :output)
+            if !isnothing(d)
+                last_h = d
+                break
+            end
+        end
+        isnothing(last_h) && error("Could not determine output dimension of hidden_layers Chain.")
 
         return Chain(
             input_batchnorm ? BatchNorm(in_dim, affine = false) : identity,
