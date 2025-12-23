@@ -362,7 +362,7 @@ end
 # Forward pass for SingleNNHybridModel (optimized, no branching)
 function (m::SingleNNHybridModel)(ds_k::Union{KeyedArray, AbstractDimArray}, ps, st)
     # 1) get features
-    predictors = toArray(ds_k, m.predictors)
+    predictors = ds_k(m.predictors)#toArray(ds_k, m.predictors)
 
     parameters = m.parameters
 
@@ -380,7 +380,7 @@ function (m::SingleNNHybridModel)(ds_k::Union{KeyedArray, AbstractDimArray}, ps,
     # 3) scale NN parameters (handle empty case)
     if !isempty(m.neural_param_names)
         nn_out, st_nn = LuxCore.apply(m.NN, predictors, ps.ps, st.st_nn)
-        nn_cols = eachrow(nn_out)
+        nn_cols = eachslice(nn_out, dims=1)
         nn_params = NamedTuple(zip(m.neural_param_names, nn_cols))
 
         # Use appropriate scaling based on setting

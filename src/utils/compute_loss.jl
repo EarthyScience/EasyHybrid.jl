@@ -25,7 +25,10 @@ function compute_loss(
     targets = HM.targets
     ext_loss = extra_loss(logging)
     if logging.train_mode
-        ŷ, st = HM(x, ps, st)
+        ŷall, st = HM(x, ps, st)
+
+        ŷ = ŷall(window = axiskeys(y_t, :window))
+
         loss_value = _compute_loss(ŷ, y_t, y_nan, targets, training_loss(logging), logging.agg)
         # Add extra_loss if provided
         if ext_loss !== nothing
@@ -34,7 +37,10 @@ function compute_loss(
         end
         stats = NamedTuple()
     else
-        ŷ, _ = HM(x, ps, LuxCore.testmode(st))
+        ŷall, _ = HM(x, ps, LuxCore.testmode(st))
+
+        ŷ = ŷall(window = axiskeys(y_t, :window))
+
         loss_value = _compute_loss(ŷ, y_t, y_nan, targets, loss_types(logging), logging.agg)
         # Add extra_loss entries if provided
         if ext_loss !== nothing
@@ -53,6 +59,9 @@ function _compute_loss(ŷ, y, y_nan, targets, loss_spec, agg::Function)
 end
 
 function _compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
+        
+    @show typeof(ŷ)
+    @show typeof(y)
     out_loss_types = [
         begin
                 losses = assemble_loss(ŷ, y, y_nan, targets, loss_type)

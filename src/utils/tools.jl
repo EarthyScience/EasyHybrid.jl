@@ -171,22 +171,22 @@ ta = data.TA
 ```
 """
 function toNamedTuple(ka::KeyedArray, variables::Vector{Symbol})
-    vals = [vec(ka([var])) for var in variables]
+    vals = [dropdims(ka([var]), dims = 1) for var in variables]
     return (; zip(variables, vals)...)
 end
 
 function toNamedTuple(ka::AbstractDimArray, variables::Vector{Symbol})
-    vals = [vec(ka[col = At(var)]) for var in variables]
+    vals = [ka[col = At([var])] for var in variables]
     return (; zip(variables, vals)...)
 end
 
 function toNamedTuple(ka::KeyedArray, variables::NTuple{N, Symbol}) where {N}
-    vals = ntuple(i -> vec(ka([variables[i]])), N)
+    vals = ntuple(i -> ka([variables[i]]), N)
     return NamedTuple{variables}(vals)
 end
 
 function toNamedTuple(ka::AbstractDimArray, variables::NTuple{N, Symbol}) where {N}
-    ntuple(i -> vec(ka[col = At([variables[i]])]), N)
+    ntuple(i -> ka[col = At([variables[i]])], N)
     return NamedTuple{variables}(vals)
 end
 
@@ -238,11 +238,11 @@ sw_in = toNamedTuple(ds_keyed, :SW_IN)
 ```
 """
 function toNamedTuple(ka::KeyedArray, variable::Symbol)
-    return vec(ka[variable])
+    return ka(variable)
 end
 
 function toNamedTuple(ka::AbstractDimArray, variable::Symbol)
-    return vec(ka[col = At(variable)])
+    return ka[col = At(variable)]
 end
 
 function toArray(ka::KeyedArray, variable)

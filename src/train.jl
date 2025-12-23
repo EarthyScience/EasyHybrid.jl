@@ -1,4 +1,4 @@
-export train, TrainResults, prepare_data, split_data
+export train, TrainResults, prepare_data, split_data, split_into_sequences, windowed_dataset
 # beneficial for plotting based on type TrainResults?
 struct TrainResults
     train_history
@@ -411,9 +411,21 @@ function split_data(
         val_fold::Union{Nothing, Int} = nothing,
         shuffleobs::Bool = false,
         split_data_at::Real = 0.8,
+        sequence_kwargs::Union{Nothing, NamedTuple} = nothing,
         kwargs...
     )
     data_ = prepare_data(hybridModel, data)
+
+    if sequence_kwargs !== nothing
+        x_keyed, y_keyed = data_
+        sis_default = (;input_window = 10, output_window = 1, shift = 1, lead_time = 1)
+        sis = merge(sis_default, sequence_kwargs)
+        @info "Using split_into_sequences: $sis"
+        x_all, y_all = split_into_sequences(x_keyed, y_keyed; sis.input_window, sis.output_window, sis.shift, sis.lead_time)
+    else
+        x_all, y_all = data_
+    end
+
 
     if split_by_id !== nothing && folds !== nothing
 
@@ -431,9 +443,8 @@ function split_data(
         @info "Number of unique $(split_by_id): $(length(unique_ids))"
         @info "Train IDs: $(length(train_ids)) | Val IDs: $(length(val_ids))"
 
-        x_all, y_all = data_
-        x_train, y_train = view(x_all, :, train_idx), view(y_all, :, train_idx)
-        x_val, y_val = view(x_all, :, val_idx), view(y_all, :, val_idx)
+        x_train, y_train = view_end_dim(x_all, train_idx), view_end_dim(y_all, train_idx)
+        x_val, y_val = view_end_dim(x_all, val_idx), view_end_dim(y_all, val_idx)
         return (x_train, y_train), (x_val, y_val)
 
     elseif folds !== nothing || val_fold !== nothing
@@ -441,7 +452,6 @@ function split_data(
         @assert val_fold !== nothing "Provide val_fold when using folds."
         @assert folds !== nothing "Provide folds when using val_fold."
         @warn "shuffleobs is not supported when using folds and val_fold, this will be ignored and should be done during fold constructions"
-        x_all, y_all = data_
         f = isa(folds, Symbol) ? getbyname(data, folds) : folds
         n = size(x_all, 2)
         @assert length(f) == n "length(folds) ($(length(f))) must equal number of samples/columns ($n)."
@@ -453,13 +463,13 @@ function split_data(
 
         @info "K-fold via external assignments: val_fold=$val_fold → train=$(length(train_idx)) val=$(length(val_idx))"
 
-        x_train, y_train = view(x_all, :, train_idx), view(y_all, :, train_idx)
-        x_val, y_val = view(x_all, :, val_idx), view(y_all, :, val_idx)
+        x_train, y_train = view_end_dim(x_all, train_idx), view_end_dim(y_all, train_idx)
+        x_val, y_val = view_end_dim(x_all, val_idx), view_end_dim(y_all, val_idx)
         return (x_train, y_train), (x_val, y_val)
-
+    
     else
         # --- Fallback: simple random/chronological split of prepared data ---
-        (x_train, y_train), (x_val, y_val) = splitobs(data_; at = split_data_at, shuffle = shuffleobs)
+        (x_train, y_train), (x_val, y_val) = splitobs((x_all, y_all); at = split_data_at, shuffle = shuffleobs)
         return (x_train, y_train), (x_val, y_val)
     end
 end
@@ -612,4 +622,67 @@ end
 
 function getbyname(ka::AxisKeys.KeyedArray, name::Symbol)
     return ka(name)
+end
+
+function split_into_sequences(x, y; input_window=5, output_window=1, shift=1, lead_time=1)
+    ndims(x) == 2 || throw(ArgumentError("expected x to be (feature, time); got ndims(x) = $(ndims(x))"))
+    ndims(y) == 2 || throw(ArgumentError("expected y to be (target, time); got ndims(y) = $(ndims(y))"))
+
+    Lx, Ly = size(x,2), size(y,2)
+    Lx == Ly || throw(ArgumentError("x and y must have same time length; got $Lx vs $Ly"))
+    lead_time ≥ 0 || throw(ArgumentError("lead_time must be ≥ 0 (0 = instantaneous end)"))
+
+    nfeat, ntarget = size(x,1), size(y,1)
+    L = Lx
+
+    featkeys   = axiskeys(x, 1)
+    timekeys   = axiskeys(x, 2)
+    targetkeys = axiskeys(y, 1)
+
+    # X window keys are lags ending at 0
+    lag_keys = (-input_window + 1):0
+
+    # Y window keys end at lead_time and go backwards if output_window>1
+    lead_start = lead_time - output_window + 1
+    lead_keys  = lead_start:lead_time
+
+    # Choose valid sample starts sx so that:
+    # sy = ex + lead_start >= 1  and  ey = ex + lead_time <= L
+    sx_min = max(1, 1 - (input_window + lead_time - output_window))  # ensures sy>=1
+    sx_max = L - input_window - lead_time + 1                        # ensures ey<=L
+    sx_min <= sx_max || throw(ArgumentError("windows too long for series length"))
+
+    sx_vals = collect(sx_min:shift:sx_max)
+    num_samples = length(sx_vals)
+    num_samples ≥ 1 || throw(ArgumentError("no samples with given shift/windows"))
+
+    samplekeys = timekeys[sx_vals]
+
+    Xd = zeros(Float32, nfeat,   input_window,  num_samples)
+    Yd = zeros(Float32, ntarget, output_window, num_samples)
+
+    @inbounds @views for (ii, sx) in enumerate(sx_vals)
+        ex = sx + input_window - 1
+
+        sy = ex + lead_start
+        ey = ex + lead_time
+
+        Xd[:, :, ii] .= x[:, sx:ex]
+        Yd[:, :, ii] .= y[:, sy:ey]
+    end
+
+    Xk = KeyedArray(Xd; row=featkeys,   window=lag_keys,  col=samplekeys)
+    Yk = KeyedArray(Yd; row=targetkeys, window=lead_keys, col=samplekeys)
+
+    Ydrop = dropdims(Yk, dims = 1)
+
+    return Xk, Yk
+end
+
+view_end_dim = function(x_all::Array{Float32, 2}, idx)
+    return view(x_all, :, idx)
+end
+
+view_end_dim = function(x_all::Array{Float32, 3}, idx)
+    return view(x_all, :, :, idx)
 end

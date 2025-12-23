@@ -1,4 +1,4 @@
-export SingleNNModel, MultiNNModel, constructNNModel, prepare_hidden_chain
+export SingleNNModel, MultiNNModel, constructNNModel, prepare_hidden_chain, BroadcastLayer
 
 using Lux, LuxCore
 using ..EasyHybrid: hard_sigmoid
@@ -49,8 +49,44 @@ function prepare_hidden_chain(
     )
     if hidden_layers isa Chain
         # user gave a chain of hidden layers only
-        first_h = hidden_layers[1].out_dims
-        last_h = hidden_layers[end].out_dims
+        
+        # Helper to safely extract dimensions from layers
+        function get_layer_dim(l, type)
+            if type == :input
+                hasproperty(l, :in_dims) && return l.in_dims
+                (l isa BatchNorm && hasproperty(l, :dims)) && return l.dims
+                (l isa Recurrence && hasproperty(l.cell, :in_dims)) && return l.cell.in_dims
+                (l isa CompactLuxLayer && hasproperty(l.layers, :in_dims)) && return l.layers.in_dims
+            elseif type == :output
+                hasproperty(l, :out_dims) && return l.out_dims
+                (l isa BatchNorm && hasproperty(l, :dims)) && return l.dims
+                (l isa Recurrence && hasproperty(l.cell, :out_dims)) && return l.cell.out_dims
+                (l isa CompactLuxLayer && hasproperty(l.layers, :out_dims)) && return l.layers.out_dims
+            end
+            return nothing
+        end
+
+        # Determine first_h by searching forward
+        first_h = nothing
+        for i in 1:length(hidden_layers)
+            d = get_layer_dim(hidden_layers[i], :input)
+            if !isnothing(d)
+                first_h = d
+                break
+            end
+        end
+        isnothing(first_h) && error("Could not determine input dimension of hidden_layers Chain (found no Dense or BatchNorm layer).")
+
+        # Determine last_h by searching backward
+        last_h = nothing
+        for i in length(hidden_layers):-1:1
+            d = get_layer_dim(hidden_layers[i], :output)
+            if !isnothing(d)
+                last_h = d
+                break
+            end
+        end
+        isnothing(last_h) && error("Could not determine output dimension of hidden_layers Chain.")
 
         return Chain(
             input_batchnorm ? BatchNorm(in_dim, affine = false) : identity,
@@ -236,3 +272,26 @@ function Base.show(io::IO, ::MIME"text/plain", m::MultiNNModel)
     end
     return println("scale NN outputs: ", m.scale_nn_outputs)
 end
+
+struct BroadcastLayer{T <: NamedTuple} <: LuxCore.AbstractLuxContainerLayer{(:layers,)}
+    layers::T
+end
+
+function BroadcastLayer(layers...)
+    for l in layers
+        if !iszero(LuxCore.statelength(l))
+            throw(ArgumentError("Stateful layer `$l` are not supported for `BroadcastLayer`."))
+        end
+    end
+    names = ntuple(i -> Symbol("layer_$i"), length(layers))
+    return BroadcastLayer(NamedTuple{names}(layers))
+end
+
+BroadcastLayer(; kwargs...) = BroadcastLayer(connection, (; kwargs...))
+
+function (m::BroadcastLayer)(x, ps, st::NamedTuple{names}) where {names}
+    results = (first ∘ Lux.apply).(values(m.layers), x, values(ps), values(st))
+    return results, st
+end
+
+Base.keys(m::BroadcastLayer) = Base.keys(getfield(m, :layers))
