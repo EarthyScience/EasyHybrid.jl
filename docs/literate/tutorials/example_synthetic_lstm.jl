@@ -134,13 +134,17 @@ ps, st = Lux.setup(rng, hlstm)
 train_dl = EasyHybrid.DataLoader((xs, ys); batchsize=5)
 
 reco_obs_3D = first(train_dl)[2]
+reco_nan_3D = .!isnan.(reco_obs_3D)
 reco_obs = dropdims(reco_obs_3D, dims = 1)
+reco_nan = .!isnan.(reco_obs)
 x_obs = first(train_dl)[1]
 
 sdf = hlstm(x_obs, ps, st)
 
 reco_mod = sdf[1].reco
 reco_mod(window = axiskeys(reco_obs, :window)) .- reco_obs
+
+EasyHybrid.compute_loss(hlstm, ps, st, (x_obs, (reco_obs, reco_nan)), logging = LoggingLoss(train_mode = true))
 
 # =============================================================================
 # train on DataFrame
