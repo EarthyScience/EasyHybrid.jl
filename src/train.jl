@@ -421,7 +421,7 @@ function split_data(
         sis_default = (;input_window = 10, output_window = 1, shift = 1, lead_time = 1)
         sis = merge(sis_default, sequence_kwargs)
         @info "Using split_into_sequences: $sis"
-        x_all, y_all = split_into_sequences(x_keyed, y_keyed; sis.input_window, sis.output_window, sis.shift, sis.lead_time)
+        x_all, y_all = split_into_sequences(x_keyed, y_keyed; sis.input_window, sis.output_window, sis.shift, sis.lead_time);
     else
         x_all, y_all = data_
     end
@@ -639,17 +639,15 @@ function split_into_sequences(x, y; input_window=5, output_window=1, shift=1, le
     timekeys   = axiskeys(x, 2)
     targetkeys = axiskeys(y, 1)
 
-    # X window keys are lags ending at 0
-    lag_keys = (-input_window + 1):0
-
-    # Y window keys end at lead_time and go backwards if output_window>1
     lead_start = lead_time - output_window + 1
-    lead_keys  = lead_start:lead_time
+    
+    lag_keys = Symbol.(["x$(lag)" for lag in (input_window+lead_time-1):-1:lead_time])
+    lead_keys  = Symbol.(["_y$(lead)" for lead in ((output_window-1):-1:0)])
+    lead_keys = Symbol.(lag_keys[end-length(lead_keys)+1:end], lead_keys)
+    lag_keys[end-length(lead_keys)+1:end] .= lead_keys
 
-    # Choose valid sample starts sx so that:
-    # sy = ex + lead_start >= 1  and  ey = ex + lead_time <= L
-    sx_min = max(1, 1 - (input_window + lead_time - output_window))  # ensures sy>=1
-    sx_max = L - input_window - lead_time + 1                        # ensures ey<=L
+    sx_min = max(1, 1 - (input_window + lead_time - output_window))
+    sx_max = L - input_window - lead_time + 1
     sx_min <= sx_max || throw(ArgumentError("windows too long for series length"))
 
     sx_vals = collect(sx_min:shift:sx_max)
@@ -663,21 +661,17 @@ function split_into_sequences(x, y; input_window=5, output_window=1, shift=1, le
 
     @inbounds @views for (ii, sx) in enumerate(sx_vals)
         ex = sx + input_window - 1
-
         sy = ex + lead_start
         ey = ex + lead_time
-
         Xd[:, :, ii] .= x[:, sx:ex]
         Yd[:, :, ii] .= y[:, sy:ey]
     end
 
-    Xk = KeyedArray(Xd; row=featkeys,   window=lag_keys,  col=samplekeys)
-    Yk = KeyedArray(Yd; row=targetkeys, window=lead_keys, col=samplekeys)
-
-    Ydrop = dropdims(Yk, dims = 1)
-
+    Xk = KeyedArray(Xd; row=featkeys,   window=lag_keys, col=samplekeys)
+    Yk = KeyedArray(Yd; row=targetkeys, window=lead_keys,     col=samplekeys)
     return Xk, Yk
 end
+
 
 view_end_dim = function(x_all::Array{Float32, 2}, idx)
     return view(x_all, :, idx)

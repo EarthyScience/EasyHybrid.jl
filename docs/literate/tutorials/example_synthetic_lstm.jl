@@ -144,7 +144,16 @@ sdf = hlstm(x_obs, ps, st)
 reco_mod = sdf[1].reco
 reco_mod(window = axiskeys(reco_obs, :window)) .- reco_obs
 
-EasyHybrid.compute_loss(hlstm, ps, st, (x_obs, (reco_obs, reco_nan)), logging = LoggingLoss(train_mode = true))
+sdf = split_data(df, hlstm, sequence_kwargs = (;input_window = 10, output_window = 1, shift = 1, lead_time = 2));
+
+typeof(sdf)
+(x_train, y_train), (x_val, y_val) = sdf;
+x_train
+y_train
+
+ytrain_nan = .!isnan.(y_train)
+
+EasyHybrid.compute_loss(hlstm, ps, st, (x_train, (y_train, ytrain_nan)), logging = LoggingLoss(train_mode = true))
 
 # =============================================================================
 # train on DataFrame
@@ -162,6 +171,7 @@ out_lstm = train(
     shuffleobs = false,
     loss_types = [:mse, :nse],
     sequence_kwargs = (;input_window = 10, output_window = 4),
+    plotting = false
 )
 
 # Train the hybrid model
