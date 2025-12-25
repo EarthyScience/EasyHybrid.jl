@@ -44,6 +44,7 @@ da = DimArray(mat, (Dim{:col}(Symbol.(names(dfnot))), Dim{:row}(1:size(dfnot, 1)
 #   - Q10: temperature sensitivity factor [-]
 #   - rb: basal respiration rate [μmol/m²/s]
 #   - tref: reference temperature [°C] (default: 15.0)
+
 function RbQ10(; ta, Q10, rb, tref = 15.0f0)
     reco = rb .* Q10 .^ (0.1f0 .* (ta .- tref))
     return (; reco, Q10, rb)
@@ -53,8 +54,9 @@ end
 # ### Define Model Parameters
 # =============================================================================
 # Parameter specification: (default, lower_bound, upper_bound)
+
 parameters = (
-    # Parameter name | Default | Lower | Upper      | Description
+    ## Parameter name | Default | Lower | Upper      | Description
     rb = (3.0f0, 0.0f0, 13.0f0),  # Basal respiration [μmol/m²/s]
     Q10 = (2.0f0, 1.0f0, 4.0f0),   # Temperature sensitivity factor [-]
 )
