@@ -668,7 +668,7 @@ function split_into_sequences(x, y; input_window=5, output_window=1, shift=1, le
     end
 
     Xk = KeyedArray(Xd; row=featkeys,   window=lag_keys, col=samplekeys)
-    Yk = KeyedArray(Yd; row=targetkeys, window=lead_keys,     col=samplekeys)
+    Yk = KeyedArray(Yd; row=targetkeys, window=lead_keys, col=samplekeys)
     return Xk, Yk
 end
 

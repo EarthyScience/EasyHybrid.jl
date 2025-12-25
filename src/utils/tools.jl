@@ -171,7 +171,7 @@ ta = data.TA
 ```
 """
 function toNamedTuple(ka::KeyedArray, variables::Vector{Symbol})
-    vals = [dropdims(ka([var]), dims = 1) for var in variables]
+    vals = [dropdims(ka(row = [var]), dims = 1) for var in variables]
     return (; zip(variables, vals)...)
 end
 
@@ -181,7 +181,7 @@ function toNamedTuple(ka::AbstractDimArray, variables::Vector{Symbol})
 end
 
 function toNamedTuple(ka::KeyedArray, variables::NTuple{N, Symbol}) where {N}
-    vals = ntuple(i -> ka([variables[i]]), N)
+    vals = ntuple(i -> ka(row = [variables[i]]), N)
     return NamedTuple{variables}(vals)
 end
 
