@@ -1,6 +1,6 @@
-# CC BY-SA 4.0
+# [![CC BY-SA 4.0](https://img.shields.io/badge/License-CC%20BY--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-sa/4.0/)
 # =============================================================================
-# EasyHybrid Example: Synthetic Data Analysis
+# # EasyHybrid Example: Synthetic Data Analysis
 # =============================================================================
 # This example demonstrates how to use EasyHybrid to train a hybrid model
 # on synthetic data for respiration modeling with Q10 temperature sensitivity.
@@ -9,42 +9,36 @@
 # =============================================================================
 # Project Setup and Environment
 # =============================================================================
-using Pkg
-
-# Set project path and activate environment
-project_path = "projects/book_chapter"
-Pkg.activate(project_path)
-EasyHybrid_path = joinpath(pwd())
-Pkg.develop(path = EasyHybrid_path)
-#Pkg.resolve()
-#Pkg.instantiate()
 
 using EasyHybrid
-using AxisKeys
-using DimensionalData
 
 # =============================================================================
-# Data Loading and Preprocessing
+# ## Data Loading and Preprocessing
 # =============================================================================
 # Load synthetic dataset from GitHub into DataFrame
+
 df = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc")
 
 # Select a subset of data for faster execution
-df = df[1:20000, :]
+df = df[1:20000, :];
+first(df, 5)
 
+# ### KeyedArray
 # KeyedArray from AxisKeys.jl works, but cannot handle DateTime type
 dfnot = Float32.(df[!, Not(:time)])
 
 ka = to_keyedArray(dfnot)
 
-# DimensionalData
+# ### DimensionalData
+using DimensionalData
 mat = Array(Matrix(dfnot)')
 da = DimArray(mat, (Dim{:col}(Symbol.(names(dfnot))), Dim{:row}(1:size(dfnot, 1))))
 
 # =============================================================================
-# Define the Physical Model
+# ## Define the Physical Model
 # =============================================================================
-# RbQ10 model: Respiration model with Q10 temperature sensitivity
+# **RbQ10 model**: Respiration model with Q10 temperature sensitivity
+#
 # Parameters:
 #   - ta: air temperature [°C]
 #   - Q10: temperature sensitivity factor [-]
@@ -56,7 +50,7 @@ function RbQ10(; ta, Q10, rb, tref = 15.0f0)
 end
 
 # =============================================================================
-# Define Model Parameters
+# ### Define Model Parameters
 # =============================================================================
 # Parameter specification: (default, lower_bound, upper_bound)
 parameters = (
@@ -66,7 +60,7 @@ parameters = (
 )
 
 # =============================================================================
-# Configure Hybrid Model Components
+# ## Configure Hybrid Model Components
 # =============================================================================
 # Define input variables
 forcing = [:ta]                    # Forcing variables (temperature)
@@ -79,9 +73,9 @@ global_param_names = [:Q10]        # Global parameters (same for all samples)
 neural_param_names = [:rb]         # Neural network predicted parameters
 
 # =============================================================================
-# Single NN Hybrid Model Training
+# ## Single NN Hybrid Model Training
 # =============================================================================
-using WGLMakie
+# using WGLMakie
 # Create single NN hybrid model using the unified constructor
 predictors_single_nn = [:sw_pot, :dsw_pot]   # Predictor variables (solar radiation, and its derivative)
 
@@ -100,7 +94,7 @@ single_nn_hybrid_model = constructHybridModel(
 )
 
 # =============================================================================
-# train on DataFrame
+# ### train on DataFrame
 # =============================================================================
 
 extra_loss = function (ŷ)
@@ -123,7 +117,7 @@ single_nn_out = train(
 )
 
 # =============================================================================
-# train on KeyedArray
+# ### train on KeyedArray
 # =============================================================================
 single_nn_out = train(
     single_nn_hybrid_model,
@@ -138,7 +132,7 @@ single_nn_out = train(
 )
 
 # =============================================================================
-# train on DimensionalData
+# ### train on DimensionalData
 # =============================================================================
 single_nn_out = train(
     single_nn_hybrid_model,
@@ -157,7 +151,7 @@ mean(df.dsw_pot)
 mean(df.sw_pot)
 
 # =============================================================================
-# Multi NN Hybrid Model Training
+# ## Multi NN Hybrid Model Training
 # =============================================================================
 predictors_multi_nn = (rb = [:sw_pot, :dsw_pot],)
 
@@ -191,7 +185,7 @@ mean(df.dsw_pot)
 mean(df.sw_pot)
 
 # =============================================================================
-# Pure ML Single NN Model Training
+# ## Pure ML Single NN Model Training
 # =============================================================================
 
 # TODO does not train well build on top of SingleNNHybridModel
@@ -217,87 +211,87 @@ single_nn_model.targets
 # =============================================================================
 # Check the training differences for Q10 parameter
 # This shows how close the model learned the true Q10 value
-out.train_diffs.Q10
+# out.train_diffs.Q10
 
-using Hyperopt
-using Distributed
-using WGLMakie
+# using Hyperopt
+# using Distributed
+# using WGLMakie
 
-mspempty = ModelSpec()
+# mspempty = ModelSpec()
 
-nhyper = 4
-ho = @thyperopt for i in nhyper,
-        opt in [AdamW(0.01), AdamW(0.1), RMSProp(0.001), RMSProp(0.01)],
-        input_batchnorm in [true, false]
+# nhyper = 4
+# ho = @thyperopt for i in nhyper,
+#         opt in [AdamW(0.01), AdamW(0.1), RMSProp(0.001), RMSProp(0.01)],
+#         input_batchnorm in [true, false]
 
-    hyper_parameters = (; opt, input_batchnorm)
-    println("Hyperparameter run: \n", i, " of ", nhyper, "\t with hyperparameters \t", hyper_parameters, "\t")
-    out = EasyHybrid.tune(hybrid_model, df, mspempty; hyper_parameters..., nepochs = 10, plotting = false, show_progress = false, file_name = "test$i.jld2")
-    #out.best_loss
-    # out.best_loss, has to be first element of the tuple, return a rich record for this trial (stored in ho.results[i])
-    (out.best_loss, hyperps = hyper_parameters, ps_st = (out.ps, out.st), i = i)
-end
+#     hyper_parameters = (; opt, input_batchnorm)
+#     println("Hyperparameter run: \n", i, " of ", nhyper, "\t with hyperparameters \t", hyper_parameters, "\t")
+#     out = EasyHybrid.tune(hybrid_model, df, mspempty; hyper_parameters..., nepochs = 10, plotting = false, show_progress = false, file_name = "test$i.jld2")
+#     #out.best_loss
+#     # out.best_loss, has to be first element of the tuple, return a rich record for this trial (stored in ho.results[i])
+#     (out.best_loss, hyperps = hyper_parameters, ps_st = (out.ps, out.st), i = i)
+# end
 
-losses = getfield.(ho.results, :best_loss)
-hyperps = getfield.(ho.results, :hyperps)
+# losses = getfield.(ho.results, :best_loss)
+# hyperps = getfield.(ho.results, :hyperps)
 
-# Helper function to make optimizer names short and readable
-function short_opt_name(opt)
-    if opt isa AdamW
-        return "AdamW(η=$(opt.eta))"
-    elseif opt isa RMSProp
-        return "RMSProp(η=$(opt.eta))"
-    else
-        return string(typeof(opt))
-    end
-end
+# # Helper function to make optimizer names short and readable
+# function short_opt_name(opt)
+#     if opt isa AdamW
+#         return "AdamW(η=$(opt.eta))"
+#     elseif opt isa RMSProp
+#         return "RMSProp(η=$(opt.eta))"
+#     else
+#         return string(typeof(opt))
+#     end
+# end
 
-# Sort losses and associated data by increasing loss
-idx = sortperm(losses)
-sorted_losses = losses[idx]
-sorted_hyperps = hyperps[idx]
+# # Sort losses and associated data by increasing loss
+# idx = sortperm(losses)
+# sorted_losses = losses[idx]
+# sorted_hyperps = hyperps[idx]
 
-fig = Figure(figure_padding = 50)
-# Prepare tick labels with hyperparameter info for each trial (sorted)
-sorted_ticklabels = [
-    join(
-            [
-                k == :opt ? "opt=$(short_opt_name(v))" : "$k=$(repr(v))"
-                for (k, v) in pairs(hp)
-            ], "\n"
-        )
-        for hp in sorted_hyperps
-]
-ax = Makie.Axis(
-    fig[1, 1];
-    xlabel = "Trial",
-    ylabel = "Loss",
-    title = "Hyperparameter Tuning Results",
-    xgridvisible = false,
-    ygridvisible = false,
-    xticks = (1:length(sorted_losses), sorted_ticklabels),
-    xticklabelrotation = 45
-)
-scatter!(ax, 1:length(sorted_losses), sorted_losses; markersize = 15, color = :dodgerblue)
+# fig = Figure(figure_padding = 50)
+# # Prepare tick labels with hyperparameter info for each trial (sorted)
+# sorted_ticklabels = [
+#     join(
+#             [
+#                 k == :opt ? "opt=$(short_opt_name(v))" : "$k=$(repr(v))"
+#                 for (k, v) in pairs(hp)
+#             ], "\n"
+#         )
+#         for hp in sorted_hyperps
+# ]
+# ax = Makie.Axis(
+#     fig[1, 1];
+#     xlabel = "Trial",
+#     ylabel = "Loss",
+#     title = "Hyperparameter Tuning Results",
+#     xgridvisible = false,
+#     ygridvisible = false,
+#     xticks = (1:length(sorted_losses), sorted_ticklabels),
+#     xticklabelrotation = 45
+# )
+# scatter!(ax, 1:length(sorted_losses), sorted_losses; markersize = 15, color = :dodgerblue)
 
-# Get the best trial
-best_idx = argmin(losses)
-best_trial = ho.results[best_idx]
+# # Get the best trial
+# best_idx = argmin(losses)
+# best_trial = ho.results[best_idx]
 
-best_params = best_trial.ps_st        # (ps, st)
+# best_params = best_trial.ps_st        # (ps, st)
 
-# Print the best hyperparameters
-printmin(ho)
+# # Print the best hyperparameters
+# printmin(ho)
 
-# Plot the results
-import Plots
-using Plots.PlotMeasures
-# rebuild the ho object as intended by plot function for hyperopt object
-ho2 = deepcopy(ho)
-ho2.results = getfield.(ho.results, :best_loss)
+# # Plot the results
+# import Plots
+# using Plots.PlotMeasures
+# # rebuild the ho object as intended by plot function for hyperopt object
+# ho2 = deepcopy(ho)
+# ho2.results = getfield.(ho.results, :best_loss)
 
-Plots.plot(ho2, xrotation = 25, left_margin = [100mm 0mm], bottom_margin = 60mm, ylab = "loss", size = (900, 900))
+# Plots.plot(ho2, xrotation = 25, left_margin = [100mm 0mm], bottom_margin = 60mm, ylab = "loss", size = (900, 900))
 
-# Train the model with the best hyperparameters
-best_hyperp = best_hyperparams(ho)
-out = EasyHybrid.tune(hybrid_model, df, mspempty; best_hyperp..., nepochs = 100, train_from = best_params)
+# # Train the model with the best hyperparameters
+# best_hyperp = best_hyperparams(ho)
+# out = EasyHybrid.tune(hybrid_model, df, mspempty; best_hyperp..., nepochs = 100, train_from = best_params)
