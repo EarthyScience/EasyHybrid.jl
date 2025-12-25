@@ -25,7 +25,7 @@ first(df, 5)
 
 # ### KeyedArray
 # KeyedArray from AxisKeys.jl works, but cannot handle DateTime type
-dfnot = Float32.(df[!, Not(:time)])
+dfnot = Float32.(df[!, Not(:time)]);
 
 ka = to_keyedArray(dfnot)
 
@@ -115,6 +115,7 @@ single_nn_out = train(
     yscale = identity,       # Scaling for outputs
     shuffleobs = true,
     loss_types = [:mse, :nse],
+    show_progress = false,
     extra_loss = extra_loss
 )
 
@@ -130,6 +131,7 @@ single_nn_out = train(
     opt = AdamW(0.1),   # Optimizer and learning rate
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
     yscale = identity,       # Scaling for outputs
+    show_progress = false,
     shuffleobs = true
 )
 
@@ -145,6 +147,7 @@ single_nn_out = train(
     opt = AdamW(0.1),   # Optimizer and learning rate
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
     yscale = identity,       # Scaling for outputs
+    show_progress = false,
     shuffleobs = true
 )
 
@@ -179,6 +182,7 @@ multi_nn_out = train(
     opt = AdamW(0.1),   # Optimizer and learning rate
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
     yscale = identity,       # Scaling for outputs
+    show_progress = false,
     shuffleobs = true
 )
 
@@ -194,7 +198,7 @@ mean(df.sw_pot)
 predictors_single_nn_ml = [:sw_pot, :dsw_pot, :ta]
 
 single_nn_model = constructNNModel(predictors_single_nn_ml, target; input_batchnorm = true, activation = tanh)
-single_nn_out = train(single_nn_model, da, (); nepochs = 10, batchsize = 512, opt = AdamW(0.01), yscale = identity, shuffleobs = true)
+single_nn_out = train(single_nn_model, da, (); nepochs = 10, batchsize = 512, opt = AdamW(0.01), yscale = identity, shuffleobs = true, show_progress = false,)
 LuxCore.testmode(single_nn_out.st)
 mean(df.dsw_pot)
 mean(df.sw_pot)
