@@ -53,7 +53,7 @@ function save_observations!(file_name, target_names, yobs, train_or_val_name)
 end
 
 function to_named_tuple(ka, target_names)
-    arrays = [Array(ka(k)) for k in target_names]
+    arrays = [Array(ka(row = k)) for k in target_names]
     return NamedTuple{Tuple(target_names)}(arrays)
 end
 

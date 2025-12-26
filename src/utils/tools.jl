@@ -120,11 +120,49 @@ function split_data(df::DataFrame, target, xvars, seqID; f = 0.8, batchsize = 32
     return trainloader, valloader, trainall
 end
 
-function toDataFrame(ka)
-    data_array = Array(ka')
-    df = DataFrame(data_array, ka.row)
-    df.index = ka.col
+using AxisKeys
+using NamedDims
+using DataFrames
+
+_key_to_colname(k) = k isa Symbol ? k : Symbol(string(k))
+
+# 2D KeyedArray -> one DataFrame
+function toDataFrame(
+    ka::KeyedArray{T,2},
+    cols_dim::Symbol = :row,
+    index_dim::Symbol = :col;
+    index_col::Symbol = :index,
+) where {T}
+
+    dcols = NamedDims.dim(ka, cols_dim)   # map :row/:col -> numeric dim :contentReference[oaicite:2]{index=2}
+    didx  = NamedDims.dim(ka, index_dim)
+
+    # reorder so rows=index_dim, cols=cols_dim
+    ka2 = (didx == 1 && dcols == 2) ? ka : permutedims(ka, (didx, dcols))
+
+    data  = Array(AxisKeys.keyless(ka2))                 # drop KeyedArray wrapper :contentReference[oaicite:3]{index=3}
+    names = _key_to_colname.(collect(axiskeys(ka2, 2)))  # col names from keys :contentReference[oaicite:4]{index=4}
+
+    df = DataFrame(data, names; makeunique=true)
+    df[!, index_col] = collect(axiskeys(ka2, 1))         # “index” column
     return df
+end
+
+# 3D KeyedArray -> Dict(slice_key => DataFrame)
+function toDataFrame(
+    ka::KeyedArray{T,3},
+    cols_dim::Symbol = :row,
+    index_dim::Symbol = :col;
+    slice_dim::Symbol = :window,
+    index_col::Symbol = :index,
+) where {T}
+
+    out = Dict{Any,DataFrame}()
+    for k in axiskeys(ka, slice_dim)
+        slice = ka(; NamedTuple{(slice_dim,)}((k,))...)  # dynamic keyword selection
+        out[k] = toDataFrame(slice, cols_dim, index_dim; index_col=index_col)
+    end
+    return out
 end
 
 function toDataFrame(ka::AbstractDimArray)

@@ -35,7 +35,6 @@ function compute_loss(
         stats = NamedTuple()
     else
         ŷ, _ = HM(x, ps, LuxCore.testmode(st))
-
         loss_value = _compute_loss(ŷ, y_t, y_nan, targets, loss_types(logging), logging.agg)
         # Add extra_loss entries if provided
         if ext_loss !== nothing
@@ -54,9 +53,7 @@ function _compute_loss(ŷ, y, y_nan, targets, loss_spec, agg::Function)
 end
 
 function _compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
-        
-    @show typeof(ŷ)
-    @show typeof(y)
+
     out_loss_types = [
         begin
                 losses = assemble_loss(ŷ, y, y_nan, targets, loss_type)
@@ -91,12 +88,13 @@ function _compute_loss end
 function assemble_loss(ŷ, y, y_nan, targets, loss_spec)
     return [
         begin
-            y_t = _get_target_y(y, target)
-            y_nan = _get_target_nan(y_nan, target)
-            @show typeof(ŷ)
-            ŷ_t = ŷ[target]
-            ŷ_tsub = ŷ_t(window = axiskeys(y_t, :window))
-            _apply_loss(ŷ_tsub, y_t, y_nan, loss_spec)
+            y_t      = _get_target_y(y, target)
+            y_nan_t  = _get_target_nan(y_nan, target)
+
+            ŷ_t      = ŷ[target]
+            ŷ_tsub   = ŷ_t(window = axiskeys(y_t, :window))  # do key-based alignment first
+
+            _apply_loss(ŷ_tsub, y_t, y_nan_t, loss_spec)
         end
             for target in targets
     ]
@@ -190,3 +188,9 @@ end
 function _loss_name(loss_spec::Tuple)
     return _loss_name(loss_spec[1])
 end
+
+import ChainRulesCore
+import AxisKeys: KeyedArray
+import ChainRulesCore: ProjectTo, InplaceableThunk, unthunk
+
+(project::ProjectTo{KeyedArray})(dx::InplaceableThunk) = project(unthunk(dx))

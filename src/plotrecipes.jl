@@ -114,7 +114,7 @@ function to_obs_tuple(y, target_names)
 end
 
 function to_tuple(y::KeyedArray, target_names)
-    return (; (t => y(t) for t in target_names)...) # observations are fixed, no Observables are needed!
+    return (; (t => y(row = t) for t in target_names)...) # observations are fixed, no Observables are needed!
 end
 
 function to_tuple(y::AbstractDimArray, target_names)
