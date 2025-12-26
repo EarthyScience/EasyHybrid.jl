@@ -40,7 +40,7 @@ using Static: False, True
     using DataFrames
     using CSV
     using OptimizationOptimisers: OptimizationOptimisers, Optimisers, Adam, AdamW, RMSProp
-    using ComponentArrays
+    using ComponentArrays: ComponentArrays, ComponentArray
 end
 
 include("macro_hybrid.jl")
