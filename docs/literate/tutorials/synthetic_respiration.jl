@@ -27,12 +27,12 @@ first(df, 5)
 # KeyedArray from AxisKeys.jl works, but cannot handle DateTime type
 dfnot = Float32.(df[!, Not(:time)]);
 
-ka = to_keyedArray(dfnot)
+ka = to_keyedArray(dfnot);
 
 # ### DimensionalData
 using DimensionalData
 mat = Array(Matrix(dfnot)')
-da = DimArray(mat, (Dim{:col}(Symbol.(names(dfnot))), Dim{:row}(1:size(dfnot, 1))))
+da = DimArray(mat, (Dim{:col}(Symbol.(names(dfnot))), Dim{:row}(1:size(dfnot, 1))));
 
 # =============================================================================
 # ## Define the Physical Model
@@ -198,7 +198,7 @@ mean(df.sw_pot)
 predictors_single_nn_ml = [:sw_pot, :dsw_pot, :ta]
 
 single_nn_model = constructNNModel(predictors_single_nn_ml, target; input_batchnorm = true, activation = tanh)
-single_nn_out = train(single_nn_model, da, (); nepochs = 10, batchsize = 512, opt = AdamW(0.01), yscale = identity, shuffleobs = true, show_progress = false,)
+single_nn_out = train(single_nn_model, da, (); nepochs = 10, batchsize = 512, opt = AdamW(0.01), yscale = identity, shuffleobs = true, show_progress = false)
 LuxCore.testmode(single_nn_out.st)
 mean(df.dsw_pot)
 mean(df.sw_pot)
