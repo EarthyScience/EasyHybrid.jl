@@ -1,20 +1,15 @@
 # [![CC BY-SA 4.0](https://img.shields.io/badge/License-CC%20BY--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-sa/4.0/)
-# =============================================================================
+#
 # # EasyHybrid Example: Synthetic Data Analysis
-# =============================================================================
+#
 # This example demonstrates how to use EasyHybrid to train a hybrid model
 # on synthetic data for respiration modeling with Q10 temperature sensitivity.
-# =============================================================================
-
-# =============================================================================
-# Project Setup and Environment
-# =============================================================================
+#
 
 using EasyHybrid
 
-# =============================================================================
 # ## Data Loading and Preprocessing
-# =============================================================================
+#
 # Load synthetic dataset from GitHub into DataFrame
 
 df = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc");
@@ -34,9 +29,8 @@ using DimensionalData
 mat = Array(Matrix(dfnot)')
 da = DimArray(mat, (Dim{:col}(Symbol.(names(dfnot))), Dim{:row}(1:size(dfnot, 1))));
 
-# =============================================================================
 # ## Define the Physical Model
-# =============================================================================
+#
 # **RbQ10 model**: Respiration model with Q10 temperature sensitivity
 #
 # Parameters:
@@ -50,9 +44,8 @@ function RbQ10(; ta, Q10, rb, tref = 15.0f0)
     return (; reco, Q10, rb)
 end
 
-# =============================================================================
 # ### Define Model Parameters
-# =============================================================================
+#
 # Parameter specification: (default, lower_bound, upper_bound)
 
 parameters = (
@@ -61,9 +54,8 @@ parameters = (
     Q10 = (2.0f0, 1.0f0, 4.0f0),   # Temperature sensitivity factor [-]
 )
 
-# =============================================================================
 # ## Configure Hybrid Model Components
-# =============================================================================
+#
 # Define input variables
 forcing = [:ta]                    # Forcing variables (temperature)
 
@@ -74,11 +66,11 @@ target = [:reco]                   # Target variable (respiration)
 global_param_names = [:Q10]        # Global parameters (same for all samples)
 neural_param_names = [:rb]         # Neural network predicted parameters
 
-# =============================================================================
 # ## Single NN Hybrid Model Training
-# =============================================================================
+#
 # using WGLMakie
 # Create single NN hybrid model using the unified constructor
+
 predictors_single_nn = [:sw_pot, :dsw_pot]   # Predictor variables (solar radiation, and its derivative)
 
 single_nn_hybrid_model = constructHybridModel(
@@ -95,9 +87,7 @@ single_nn_hybrid_model = constructHybridModel(
     input_batchnorm = true   # Apply batch normalization to inputs
 )
 
-# =============================================================================
 # ### train on DataFrame
-# =============================================================================
 
 extra_loss = function (ŷ)
     return (; a = sum((5.0 .- ŷ.rb) .^ 2))
@@ -119,9 +109,8 @@ single_nn_out = train(
     extra_loss = extra_loss
 )
 
-# =============================================================================
 # ### train on KeyedArray
-# =============================================================================
+
 single_nn_out = train(
     single_nn_hybrid_model,
     ka,
@@ -135,9 +124,8 @@ single_nn_out = train(
     shuffleobs = true
 )
 
-# =============================================================================
 # ### train on DimensionalData
-# =============================================================================
+
 single_nn_out = train(
     single_nn_hybrid_model,
     da,
@@ -155,9 +143,8 @@ LuxCore.testmode(single_nn_out.st)
 mean(df.dsw_pot)
 mean(df.sw_pot)
 
-# =============================================================================
 # ## Multi NN Hybrid Model Training
-# =============================================================================
+
 predictors_multi_nn = (rb = [:sw_pot, :dsw_pot],)
 
 multi_nn_hybrid_model = constructHybridModel(
@@ -190,9 +177,7 @@ LuxCore.testmode(multi_nn_out.st)
 mean(df.dsw_pot)
 mean(df.sw_pot)
 
-# =============================================================================
 # ## Pure ML Single NN Model Training
-# =============================================================================
 
 # TODO does not train well build on top of SingleNNHybridModel
 predictors_single_nn_ml = [:sw_pot, :dsw_pot, :ta]
@@ -205,16 +190,13 @@ mean(df.sw_pot)
 
 single_nn_model.targets
 
-# =============================================================================
-# Pure ML Multi NN Model Training
-# =============================================================================
+# ## Pure ML Multi NN Model Training
 
 # TODO does not train well build on top of MultiNNHybridModel
 
-
-# =============================================================================
+#
 # Results Analysis
-# =============================================================================
+#
 # Check the training differences for Q10 parameter
 # This shows how close the model learned the true Q10 value
 # out.train_diffs.Q10
