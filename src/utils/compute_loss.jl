@@ -85,7 +85,7 @@ Returns a single loss value if `loss_spec` is provided, or a NamedTuple of losse
 """
 function _compute_loss end
 
-function assemble_loss(ŷ, y, y_nan, targets, loss_spec)
+function assemble_loss(ŷ, y::KeyedArray{T,3}, y_nan, targets, loss_spec) where {T}
     return [
         begin
             y_t      = _get_target_y(y, target)
@@ -96,6 +96,13 @@ function assemble_loss(ŷ, y, y_nan, targets, loss_spec)
 
             _apply_loss(ŷ_tsub, y_t, y_nan_t, loss_spec)
         end
+            for target in targets
+    ]
+end
+
+function assemble_loss(ŷ, y::KeyedArray{T,2}, y_nan, targets, loss_spec) where {T}
+    return [
+        _apply_loss(ŷ[target], _get_target_y(y, target), _get_target_nan(y_nan, target), loss_spec)
             for target in targets
     ]
 end

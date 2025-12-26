@@ -533,7 +533,6 @@ function (m::MultiNNHybridModel)(df::DataFrame, ps, st)
     all_data = to_keyedArray(df)
 
     x, _ = prepare_data(m, all_data)
-    @show typeof(x)
     out, _ = m(x, ps, LuxCore.testmode(st))
     dfnew = copy(df)
     for k in keys(out)
