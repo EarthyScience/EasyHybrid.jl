@@ -362,7 +362,7 @@ end
 # Forward pass for SingleNNHybridModel (optimized, no branching)
 function (m::SingleNNHybridModel)(ds_k::Union{KeyedArray, AbstractDimArray}, ps, st)
     # 1) get features
-    predictors = ds_k(row = m.predictors) #toArray(ds_k, m.predictors)
+    predictors = ds_k(inout = m.predictors) #toArray(ds_k, m.predictors)
 
     parameters = m.parameters
 

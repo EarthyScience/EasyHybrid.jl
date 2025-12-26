@@ -12,7 +12,7 @@ using ChainRulesCore: ChainRulesCore
 using ComponentArrays: ComponentArrays, ComponentArray
 using DataFrameMacros: DataFrameMacros, @transform
 using DataFrames: DataFrames, DataFrame, GroupedDataFrame, Missing, coalesce, mapcols, select, missing, All
-using DimensionalData: DimensionalData, AbstractDimArray, At, dims, groupby
+using DimensionalData: DimensionalData, AbstractDimArray, At, Dim, DimArray, dims, groupby
 using Downloads: Downloads
 using Hyperopt: Hyperopt, Hyperoptimizer
 using JLD2: JLD2, jldopen

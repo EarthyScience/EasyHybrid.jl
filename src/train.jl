@@ -539,7 +539,7 @@ end
 
 function prepare_data(hm, data::AbstractDimArray)
     predictors_forcing, targets = get_prediction_target_names(hm)
-    return (data[col = At(predictors_forcing)], data[col = At(targets)]) # TODO check what this should be rows or cols, I would say rows, but maybe it does not matter
+    return (data[inout = At(predictors_forcing)], data[inout = At(targets)])
 end
 
 function prepare_data(hm, data::Tuple)
@@ -667,8 +667,8 @@ function split_into_sequences(x, y; input_window=5, output_window=1, shift=1, le
         Yd[:, :, ii] .= y[:, sy:ey]
     end
 
-    Xk = KeyedArray(Xd; row=featkeys,   window=lag_keys, col=samplekeys)
-    Yk = KeyedArray(Yd; row=targetkeys, window=lead_keys, col=samplekeys)
+    Xk = KeyedArray(Xd; inout=featkeys,   time=lag_keys, batch_size=samplekeys)
+    Yk = KeyedArray(Yd; inout=targetkeys, time=lead_keys, batch_size=samplekeys)
     return Xk, Yk
 end
 

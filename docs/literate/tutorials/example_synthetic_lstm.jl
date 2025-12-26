@@ -144,7 +144,7 @@ reco_obs = dropdims(y_first, dims = 1)
 reco_nan = .!isnan.(reco_obs)
 
 # simulate loss -> pick the right window
-reco_mod(window = axiskeys(reco_obs, :window)) .- reco_obs
+reco_mod(time = axiskeys(reco_obs, :time)) .- reco_obs
 
 # compute loss
 EasyHybrid.compute_loss(hlstm, ps, st, (x_train, (y_train, y_train_nan)), logging = LoggingLoss(train_mode = true))

@@ -92,7 +92,7 @@ function assemble_loss(ŷ, y::KeyedArray{T,3}, y_nan, targets, loss_spec) where 
             y_nan_t  = _get_target_nan(y_nan, target)
 
             ŷ_t      = ŷ[target]
-            ŷ_tsub   = ŷ_t(window = axiskeys(y_t, :window))  # do key-based alignment first
+            ŷ_tsub   = ŷ_t(time = axiskeys(y_t, :time))  # do key-based alignment first
 
             _apply_loss(ŷ_tsub, y_t, y_nan_t, loss_spec)
         end
@@ -152,9 +152,9 @@ Helper function to apply the appropriate loss function based on the specificatio
 """
 function _apply_loss end
 
-_get_target_y(y, target) = y(row = target)
-_get_target_y(y::AbstractDimArray, target) = y[col = At(target)] # assumes the DimArray uses :col indexing
-_get_target_y(y::AbstractDimArray, targets::Vector) = y[col = At(targets)] # for multiple targets
+_get_target_y(y, target) = y(inout = target)
+_get_target_y(y::AbstractDimArray, target) = y[inout = At(target)] # assumes the DimArray uses :inout indexing
+_get_target_y(y::AbstractDimArray, targets::Vector) = y[inout = At(targets)] # for multiple targets
 
 function _get_target_y(y::Tuple, target)
     y_obs, y_sigma = y
@@ -170,9 +170,9 @@ Helper function to extract target-specific values from `y`, handling cases where
 """
 function _get_target_y end
 
-_get_target_nan(y_nan, target) = y_nan(row = target)
-_get_target_nan(y_nan::AbstractDimArray, target) = y_nan[col = At(target)] # assumes the DimArray uses :col indexing
-_get_target_nan(y_nan::AbstractDimArray, targets::Vector) = y_nan[col = At(targets)] # for multiple targets
+_get_target_nan(y_nan, target) = y_nan(inout = target)
+_get_target_nan(y_nan::AbstractDimArray, target) = y_nan[inout = At(target)] # assumes the DimArray uses :inout indexing
+_get_target_nan(y_nan::AbstractDimArray, targets::Vector) = y_nan[inout = At(targets)] # for multiple targets
 
 """
     _get_target_nan(y_nan, target)
