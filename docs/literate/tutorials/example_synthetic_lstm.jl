@@ -27,7 +27,7 @@ df = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/
 
 # Select a subset of data for faster execution
 df = df[1:20000, :];
-first(df, 5)
+first(df, 5);
 
 # ## 3. Define Neural Network Architectures
 
@@ -105,41 +105,41 @@ hlstm = constructHybridModel(
 # In practice, you can skip to Section 9 and use the `train` function directly.
 
 # :KeyedArray and :DimArray are supported
-x, y = prepare_data(hlstm, df, array_type = :DimArray)
+x, y = prepare_data(hlstm, df, array_type = :DimArray);
 
 # New split_into_sequences with input_window, output_window, shift and lead_time
 # for many-to-one, many-to-many, and different prediction lead times and overlap
-xs, ys = split_into_sequences(x, y; input_window = 20, output_window = 2, shift = 1, lead_time = 0)
-ys_nan = .!isnan.(ys)
+xs, ys = split_into_sequences(x, y; input_window = 20, output_window = 2, shift = 1, lead_time = 0);
+ys_nan = .!isnan.(ys);
 
 # Split data as in train
-sdf = split_data(df, hlstm, sequence_kwargs = (; input_window = 10, output_window = 3, shift = 1, lead_time = 1))
+sdf = split_data(df, hlstm, sequence_kwargs = (; input_window = 10, output_window = 3, shift = 1, lead_time = 1));
 
-typeof(sdf)
-(x_train, y_train), (x_val, y_val) = sdf
-x_train
-y_train
-y_train_nan = .!isnan.(y_train)
+typeof(sdf);
+(x_train, y_train), (x_val, y_val) = sdf;
+x_train;
+y_train;
+y_train_nan = .!isnan.(y_train);
 
 # Put into train loader to compose minibatches
-train_dl = EasyHybrid.DataLoader((x_train, y_train); batchsize = 32)
+train_dl = EasyHybrid.DataLoader((x_train, y_train); batchsize = 32);
 
 # Run hybrid model forwards
-x_first = first(train_dl)[1]
-y_first = first(train_dl)[2]
+x_first = first(train_dl)[1];
+y_first = first(train_dl)[2];
 
-ps, st = Lux.setup(Random.default_rng(), hlstm)
-frun = hlstm(x_first, ps, st)
+ps, st = Lux.setup(Random.default_rng(), hlstm);
+frun = hlstm(x_first, ps, st);
 
 # Extract predicted yhat
-reco_mod = frun[1].reco
+reco_mod = frun[1].reco;
 
 # Bring observations in same shape
-reco_obs = dropdims(y_first, dims = 1)
-reco_nan = .!isnan.(reco_obs)
+reco_obs = dropdims(y_first, dims = 1);
+reco_nan = .!isnan.(reco_obs);
 
 # Compute loss
-EasyHybrid.compute_loss(hlstm, ps, st, (x_train, (y_train, y_train_nan)), logging = LoggingLoss(train_mode = true))
+EasyHybrid.compute_loss(hlstm, ps, st, (x_train, (y_train, y_train_nan)), logging = LoggingLoss(train_mode = true));
 
 # ## 9. Train LSTM Hybrid Model
 
@@ -157,7 +157,7 @@ out_lstm = train(
     sequence_kwargs = (; input_window = 10, output_window = 4),
     plotting = false,
     array_type = :DimArray
-)
+);
 
 # ## 10. Train Single NN Hybrid Model (Optional)
 
@@ -188,4 +188,4 @@ single_nn_out = train(
     shuffleobs = false,
     loss_types = [:mse, :nse],
     array_type = :DimArray
-)
+);
