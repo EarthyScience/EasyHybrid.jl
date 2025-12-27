@@ -1,17 +1,13 @@
-# CC BY-SA 4.0
-# =============================================================================
-# EasyHybrid Example: Synthetic Data Analysis
-# =============================================================================
-# This example demonstrates how to use EasyHybrid to train a hybrid model
-# on synthetic data for respiration modeling with Q10 temperature sensitivity.
-# =============================================================================
-
-# =============================================================================
-# Project Setup and Environment
-# =============================================================================
-using Pkg
+# # LSTM Hybrid Model with EasyHybrid.jl
+#
+# This tutorial demonstrates how to use EasyHybrid to train a hybrid model with LSTM
+# neural networks on synthetic data for respiration modeling with Q10 temperature sensitivity.
+# The code for this tutorial can be found in [docs/src/literate/tutorials](https://github.com/EarthyScience/EasyHybrid.jl/tree/main/docs/src/literate/tutorials/) => example_synthetic_lstm.jl.
+#
+# ## 1. Load Packages
 
 # Set project path and activate environment
+using Pkg
 project_path = "docs"
 Pkg.activate(project_path)
 EasyHybrid_path = joinpath(pwd())
@@ -24,19 +20,17 @@ using AxisKeys
 using DimensionalData
 using Lux
 
-# =============================================================================
-# Data Loading and Preprocessing
-# =============================================================================
-# Load synthetic dataset from GitHub into DataFrame
+# ## 2. Data Loading and Preprocessing
+
+# Load synthetic dataset from GitHub
 df = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc")
 
 # Select a subset of data for faster execution
 df = df[1:20000, :]
 
-# =============================================================================
-# neural network model
-# =============================================================================
-# Define neural network
+# ## 3. Define Neural Network Architectures
+
+# Define a standard feedforward neural network
 NN = Chain(Dense(15, 15, Lux.sigmoid), Dense(15, 15, Lux.sigmoid), Dense(15, 1))
 
 # Define LSTM-based neural network with memory
@@ -47,106 +41,106 @@ NN_Memory = Chain(
     Recurrence(LSTMCell(15 => 15), return_sequence = true),
 )
 
-# =============================================================================
-# Define the Physical Model
-# =============================================================================
-# RbQ10 model: Respiration model with Q10 temperature sensitivity
-# Parameters:
-#   - ta: air temperature [°C]
-#   - Q10: temperature sensitivity factor [-]
-#   - rb: basal respiration rate [μmol/m²/s]
-#   - tref: reference temperature [°C] (default: 15.0)
+# ## 4. Define the Physical Model
+
+"""
+    RbQ10(; ta, Q10, rb, tref=15.0f0)
+
+Respiration model with Q10 temperature sensitivity.
+
+- `ta`: air temperature [°C]
+- `Q10`: temperature sensitivity factor [-]
+- `rb`: basal respiration rate [μmol/m²/s]
+- `tref`: reference temperature [°C] (default: 15.0)
+"""
 function RbQ10(; ta, Q10, rb, tref = 15.0f0)
     reco = rb .* Q10 .^ (0.1f0 .* (ta .- tref))
     return (; reco, Q10, rb)
 end
 
-# =============================================================================
-# Define Model Parameters
-# =============================================================================
+# ## 5. Define Model Parameters
+
 # Parameter specification: (default, lower_bound, upper_bound)
 parameters = (
-    # Parameter name | Default | Lower | Upper      | Description
     rb = (3.0f0, 0.0f0, 13.0f0),  # Basal respiration [μmol/m²/s]
     Q10 = (2.0f0, 1.0f0, 4.0f0),   # Temperature sensitivity factor [-]
 )
 
-# =============================================================================
-# Configure Hybrid Model Components
-# =============================================================================
-# Define input variables
-forcing = [:ta]                    # Forcing variables (temperature)
+# ## 6. Configure Hybrid Model Components
 
-# Target variable
-target = [:reco]                   # Target variable (respiration)
+# Define input variables
+# Forcing variables (temperature)
+forcing = [:ta]
+# Predictor variables (solar radiation, and its derivative)
+predictors = [:sw_pot, :dsw_pot]
+# Target variable (respiration)
+target = [:reco]
 
 # Parameter classification
-global_param_names = [:Q10]        # Global parameters (same for all samples)
-neural_param_names = [:rb]         # Neural network predicted parameters
+# Global parameters (same for all samples)
+global_param_names = [:Q10]
+# Neural network predicted parameters
+neural_param_names = [:rb]
 
-# =============================================================================
-# Single NN Hybrid Model Training
-# =============================================================================
-using GLMakie
-# Create single NN hybrid model using the unified constructor
-predictors = [:sw_pot, :dsw_pot]   # Predictor variables (solar radiation, and its derivative)
+# ## 7. Construct LSTM Hybrid Model
 
+# Create LSTM hybrid model using the unified constructor
 hlstm = constructHybridModel(
-    predictors,              # Input features
-    forcing,                 # Forcing variables
-    target,                  # Target variables
-    RbQ10,                  # Process-based model function
-    parameters,              # Parameter definitions
-    neural_param_names,      # NN-predicted parameters
-    global_param_names,      # Global parameters
+    predictors,
+    forcing,
+    target,
+    RbQ10,
+    parameters,
+    neural_param_names,
+    global_param_names,
     hidden_layers = NN_Memory, # Neural network architecture
     scale_nn_outputs = true, # Scale neural network outputs
     input_batchnorm = false   # Apply batch normalization to inputs
 )
 
-# =================================================================================
-# show steps for data preparation, happens under the hood in the end.
+# ## 8. Data Preparation Steps (Demonstration)
+
+# The following steps demonstrate what happens under the hood during training.
+# In practice, you can skip to Section 9 and use the `train` function directly.
 
 # :KeyedArray and :DimArray are supported
 x, y = prepare_data(hlstm, df, array_type = :DimArray)
 
-# new split_into_sequences with input_window, output_window, shift and lead_time
+# New split_into_sequences with input_window, output_window, shift and lead_time
 # for many-to-one, many-to-many, and different prediction lead times and overlap
 xs, ys = split_into_sequences(x, y; input_window = 20, output_window = 2, shift = 1, lead_time = 0)
 ys_nan = .!isnan.(ys)
 
-# split data as in train
-sdf = split_data(df, hlstm, sequence_kwargs = (; input_window = 10, output_window = 3, shift = 1, lead_time = 1));
+# Split data as in train
+sdf = split_data(df, hlstm, sequence_kwargs = (; input_window = 10, output_window = 3, shift = 1, lead_time = 1))
 
 typeof(sdf)
-(x_train, y_train), (x_val, y_val) = sdf;
+(x_train, y_train), (x_val, y_val) = sdf
 x_train
 y_train
 y_train_nan = .!isnan.(y_train)
 
-# put into train loader to compose minibatches
+# Put into train loader to compose minibatches
 train_dl = EasyHybrid.DataLoader((x_train, y_train); batchsize = 32)
 
-# run hybrid model forwards
+# Run hybrid model forwards
 x_first = first(train_dl)[1]
 y_first = first(train_dl)[2]
 
 ps, st = Lux.setup(Random.default_rng(), hlstm)
 frun = hlstm(x_first, ps, st)
 
-# extract predicted yhat
+# Extract predicted yhat
 reco_mod = frun[1].reco
 
-# bring observations in same shape
+# Bring observations in same shape
 reco_obs = dropdims(y_first, dims = 1)
 reco_nan = .!isnan.(reco_obs)
 
-# compute loss
+# Compute loss
 EasyHybrid.compute_loss(hlstm, ps, st, (x_train, (y_train, y_train_nan)), logging = LoggingLoss(train_mode = true))
 
-# =============================================================================
-# train on DataFrame
-# =============================================================================
+# ## 9. Train LSTM Hybrid Model
 
 out_lstm = train(
     hlstm,
@@ -164,23 +158,21 @@ out_lstm = train(
     array_type = :DimArray
 )
 
+# ## 10. Train Single NN Hybrid Model (Optional)
 
-#####################################################################################
-# is neural network still running?
-
+# For comparison, we can also train a hybrid model with a standard feedforward neural network
 hm = constructHybridModel(
-    predictors,              # Input features
-    forcing,                 # Forcing variables
-    target,                  # Target variables
-    RbQ10,                  # Process-based model function
-    parameters,              # Parameter definitions
-    neural_param_names,      # NN-predicted parameters
-    global_param_names,      # Global parameters
+    predictors,
+    forcing,
+    target,
+    RbQ10,
+    parameters,
+    neural_param_names,
+    global_param_names,
     hidden_layers = NN, # Neural network architecture
     scale_nn_outputs = true, # Scale neural network outputs
     input_batchnorm = false,   # Apply batch normalization to inputs
 )
-
 
 # Train the hybrid model
 single_nn_out = train(
