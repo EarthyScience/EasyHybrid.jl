@@ -167,11 +167,11 @@ end
 
 # For DimArray
 function _get_target_y(y::AbstractDimArray, target)
-    return @view y[inout = At(target)]
+    return y[inout = At(target)]
 end
 
 function _get_target_y(y::AbstractDimArray, targets::Vector)
-    return @view y[inout = At(targets)]
+    return y[inout = At(targets)]
 end
 
 # For Tuple (e.g. (y_obs, y_sigma)), supports KeyedArray or DimArray as y_obs
@@ -199,11 +199,11 @@ end
 
 # For DimArray
 function _get_target_nan(y_nan::AbstractDimArray, target)
-    return @view y_nan[inout = At(target)]
+    return y_nan[inout = At(target)]
 end
 
 function _get_target_nan(y_nan::AbstractDimArray, targets::Vector)
-    return @view y_nan[inout = At(targets)]
+    return y_nan[inout = At(targets)]
 end
 
 """

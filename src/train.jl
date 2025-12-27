@@ -73,7 +73,7 @@ function train(
         autodiff_backend = AutoZygote(),
         return_gradients = True(),
         # Array type for data conversion
-        array_type = :DimArray,  # :DimArray or :KeyedArray
+        array_type = :KeyedArray,  # :DimArray or :KeyedArray
         # Loss and evaluation
         training_loss = :mse,
         loss_types = [:mse, :r2],

@@ -36,7 +36,10 @@ df = df[1:20000, :]
 dfnot = Float32.(df[!, Not(:time)])
 
 ka = to_keyedArray(dfnot)
-da = to_dimArray(dfnot)
+
+# DimensionalData
+mat = Array(Matrix(dfnot)')
+da = DimArray(mat, (inout = Symbol.(names(dfnot)), batch_size = 1:size(dfnot, 1)))
 
 # =============================================================================
 # Define the Physical Model
@@ -78,7 +81,7 @@ neural_param_names = [:rb]         # Neural network predicted parameters
 # =============================================================================
 # Single NN Hybrid Model Training
 # =============================================================================
-using WGLMakie
+using GLMakie
 # Create single NN hybrid model using the unified constructor
 predictors_single_nn = [:sw_pot, :dsw_pot]   # Predictor variables (solar radiation, and its derivative)
 
@@ -146,7 +149,9 @@ single_nn_out = train(
     opt = AdamW(0.1),   # Optimizer and learning rate
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
     yscale = identity,       # Scaling for outputs
-    shuffleobs = true
+    shuffleobs = true,
+    array_type = :DimArray,
+    plotting = false
 )
 
 LuxCore.testmode(single_nn_out.st)
