@@ -293,7 +293,7 @@ function toNamedTuple(ka::AbstractDimArray, variable::Symbol)
 end
 
 function toArray(ka::KeyedArray, variable)
-    return ka(variable)
+    return ka(inout = variable)
 end
 
 function toArray(ka::AbstractDimArray, variable)
