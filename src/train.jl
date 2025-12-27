@@ -119,7 +119,7 @@ function train(
         Random.seed!(random_seed)
     end
 
-    (x_train, y_train), (x_val, y_val) = split_data(data, hybridModel; array_type=array_type, kwargs...)
+    (x_train, y_train), (x_val, y_val) = split_data(data, hybridModel; array_type = array_type, kwargs...)
 
     train_loader = DataLoader((x_train, y_train), batchsize = batchsize, shuffle = true)
 
@@ -418,14 +418,14 @@ function split_data(
         array_type::Symbol = :DimArray,
         kwargs...
     )
-    data_ = prepare_data(hybridModel, data; array_type=array_type)
+    data_ = prepare_data(hybridModel, data; array_type = array_type)
 
     if sequence_kwargs !== nothing
         x_keyed, y_keyed = data_
-        sis_default = (;input_window = 10, output_window = 1, shift = 1, lead_time = 1)
+        sis_default = (; input_window = 10, output_window = 1, shift = 1, lead_time = 1)
         sis = merge(sis_default, sequence_kwargs)
         @info "Using split_into_sequences: $sis"
-        x_all, y_all = split_into_sequences(x_keyed, y_keyed; sis.input_window, sis.output_window, sis.shift, sis.lead_time);
+        x_all, y_all = split_into_sequences(x_keyed, y_keyed; sis.input_window, sis.output_window, sis.shift, sis.lead_time)
     else
         x_all, y_all = data_
     end
@@ -470,7 +470,7 @@ function split_data(
         x_train, y_train = view_end_dim(x_all, train_idx), view_end_dim(y_all, train_idx)
         x_val, y_val = view_end_dim(x_all, val_idx), view_end_dim(y_all, val_idx)
         return (x_train, y_train), (x_val, y_val)
-    
+
     else
         # --- Fallback: simple random/chronological split of prepared data ---
         (x_train, y_train), (x_val, y_val) = splitobs((x_all, y_all); at = split_data_at, shuffle = shuffleobs)
@@ -508,19 +508,19 @@ Split data into training and validation sets, either randomly, by grouping by ID
 """
 function split_data end
 
-function prepare_data(hm, data::KeyedArray; array_type=:KeyedArray)
+function prepare_data(hm, data::KeyedArray; array_type = :KeyedArray)
     predictors_forcing, targets = get_prediction_target_names(hm)
     # KeyedArray: use () syntax for views that are differentiable
     return (data(predictors_forcing), data(targets))
 end
 
-function prepare_data(hm, data::AbstractDimArray; array_type=:DimArray)
+function prepare_data(hm, data::AbstractDimArray; array_type = :DimArray)
     predictors_forcing, targets = get_prediction_target_names(hm)
     # DimArray: use [] syntax (copies, but differentiable)
     return (data[inout = At(predictors_forcing)], data[inout = At(targets)])
 end
 
-function prepare_data(hm, data::DataFrame; array_type=:DimArray)
+function prepare_data(hm, data::DataFrame; array_type = :DimArray)
     predictors_forcing, targets = get_prediction_target_names(hm)
 
     all_predictor_cols = unique(vcat(values(predictors_forcing)...))
@@ -551,10 +551,10 @@ function prepare_data(hm, data::DataFrame; array_type=:DimArray)
         ds = to_dimArray(Float32.(sdf))
     end
     @show typeof(ds)
-    return prepare_data(hm, ds; array_type=array_type)
+    return prepare_data(hm, ds; array_type = array_type)
 end
 
-function prepare_data(hm, data::Tuple; array_type=:DimArray)
+function prepare_data(hm, data::Tuple; array_type = :DimArray)
     return data
 end
 
@@ -636,27 +636,27 @@ function getbyname(ka::Union{KeyedArray, AbstractDimArray}, name::Symbol)
     return @view ka[inout = At(name)]
 end
 
-function split_into_sequences(x, y; input_window=5, output_window=1, shift=1, lead_time=1)
+function split_into_sequences(x, y; input_window = 5, output_window = 1, shift = 1, lead_time = 1)
     ndims(x) == 2 || throw(ArgumentError("expected x to be (feature, time); got ndims(x) = $(ndims(x))"))
     ndims(y) == 2 || throw(ArgumentError("expected y to be (target, time); got ndims(y) = $(ndims(y))"))
 
-    Lx, Ly = size(x,2), size(y,2)
+    Lx, Ly = size(x, 2), size(y, 2)
     Lx == Ly || throw(ArgumentError("x and y must have same time length; got $Lx vs $Ly"))
     lead_time ≥ 0 || throw(ArgumentError("lead_time must be ≥ 0 (0 = instantaneous end)"))
 
-    nfeat, ntarget = size(x,1), size(y,1)
+    nfeat, ntarget = size(x, 1), size(y, 1)
     L = Lx
 
-    featkeys   = axiskeys(x, 1)
-    timekeys   = axiskeys(x, 2)
+    featkeys = axiskeys(x, 1)
+    timekeys = axiskeys(x, 2)
     targetkeys = axiskeys(y, 1)
 
     lead_start = lead_time - output_window + 1
-    
-    lag_keys = Symbol.(["x$(lag)" for lag in (input_window+lead_time-1):-1:lead_time])
-    lead_keys  = Symbol.(["_y$(lead)" for lead in ((output_window-1):-1:0)])
-    lead_keys = Symbol.(lag_keys[end-length(lead_keys)+1:end], lead_keys)
-    lag_keys[end-length(lead_keys)+1:end] .= lead_keys
+
+    lag_keys = Symbol.(["x$(lag)" for lag in (input_window + lead_time - 1):-1:lead_time])
+    lead_keys = Symbol.(["_y$(lead)" for lead in ((output_window - 1):-1:0)])
+    lead_keys = Symbol.(lag_keys[(end - length(lead_keys) + 1):end], lead_keys)
+    lag_keys[(end - length(lead_keys) + 1):end] .= lead_keys
 
     sx_min = max(1, 1 - (input_window + lead_time - output_window))
     sx_max = L - input_window - lead_time + 1
@@ -668,7 +668,7 @@ function split_into_sequences(x, y; input_window=5, output_window=1, shift=1, le
 
     samplekeys = timekeys[sx_vals]
 
-    Xd = zeros(Float32, nfeat,   input_window,  num_samples)
+    Xd = zeros(Float32, nfeat, input_window, num_samples)
     Yd = zeros(Float32, ntarget, output_window, num_samples)
 
     @inbounds @views for (ii, sx) in enumerate(sx_vals)
@@ -679,8 +679,8 @@ function split_into_sequences(x, y; input_window=5, output_window=1, shift=1, le
         Yd[:, :, ii] .= y[:, sy:ey]
     end
     if x isa KeyedArray
-        Xk = KeyedArray(Xd; inout=featkeys,   time=lag_keys, batch_size=samplekeys)
-        Yk = KeyedArray(Yd; inout=targetkeys, time=lead_keys, batch_size=samplekeys)
+        Xk = KeyedArray(Xd; inout = featkeys, time = lag_keys, batch_size = samplekeys)
+        Yk = KeyedArray(Yd; inout = targetkeys, time = lead_keys, batch_size = samplekeys)
         return Xk, Yk
     elseif x isa AbstractDimArray
         Xk = DimArray(Xd, (inout = featkeys, time = lag_keys, batch_size = samplekeys))
@@ -692,10 +692,10 @@ function split_into_sequences(x, y; input_window=5, output_window=1, shift=1, le
 end
 
 
-view_end_dim = function(x_all::Array{Float32, 2}, idx)
+view_end_dim = function (x_all::Array{Float32, 2}, idx)
     return view(x_all, :, idx)
 end
 
-view_end_dim = function(x_all::Array{Float32, 3}, idx)
+view_end_dim = function (x_all::Array{Float32, 3}, idx)
     return view(x_all, :, :, idx)
 end

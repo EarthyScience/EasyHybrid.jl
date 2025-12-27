@@ -49,7 +49,7 @@ function prepare_hidden_chain(
     )
     if hidden_layers isa Chain
         # user gave a chain of hidden layers only
-        
+
         # Helper to safely extract dimensions from layers
         function get_layer_dim(l, type)
             if type == :input

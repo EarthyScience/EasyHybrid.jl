@@ -89,22 +89,22 @@ function _compute_loss end
 _select_time(ŷ_t::KeyedArray, time_keys) = ŷ_t(time = time_keys)  # KeyedArray: () syntax - view & differentiable
 _select_time(ŷ_t::AbstractDimArray, time_keys) = ŷ_t[time = At(time_keys)]  # DimArray: [] syntax - copy & differentiable
 
-function assemble_loss(ŷ, y::Union{KeyedArray{T,3}, AbstractDimArray{T,3}}, y_nan, targets, loss_spec) where {T}
+function assemble_loss(ŷ, y::Union{KeyedArray{T, 3}, AbstractDimArray{T, 3}}, y_nan, targets, loss_spec) where {T}
     return [
         begin
-            y_t      = _get_target_y(y, target)
-            y_nan_t  = _get_target_nan(y_nan, target)
+                y_t = _get_target_y(y, target)
+                y_nan_t = _get_target_nan(y_nan, target)
 
-            ŷ_t      = ŷ[target]
-            ŷ_tsub   = _select_time(ŷ_t, axiskeys(y_t, :time))  # dispatches based on array type
+                ŷ_t = ŷ[target]
+                ŷ_tsub = _select_time(ŷ_t, axiskeys(y_t, :time))  # dispatches based on array type
 
-            _apply_loss(ŷ_tsub, y_t, y_nan_t, loss_spec)
-        end
+                _apply_loss(ŷ_tsub, y_t, y_nan_t, loss_spec)
+            end
             for target in targets
     ]
 end
 
-function assemble_loss(ŷ, y::Union{KeyedArray{T,2}, AbstractDimArray{T,2}}, y_nan, targets, loss_spec) where {T}
+function assemble_loss(ŷ, y::Union{KeyedArray{T, 2}, AbstractDimArray{T, 2}}, y_nan, targets, loss_spec) where {T}
     return [
         _apply_loss(ŷ[target], _get_target_y(y, target), _get_target_nan(y_nan, target), loss_spec)
             for target in targets

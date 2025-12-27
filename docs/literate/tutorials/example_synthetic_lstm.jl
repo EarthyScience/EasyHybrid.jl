@@ -39,13 +39,13 @@ df = df[1:20000, :]
 # Define neural network
 NN = Chain(Dense(15, 15, Lux.sigmoid), Dense(15, 15, Lux.sigmoid), Dense(15, 1))
 
-broadcast_layer4 = @compact(; layer = Dense(6=>6)) do x::Union{NTuple{<:AbstractArray}, AbstractVector{<:AbstractArray}}
+broadcast_layer4 = @compact(; layer = Dense(6 => 6)) do x::Union{NTuple{<:AbstractArray}, AbstractVector{<:AbstractArray}}
     y = map(layer, x)
-    @return permutedims(stack(y; dims=3), (1, 3, 2))
+    @return permutedims(stack(y; dims = 3), (1, 3, 2))
 end
 
 NN_Memory = Chain(
-    Recurrence(LSTMCell(6 => 6), return_sequence=true),
+    Recurrence(LSTMCell(6 => 6), return_sequence = true),
     broadcast_layer4
 )
 
@@ -116,11 +116,11 @@ ndims(x)
 
 # new split_into_sequences with input_window, output_window, shift and lead_time
 # for many-to-one, many-to-many, and different prediction lead times and overlap
-xs, ys = split_into_sequences(x, y; input_window = 20, output_window = 2, shift=1, lead_time=0)
+xs, ys = split_into_sequences(x, y; input_window = 20, output_window = 2, shift = 1, lead_time = 0)
 ys_nan = .!isnan.(ys)
 
 # split data as in train
-sdf = split_data(df, hlstm, sequence_kwargs = (;input_window = 10, output_window = 3, shift = 1, lead_time = 1));
+sdf = split_data(df, hlstm, sequence_kwargs = (; input_window = 10, output_window = 3, shift = 1, lead_time = 1));
 
 typeof(sdf)
 (x_train, y_train), (x_val, y_val) = sdf;
@@ -129,7 +129,7 @@ y_train
 y_train_nan = .!isnan.(y_train)
 
 # put into train loader to compose minibatches
-train_dl = EasyHybrid.DataLoader((x_train, y_train); batchsize=32)
+train_dl = EasyHybrid.DataLoader((x_train, y_train); batchsize = 32)
 
 # run hybrid model forwards
 x_first = first(train_dl)[1]
@@ -168,11 +168,10 @@ out_lstm = train(
     yscale = identity,       # Scaling for outputs
     shuffleobs = false,
     loss_types = [:mse, :nse],
-    sequence_kwargs = (;input_window = 10, output_window = 4),
+    sequence_kwargs = (; input_window = 10, output_window = 4),
     plotting = false,
     array_type = :DimArray
 )
-
 
 
 #####################################################################################
