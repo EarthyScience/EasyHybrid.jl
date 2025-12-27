@@ -23,7 +23,7 @@ using Lux
 # ## 2. Data Loading and Preprocessing
 
 # Load synthetic dataset from GitHub
-df = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc")
+df = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc");
 
 # Select a subset of data for faster execution
 df = df[1:20000, :]
