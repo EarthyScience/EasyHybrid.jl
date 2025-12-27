@@ -195,15 +195,16 @@ function toDataFrame(ka, target_names)
 end
 
 # =============================================================================
-# KeyedArray unpacking functions
+# Array unpacking functions (works for both KeyedArray and DimArray)
 # =============================================================================
 
 """
-toNamedTuple(ka::KeyedArray, variables::Vector{Symbol})
-Extract specified variables from a KeyedArray and return them as a NamedTuple of vectors.
+    toNamedTuple(ka::Union{KeyedArray, AbstractDimArray}, variables::Vector{Symbol})
+
+Extract specified variables from a KeyedArray or DimArray and return them as a NamedTuple of vectors.
 
 # Arguments:
-- `ka`: The KeyedArray to unpack
+- `ka`: The KeyedArray or DimArray to unpack
 - `variables`: Vector of symbols representing the variables to extract
 
 # Returns:
@@ -211,8 +212,8 @@ Extract specified variables from a KeyedArray and return them as a NamedTuple of
 
 # Example:
 ```julia
-# Extract SW_IN and TA from a KeyedArray
-data = toNamedTuple(ds_keyed, [:SW_IN, :TA])
+# Extract SW_IN and TA from an array
+data = toNamedTuple(ds, [:SW_IN, :TA])
 sw_in = data.SW_IN
 ta = data.TA
 ```
@@ -223,7 +224,7 @@ function toNamedTuple(ka::KeyedArray, variables::Vector{Symbol})
 end
 
 function toNamedTuple(ka::AbstractDimArray, variables::Vector{Symbol})
-    vals = [ka[inout = At([var])] for var in variables]
+    vals = [dropdims(ka[inout = At([var])], dims = 1) for var in variables]
     return (; zip(variables, vals)...)
 end
 
@@ -249,8 +250,8 @@ Extract all variables from a KeyedArray and return them as a NamedTuple of vecto
 
 # Example:
 ```julia
-# Extract all variables from a KeyedArray
-data = toNamedTuple(ds_keyed)
+# Extract all variables from an array
+data = toNamedTuple(ds)
 # Access individual variables
 sw_in = data.SW_IN
 ta = data.TA
@@ -258,12 +259,12 @@ nee = data.NEE
 ```
 """
 function toNamedTuple(ka::KeyedArray)
-    variables = Symbol.(axiskeys(ka)[1])  # Get all variable names from first dimension
+    variables = Symbol.(axiskeys(ka, :inout))  # Get all variable names from :inout dimension
     return toNamedTuple(ka, variables)
 end
 
 function toNamedTuple(ka::AbstractDimArray)
-    variables = Symbol.(dims(ka, :inout))  # Get all variable names from first dimension
+    variables = Symbol.(lookup(ka, :inout))  # Get all variable names from :inout dimension
     return toNamedTuple(ka, variables)
 end
 
@@ -272,7 +273,7 @@ toNamedTuple(ka::KeyedArray, variable::Symbol)
 Extract a single variable from a KeyedArray and return it as a vector.
 
 # Arguments:
-- `ka`: The KeyedArray to unpack
+- `ka`: The KeyedArray or DimArray to unpack
 - `variable`: Symbol representing the variable to extract
 
 # Returns:
@@ -280,12 +281,12 @@ Extract a single variable from a KeyedArray and return it as a vector.
 
 # Example:
 ```julia
-# Extract just SW_IN from a KeyedArray
-sw_in = toNamedTuple(ds_keyed, :SW_IN)
+# Extract just SW_IN from an array
+sw_in = toNamedTuple(ds, :SW_IN)
 ```
 """
 function toNamedTuple(ka::KeyedArray, variable::Symbol)
-    return ka(variable)
+    return ka(inout = variable)
 end
 
 function toNamedTuple(ka::AbstractDimArray, variable::Symbol)

@@ -39,7 +39,8 @@ Default output file is `trained_model.jld2` at the current working directory und
 - `loss_types`: A vector of loss types to compute during training (default: `[:mse, :r2]`). The first entry is used for plotting in the dynamic trainboard. This loss can be increasing (e.g. NSE) or decreasing (e.g. RMSE).
 - `agg`: The aggregation function to apply to the computed losses (default: `sum`).
 
-## Data Handling (passed via kwargs):
+## Data Handling:
+- `array_type`: Array type for data conversion from DataFrame: `:DimArray` (default) or `:KeyedArray`.
 - `shuffleobs`: Whether to shuffle the training data (default: false).
 - `split_by_id`: Column name or function to split data by ID (default: nothing -> no ID-based splitting).
 - `split_data_at`: Fraction of data to use for training when splitting (default: 0.8).
@@ -71,6 +72,8 @@ function train(
         patience = typemax(Int),
         autodiff_backend = AutoZygote(),
         return_gradients = True(),
+        # Array type for data conversion
+        array_type = :DimArray,  # :DimArray or :KeyedArray
         # Loss and evaluation
         training_loss = :mse,
         loss_types = [:mse, :r2],
@@ -116,7 +119,7 @@ function train(
         Random.seed!(random_seed)
     end
 
-    (x_train, y_train), (x_val, y_val) = split_data(data, hybridModel; kwargs...)
+    (x_train, y_train), (x_val, y_val) = split_data(data, hybridModel; array_type=array_type, kwargs...)
 
     train_loader = DataLoader((x_train, y_train), batchsize = batchsize, shuffle = true)
 
@@ -412,9 +415,10 @@ function split_data(
         shuffleobs::Bool = false,
         split_data_at::Real = 0.8,
         sequence_kwargs::Union{Nothing, NamedTuple} = nothing,
+        array_type::Symbol = :DimArray,
         kwargs...
     )
-    data_ = prepare_data(hybridModel, data)
+    data_ = prepare_data(hybridModel, data; array_type=array_type)
 
     if sequence_kwargs !== nothing
         x_keyed, y_keyed = data_
@@ -470,6 +474,7 @@ function split_data(
     else
         # --- Fallback: simple random/chronological split of prepared data ---
         (x_train, y_train), (x_val, y_val) = splitobs((x_all, y_all); at = split_data_at, shuffle = shuffleobs)
+        @show typeof(x_train)
         return (x_train, y_train), (x_val, y_val)
     end
 end
@@ -503,12 +508,19 @@ Split data into training and validation sets, either randomly, by grouping by ID
 """
 function split_data end
 
-function prepare_data(hm, data::KeyedArray)
+function prepare_data(hm, data::KeyedArray; array_type=:KeyedArray)
     predictors_forcing, targets = get_prediction_target_names(hm)
+    # KeyedArray: use () syntax for views that are differentiable
     return (data(predictors_forcing), data(targets))
 end
 
-function prepare_data(hm, data::DataFrame)
+function prepare_data(hm, data::AbstractDimArray; array_type=:DimArray)
+    predictors_forcing, targets = get_prediction_target_names(hm)
+    # DimArray: use [] syntax (copies, but differentiable)
+    return (data[inout = At(predictors_forcing)], data[inout = At(targets)])
+end
+
+function prepare_data(hm, data::DataFrame; array_type=:DimArray)
     predictors_forcing, targets = get_prediction_target_names(hm)
 
     all_predictor_cols = unique(vcat(values(predictors_forcing)...))
@@ -532,17 +544,17 @@ function prepare_data(hm, data::DataFrame)
     keep = .!mask_missing_predforce .& mask_at_least_one_target
     sdf = sdf[keep, col_to_select]
 
-    # Convert to Float32 and to your keyed array
-    ds_keyed = to_keyedArray(Float32.(sdf))
-    return prepare_data(hm, ds_keyed)
+    # Convert to Float32 and to the specified array type
+    if array_type == :KeyedArray
+        ds = to_keyedArray(Float32.(sdf))
+    else
+        ds = to_dimArray(Float32.(sdf))
+    end
+    @show typeof(ds)
+    return prepare_data(hm, ds; array_type=array_type)
 end
 
-function prepare_data(hm, data::AbstractDimArray)
-    predictors_forcing, targets = get_prediction_target_names(hm)
-    return (data[inout = At(predictors_forcing)], data[inout = At(targets)])
-end
-
-function prepare_data(hm, data::Tuple)
+function prepare_data(hm, data::Tuple; array_type=:DimArray)
     return data
 end
 
@@ -620,8 +632,8 @@ function getbyname(df::DataFrame, name::Symbol)
     return df[!, name]
 end
 
-function getbyname(ka::AxisKeys.KeyedArray, name::Symbol)
-    return ka(name)
+function getbyname(ka::Union{KeyedArray, AbstractDimArray}, name::Symbol)
+    return @view ka[inout = At(name)]
 end
 
 function split_into_sequences(x, y; input_window=5, output_window=1, shift=1, lead_time=1)
@@ -666,10 +678,17 @@ function split_into_sequences(x, y; input_window=5, output_window=1, shift=1, le
         Xd[:, :, ii] .= x[:, sx:ex]
         Yd[:, :, ii] .= y[:, sy:ey]
     end
-
-    Xk = KeyedArray(Xd; inout=featkeys,   time=lag_keys, batch_size=samplekeys)
-    Yk = KeyedArray(Yd; inout=targetkeys, time=lead_keys, batch_size=samplekeys)
-    return Xk, Yk
+    if x isa KeyedArray
+        Xk = KeyedArray(Xd; inout=featkeys,   time=lag_keys, batch_size=samplekeys)
+        Yk = KeyedArray(Yd; inout=targetkeys, time=lead_keys, batch_size=samplekeys)
+        return Xk, Yk
+    elseif x isa AbstractDimArray
+        Xk = DimArray(Xd, (inout = featkeys, time = lag_keys, batch_size = samplekeys))
+        Yk = DimArray(Yd, (inout = targetkeys, time = lead_keys, batch_size = samplekeys))
+        return Xk, Yk
+    else
+        throw(ArgumentError("expected Xd to be KeyedArray or AbstractDimArray; got $(typeof(Xd))"))
+    end
 end
 
 

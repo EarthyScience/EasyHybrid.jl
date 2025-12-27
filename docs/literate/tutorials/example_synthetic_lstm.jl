@@ -110,7 +110,9 @@ hlstm = constructHybridModel(
 # show steps for data preparation, happens under the hood in the end.
 
 # two KeyedArrays
-x, y = prepare_data(hlstm, df)
+x, y = prepare_data(hlstm, df, array_type = :DimArray)
+
+ndims(x)
 
 # new split_into_sequences with input_window, output_window, shift and lead_time
 # for many-to-one, many-to-many, and different prediction lead times and overlap
@@ -159,7 +161,7 @@ out_lstm = train(
     hlstm,
     df,
     ();
-    nepochs = 100,           # Number of training epochs
+    nepochs = 2,           # Number of training epochs
     batchsize = 512,         # Batch size for training
     opt = AdamW(0.1),   # Optimizer and learning rate
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
@@ -167,7 +169,8 @@ out_lstm = train(
     shuffleobs = false,
     loss_types = [:mse, :nse],
     sequence_kwargs = (;input_window = 10, output_window = 4),
-    plotting = false
+    plotting = false,
+    array_type = :DimArray
 )
 
 
@@ -185,7 +188,8 @@ hm = constructHybridModel(
     global_param_names,      # Global parameters
     hidden_layers = NN, # Neural network architecture
     scale_nn_outputs = true, # Scale neural network outputs
-    input_batchnorm = false   # Apply batch normalization to inputs
+    input_batchnorm = false,   # Apply batch normalization to inputs
+
 )
 
 
@@ -201,4 +205,5 @@ single_nn_out = train(
     yscale = identity,       # Scaling for outputs
     shuffleobs = false,
     loss_types = [:mse, :nse],
+    array_type = :DimArray
 )

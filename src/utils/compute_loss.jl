@@ -85,14 +85,18 @@ Returns a single loss value if `loss_spec` is provided, or a NamedTuple of losse
 """
 function _compute_loss end
 
-function assemble_loss(ŷ, y::KeyedArray{T,3}, y_nan, targets, loss_spec) where {T}
+# Wrapper for time-based subsetting - dispatches on array type for differentiability
+_select_time(ŷ_t::KeyedArray, time_keys) = ŷ_t(time = time_keys)  # KeyedArray: () syntax - view & differentiable
+_select_time(ŷ_t::AbstractDimArray, time_keys) = ŷ_t[time = At(time_keys)]  # DimArray: [] syntax - copy & differentiable
+
+function assemble_loss(ŷ, y::Union{KeyedArray{T,3}, AbstractDimArray{T,3}}, y_nan, targets, loss_spec) where {T}
     return [
         begin
             y_t      = _get_target_y(y, target)
             y_nan_t  = _get_target_nan(y_nan, target)
 
             ŷ_t      = ŷ[target]
-            ŷ_tsub   = ŷ_t(time = axiskeys(y_t, :time))  # do key-based alignment first
+            ŷ_tsub   = _select_time(ŷ_t, axiskeys(y_t, :time))  # dispatches based on array type
 
             _apply_loss(ŷ_tsub, y_t, y_nan_t, loss_spec)
         end
@@ -100,7 +104,7 @@ function assemble_loss(ŷ, y::KeyedArray{T,3}, y_nan, targets, loss_spec) where 
     ]
 end
 
-function assemble_loss(ŷ, y::KeyedArray{T,2}, y_nan, targets, loss_spec) where {T}
+function assemble_loss(ŷ, y::Union{KeyedArray{T,2}, AbstractDimArray{T,2}}, y_nan, targets, loss_spec) where {T}
     return [
         _apply_loss(ŷ[target], _get_target_y(y, target), _get_target_nan(y_nan, target), loss_spec)
             for target in targets
@@ -152,10 +156,25 @@ Helper function to apply the appropriate loss function based on the specificatio
 """
 function _apply_loss end
 
-_get_target_y(y, target) = y(inout = target)
-_get_target_y(y::AbstractDimArray, target) = y[inout = At(target)] # assumes the DimArray uses :inout indexing
-_get_target_y(y::AbstractDimArray, targets::Vector) = y[inout = At(targets)] # for multiple targets
+# For KeyedArray
+function _get_target_y(y::KeyedArray, target)
+    return y(inout = target)
+end
 
+function _get_target_y(y::KeyedArray, targets::Vector)
+    return y(inout = targets)
+end
+
+# For DimArray
+function _get_target_y(y::AbstractDimArray, target)
+    return @view y[inout = At(target)]
+end
+
+function _get_target_y(y::AbstractDimArray, targets::Vector)
+    return @view y[inout = At(targets)]
+end
+
+# For Tuple (e.g. (y_obs, y_sigma)), supports KeyedArray or DimArray as y_obs
 function _get_target_y(y::Tuple, target)
     y_obs, y_sigma = y
     sigma = y_sigma isa Number ? y_sigma : y_sigma(target)
@@ -163,16 +182,29 @@ function _get_target_y(y::Tuple, target)
     return (y_obs_val, sigma)
 end
 
-
 """
     _get_target_y(y, target)
 Helper function to extract target-specific values from `y`, handling cases where `y` can be a tuple of `(y_obs, y_sigma)`.
 """
 function _get_target_y end
 
-_get_target_nan(y_nan, target) = y_nan(inout = target)
-_get_target_nan(y_nan::AbstractDimArray, target) = y_nan[inout = At(target)] # assumes the DimArray uses :inout indexing
-_get_target_nan(y_nan::AbstractDimArray, targets::Vector) = y_nan[inout = At(targets)] # for multiple targets
+# For KeyedArray
+function _get_target_nan(y_nan::KeyedArray, target)
+    return y_nan(inout = target)
+end
+
+function _get_target_nan(y_nan::KeyedArray, targets::Vector)
+    return y_nan(inout = targets)
+end
+
+# For DimArray
+function _get_target_nan(y_nan::AbstractDimArray, target)
+    return @view y_nan[inout = At(target)]
+end
+
+function _get_target_nan(y_nan::AbstractDimArray, targets::Vector)
+    return @view y_nan[inout = At(targets)]
+end
 
 """
     _get_target_nan(y_nan, target)
