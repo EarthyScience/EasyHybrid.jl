@@ -1,4 +1,4 @@
-export SingleNNModel, MultiNNModel, constructNNModel, prepare_hidden_chain, BroadcastLayer
+export SingleNNModel, MultiNNModel, constructNNModel, prepare_hidden_chain, BroadcastLayer, RecurrenceOutputDense
 
 using Lux, LuxCore
 using ..EasyHybrid: hard_sigmoid
@@ -17,6 +17,66 @@ struct SingleNNModel <: LuxCore.AbstractLuxContainerLayer{
 end
 
 """
+    RecurrenceOutputDense(in_dims => out_dims, [activation])
+
+A layer that wraps a Dense layer to handle sequence outputs from Recurrence layers.
+
+When a Recurrence layer has `return_sequence=true`, it outputs a tuple/vector of arrays 
+(one per timestep). This layer broadcasts the Dense operation over each timestep and 
+reshapes the result to `(features, timesteps, batch)` format.
+
+# Arguments
+- `in_dims::Int`: Input dimension (should match Recurrence output dimension)
+- `out_dims::Int`: Output dimension
+- `activation`: Activation function (default: `identity`)
+
+# Example
+```julia
+# Instead of manually creating:
+broadcast_layer = @compact(; layer = Dense(15 => 15)) do x
+    y = map(layer, x)
+    @return permutedims(stack(y; dims = 3), (1, 3, 2))
+end
+
+# Simply use:
+Chain(
+    Recurrence(LSTMCell(15 => 15), return_sequence = true),
+    RecurrenceOutputDense(15 => 15)
+)
+```
+"""
+struct RecurrenceOutputDense{D <: Dense} <: LuxCore.AbstractLuxWrapperLayer{:layer}
+    layer::D
+end
+
+function RecurrenceOutputDense(mapping::Pair{Int, Int}, activation = identity)
+    return RecurrenceOutputDense(Dense(mapping.first, mapping.second, activation))
+end
+
+function RecurrenceOutputDense(in_dims::Int, out_dims::Int, activation = identity)
+    return RecurrenceOutputDense(Dense(in_dims, out_dims, activation))
+end
+
+# Handle tuple output from Recurrence (return_sequence=true)
+function (m::RecurrenceOutputDense)(x::NTuple{N, <:AbstractArray}, ps, st) where N
+    y = map(xi -> first(LuxCore.apply(m.layer, xi, ps, st)), x)
+    result = permutedims(stack(y; dims = 3), (1, 3, 2))
+    return result, st
+end
+
+# Handle vector output from Recurrence (return_sequence=true)  
+function (m::RecurrenceOutputDense)(x::AbstractVector{<:AbstractArray}, ps, st)
+    y = map(xi -> first(LuxCore.apply(m.layer, xi, ps, st)), x)
+    result = permutedims(stack(y; dims = 3), (1, 3, 2))
+    return result, st
+end
+
+# Fallback for regular array input (non-sequence mode)
+function (m::RecurrenceOutputDense)(x::AbstractArray, ps, st)
+    return LuxCore.apply(m.layer, x, ps, st)
+end
+
+"""
     prepare_hidden_chain(hidden_layers, in_dim, out_dim; activation, input_batchnorm=false)
 
 Construct a neural network `Chain` for use in NN models.
@@ -26,6 +86,8 @@ Construct a neural network `Chain` for use in NN models.
     - If a `Vector{Int}`, specifies the sizes of each hidden layer. 
       For example, `[32, 16]` creates two hidden layers with 32 and 16 units, respectively.
     - If a `Chain`, the user provides a pre-built chain of hidden layers (excluding input/output layers).
+      If the chain ends with a `Recurrence` layer, a `RecurrenceOutputDense` layer is automatically
+      added to handle the sequence output format.
 - `in_dim::Int`: Number of input features (input dimension).
 - `out_dim::Int`: Number of output features (output dimension).
 - `activation`: Activation function to use in hidden layers (default: `tanh`).
@@ -36,9 +98,21 @@ Construct a neural network `Chain` for use in NN models.
     - Optional input batch normalization (if `input_batchnorm=true`)
     - Input layer: `Dense(in_dim, h₁, activation)` where `h₁` is the first hidden size
     - Hidden layers: either user-supplied `Chain` or constructed from `hidden_layers`
+    - If last hidden layer is a `Recurrence`, a `RecurrenceOutputDense` is added to handle sequence output
     - Output layer: `Dense(hₖ, out_dim)` where `hₖ` is the last hidden size
 
 where `h₁` is the first hidden size and `hₖ` the last.
+
+# Example with Recurrence (LSTM)
+```julia
+# User only needs to define:
+NN_Memory = Chain(
+    Recurrence(LSTMCell(15 => 15), return_sequence = true),
+)
+
+# The function automatically adds the RecurrenceOutputDense layer to handle sequence output
+model = constructHybridModel(..., hidden_layers = NN_Memory, ...)
+```
 """
 function prepare_hidden_chain(
         hidden_layers::Union{Vector{Int}, Chain},
@@ -66,6 +140,16 @@ function prepare_hidden_chain(
             return nothing
         end
 
+        # Check if last layer is a Recurrence layer (needs special handling for sequence output)
+        # In this framework, we ALWAYS assume return_sequence=true for Recurrence layers
+        # (this is the EasyHybrid convention, regardless of Lux's default)
+        function is_sequence_recurrence(layer)
+            return layer isa Recurrence
+        end
+
+        last_layer = hidden_layers.layers[end]
+        ends_with_sequence_recurrence = is_sequence_recurrence(last_layer)
+
         # Determine first_h by searching forward
         first_h = nothing
         for i in 1:length(hidden_layers)
@@ -75,7 +159,7 @@ function prepare_hidden_chain(
                 break
             end
         end
-        isnothing(first_h) && error("Could not determine input dimension of hidden_layers Chain (found no Dense or BatchNorm layer).")
+        isnothing(first_h) && error("Could not determine input dimension of hidden_layers Chain.")
 
         # Determine last_h by searching backward
         last_h = nothing
@@ -88,12 +172,23 @@ function prepare_hidden_chain(
         end
         isnothing(last_h) && error("Could not determine output dimension of hidden_layers Chain.")
 
-        return Chain(
-            input_batchnorm ? BatchNorm(in_dim, affine = false) : identity,
-            Dense(in_dim, first_h, activation),
-            hidden_layers.layers...,
-            Dense(last_h, out_dim)
-        )
+        if ends_with_sequence_recurrence
+            # Chain ends with Recurrence layer (return_sequence=true) - add RecurrenceOutputDense to handle sequence output
+            return Chain(
+                input_batchnorm ? BatchNorm(in_dim, affine = false) : identity,
+                Dense(in_dim, first_h, activation),
+                hidden_layers.layers...,
+                RecurrenceOutputDense(last_h => last_h, activation),
+                Dense(last_h, out_dim)
+            )
+        else
+            return Chain(
+                input_batchnorm ? BatchNorm(in_dim, affine = false) : identity,
+                Dense(in_dim, first_h, activation),
+                hidden_layers.layers...,
+                Dense(last_h, out_dim)
+            )
+        end
     else
         # user gave a vector of hidden‐layer sizes
         hs = hidden_layers

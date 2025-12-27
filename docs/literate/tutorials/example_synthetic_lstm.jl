@@ -39,14 +39,12 @@ df = df[1:20000, :]
 # Define neural network
 NN = Chain(Dense(15, 15, Lux.sigmoid), Dense(15, 15, Lux.sigmoid), Dense(15, 1))
 
-broadcast_layer4 = @compact(; layer = Dense(6 => 6)) do x::Union{NTuple{<:AbstractArray}, AbstractVector{<:AbstractArray}}
-    y = map(layer, x)
-    @return permutedims(stack(y; dims = 3), (1, 3, 2))
-end
-
+# Define LSTM-based neural network with memory
+# Note: When the Chain ends with a Recurrence layer, EasyHybrid automatically adds
+# a RecurrenceOutputDense layer to handle the sequence output format.
+# The user only needs to define the Recurrence layer itself!
 NN_Memory = Chain(
-    Recurrence(LSTMCell(6 => 6), return_sequence = true),
-    broadcast_layer4
+    Recurrence(LSTMCell(15 => 15), return_sequence = true),
 )
 
 # =============================================================================
