@@ -109,10 +109,8 @@ hlstm = constructHybridModel(
 # =================================================================================
 # show steps for data preparation, happens under the hood in the end.
 
-# two KeyedArrays
+# :KeyedArray and :DimArray are supported
 x, y = prepare_data(hlstm, df, array_type = :DimArray)
-
-ndims(x)
 
 # new split_into_sequences with input_window, output_window, shift and lead_time
 # for many-to-one, many-to-many, and different prediction lead times and overlap
@@ -145,13 +143,8 @@ reco_mod = frun[1].reco
 reco_obs = dropdims(y_first, dims = 1)
 reco_nan = .!isnan.(reco_obs)
 
-# simulate loss -> pick the right window
-reco_mod(time = axiskeys(reco_obs, :time)) .- reco_obs
-
 # compute loss
 EasyHybrid.compute_loss(hlstm, ps, st, (x_train, (y_train, y_train_nan)), logging = LoggingLoss(train_mode = true))
-
-# Zygote gradient of loss
 
 # =============================================================================
 # train on DataFrame
@@ -188,7 +181,6 @@ hm = constructHybridModel(
     hidden_layers = NN, # Neural network architecture
     scale_nn_outputs = true, # Scale neural network outputs
     input_batchnorm = false,   # Apply batch normalization to inputs
-
 )
 
 

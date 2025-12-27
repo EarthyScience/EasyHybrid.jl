@@ -474,7 +474,6 @@ function split_data(
     else
         # --- Fallback: simple random/chronological split of prepared data ---
         (x_train, y_train), (x_val, y_val) = splitobs((x_all, y_all); at = split_data_at, shuffle = shuffleobs)
-        @show typeof(x_train)
         return (x_train, y_train), (x_val, y_val)
     end
 end
@@ -550,7 +549,6 @@ function prepare_data(hm, data::DataFrame; array_type = :DimArray)
     else
         ds = to_dimArray(Float32.(sdf))
     end
-    @show typeof(ds)
     return prepare_data(hm, ds; array_type = array_type)
 end
 

@@ -130,36 +130,83 @@ function split_data(df::DataFrame, target, xvars, seqID; f = 0.8, batchsize = 32
 end
 
 using AxisKeys
-using NamedDims
+using NamedDims: NamedDims  # Required for NamedDims.dim with KeyedArrays
 using DataFrames
+using DimensionalData: DimensionalData, AbstractDimArray, Dim, DimArray, dims, lookup, At
 
 _key_to_colname(k) = k isa Symbol ? k : Symbol(string(k))
 
-# 2D KeyedArray -> one DataFrame
+# Helper to get dimension index from dimension name (works for both KeyedArray and DimArray)
+_dim_index(ka::KeyedArray, name::Symbol) = NamedDims.dim(ka, name)
+function _dim_index(da::AbstractDimArray, name::Symbol)
+    dim_names = DimensionalData.name.(dims(da))
+    idx = findfirst(==(name), dim_names)
+    isnothing(idx) && throw(ArgumentError("Dimension :$name not found in array with dimensions $dim_names"))
+    return idx
+end
+
+# Helper to extract raw array data (works for both KeyedArray and DimArray)
+_raw_array(ka::KeyedArray) = Array(AxisKeys.keyless(ka))
+_raw_array(da::AbstractDimArray) = Array(parent(da))
+
+# Helper to select a single value along a named dimension
+_select_at(ka::KeyedArray, dim_name::Symbol, key) = ka(; NamedTuple{(dim_name,)}((key,))...)
+_select_at(da::AbstractDimArray, dim_name::Symbol, key) = view(da, Dim{dim_name}(At(key)))
+
+# 2D Labeled Array -> DataFrame (works for both KeyedArray and DimArray)
+"""
+    toDataFrame(arr::Union{KeyedArray{T, 2}, AbstractDimArray{T, 2}}, cols_dim=:inout, index_dim=:batch_size; index_col=:index)
+
+Convert a 2D labeled array (KeyedArray or DimArray) to a DataFrame.
+
+# Arguments
+- `arr`: The 2D labeled array to convert
+- `cols_dim`: Dimension name to use as DataFrame columns (default: `:inout`)
+- `index_dim`: Dimension name to use as DataFrame row index (default: `:batch_size`)
+- `index_col`: Name for the index column in the result (default: `:index`)
+
+# Returns
+- `DataFrame` with columns from `cols_dim` keys and an index column from `index_dim` keys
+"""
 function toDataFrame(
-        ka::KeyedArray{T, 2},
+        arr::Union{KeyedArray{T, 2}, AbstractDimArray{T, 2}},
         cols_dim::Symbol = :inout,
         index_dim::Symbol = :batch_size;
         index_col::Symbol = :index,
     ) where {T}
 
-    dcols = NamedDims.dim(ka, cols_dim)   # map :row/:col -> numeric dim :contentReference[oaicite:2]{index=2}
-    didx = NamedDims.dim(ka, index_dim)
+    dcols = _dim_index(arr, cols_dim)
+    didx = _dim_index(arr, index_dim)
 
-    # reorder so rows=index_dim, cols=cols_dim
-    ka2 = (didx == 1 && dcols == 2) ? ka : permutedims(ka, (didx, dcols))
+    # Reorder so rows=index_dim, cols=cols_dim (i.e., didx=1, dcols=2)
+    arr2 = (didx == 1 && dcols == 2) ? arr : permutedims(arr, (didx, dcols))
 
-    data = Array(AxisKeys.keyless(ka2))                 # drop KeyedArray wrapper :contentReference[oaicite:3]{index=3}
-    names = _key_to_colname.(collect(axiskeys(ka2, 2)))  # col names from keys :contentReference[oaicite:4]{index=4}
+    data = _raw_array(arr2)
+    col_names = _key_to_colname.(collect(axiskeys(arr2, 2)))
 
-    df = DataFrame(data, names; makeunique = true)
-    df[!, index_col] = collect(axiskeys(ka2, 1))         # “index” column
+    df = DataFrame(data, col_names; makeunique = true)
+    df[!, index_col] = collect(axiskeys(arr2, 1))
     return df
 end
 
-# 3D KeyedArray -> Dict(slice_key => DataFrame)
+# 3D Labeled Array -> Dict(slice_key => DataFrame)
+"""
+    toDataFrame(arr::AbstractLabeledArray{T, 3}, cols_dim=:inout, index_dim=:batch_size; slice_dim=:time, index_col=:index)
+
+Convert a 3D labeled array (KeyedArray or DimArray) to a Dict of DataFrames, one per slice.
+
+# Arguments
+- `arr`: The 3D labeled array to convert
+- `cols_dim`: Dimension name to use as DataFrame columns (default: `:inout`)
+- `index_dim`: Dimension name to use as DataFrame row index (default: `:batch_size`)
+- `slice_dim`: Dimension name to slice along (default: `:time`)
+- `index_col`: Name for the index column in each result DataFrame (default: `:index`)
+
+# Returns
+- `Dict{Any, DataFrame}` mapping slice keys to DataFrames
+"""
 function toDataFrame(
-        ka::KeyedArray{T, 3},
+        arr::Union{KeyedArray{T, 3}, AbstractDimArray{T, 3}},
         cols_dim::Symbol = :inout,
         index_dim::Symbol = :batch_size;
         slice_dim::Symbol = :time,
@@ -167,20 +214,26 @@ function toDataFrame(
     ) where {T}
 
     out = Dict{Any, DataFrame}()
-    for k in axiskeys(ka, slice_dim)
-        slice = ka(; NamedTuple{(slice_dim,)}((k,))...)  # dynamic keyword selection
+    for k in axiskeys(arr, slice_dim)
+        slice = _select_at(arr, slice_dim, k)
         out[k] = toDataFrame(slice, cols_dim, index_dim; index_col = index_col)
     end
     return out
 end
 
-function toDataFrame(ka::AbstractDimArray)
-    data_array = Array(ka')
-    df = DataFrame(data_array, Array(dims(ka, :inout)))
-    df.index = Array(dims(ka, :batch_size))
-    return df
-end
+# Convenience: extract specific targets from a labeled array into a DataFrame
+"""
+    toDataFrame(arr, target_names)
 
+Extract specific target variables from a labeled array into a DataFrame with `_pred` suffix.
+
+# Arguments
+- `arr`: A labeled array or NamedTuple-like object with property access
+- `target_names`: Vector of target variable names to extract
+
+# Returns
+- `DataFrame` with columns named `<target>_pred` for each target
+"""
 function toDataFrame(ka, target_names)
     data = [getproperty(ka, t_name) for t_name in target_names]
 

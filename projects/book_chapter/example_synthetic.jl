@@ -119,7 +119,9 @@ single_nn_out = train(
     yscale = identity,       # Scaling for outputs
     shuffleobs = true,
     loss_types = [:mse, :nse],
-    extra_loss = extra_loss
+    extra_loss = extra_loss,
+    array_type = :KeyedArray,
+    plotting = false
 )
 
 # =============================================================================
