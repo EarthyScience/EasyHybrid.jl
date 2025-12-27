@@ -380,7 +380,7 @@ function (m::SingleNNHybridModel)(ds_k::Union{KeyedArray, AbstractDimArray}, ps,
     # 3) scale NN parameters (handle empty case)
     if !isempty(m.neural_param_names)
         nn_out, st_nn = LuxCore.apply(m.NN, predictors, ps.ps, st.st_nn)
-        nn_cols = eachrow(nn_out)
+        nn_cols = eachslice(nn_out, dims = 1)
         nn_params = NamedTuple(zip(m.neural_param_names, nn_cols))
 
         # Use appropriate scaling based on setting
@@ -533,7 +533,6 @@ function (m::MultiNNHybridModel)(df::DataFrame, ps, st)
     all_data = to_keyedArray(df)
 
     x, _ = prepare_data(m, all_data)
-    @show typeof(x)
     out, _ = m(x, ps, LuxCore.testmode(st))
     dfnew = copy(df)
     for k in keys(out)

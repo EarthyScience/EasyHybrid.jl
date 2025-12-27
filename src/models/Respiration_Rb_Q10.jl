@@ -60,8 +60,8 @@ function (hm::RespirationRbQ10)(ds_k, ps, st::NamedTuple)
 end
 
 function (hm::RespirationRbQ10)(ds_k::AbstractDimArray, ps, st::NamedTuple)
-    p = ds_k[col = At(hm.predictors)]
-    x = Array(ds_k[col = At(hm.forcing)]) # don't propagate names after this
+    p = ds_k[inout = At(hm.predictors)] # No @view - needs to be differentiable
+    x = Array(ds_k[inout = At(hm.forcing)]) # No @view - needs to be differentiable
 
     Rb, stQ10 = LuxCore.apply(hm.NN, p, ps.ps, st.st) #! NN(αᵢ(t)) ≡ Rb(T(t), M(t))
 

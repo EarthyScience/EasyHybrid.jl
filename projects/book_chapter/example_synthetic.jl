@@ -36,10 +36,7 @@ df = df[1:20000, :]
 dfnot = Float32.(df[!, Not(:time)])
 
 ka = to_keyedArray(dfnot)
-
-# DimensionalData
-mat = Array(Matrix(dfnot)')
-da = DimArray(mat, (Dim{:col}(Symbol.(names(dfnot))), Dim{:row}(1:size(dfnot, 1))))
+da = to_dimArray(dfnot)
 
 # =============================================================================
 # Define the Physical Model

@@ -114,11 +114,11 @@ function to_obs_tuple(y, target_names)
 end
 
 function to_tuple(y::KeyedArray, target_names)
-    return (; (t => y(t) for t in target_names)...) # observations are fixed, no Observables are needed!
+    return (; (t => y(inout = t) for t in target_names)...) # observations are fixed, no Observables are needed!
 end
 
 function to_tuple(y::AbstractDimArray, target_names)
-    return (; (t => Array(y[col = At(t)]) for t in target_names)...) # observations are fixed, no Observables are needed!
+    return (; (t => Array(y[inout = At(t)]) for t in target_names)...) # observations are fixed, no Observables are needed!
 end
 
 function monitor_to_obs(ŷ, monitor_names; cuts = (0.25, 0.5, 0.75))
