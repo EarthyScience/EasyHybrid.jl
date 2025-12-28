@@ -415,7 +415,7 @@ function split_data(
         shuffleobs::Bool = false,
         split_data_at::Real = 0.8,
         sequence_kwargs::Union{Nothing, NamedTuple} = nothing,
-        array_type::Symbol = :DimArray,
+        array_type::Symbol = :KeyedArray,
         kwargs...
     )
     data_ = prepare_data(hybridModel, data; array_type = array_type)
@@ -690,10 +690,10 @@ function split_into_sequences(x, y; input_window = 5, output_window = 1, shift =
 end
 
 
-view_end_dim = function (x_all::Array{Float32, 2}, idx)
+function view_end_dim(x_all::Union{KeyedArray{Float32, 2}, AbstractDimArray{Float32, 2}}, idx)
     return view(x_all, :, idx)
 end
 
-view_end_dim = function (x_all::Array{Float32, 3}, idx)
+function view_end_dim(x_all::Union{KeyedArray{Float32, 3}, AbstractDimArray{Float32, 3}}, idx)
     return view(x_all, :, :, idx)
 end
