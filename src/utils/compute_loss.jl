@@ -156,6 +156,9 @@ Helper function to apply the appropriate loss function based on the specificatio
 """
 function _apply_loss end
 
+_get_target_y(y, target) = y(target)
+_get_target_nan(y_nan, target) = y_nan(target)
+
 # For KeyedArray
 function _get_target_y(y::KeyedArray, target)
     return y(inout = target)
