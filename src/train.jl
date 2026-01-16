@@ -519,7 +519,7 @@ function prepare_data(hm, data::AbstractDimArray; array_type = :DimArray)
     return (data[inout = At(predictors_forcing)], data[inout = At(targets)])
 end
 
-function prepare_data(hm, data::DataFrame; array_type = :DimArray)
+function prepare_data(hm, data::DataFrame; array_type = :KeyedArray)
     predictors_forcing, targets = get_prediction_target_names(hm)
 
     all_predictor_cols = unique(vcat(values(predictors_forcing)...))

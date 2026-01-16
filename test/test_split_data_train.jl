@@ -121,7 +121,7 @@ const RbQ10_PARAMS = (
         @test !isnothing(out)
 
         mat = vcat(ka[1], ka[2])
-        da = DimArray(mat, (Dim{:col}(mat.keys[1]), Dim{:row}(1:size(mat, 2))))'
+        da = DimArray(mat, (Dim{:inout}(mat.keys[1]), Dim{:batch_size}(1:size(mat, 2))))'
         ka = prepare_data(model, da)
         @test !isnothing(ka)
 
