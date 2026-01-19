@@ -90,11 +90,14 @@ _select_time(ŷ_t::KeyedArray, time_keys) = ŷ_t(time = time_keys)  # KeyedArray
 _select_time(ŷ_t::AbstractDimArray, time_keys) = ŷ_t[time = At(time_keys)]  # DimArray: [] syntax - copy & differentiable
 
 
-_get_target_ŷ(ŷ, y_t::Union{KeyedArray{T, 3}, AbstractDimArray{T, 3}}, target) where {T} =
+# For 2D y_t (from 3D y): needs time subsetting
+# y_t has dims (time, batch_size), ŷ[target] has (time=input_window, batch_size)
+# We subset ŷ to match y_t's time dimension (output_window)
+_get_target_ŷ(ŷ, y_t::Union{KeyedArray{T, 2}, AbstractDimArray{T, 2}}, target) where {T} =
     _select_time(ŷ[target], axiskeys(y_t, :time))
 
-# For 1D y_t (from 2D y): no time subsetting
-_get_target_ŷ(ŷ, y_t::Union{KeyedArray{T, 2}, AbstractDimArray{T, 2}}, target) where {T} =
+# For 1D y_t (from 2D y): no time subsetting needed
+_get_target_ŷ(ŷ, y_t::Union{KeyedArray{T, 1}, AbstractDimArray{T, 1}}, target) where {T} =
     ŷ[target]
 
 _get_target_ŷ(ŷ, y_t, target) =
@@ -115,7 +118,7 @@ function assemble_loss(ŷ, y, y_nan, targets, loss_spec::PerTarget)
     @assert length(targets) == length(loss_spec.losses) "Length of targets and PerTarget losses tuple must match"
     losses = [
         _apply_loss(
-                ŷ,
+                _get_target_ŷ(ŷ, y_t, target),
                 _get_target_y(y, target),
                 _get_target_nan(y_nan, target),
                 target,
@@ -160,10 +163,6 @@ _get_target_y(y, target) = y(target)
 _get_target_nan(y_nan, target) = y_nan(target)
 
 # For KeyedArray
-function _get_target_y(y::KeyedArray, target)
-    return y(inout = target)
-end
-
 function _get_target_y(y::KeyedArray, target)
     return y(inout = target)
 end

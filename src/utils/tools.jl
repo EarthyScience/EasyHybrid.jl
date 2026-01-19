@@ -111,7 +111,6 @@ split_data(df::DataFrame, target, xvars, seqID; f=0.8, batchsize=32, shuffle=tru
 function split_data(df::DataFrame, target, xvars, seqID; f = 0.8, batchsize = 32, shuffle = true, partial = true)
     dfg = groupby(df, seqID)
     dkg = to_keyedArray(dfg)
-    #@show axiskeys(dkg)[1]
     # Do the partitioning via indices of the 3rd dimension (e.g. seqID) because
     # partition does not allow partitioning along that dimension (or even not arrays at all)
     idx_tr, idx_vali = partition(axiskeys(dkg)[3], f; shuffle)

@@ -13,13 +13,13 @@ The code for this tutorial can be found in [docs/src/literate/tutorials](https:/
 Set project path and activate environment
 
 ````@example example_synthetic_lstm
-#using Pkg
-#project_path = "docs"
-#Pkg.activate(project_path)
-#EasyHybrid_path = joinpath(pwd())
-#Pkg.develop(path = EasyHybrid_path)
-#Pkg.resolve()
-#Pkg.instantiate()
+using Pkg
+project_path = "docs"
+Pkg.activate(project_path)
+EasyHybrid_path = joinpath(pwd())
+Pkg.develop(path = EasyHybrid_path)
+Pkg.resolve()
+Pkg.instantiate()
 
 using EasyHybrid
 using AxisKeys
