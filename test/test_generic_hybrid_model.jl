@@ -176,7 +176,7 @@ end
         @test model isa SingleNNHybridModel
         @test model.predictors == predictors
         @test model.NN isa Chain
-        @test length(model.NN.layers) == 0  # Empty chain
+        @test typeof(model.NN.layers[1]) == Lux.NoOpLayer  # Empty chain
     end
 
     @testset "SingleNNHybridModel initialparameters" begin
@@ -496,7 +496,7 @@ end
         st = LuxCore.initialstates(rng, model)
 
         @test haskey(ps, :ps)  # Even with empty NN, ps key exists (may be empty)
-        @test isempty(ps.ps)
+        @test isempty(ps.ps[1])
 
         output, new_st = model(dk, ps, st)
         @test haskey(output, :y_pred)

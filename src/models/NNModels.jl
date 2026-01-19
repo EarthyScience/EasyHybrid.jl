@@ -192,14 +192,12 @@ function prepare_hidden_chain(
     else
         # user gave a vector of hidden‐layer sizes
         hs = hidden_layers
-        # build the hidden‐to‐hidden part
-        hidden_chain = length(hs) > 1 ?
-            Chain((Dense(hs[i], hs[i + 1], activation) for i in 1:(length(hs) - 1))...) :
-            Chain()
+        isempty(hs) && return Chain()
+        in_dim == 0 && return Chain()
         return Chain(
             input_batchnorm ? BatchNorm(in_dim, affine = false) : identity,
             Dense(in_dim, hs[1], activation),
-            hidden_chain.layers...,
+            (Dense(hs[i], hs[i + 1], activation) for i in 1:(length(hs) - 1))...,
             Dense(hs[end], out_dim)
         )
     end

@@ -13,4 +13,4 @@ Lux = "b2108857-7c20-44ae-9111-449ecde12c47"
 OhMyThreads = "67456a42-1dca-4109-a031-0a68de7e3ad5"
 
 [sources]
-EasyHybrid = {path = "C:\\Projects\\EasyHybrid.jl"}
+EasyHybrid = {path = ".."}

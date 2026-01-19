@@ -117,13 +117,18 @@ end
 function assemble_loss(ŷ, y, y_nan, targets, loss_spec::PerTarget)
     @assert length(targets) == length(loss_spec.losses) "Length of targets and PerTarget losses tuple must match"
     losses = [
-        _apply_loss(
-                _get_target_ŷ(ŷ, y_t, target),
-                _get_target_y(y, target),
-                _get_target_nan(y_nan, target),
-                target,
-                loss_t
-            ) for (target, loss_t) in zip(targets, loss_spec.losses)
+        begin
+                y_t = _get_target_y(y, target)
+                ŷ_t = _get_target_ŷ(ŷ, y_t, target)
+                y_nan_t = _get_target_nan(y_nan, target)
+                _apply_loss(
+                    ŷ_t,
+                    y_t,
+                    y_nan_t,
+                    loss_t
+                )
+            end
+            for (target, loss_t) in zip(targets, loss_spec.losses)
     ]
     return losses
 end
@@ -140,7 +145,7 @@ function _apply_loss(ŷ, y, y_nan, loss_spec::Tuple)
     return loss_fn(ŷ, y, y_nan, loss_spec)
 end
 function _apply_loss(ŷ, y, y_nan, target, loss_spec)
-    return _apply_loss(ŷ[target], y, y_nan, loss_spec)
+    return _apply_loss(_get_target_ŷ(ŷ, y, target), y, y_nan, loss_spec)
 end
 
 """
