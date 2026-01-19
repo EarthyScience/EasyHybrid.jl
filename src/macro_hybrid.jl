@@ -63,14 +63,14 @@ macro hybrid(name, params...)
 
     docstring = """
         $(name)(NN, predictors, forcing, targets$(isempty(param_syms) ? "" : ", " * join(string.(param_syms), ", ")))
-    
+
     A hybrid model with:
     - `NN`: a neural network
     - `predictors`: a tuple of names, i.e, (:clay, :moist)
     - `forcing`: data names, i.e. (:temp, )
     - `targets`: data names, i.e. (:ndvi, )
     $(isempty(param_syms) ? "" : "- Physical parameters: " * join(string.(param_syms), ", "))
-    
+
     All physical parameters are trainable by default. Use `?Lux.Experimental.freeze` to make specific parameters non-trainable during training.
     """
     # Build the complete struct definition
