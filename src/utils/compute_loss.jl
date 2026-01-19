@@ -106,11 +106,11 @@ _get_target_ŷ(ŷ, y_t, target) =
 function assemble_loss(ŷ, y, y_nan, targets, loss_spec)
     return [
         begin
-            y_t = _get_target_y(y, target)
-            ŷ_t = _get_target_ŷ(ŷ, y_t, target)
-            _apply_loss(ŷ_t, y_t, _get_target_nan(y_nan, target), loss_spec)
-        end
-        for target in targets
+                y_t = _get_target_y(y, target)
+                ŷ_t = _get_target_ŷ(ŷ, y_t, target)
+                _apply_loss(ŷ_t, y_t, _get_target_nan(y_nan, target), loss_spec)
+            end
+            for target in targets
     ]
 end
 

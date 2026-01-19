@@ -64,7 +64,7 @@ function (m::RecurrenceOutputDense)(x::NTuple{N, <:AbstractArray}, ps, st) where
     return result, st
 end
 
-# Handle vector output from Recurrence (return_sequence = true)  
+# Handle vector output from Recurrence (return_sequence = true)
 function (m::RecurrenceOutputDense)(x::AbstractVector{<:AbstractArray}, ps, st)
     y = map(xi -> first(LuxCore.apply(m.layer, xi, ps, st)), x)
     result = permutedims(stack(y; dims = 3), (1, 3, 2))
