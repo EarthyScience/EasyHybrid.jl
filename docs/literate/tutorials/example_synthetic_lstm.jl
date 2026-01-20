@@ -10,7 +10,7 @@
 #using Pkg
 #project_path = "docs"
 #Pkg.activate(project_path)
-#EasyHybrid_path = joinpath(pwd())
+#EasyHybrid_path = joinpath(project_path, "..")
 #Pkg.develop(path = EasyHybrid_path)
 #Pkg.resolve()
 #Pkg.instantiate()
@@ -117,29 +117,29 @@ sdf = split_data(df, hlstm, sequence_kwargs = (; input_window = 10, output_windo
 
 typeof(sdf);
 (x_train, y_train), (x_val, y_val) = sdf;
-x_train;
-y_train;
-y_train_nan = .!isnan.(y_train);
+x_train
+y_train
+y_train_nan = .!isnan.(y_train)
 
 # Put into train loader to compose minibatches
 train_dl = EasyHybrid.DataLoader((x_train, y_train); batchsize = 32);
 
 # Run hybrid model forwards
-x_first = first(train_dl)[1];
-y_first = first(train_dl)[2];
+x_first = first(train_dl)[1]
+y_first = first(train_dl)[2]
 
 ps, st = Lux.setup(Random.default_rng(), hlstm);
 frun = hlstm(x_first, ps, st);
 
 # Extract predicted yhat
-reco_mod = frun[1].reco;
+reco_mod = frun[1].reco
 
 # Bring observations in same shape
-reco_obs = dropdims(y_first, dims = 1);
+reco_obs = dropdims(y_first, dims = 1)
 reco_nan = .!isnan.(reco_obs);
 
 # Compute loss
-EasyHybrid.compute_loss(hlstm, ps, st, (x_train, (y_train, y_train_nan)), logging = LoggingLoss(train_mode = true));
+EasyHybrid.compute_loss(hlstm, ps, st, (x_train, (y_train, y_train_nan)), logging = LoggingLoss(train_mode = true))
 
 # ## 9. Train LSTM Hybrid Model
 
