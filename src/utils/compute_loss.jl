@@ -53,7 +53,6 @@ function _compute_loss(ŷ, y, y_nan, targets, loss_spec, agg::Function)
 end
 
 function _compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
-
     out_loss_types = [
         begin
                 losses = assemble_loss(ŷ, y, y_nan, targets, loss_type)

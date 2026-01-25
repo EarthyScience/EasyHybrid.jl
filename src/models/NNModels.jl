@@ -1,4 +1,4 @@
-export SingleNNModel, MultiNNModel, constructNNModel, prepare_hidden_chain, BroadcastLayer, RecurrenceOutputDense
+export SingleNNModel, MultiNNModel, constructNNModel, prepare_hidden_chain, RecurrenceOutputDense
 
 using Lux, LuxCore
 using ..EasyHybrid: hard_sigmoid
