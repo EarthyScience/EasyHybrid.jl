@@ -1,4 +1,4 @@
-export train, TrainResults, prepare_data, split_data, split_into_sequences, windowed_dataset
+export train, TrainResults, prepare_data, split_data, split_into_sequences
 # beneficial for plotting based on type TrainResults?
 struct TrainResults
     train_history
