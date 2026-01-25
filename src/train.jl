@@ -516,7 +516,7 @@ end
 function prepare_data(hm, data::AbstractDimArray; array_type = :DimArray)
     predictors_forcing, targets = get_prediction_target_names(hm)
     # DimArray: use [] syntax (copies, but differentiable)
-    return (data[inout = At(predictors_forcing)], data[inout = At(targets)])
+    return (data[variable = At(predictors_forcing)], data[variable = At(targets)])
 end
 
 function prepare_data(hm, data::DataFrame; array_type = :KeyedArray)
@@ -631,7 +631,7 @@ function getbyname(df::DataFrame, name::Symbol)
 end
 
 function getbyname(ka::Union{KeyedArray, AbstractDimArray}, name::Symbol)
-    return @view ka[inout = At(name)]
+    return @view ka[variable = At(name)]
 end
 
 function split_into_sequences(x, y; input_window = 5, output_window = 1, shift = 1, lead_time = 1)
@@ -677,12 +677,12 @@ function split_into_sequences(x, y; input_window = 5, output_window = 1, shift =
         Yd[:, :, ii] .= y[:, sy:ey]
     end
     if x isa KeyedArray
-        Xk = KeyedArray(Xd; inout = featkeys, time = lag_keys, batch_size = samplekeys)
-        Yk = KeyedArray(Yd; inout = targetkeys, time = lead_keys, batch_size = samplekeys)
+        Xk = KeyedArray(Xd; variable = featkeys, time = lag_keys, batch_size = samplekeys)
+        Yk = KeyedArray(Yd; variable = targetkeys, time = lead_keys, batch_size = samplekeys)
         return Xk, Yk
     elseif x isa AbstractDimArray
-        Xk = DimArray(Xd, (inout = featkeys, time = lag_keys, batch_size = samplekeys))
-        Yk = DimArray(Yd, (inout = targetkeys, time = lead_keys, batch_size = samplekeys))
+        Xk = DimArray(Xd, (variable = featkeys, time = lag_keys, batch_size = samplekeys))
+        Yk = DimArray(Yd, (variable = targetkeys, time = lead_keys, batch_size = samplekeys))
         return Xk, Yk
     else
         throw(ArgumentError("expected Xd to be KeyedArray or AbstractDimArray; got $(typeof(Xd))"))

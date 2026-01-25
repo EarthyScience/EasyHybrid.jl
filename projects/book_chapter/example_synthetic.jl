@@ -39,7 +39,7 @@ ka = to_keyedArray(dfnot)
 
 # DimensionalData
 mat = Array(Matrix(dfnot)')
-da = DimArray(mat, (inout = Symbol.(names(dfnot)), batch_size = 1:size(dfnot, 1)))
+da = DimArray(mat, (variable = Symbol.(names(dfnot)), batch_size = 1:size(dfnot, 1)))
 
 # =============================================================================
 # Define the Physical Model

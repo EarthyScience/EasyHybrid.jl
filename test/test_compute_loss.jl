@@ -72,8 +72,8 @@ using DataFrames
             :var1 => DimArray([1.0, 2.0, 3.0], (Ti(1:3),)),
             :var2 => DimArray([2.0, 3.0, 4.0], (Ti(1:3),))
         )
-        y_dim = DimArray([1.1 1.8; 1.9 3.1; 3.2 3.9], (Ti(1:3), Dim{:inout}([:var1, :var2])))
-        y_nan_dim = DimArray(trues(3, 2), (Ti(1:3), Dim{:inout}([:var1, :var2])))
+        y_dim = DimArray([1.1 1.8; 1.9 3.1; 3.2 3.9], (Ti(1:3), Dim{:variable}([:var1, :var2])))
+        y_nan_dim = DimArray(trues(3, 2), (Ti(1:3), Dim{:variable}([:var1, :var2])))
 
         # Test single predefined loss
         loss = _compute_loss(ŷ_dim, y_dim, y_nan_dim, targets, :mse, sum)
@@ -121,12 +121,12 @@ end
     @test _get_target_nan(y_nan_func, :var2) == [true, true, false]
 
     # Test with AbstractDimArray
-    y_nan_dim = DimArray([true false; true true; false true], (Ti(1:3), Dim{:inout}([:var1, :var2])))
+    y_nan_dim = DimArray([true false; true true; false true], (Ti(1:3), Dim{:variable}([:var1, :var2])))
     @test _get_target_nan(y_nan_dim, :var1) == [true, true, false]
     @test _get_target_nan(y_nan_dim, :var2) == [false, true, true]
 
     # Test with Vector of targets
-    y_nan_dim_multi = DimArray([true false; true true; false true], (Ti(1:3), Dim{:inout}([:var1, :var2])))
+    y_nan_dim_multi = DimArray([true false; true true; false true], (Ti(1:3), Dim{:variable}([:var1, :var2])))
     result = _get_target_nan(y_nan_dim_multi, [:var1, :var2])
     @test size(result) == (3, 2)
     @test result[:, 1] == [true, true, false]
@@ -140,12 +140,12 @@ end
     @test _get_target_y(y_func, :var2) == [2.0, 3.0, 4.0]
 
     # Test with AbstractDimArray
-    y_dim = DimArray([1.0 2.0; 2.0 3.0; 3.0 4.0], (Ti(1:3), Dim{:inout}([:var1, :var2])))
+    y_dim = DimArray([1.0 2.0; 2.0 3.0; 3.0 4.0], (Ti(1:3), Dim{:variable}([:var1, :var2])))
     @test _get_target_y(y_dim, :var1) == [1.0, 2.0, 3.0]
     @test _get_target_y(y_dim, :var2) == [2.0, 3.0, 4.0]
 
     # Test with Vector of targets
-    y_dim_multi = DimArray([1.0 2.0; 2.0 3.0; 3.0 4.0], (Ti(1:3), Dim{:inout}([:var1, :var2])))
+    y_dim_multi = DimArray([1.0 2.0; 2.0 3.0; 3.0 4.0], (Ti(1:3), Dim{:variable}([:var1, :var2])))
     result = _get_target_y(y_dim_multi, [:var1, :var2])
     @test size(result) == (3, 2)
     @test result[:, 1] == [1.0, 2.0, 3.0]

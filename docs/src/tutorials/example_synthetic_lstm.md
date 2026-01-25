@@ -13,13 +13,13 @@ The code for this tutorial can be found in [docs/src/literate/tutorials](https:/
 Set project path and activate environment
 
 ````@example example_synthetic_lstm
-using Pkg
-project_path = "docs"
-Pkg.activate(project_path)
-EasyHybrid_path = joinpath(pwd())
-Pkg.develop(path = EasyHybrid_path)
-Pkg.resolve()
-Pkg.instantiate()
+#using Pkg
+#project_path = "docs"
+#Pkg.activate(project_path)
+#EasyHybrid_path = joinpath(project_path, "..")
+#Pkg.develop(path = EasyHybrid_path)
+#Pkg.resolve()
+#Pkg.instantiate()
 
 using EasyHybrid
 using AxisKeys
@@ -174,10 +174,9 @@ sdf = split_data(df, hlstm, sequence_kwargs = (; input_window = 10, output_windo
 
 typeof(sdf);
 (x_train, y_train), (x_val, y_val) = sdf;
-x_train;
-y_train;
-y_train_nan = .!isnan.(y_train);
-nothing #hide
+x_train
+y_train
+y_train_nan = .!isnan.(y_train)
 ````
 
 Put into train loader to compose minibatches
@@ -190,8 +189,8 @@ nothing #hide
 Run hybrid model forwards
 
 ````@example example_synthetic_lstm
-x_first = first(train_dl)[1];
-y_first = first(train_dl)[2];
+x_first = first(train_dl)[1]
+y_first = first(train_dl)[2]
 
 ps, st = Lux.setup(Random.default_rng(), hlstm);
 frun = hlstm(x_first, ps, st);
@@ -201,14 +200,13 @@ nothing #hide
 Extract predicted yhat
 
 ````@example example_synthetic_lstm
-reco_mod = frun[1].reco;
-nothing #hide
+reco_mod = frun[1].reco
 ````
 
 Bring observations in same shape
 
 ````@example example_synthetic_lstm
-reco_obs = dropdims(y_first, dims = 1);
+reco_obs = dropdims(y_first, dims = 1)
 reco_nan = .!isnan.(reco_obs);
 nothing #hide
 ````
@@ -216,8 +214,7 @@ nothing #hide
 Compute loss
 
 ````@example example_synthetic_lstm
-EasyHybrid.compute_loss(hlstm, ps, st, (x_train, (y_train, y_train_nan)), logging = LoggingLoss(train_mode = true));
-nothing #hide
+EasyHybrid.compute_loss(hlstm, ps, st, (x_train, (y_train, y_train_nan)), logging = LoggingLoss(train_mode = true))
 ````
 
 ## 9. Train LSTM Hybrid Model

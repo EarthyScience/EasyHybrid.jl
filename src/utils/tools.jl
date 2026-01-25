@@ -52,7 +52,7 @@ tokeyedArray(df::DataFrame)
 """
 function to_keyedArray(df::DataFrame)
     d = Matrix(df) |> transpose
-    return KeyedArray(d, inout = Symbol.(names(df)), batch_size = 1:size(d, 2))
+    return KeyedArray(d, variable = Symbol.(names(df)), batch_size = 1:size(d, 2))
 end
 
 # Convert a DataFrame to a DimArray where variables are in 1st dim (rows)
@@ -61,7 +61,7 @@ to_dimArray(df::DataFrame)
 """
 function to_dimArray(df::DataFrame)
     d = Matrix(df) |> transpose |> Array
-    return DimArray(d, (Dim{:inout}(Symbol.(names(df))), Dim{:batch_size}(1:size(d, 2))))
+    return DimArray(d, (Dim{:variable}(Symbol.(names(df))), Dim{:batch_size}(1:size(d, 2))))
 end
 
 # Cast a grouped dataframe into a KeyedArray, where the group is the third dimension
@@ -115,14 +115,14 @@ function split_data(df::DataFrame, target, xvars, seqID; f = 0.8, batchsize = 32
     # partition does not allow partitioning along that dimension (or even not arrays at all)
     idx_tr, idx_vali = partition(axiskeys(dkg)[3], f; shuffle)
     # wrap training data into Flux.DataLoader
-    x = dkg(inout = xvars, seqID = idx_tr)
-    y = dkg(inout = target, seqID = idx_tr) |> Array
+    x = dkg(variable = xvars, seqID = idx_tr)
+    y = dkg(variable = target, seqID = idx_tr) |> Array
     data_t = (; x, y)
     trainloader = Flux.DataLoader(data_t; batchsize, shuffle, partial)
     trainall = Flux.DataLoader(data_t; batchsize = size(x, 3), shuffle = false, partial = false)
     # wrap validation data into Flux.DataLoader
-    x = dkg(inout = xvars, seqID = idx_vali)
-    y = dkg(inout = target, seqID = idx_vali) |> Array
+    x = dkg(variable = xvars, seqID = idx_vali)
+    y = dkg(variable = target, seqID = idx_vali) |> Array
     data_v = (; x, y)
     valloader = Flux.DataLoader(data_v; batchsize = size(x, 3), shuffle = false, partial = false)
     return trainloader, valloader, trainall
@@ -154,13 +154,13 @@ _select_at(da::AbstractDimArray, dim_name::Symbol, key) = view(da, Dim{dim_name}
 
 # 2D Labeled Array -> DataFrame (works for both KeyedArray and DimArray)
 """
-    toDataFrame(arr::Union{KeyedArray{T, 2}, AbstractDimArray{T, 2}}, cols_dim=:inout, index_dim=:batch_size; index_col=:index)
+    toDataFrame(arr::Union{KeyedArray{T, 2}, AbstractDimArray{T, 2}}, cols_dim=:variable, index_dim=:batch_size; index_col=:index)
 
 Convert a 2D labeled array (KeyedArray or DimArray) to a DataFrame.
 
 # Arguments
 - `arr`: The 2D labeled array to convert
-- `cols_dim`: Dimension name to use as DataFrame columns (default: `:inout`)
+- `cols_dim`: Dimension name to use as DataFrame columns (default: `:variable`)
 - `index_dim`: Dimension name to use as DataFrame row index (default: `:batch_size`)
 - `index_col`: Name for the index column in the result (default: `:index`)
 
@@ -169,7 +169,7 @@ Convert a 2D labeled array (KeyedArray or DimArray) to a DataFrame.
 """
 function toDataFrame(
         arr::Union{KeyedArray{T, 2}, AbstractDimArray{T, 2}},
-        cols_dim::Symbol = :inout,
+        cols_dim::Symbol = :variable,
         index_dim::Symbol = :batch_size;
         index_col::Symbol = :index,
     ) where {T}
@@ -190,13 +190,13 @@ end
 
 # 3D Labeled Array -> Dict(slice_key => DataFrame)
 """
-    toDataFrame(arr::AbstractLabeledArray{T, 3}, cols_dim=:inout, index_dim=:batch_size; slice_dim=:time, index_col=:index)
+    toDataFrame(arr::AbstractLabeledArray{T, 3}, cols_dim=:variable, index_dim=:batch_size; slice_dim=:time, index_col=:index)
 
 Convert a 3D labeled array (KeyedArray or DimArray) to a Dict of DataFrames, one per slice.
 
 # Arguments
 - `arr`: The 3D labeled array to convert
-- `cols_dim`: Dimension name to use as DataFrame columns (default: `:inout`)
+- `cols_dim`: Dimension name to use as DataFrame columns (default: `:variable`)
 - `index_dim`: Dimension name to use as DataFrame row index (default: `:batch_size`)
 - `slice_dim`: Dimension name to slice along (default: `:time`)
 - `index_col`: Name for the index column in each result DataFrame (default: `:index`)
@@ -206,7 +206,7 @@ Convert a 3D labeled array (KeyedArray or DimArray) to a Dict of DataFrames, one
 """
 function toDataFrame(
         arr::Union{KeyedArray{T, 3}, AbstractDimArray{T, 3}},
-        cols_dim::Symbol = :inout,
+        cols_dim::Symbol = :variable,
         index_dim::Symbol = :batch_size;
         slice_dim::Symbol = :time,
         index_col::Symbol = :index,
@@ -271,22 +271,22 @@ ta = data.TA
 ```
 """
 function toNamedTuple(ka::KeyedArray, variables::Vector{Symbol})
-    vals = [dropdims(ka(inout = [var]), dims = 1) for var in variables]
+    vals = [dropdims(ka(variable = [var]), dims = 1) for var in variables]
     return (; zip(variables, vals)...)
 end
 
 function toNamedTuple(ka::AbstractDimArray, variables::Vector{Symbol})
-    vals = [dropdims(ka[inout = At([var])], dims = 1) for var in variables]
+    vals = [dropdims(ka[variable = At([var])], dims = 1) for var in variables]
     return (; zip(variables, vals)...)
 end
 
 function toNamedTuple(ka::KeyedArray, variables::NTuple{N, Symbol}) where {N}
-    vals = ntuple(i -> ka(inout = [variables[i]]), N)
+    vals = ntuple(i -> ka(variable = [variables[i]]), N)
     return NamedTuple{variables}(vals)
 end
 
 function toNamedTuple(ka::AbstractDimArray, variables::NTuple{N, Symbol}) where {N}
-    ntuple(i -> ka[inout = At([variables[i]])], N)
+    ntuple(i -> ka[variable = At([variables[i]])], N)
     return NamedTuple{variables}(vals)
 end
 
@@ -311,12 +311,12 @@ nee = data.NEE
 ```
 """
 function toNamedTuple(ka::KeyedArray)
-    variables = Symbol.(axiskeys(ka, :inout))  # Get all variable names from :inout dimension
+    variables = Symbol.(axiskeys(ka, :variable))  # Get all variable names from :variable dimension
     return toNamedTuple(ka, variables)
 end
 
 function toNamedTuple(ka::AbstractDimArray)
-    variables = Symbol.(lookup(ka, :inout))  # Get all variable names from :inout dimension
+    variables = Symbol.(lookup(ka, :variable))  # Get all variable names from :variable dimension
     return toNamedTuple(ka, variables)
 end
 
@@ -338,17 +338,17 @@ sw_in = toNamedTuple(ds, :SW_IN)
 ```
 """
 function toNamedTuple(ka::KeyedArray, variable::Symbol)
-    return ka(inout = variable)
+    return ka(variable = variable)
 end
 
 function toNamedTuple(ka::AbstractDimArray, variable::Symbol)
-    return ka[inout = At(variable)]
+    return ka[variable = At(variable)]
 end
 
 function toArray(ka::KeyedArray, variable)
-    return ka(inout = variable)
+    return ka(variable = variable)
 end
 
 function toArray(ka::AbstractDimArray, variable)
-    return ka[inout = At(variable)]
+    return ka[variable = At(variable)]
 end

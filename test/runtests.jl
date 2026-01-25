@@ -1,6 +1,6 @@
-#using Pkg
-#Pkg.activate(@__DIR__)
-#using Revise
+# using Pkg
+# Pkg.activate(@__DIR__)
+# using Revise
 using EasyHybrid
 using Test
 # import Flux

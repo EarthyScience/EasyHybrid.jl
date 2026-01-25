@@ -168,20 +168,20 @@ _get_target_nan(y_nan, target) = y_nan(target)
 
 # For KeyedArray
 function _get_target_y(y::KeyedArray, target)
-    return y(inout = target)
+    return y(variable = target)
 end
 
 function _get_target_y(y::KeyedArray, targets::Vector)
-    return y(inout = targets)
+    return y(variable = targets)
 end
 
 # For DimArray
 function _get_target_y(y::AbstractDimArray, target)
-    return y[inout = At(target)]
+    return y[variable = At(target)]
 end
 
 function _get_target_y(y::AbstractDimArray, targets::Vector)
-    return y[inout = At(targets)]
+    return y[variable = At(targets)]
 end
 
 # For Tuple (e.g. (y_obs, y_sigma)), supports KeyedArray or DimArray as y_obs
@@ -200,20 +200,20 @@ function _get_target_y end
 
 # For KeyedArray
 function _get_target_nan(y_nan::KeyedArray, target)
-    return y_nan(inout = target)
+    return y_nan(variable = target)
 end
 
 function _get_target_nan(y_nan::KeyedArray, targets::Vector)
-    return y_nan(inout = targets)
+    return y_nan(variable = targets)
 end
 
 # For DimArray
 function _get_target_nan(y_nan::AbstractDimArray, target)
-    return y_nan[inout = At(target)]
+    return y_nan[variable = At(target)]
 end
 
 function _get_target_nan(y_nan::AbstractDimArray, targets::Vector)
-    return y_nan[inout = At(targets)]
+    return y_nan[variable = At(targets)]
 end
 
 """
