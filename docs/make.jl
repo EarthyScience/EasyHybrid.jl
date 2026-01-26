@@ -1,7 +1,4 @@
 # docs/make.jl
-using Pkg
-Pkg.activate(@__DIR__)
-using Revise
 using EasyHybrid
 using Documenter, DocumenterVitepress
 literate_root = joinpath(@__DIR__, "literate")
