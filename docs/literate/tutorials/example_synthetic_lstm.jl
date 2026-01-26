@@ -105,17 +105,18 @@ hlstm = constructHybridModel(
 # In practice, you can skip to Section 9 and use the `train` function directly.
 
 # :KeyedArray and :DimArray are supported
-x, y = prepare_data(hlstm, df, array_type = :DimArray);
+pref_array_type = :DimArray
+x, y = prepare_data(hlstm, df, array_type = pref_array_type);
 
 # New split_into_sequences with input_window, output_window, shift and lead_time
 # for many-to-one, many-to-many, and different prediction lead times and overlap
 xs, ys = split_into_sequences(x, y; input_window = 20, output_window = 2, shift = 1, lead_time = 0);
 ys_nan = .!isnan.(ys);
+typeof(xs)
 
 # Split data as in train
-sdf = split_data(df, hlstm, sequence_kwargs = (; input_window = 10, output_window = 3, shift = 1, lead_time = 1));
+sdf = split_data(df, hlstm, sequence_kwargs = (; input_window = 10, output_window = 3, shift = 1, lead_time = 1), array_type = pref_array_type);
 
-typeof(sdf);
 (x_train, y_train), (x_val, y_val) = sdf;
 x_train
 y_train
@@ -156,8 +157,10 @@ out_lstm = train(
     loss_types = [:mse, :nse],
     sequence_kwargs = (; input_window = 10, output_window = 4),
     plotting = false,
-    array_type = :DimArray
+    array_type = pref_array_type
 );
+
+out_lstm.val_obs_pred
 
 # ## 10. Train Single NN Hybrid Model (Optional)
 

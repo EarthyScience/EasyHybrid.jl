@@ -123,6 +123,8 @@ function train(
 
     train_loader = DataLoader((x_train, y_train), batchsize = batchsize, shuffle = true)
 
+    @info "Training data type: $(typeof(x_train))"
+
     if isnothing(train_from)
         ps, st = LuxCore.setup(Random.default_rng(), hybridModel)
     else
