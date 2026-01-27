@@ -13,3 +13,7 @@ OhMyThreads = "67456a42-1dca-4109-a031-0a68de7e3ad5"
 
 [sources]
 EasyHybrid = {path = ".."}
+
+[compat]
+Documenter = "1"
+DocumenterVitepress = "0.2"
