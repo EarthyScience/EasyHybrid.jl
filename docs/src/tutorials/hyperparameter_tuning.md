@@ -1,4 +1,4 @@
-```@raw html
+```@raw
 ---
 authors:
   - name: Bernhard Ahrens
@@ -16,18 +16,17 @@ authors:
 
 # Hyperparameter tuning with Hyperopt.jl
 
-
 ### 1. Setup and Data Loading
 
 Load package and synthetic dataset
 
-```@example hyperparameter_tuning
+```@example
 using EasyHybrid
 using CairoMakie
 using Hyperopt
 ```
 
-```@example hyperparameter_tuning
+```@example
 ds = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc")
 ds = ds[1:20000, :]  # Use subset for faster execution
 first(ds, 5)
@@ -37,7 +36,7 @@ first(ds, 5)
 
 RbQ10 model: Respiration model with Q10 temperature sensitivity
 
-```@example hyperparameter_tuning
+```@example
 function RbQ10(;ta, Q10, rb, tref = 15.0f0)
     reco = rb .* Q10 .^ (0.1f0 .* (ta .- tref))
     return (; reco, Q10, rb)
@@ -48,7 +47,7 @@ end
 
 Parameter specification: (default, lower_bound, upper_bound)
 
-```@example hyperparameter_tuning
+```@example
 parameters = (
     rb  = (3.0f0, 0.0f0, 13.0f0),  # Basal respiration [μmol/m²/s]
     Q10 = (2.0f0, 1.0f0, 4.0f0),   # Temperature sensitivity - describes factor by which respiration is increased for 10 K increase in temperature [-]
@@ -59,7 +58,7 @@ parameters = (
 
 Define input variables
 
-```@example hyperparameter_tuning
+```@example
 forcing = [:ta]                    # Forcing variables (temperature)
 predictors = [:sw_pot, :dsw_pot]   # Predictor variables (solar radiation)
 target = [:reco]                   # Target variable (respiration)
@@ -67,14 +66,14 @@ target = [:reco]                   # Target variable (respiration)
 
 Parameter classification as global, neural or fixed (difference between global and neural)
 
-```@example hyperparameter_tuning
+```@example
 global_param_names = [:Q10]        # Global parameters (same for all samples)
 neural_param_names = [:rb]         # Neural network predicted parameters
 ```
 
 Construct hybrid model
 
-```@example hyperparameter_tuning
+```@example
 hybrid_model = constructHybridModel(
     predictors,               # Input features
     forcing,                  # Forcing variables
@@ -92,7 +91,7 @@ hybrid_model = constructHybridModel(
 
 ### 5. Train the Model
 
-```@example hyperparameter_tuning
+```@example
 out = train(
     hybrid_model, 
     ds, 
@@ -108,7 +107,7 @@ out = train(
 )
 ```
 
-```@raw html
+```@raw
 <video src="../training_history_before.mp4" controls="controls" autoplay="autoplay"></video>
 ```
 
@@ -116,19 +115,19 @@ out = train(
 
 Evolution of train and validation loss
 
-```@example hyperparameter_tuning
+```@example
 EasyHybrid.plot_loss(out, yscale = identity)
 ```
 
 Check results - what do you think - is it the true Q10 used to generate the synthetic dataset?
 
-```@example hyperparameter_tuning
+```@example
 out.train_diffs.Q10
-``` 
+```
 
 Quick scatterplot - dispatches on the output of train
 
-```@example hyperparameter_tuning
+```@example
 EasyHybrid.poplot(out)
 ```
 
@@ -140,7 +139,7 @@ EasyHybrid provides built-in hyperparameter tuning capabilities to optimize your
 
 You can use the `tune` function to automatically search for optimal hyperparameters. Check [Hyperopt.jl](https://github.com/baggepinnen/Hyperopt.jl) for details on algorithms.
 
-```@example hyperparameter_tuning
+```@example
 # Create empty model specification for tuning
 mspempty = ModelSpec()
 
@@ -149,10 +148,10 @@ nhyper = 4
 ho = @thyperopt for i=nhyper,
     opt = [AdamW(0.01), AdamW(0.1), RMSProp(0.001), RMSProp(0.01)],
     input_batchnorm = [true, false]
-    
+  
     hyper_parameters = (;opt, input_batchnorm)
     println("Hyperparameter run: ", i, " of ", nhyper, " with hyperparameters: ", hyper_parameters)
-    
+  
     # Run tuning with current hyperparameters
     out = EasyHybrid.tune(
         hybrid_model, 
@@ -164,7 +163,7 @@ ho = @thyperopt for i=nhyper,
         show_progress = false, 
         file_name = "test$i.jld2"
     )
-    
+  
     out.best_loss
 end
 
@@ -179,7 +178,7 @@ best_hyperp = best_hyperparams(ho)
 
 ### Train model with the best hyperparameters
 
-```@example hyperparameter_tuning
+```@example
 # Run tuning with specific hyperparameters
 out_tuned = EasyHybrid.tune(
     hybrid_model, 
@@ -195,7 +194,7 @@ out_tuned = EasyHybrid.tune(
 out_tuned.best_loss
 ```
 
-```@raw html
+```@raw
 <video src="../training_history_after.mp4" controls="controls" autoplay="autoplay"></video>
 ```
 
@@ -212,9 +211,5 @@ When tuning your hybrid model, consider these important hyperparameters:
 ### Tips for Hyperparameter Tuning
 
 - **Start with a small search space** to get a baseline understanding
-- **Monitor for overfitting** by tracking validation loss  
+- **Monitor for overfitting** by tracking validation loss
 - **Consider computational cost** - more hyperparameters and epochs increase training time
-
-## More Examples
-
-Check out the `projects/` directory for additional examples and use cases. Each project demonstrates different aspects of hybrid modeling with EasyHybrid.
