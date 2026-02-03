@@ -68,12 +68,29 @@ end
 
 function Base.show(io::IO, ::MIME"text/plain", pc::ParameterContainer)
     table = pc.table
-    return PrettyTables.pretty_table(
-        io, table;
-        column_labels = collect(keys(table.axes[2])),
-        row_labels = collect(keys(table.axes[1])),
-        alignment = :r,
-    )
+
+    col_labels = collect(keys(table.axes[2]))
+    row_labels = collect(keys(table.axes[1]))
+
+    return @static if isdefined(PrettyTables, :PrintingSpec)
+        # PrettyTables v3+
+        PrettyTables.pretty_table(
+            io,
+            table;
+            column_labels = col_labels,
+            row_labels = row_labels,
+            alignment = :r,
+        )
+    else
+        # PrettyTables v2
+        PrettyTables.pretty_table(
+            io,
+            table;
+            header = col_labels,
+            row_labels = row_labels,
+            alignment = :r,
+        )
+    end
 end
 
 # compact show for nested usage

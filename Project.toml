@@ -1,7 +1,7 @@
 name = "EasyHybrid"
 uuid = "61bb816a-e6af-4913-ab9e-91bff2e122e3"
-authors = ["Lazaro Alonso", "Bernhard Ahrens", "Markus Reichstein"]
 version = "0.1.7"
+authors = ["Lazaro Alonso", "Bernhard Ahrens", "Markus Reichstein"]
 
 [deps]
 AxisKeys = "94b1ba4f-4ee9-5380-92f1-94cde586c3c5"
@@ -21,6 +21,7 @@ LuxCore = "bb33d45b-7691-41d6-9220-0943567d0623"
 MLJ = "add582a8-e3ab-11e8-2d5e-e98b27df1bc7"
 MLUtils = "f1d291b0-491e-4a28-83b9-f70985020b54"
 NCDatasets = "85f8d34a-cbdd-5861-8df4-14fed0d494ab"
+NamedDims = "356022a1-0364-5f58-8944-0da4b18d706f"
 OptimizationOptimisers = "42dfb2eb-d2b4-4451-abcd-913932933ac1"
 PrettyTables = "08abe8d2-0d0c-5749-adfa-8a2ac140af0d"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
@@ -57,6 +58,7 @@ MLJ = "0.20, 0.21, 0.22"
 MLUtils = "0.4.8"
 Makie = "0.22, 0.23, 0.24"
 NCDatasets = "0.14.8"
+NamedDims = "1.2.3"
 OptimizationOptimisers = "0.3.7"
 PrettyTables = "2.4.0, 3.1.2"
 ProgressMeter = "1.10.4"

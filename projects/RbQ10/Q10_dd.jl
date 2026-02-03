@@ -30,7 +30,7 @@ using Zygote
 ps, st = LuxCore.setup(Random.default_rng(), RbQ10)
 
 l, backtrace = Zygote.pullback(
-    (ps) -> EasyHybrid.lossfn(
+    (ps) -> EasyHybrid.compute_loss(
         RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st,
         EasyHybrid.LoggingLoss(training_loss = :mse, agg = sum)
     ), ps
@@ -60,24 +60,24 @@ targets = RbQ10.targets
 # EasyHybrid.get_predictions_targets(RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st, targets)
 # ŷ, st_ = RbQ10(ds_p_f, ps, st)
 
-# EasyHybrid.compute_loss(ŷ, ds_t, ds_t_nan, targets, :mse, sum)
+# EasyHybrid._compute_loss(ŷ, ds_t, ds_t_nan, targets, :mse, sum)
 
-# ls = EasyHybrid.lossfn(RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss())
+# ls = EasyHybrid.compute_loss(RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss())
 
 
 ## ! DimensionalData + ChainRulesCore
-# ? test lossfn
+# ? test compute_loss
 # ps, st = LuxCore.setup(Random.default_rng(), RbQ10)
 
-ls = EasyHybrid.lossfn(RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss())
-ls_logs = EasyHybrid.lossfn(RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss(train_mode = false))
+ls = EasyHybrid.compute_loss(RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss())
+ls_logs = EasyHybrid.compute_loss(RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st, LoggingLoss(train_mode = false))
 acc_ = EasyHybrid.evaluate_acc(RbQ10, ds_p_f, ds_t, ds_t_nan, ps, st, [:mse, :r2], :mse, sum)
 
 using Zygote, ChainRulesCore, DimensionalData
 using EasyHybrid
 
 l, backtrace = Zygote.pullback(
-    (ps) -> EasyHybrid.lossfn(
+    (ps) -> EasyHybrid.compute_loss(
         RbQ10, ds_p_f, (ds_t, ds_t_nan), ps, st,
         EasyHybrid.LoggingLoss(training_loss = :mse, agg = sum)
     ), ps

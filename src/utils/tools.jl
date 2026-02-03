@@ -1,5 +1,5 @@
 #### Data handling
-export select_predictors, to_keyedArray, split_data
+export select_predictors, to_keyedArray, to_dimArray, split_data
 export toDataFrame, toNamedTuple, toArray
 
 # Make vec each entry of NamedTuple (since broadcast ist reserved)
@@ -52,7 +52,16 @@ tokeyedArray(df::DataFrame)
 """
 function to_keyedArray(df::DataFrame)
     d = Matrix(df) |> transpose
-    return KeyedArray(d, row = Symbol.(names(df)), col = 1:size(d, 2))
+    return KeyedArray(d, variable = Symbol.(names(df)), batch_size = 1:size(d, 2))
+end
+
+# Convert a DataFrame to a DimArray where variables are in 1st dim (rows)
+"""
+to_dimArray(df::DataFrame)
+"""
+function to_dimArray(df::DataFrame)
+    d = Matrix(df) |> transpose |> Array
+    return DimArray(d, (Dim{:variable}(Symbol.(names(df))), Dim{:batch_size}(1:size(d, 2))))
 end
 
 # Cast a grouped dataframe into a KeyedArray, where the group is the third dimension
@@ -102,38 +111,128 @@ split_data(df::DataFrame, target, xvars, seqID; f=0.8, batchsize=32, shuffle=tru
 function split_data(df::DataFrame, target, xvars, seqID; f = 0.8, batchsize = 32, shuffle = true, partial = true)
     dfg = groupby(df, seqID)
     dkg = to_keyedArray(dfg)
-    #@show axiskeys(dkg)[1]
     # Do the partitioning via indices of the 3rd dimension (e.g. seqID) because
     # partition does not allow partitioning along that dimension (or even not arrays at all)
     idx_tr, idx_vali = partition(axiskeys(dkg)[3], f; shuffle)
     # wrap training data into Flux.DataLoader
-    x = dkg(row = xvars, seqID = idx_tr)
-    y = dkg(row = target, seqID = idx_tr) |> Array
+    x = dkg(variable = xvars, seqID = idx_tr)
+    y = dkg(variable = target, seqID = idx_tr) |> Array
     data_t = (; x, y)
     trainloader = Flux.DataLoader(data_t; batchsize, shuffle, partial)
     trainall = Flux.DataLoader(data_t; batchsize = size(x, 3), shuffle = false, partial = false)
     # wrap validation data into Flux.DataLoader
-    x = dkg(row = xvars, seqID = idx_vali)
-    y = dkg(row = target, seqID = idx_vali) |> Array
+    x = dkg(variable = xvars, seqID = idx_vali)
+    y = dkg(variable = target, seqID = idx_vali) |> Array
     data_v = (; x, y)
     valloader = Flux.DataLoader(data_v; batchsize = size(x, 3), shuffle = false, partial = false)
     return trainloader, valloader, trainall
 end
 
-function toDataFrame(ka)
-    data_array = Array(ka')
-    df = DataFrame(data_array, ka.row)
-    df.index = ka.col
+using AxisKeys
+using NamedDims: NamedDims  # Required for NamedDims.dim with KeyedArrays
+using DataFrames
+using DimensionalData: DimensionalData, AbstractDimArray, Dim, DimArray, dims, lookup, At
+
+_key_to_colname(k) = k isa Symbol ? k : Symbol(string(k))
+
+# Helper to get dimension index from dimension name (works for both KeyedArray and DimArray)
+_dim_index(ka::KeyedArray, name::Symbol) = NamedDims.dim(ka, name)
+function _dim_index(da::AbstractDimArray, name::Symbol)
+    dim_names = DimensionalData.name.(dims(da))
+    idx = findfirst(==(name), dim_names)
+    isnothing(idx) && throw(ArgumentError("Dimension :$name not found in array with dimensions $dim_names"))
+    return idx
+end
+
+# Helper to extract raw array data (works for both KeyedArray and DimArray)
+_raw_array(ka::KeyedArray) = Array(AxisKeys.keyless(ka))
+_raw_array(da::AbstractDimArray) = Array(parent(da))
+
+# Helper to select a single value along a named dimension
+_select_at(ka::KeyedArray, dim_name::Symbol, key) = ka(; NamedTuple{(dim_name,)}((key,))...)
+_select_at(da::AbstractDimArray, dim_name::Symbol, key) = view(da, Dim{dim_name}(At(key)))
+
+# 2D Labeled Array -> DataFrame (works for both KeyedArray and DimArray)
+"""
+    toDataFrame(arr::Union{KeyedArray{T, 2}, AbstractDimArray{T, 2}}, cols_dim=:variable, index_dim=:batch_size; index_col=:index)
+
+Convert a 2D labeled array (KeyedArray or DimArray) to a DataFrame.
+
+# Arguments
+- `arr`: The 2D labeled array to convert
+- `cols_dim`: Dimension name to use as DataFrame columns (default: `:variable`)
+- `index_dim`: Dimension name to use as DataFrame row index (default: `:batch_size`)
+- `index_col`: Name for the index column in the result (default: `:index`)
+
+# Returns
+- `DataFrame` with columns from `cols_dim` keys and an index column from `index_dim` keys
+"""
+function toDataFrame(
+        arr::Union{KeyedArray{T, 2}, AbstractDimArray{T, 2}},
+        cols_dim::Symbol = :variable,
+        index_dim::Symbol = :batch_size;
+        index_col::Symbol = :index,
+    ) where {T}
+
+    dcols = _dim_index(arr, cols_dim)
+    didx = _dim_index(arr, index_dim)
+
+    # Reorder so rows=index_dim, cols=cols_dim (i.e., didx=1, dcols=2)
+    arr2 = (didx == 1 && dcols == 2) ? arr : permutedims(arr, (didx, dcols))
+
+    data = _raw_array(arr2)
+    col_names = _key_to_colname.(collect(axiskeys(arr2, 2)))
+
+    df = DataFrame(data, col_names; makeunique = true)
+    df[!, index_col] = collect(axiskeys(arr2, 1))
     return df
 end
 
-function toDataFrame(ka::AbstractDimArray)
-    data_array = Array(ka')
-    df = DataFrame(data_array, Array(dims(ka, :col)))
-    df.index = Array(dims(ka, :row))
-    return df
+# 3D Labeled Array -> Dict(slice_key => DataFrame)
+"""
+    toDataFrame(arr::AbstractLabeledArray{T, 3}, cols_dim=:variable, index_dim=:batch_size; slice_dim=:time, index_col=:index)
+
+Convert a 3D labeled array (KeyedArray or DimArray) to a Dict of DataFrames, one per slice.
+
+# Arguments
+- `arr`: The 3D labeled array to convert
+- `cols_dim`: Dimension name to use as DataFrame columns (default: `:variable`)
+- `index_dim`: Dimension name to use as DataFrame row index (default: `:batch_size`)
+- `slice_dim`: Dimension name to slice along (default: `:time`)
+- `index_col`: Name for the index column in each result DataFrame (default: `:index`)
+
+# Returns
+- `Dict{Any, DataFrame}` mapping slice keys to DataFrames
+"""
+function toDataFrame(
+        arr::Union{KeyedArray{T, 3}, AbstractDimArray{T, 3}},
+        cols_dim::Symbol = :variable,
+        index_dim::Symbol = :batch_size;
+        slice_dim::Symbol = :time,
+        index_col::Symbol = :index,
+    ) where {T}
+
+    out = Dict{Any, DataFrame}()
+    for k in axiskeys(arr, slice_dim)
+        slice = _select_at(arr, slice_dim, k)
+        out[k] = toDataFrame(slice, cols_dim, index_dim; index_col = index_col)
+    end
+    return out
 end
 
+# Convenience: extract specific targets from a labeled array into a DataFrame
+"""
+    toDataFrame(arr, target_names)
+
+Extract specific target variables from a labeled array into a DataFrame with `_pred` suffix.
+
+# Arguments
+- `arr`: A labeled array or NamedTuple-like object with property access
+- `target_names`: Vector of target variable names to extract
+
+# Returns
+- `DataFrame` with columns named `<target>_pred` for each target
+"""
 function toDataFrame(ka, target_names)
     data = [getproperty(ka, t_name) for t_name in target_names]
 
@@ -148,15 +247,16 @@ function toDataFrame(ka, target_names)
 end
 
 # =============================================================================
-# KeyedArray unpacking functions
+# Array unpacking functions (works for both KeyedArray and DimArray)
 # =============================================================================
 
 """
-toNamedTuple(ka::KeyedArray, variables::Vector{Symbol})
-Extract specified variables from a KeyedArray and return them as a NamedTuple of vectors.
+    toNamedTuple(ka::Union{KeyedArray, AbstractDimArray}, variables::Vector{Symbol})
+
+Extract specified variables from a KeyedArray or DimArray and return them as a NamedTuple of vectors.
 
 # Arguments:
-- `ka`: The KeyedArray to unpack
+- `ka`: The KeyedArray or DimArray to unpack
 - `variables`: Vector of symbols representing the variables to extract
 
 # Returns:
@@ -164,29 +264,29 @@ Extract specified variables from a KeyedArray and return them as a NamedTuple of
 
 # Example:
 ```julia
-# Extract SW_IN and TA from a KeyedArray
-data = toNamedTuple(ds_keyed, [:SW_IN, :TA])
+# Extract SW_IN and TA from an array
+data = toNamedTuple(ds, [:SW_IN, :TA])
 sw_in = data.SW_IN
 ta = data.TA
 ```
 """
 function toNamedTuple(ka::KeyedArray, variables::Vector{Symbol})
-    vals = [vec(ka([var])) for var in variables]
+    vals = [dropdims(ka(variable = [var]), dims = 1) for var in variables]
     return (; zip(variables, vals)...)
 end
 
 function toNamedTuple(ka::AbstractDimArray, variables::Vector{Symbol})
-    vals = [vec(ka[col = At(var)]) for var in variables]
+    vals = [dropdims(ka[variable = At([var])], dims = 1) for var in variables]
     return (; zip(variables, vals)...)
 end
 
 function toNamedTuple(ka::KeyedArray, variables::NTuple{N, Symbol}) where {N}
-    vals = ntuple(i -> vec(ka([variables[i]])), N)
+    vals = ntuple(i -> ka(variable = [variables[i]]), N)
     return NamedTuple{variables}(vals)
 end
 
 function toNamedTuple(ka::AbstractDimArray, variables::NTuple{N, Symbol}) where {N}
-    ntuple(i -> vec(ka[col = At([variables[i]])]), N)
+    ntuple(i -> ka[variable = At([variables[i]])], N)
     return NamedTuple{variables}(vals)
 end
 
@@ -202,8 +302,8 @@ Extract all variables from a KeyedArray and return them as a NamedTuple of vecto
 
 # Example:
 ```julia
-# Extract all variables from a KeyedArray
-data = toNamedTuple(ds_keyed)
+# Extract all variables from an array
+data = toNamedTuple(ds)
 # Access individual variables
 sw_in = data.SW_IN
 ta = data.TA
@@ -211,12 +311,12 @@ nee = data.NEE
 ```
 """
 function toNamedTuple(ka::KeyedArray)
-    variables = Symbol.(axiskeys(ka)[1])  # Get all variable names from first dimension
+    variables = Symbol.(axiskeys(ka, :variable))  # Get all variable names from :variable dimension
     return toNamedTuple(ka, variables)
 end
 
 function toNamedTuple(ka::AbstractDimArray)
-    variables = Symbol.(dims(A, :col))  # Get all variable names from first dimension
+    variables = Symbol.(lookup(ka, :variable))  # Get all variable names from :variable dimension
     return toNamedTuple(ka, variables)
 end
 
@@ -225,7 +325,7 @@ toNamedTuple(ka::KeyedArray, variable::Symbol)
 Extract a single variable from a KeyedArray and return it as a vector.
 
 # Arguments:
-- `ka`: The KeyedArray to unpack
+- `ka`: The KeyedArray or DimArray to unpack
 - `variable`: Symbol representing the variable to extract
 
 # Returns:
@@ -233,22 +333,22 @@ Extract a single variable from a KeyedArray and return it as a vector.
 
 # Example:
 ```julia
-# Extract just SW_IN from a KeyedArray
-sw_in = toNamedTuple(ds_keyed, :SW_IN)
+# Extract just SW_IN from an array
+sw_in = toNamedTuple(ds, :SW_IN)
 ```
 """
 function toNamedTuple(ka::KeyedArray, variable::Symbol)
-    return vec(ka[variable])
+    return ka(variable = variable)
 end
 
 function toNamedTuple(ka::AbstractDimArray, variable::Symbol)
-    return vec(ka[col = At(variable)])
+    return ka[variable = At(variable)]
 end
 
 function toArray(ka::KeyedArray, variable)
-    return ka(variable)
+    return ka(variable = variable)
 end
 
 function toArray(ka::AbstractDimArray, variable)
-    return ka[col = At(variable)]
+    return ka[variable = At(variable)]
 end

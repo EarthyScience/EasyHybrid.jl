@@ -5,14 +5,18 @@ EasyHybrid is a Julia package for hybrid machine learning models, combining neur
 """
 module EasyHybrid
 
-using AxisKeys: AxisKeys, KeyedArray, axiskeys, wrapdims
+using AxisKeys: AxisKeys, KeyedArray, Key, axiskeys, wrapdims
 using CSV: CSV
 using Chain: @chain
 using ChainRulesCore: ChainRulesCore
 using ComponentArrays: ComponentArrays, ComponentArray
 using DataFrameMacros: DataFrameMacros, @transform
 using DataFrames: DataFrames, DataFrame, GroupedDataFrame, Missing, coalesce, mapcols, select, missing, All
-using DimensionalData: DimensionalData, AbstractDimArray, At, dims, groupby
+using DimensionalData: DimensionalData, AbstractDimArray, Dim, DimArray, dims, groupby, lookup, At
+# Extend axiskeys to work with DimArrays (delegates to lookup)
+AxisKeys.axiskeys(da::AbstractDimArray) = Tuple(lookup(da, d) for d in dims(da))
+AxisKeys.axiskeys(da::AbstractDimArray, i::Int) = lookup(da, dims(da)[i])
+AxisKeys.axiskeys(da::AbstractDimArray, name::Symbol) = lookup(da, name)
 using Downloads: Downloads
 using Hyperopt: Hyperopt, Hyperoptimizer
 using JLD2: JLD2, jldopen
@@ -39,6 +43,7 @@ using Static: False, True
     using Statistics
     using DataFrames
     using CSV
+    using AxisKeys: axiskeys
     using OptimizationOptimisers: OptimizationOptimisers, Optimisers, Adam, AdamW, RMSProp
     using ComponentArrays
 end
@@ -50,8 +55,9 @@ include("utils/tools.jl")
 include("models/models.jl")
 include("utils/show_generic.jl")
 include("utils/synthetic_test_data.jl")
-include("utils/logging_loss.jl")
-include("utils/show_logging.jl")
+include("utils/compute_loss_types.jl")
+include("utils/show_loss_types.jl")
+include("utils/compute_loss.jl")
 include("utils/loss_fn.jl")
 include("plotrecipes.jl")
 include("train.jl")

@@ -2,11 +2,11 @@
 
 ```@example loss
 using EasyHybrid
-using EasyHybrid: compute_loss
+using EasyHybrid: _compute_loss
 ```
 
 ````@docs; canonical=false
-EasyHybrid.compute_loss
+EasyHybrid._compute_loss
 ````
 
 ::: warning
@@ -21,12 +21,12 @@ EasyHybrid.compute_loss
 - Prefer `f(ŷ_masked, y_masked)` for custom losses; `y_masked` may be a vector or `(y, σ)`.
 - Use `Val(:metric)` only for predefined `loss_fn` variants.
 - Quick calls:
-    - `compute_loss(..., :mse, sum)`: predefined
-    - `compute_loss(..., custom_loss, sum)` : custom loss
-    - `compute_loss(..., (f, (arg1, arg2, )), sum)`: additional arguments 
-    - `compute_loss(..., (f, (kw=val,)), sum)`: with keyword arguments
-    - `compute_loss(..., (f, (arg1, ), (kw=val,)), sum)`: with additional arguments and keyword arguments
-    - `compute_loss(..., (y, y_sigma), ..., custom_loss_uncertainty, sum)`: with uncertainties
+    - `_compute_loss(..., :mse, sum)`: predefined
+    - `_compute_loss(..., custom_loss, sum)` : custom loss
+    - `_compute_loss(..., (f, (arg1, arg2, )), sum)`: additional arguments 
+    - `_compute_loss(..., (f, (kw=val,)), sum)`: with keyword arguments
+    - `_compute_loss(..., (f, (arg1, ), (kw=val,)), sum)`: with additional arguments and keyword arguments
+    - `_compute_loss(..., (y, y_sigma), ..., custom_loss_uncertainty, sum)`: with uncertainties
 
 :::
 
@@ -44,8 +44,8 @@ targets = [:t1, :t2]
 ```
 
 ```@ansi loss
-mse_total = compute_loss(ŷ, y, y_nan, targets, :mse, sum) # total MSE across targets
-losses = compute_loss(ŷ, y, y_nan, targets, [:mse, :mae], sum) # multiple metrics in a NamedTuple
+mse_total = _compute_loss(ŷ, y, y_nan, targets, :mse, sum) # total MSE across targets
+losses = _compute_loss(ŷ, y, y_nan, targets, [:mse, :mae], sum) # multiple metrics in a NamedTuple
 ```
 
 ### Custom functions, args, kwargs
@@ -63,10 +63,10 @@ nothing # hide
 Use variants:
 
 ```@ansi loss
-compute_loss(ŷ, y, y_nan, targets, custom_loss, sum)
-compute_loss(ŷ, y, y_nan, targets, (weighted_loss, (0.5,)), sum)
-compute_loss(ŷ, y, y_nan, targets, (scaled_loss, (scale=2.0,)), sum)
-compute_loss(ŷ, y, y_nan, targets, (complex_loss, (0.5,), (scale=2.0,)), sum)
+_compute_loss(ŷ, y, y_nan, targets, custom_loss, sum)
+_compute_loss(ŷ, y, y_nan, targets, (weighted_loss, (0.5,)), sum)
+_compute_loss(ŷ, y, y_nan, targets, (scaled_loss, (scale=2.0,)), sum)
+_compute_loss(ŷ, y, y_nan, targets, (complex_loss, (0.5,), (scale=2.0,)), sum)
 ```
 
 ### Uncertainty-aware losses
@@ -90,13 +90,13 @@ Top-level usage (both `y` and `y_sigma` can be functions or containers):
 
 ```julia
 y_sigma(t) = t == :t1 ? [0.1, 0.2] : [0.2, 0.1]
-loss = compute_loss(ŷ, (y, y_sigma), y_nan, targets,
+loss = _compute_loss(ŷ, (y, y_sigma), y_nan, targets,
     custom_loss_uncertainty, sum)
 ```
 
 ::: info Behavior
 
-- `compute_loss` packs per-target `(y_vals_target, σ_target)` tuples and forwards them to `loss_fn`.
+- `_compute_loss` packs per-target `(y_vals_target, σ_target)` tuples and forwards them to `loss_fn`.
 - Predefined metrics use only `y_vals` when a `(y, σ)` tuple is supplied. (TODO)
 
 :::

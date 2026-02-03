@@ -56,10 +56,12 @@ makedocs(;
         "Home" => "index.md",
         "Get Started" => "get_started.md",
         "Tutorial" => [
+            "Overview" => "tutorials/overview.md",
             "Exponential Response" => "tutorials/exponential_res.md",
             "Hyperparameter Tuning" => "tutorials/hyperparameter_tuning.md",
             "Slurm" => "tutorials/slurm.md",
             "Cross-validation" => "tutorials/folds.md",
+            "LSTM Hybrid Model" => "tutorials/example_synthetic_lstm.md",
             "Loss Functions" => "tutorials/losses.md",
         ],
         "Research" => [

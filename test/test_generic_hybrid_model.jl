@@ -1,5 +1,3 @@
-using EasyHybrid
-using Test
 using Lux
 using Random
 using AxisKeys
@@ -50,6 +48,25 @@ test_parameters = (
         @test hasproperty(pc, :values)
         @test hasproperty(pc, :table)
         @test pc.values == params
+    end
+
+    @testset "ParameterContainer printing" begin
+        pc = ParameterContainer(test_parameters)
+
+        expected = """
+        ┌───┬─────────┬───────┬───────┐
+        │   │ default │ lower │ upper │
+        ├───┼─────────┼───────┼───────┤
+        │ a │     1.0 │   0.0 │   5.0 │
+        │ b │     2.0 │   0.0 │  10.0 │
+        │ c │     0.5 │   0.0 │   2.0 │
+        │ d │     0.5 │   0.0 │   2.0 │
+        └───┴─────────┴───────┴───────┘
+        """
+
+        result = sprint(show, MIME"text/plain"(), pc)
+
+        @test result == expected
     end
 
     @testset "HybridParams construction" begin
@@ -159,7 +176,7 @@ end
         @test model isa SingleNNHybridModel
         @test model.predictors == predictors
         @test model.NN isa Chain
-        @test length(model.NN.layers) == 0  # Empty chain
+        @test typeof(model.NN.layers[1]) == Lux.NoOpLayer  # Empty chain
     end
 
     @testset "SingleNNHybridModel initialparameters" begin
@@ -479,7 +496,7 @@ end
         st = LuxCore.initialstates(rng, model)
 
         @test haskey(ps, :ps)  # Even with empty NN, ps key exists (may be empty)
-        @test isempty(ps.ps)
+        @test isempty(ps.ps[1])
 
         output, new_st = model(dk, ps, st)
         @test haskey(output, :y_pred)

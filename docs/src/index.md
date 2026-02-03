@@ -24,7 +24,7 @@ features:
     details: Built for speed and flexibility in pure Julia. Native GPU acceleration across CUDA, AMDGPU, Metal, and Intel platforms enables seamless scaling from prototyping to production.
     link: https://lux.csail.mit.edu/stable/
   - title: Seamless Data Handling
-    details: Built for efficient data manipulation in pure Julia. <a href = "https://github.com/JuliaData/DataFrames.jl" class="highlight-link">DataFrames.jl</a> handles tabular data and <a href="https://github.com/mcabbott/AxisKeys.jl" class="highlight-link">AxisKeys.jl</a> provides multi-dimensional named arrays with automatic differentiation support.
+    details: Efficient data manipulation with <a href="https://github.com/JuliaData/DataFrames.jl" class="highlight-link" target="_blank" rel="noopener noreferrer">DataFrames.jl</a> for tabular data, and <a href="https://github.com/rafaqz/DimensionalData.jl" class="highlight-link" target="_blank" rel="noopener noreferrer">DimensionalData.jl</a> and <a href="https://github.com/mcabbott/AxisKeys.jl" class="highlight-link" target="_blank" rel="noopener noreferrer">AxisKeys.jl</a> for named multidimensional arrays with <a href="https://juliadiff.org" class="highlight-link" target="_blank" rel="noopener noreferrer">automatic differentiation</a> support.
   - title: Feature Research
     details: Using EasyHybrid in your research? Share your work with us through a pull request or drop us a line, and we'll showcase it here alongside other innovative applications.
     link: /research/overview
