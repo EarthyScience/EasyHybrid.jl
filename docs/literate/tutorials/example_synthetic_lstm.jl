@@ -184,7 +184,8 @@ out_lstm = train(
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
     yscale = identity,       # Scaling for outputs
     shuffleobs = true,
-    loss_types = [:mse, :nse],
+    training_loss = :nseLoss,
+    loss_types = [:nse],
     sequence_kwargs = (; input_window = input_window, output_window = output_window, output_shift = output_shift, lead_time = 0),
     plotting = false,
     input_batchnorm = false,
@@ -207,7 +208,7 @@ hm = constructHybridModel(
     hidden_layers = NN, # Neural network architecture
     scale_nn_outputs = true, # Scale neural network outputs
     input_batchnorm = false,   # Apply batch normalization to inputs
-)
+);
 
 # Train the hybrid model
 single_nn_out = train(
@@ -220,6 +221,12 @@ single_nn_out = train(
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
     yscale = identity,       # Scaling for outputs
     shuffleobs = true,
-    loss_types = [:mse, :nse],
-    array_type = :DimArray
+    training_loss = :nseLoss,
+    loss_types = [:nse],
+    array_type = :DimArray,
+    plotting = false
 );
+
+# Close enough
+out_lstm.best_loss
+single_nn_out.best_loss
