@@ -424,10 +424,10 @@ function split_data(
 
     if sequence_kwargs !== nothing
         x_keyed, y_keyed = data_
-        sis_default = (; input_window = 10, output_window = 1, shift = 1, lead_time = 1)
+        sis_default = (; input_window = 10, output_window = 1, output_shift = 1, lead_time = 1)
         sis = merge(sis_default, sequence_kwargs)
         @info "Using split_into_sequences: $sis"
-        x_all, y_all = split_into_sequences(x_keyed, y_keyed; sis.input_window, sis.output_window, sis.shift, sis.lead_time)
+        x_all, y_all = split_into_sequences(x_keyed, y_keyed; sis.input_window, sis.output_window, sis.output_shift, sis.lead_time)
     else
         x_all, y_all = data_
     end
@@ -636,7 +636,7 @@ function getbyname(ka::Union{KeyedArray, AbstractDimArray}, name::Symbol)
     return @view ka[variable = At(name)]
 end
 
-function split_into_sequences(x, y; input_window = 5, output_window = 1, shift = 1, lead_time = 1)
+function split_into_sequences(x, y; input_window = 5, output_window = 1, output_shift = 1, lead_time = 1)
     ndims(x) == 2 || throw(ArgumentError("expected x to be (feature, time); got ndims(x) = $(ndims(x))"))
     ndims(y) == 2 || throw(ArgumentError("expected y to be (target, time); got ndims(y) = $(ndims(y))"))
 
@@ -653,7 +653,7 @@ function split_into_sequences(x, y; input_window = 5, output_window = 1, shift =
 
     lead_start = lead_time - output_window + 1
 
-    lag_keys = Symbol.(["x$(lag)" for lag in (input_window + lead_time - 1):-1:lead_time])
+    lag_keys = Symbol.(["x$(input_window + lead_time - 1)_to_x$(lag)" for lag in (input_window + lead_time - 1):-1:lead_time])
     lead_keys = Symbol.(["_y$(lead)" for lead in ((output_window - 1):-1:0)])
     lead_keys = Symbol.(lag_keys[(end - length(lead_keys) + 1):end], lead_keys)
     lag_keys[(end - length(lead_keys) + 1):end] .= lead_keys
@@ -662,9 +662,9 @@ function split_into_sequences(x, y; input_window = 5, output_window = 1, shift =
     sx_max = L - input_window - lead_time + 1
     sx_min <= sx_max || throw(ArgumentError("windows too long for series length"))
 
-    sx_vals = collect(sx_min:shift:sx_max)
+    sx_vals = collect(sx_min:output_shift:sx_max)
     num_samples = length(sx_vals)
-    num_samples ≥ 1 || throw(ArgumentError("no samples with given shift/windows"))
+    num_samples ≥ 1 || throw(ArgumentError("no samples with given output_shift/windows"))
 
     samplekeys = timekeys[sx_vals]
 
