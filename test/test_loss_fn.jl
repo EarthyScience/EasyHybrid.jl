@@ -55,6 +55,12 @@ using EasyHybrid: bestdirection, isbetter, check_training_loss, Minimize, Maximi
         # KGE test (1 - KGE Loss)
         @test loss_fn(ŷ, y, y_nan, Val(:kge)) ≈ 1.0 - kge_loss
 
+        # β test (mean ratio)
+        @test loss_fn(ŷ, y, y_nan, Val(:β)) ≈ β
+
+        # α test (standard deviation ratio)
+        @test loss_fn(ŷ, y, y_nan, Val(:α)) ≈ α
+
         # PBKGE Loss test (Partial Kling-Gupta Efficiency)
         μ_s = mean(ŷ)
         μ_o = mean(y)
@@ -122,6 +128,15 @@ using EasyHybrid: bestdirection, isbetter, check_training_loss, Minimize, Maximi
         pbkge_loss = sqrt((r - 1.0)^2 + (β - 1.0)^2)
         @test loss_fn(ŷ, y, y_nan, Val(:pbkgeLoss)) ≈ pbkge_loss
         @test loss_fn(ŷ, y, y_nan, Val(:pbkge)) ≈ 1.0 - pbkge_loss
+
+        # β test with NaN handling
+        @test loss_fn(ŷ, y, y_nan, Val(:β)) ≈ β
+
+        # α test with NaN handling
+        σ_s = std(valid_ŷ)
+        σ_o = std(valid_y)
+        α = σ_s / σ_o
+        @test loss_fn(ŷ, y, y_nan, Val(:α)) ≈ α
 
         # Test NaN handling for generic functions
         @test loss_fn(ŷ, y, y_nan, simple_loss) ≈ mean(abs2, valid_ŷ .- valid_y)
