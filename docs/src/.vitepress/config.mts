@@ -43,7 +43,6 @@ export default defineConfig({
     ['script', {src: `${baseTemp.base}siteinfo.js`}]
   ],
   markdown: {
-    math: true,
     config(md) {
       md.use(tabsMarkdownPlugin);
       md.use(footnote);
