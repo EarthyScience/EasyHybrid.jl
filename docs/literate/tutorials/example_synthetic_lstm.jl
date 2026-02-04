@@ -29,11 +29,15 @@ NN = Chain(Dense(15, 15, Lux.sigmoid), Dense(15, 15, Lux.sigmoid), Dense(15, 1))
 
 # Define LSTM-based neural network with memory
 #
-#!!! note
-#   When the `Chain`` ends with a Recurrence layer, EasyHybrid automatically adds
-#   a `RecurrenceOutputDense` layer to handle the sequence output format.
-#   The user only needs to define the Recurrence layer itself!
+# ::: tip
 #
+# When the `Chain` ends with a Recurrence layer, EasyHybrid automatically adds
+# a `RecurrenceOutputDense` layer to handle the sequence output format.
+# The user only needs to define the Recurrence layer itself!
+#
+# :::
+#
+
 NN_Memory = Chain(
     Recurrence(LSTMCell(15 => 15), return_sequence = true),
 )
@@ -115,6 +119,7 @@ x, y = prepare_data(hlstm, df, array_type = pref_array_type);
 #
 # This supports `many-to-one` / `many-to-many` forecasting depending on output_window.
 # Creates an array of shape (`variable`, `time`, `batch_size`) with variable being feature, time the input window, and `batch_size` 1:n samples (`= full batch`)
+
 output_shift = 1
 output_window = 1
 input_window = 10
@@ -150,9 +155,12 @@ y_train_nan = .!isnan.(y_train)
 
 # Wrap the training windows/samples in a `DataLoader` to form batches.
 #
-# [!IMPORTANT]
-#   `batchsize` is the number of windows/samples used per gradient step to update the parameters.
-#   Processing 32 windows in one array is usually much faster than doing 32 separate forward/backward passes with batch_size=1.
+# ::: warning
+#
+# `batchsize` is the number of windows/samples used per gradient step to update the parameters.
+# Processing 32 windows in one array is usually much faster than doing 32 separate forward/backward passes with batch_size=1.
+#
+# :::
 #
 
 train_dl = EasyHybrid.DataLoader((x_train, y_train); batchsize = 32);
