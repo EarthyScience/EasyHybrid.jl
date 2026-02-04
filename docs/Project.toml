@@ -16,4 +16,4 @@ EasyHybrid = {path = ".."}
 
 [compat]
 Documenter = "1"
-DocumenterVitepress = "0.2"
+DocumenterVitepress = "0.3"
