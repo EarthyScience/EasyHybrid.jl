@@ -7,13 +7,6 @@
 # ## 1. Load Packages
 
 # Set project path and activate environment
-#using Pkg
-#project_path = "docs"
-#Pkg.activate(project_path)
-#EasyHybrid_path = joinpath(project_path, "..")
-#Pkg.develop(path = EasyHybrid_path)
-#Pkg.resolve()
-#Pkg.instantiate()
 
 using EasyHybrid
 using AxisKeys
@@ -35,9 +28,12 @@ first(df, 5);
 NN = Chain(Dense(15, 15, Lux.sigmoid), Dense(15, 15, Lux.sigmoid), Dense(15, 1))
 
 # Define LSTM-based neural network with memory
-# Note: When the Chain ends with a Recurrence layer, EasyHybrid automatically adds
-# a RecurrenceOutputDense layer to handle the sequence output format.
-# The user only needs to define the Recurrence layer itself!
+#
+#!!! note
+#   When the `Chain`` ends with a Recurrence layer, EasyHybrid automatically adds
+#   a `RecurrenceOutputDense` layer to handle the sequence output format.
+#   The user only needs to define the Recurrence layer itself!
+#
 NN_Memory = Chain(
     Recurrence(LSTMCell(15 => 15), return_sequence = true),
 )
@@ -58,6 +54,7 @@ function RbQ10(; ta, Q10, rb, tref = 15.0f0)
     reco = rb .* Q10 .^ (0.1f0 .* (ta .- tref))
     return (; reco, Q10, rb)
 end
+nothing # hide
 
 # ## 5. Define Model Parameters
 
@@ -104,19 +101,20 @@ hlstm = constructHybridModel(
 # The following steps demonstrate what happens under the hood during training.
 # In practice, you can skip to Section 9 and use the `train` function directly.
 
-# :KeyedArray and :DimArray are supported
+# `:KeyedArray` and `:DimArray` are supported
 pref_array_type = :DimArray
 x, y = prepare_data(hlstm, df, array_type = pref_array_type);
 
-# Convert a (single) time series into *many* training samples by windowing.
-# Each sample consists of:
-#   - input_window: number of past steps given to the model (sequence length)
-#   - output_window: number of steps to predict
-#   - output_shift: stride between consecutive windows (controls overlap)
-#   - lead_time: prediction lead (e.g. lead_time=1 predicts starting 1 step ahead)
+# Convert a (single) time series into *many* training samples by `windowing`.
 #
-# This supports many-to-one / many-to-many forecasting depending on output_window.
-# Creates an array of shape (variable, time, batch_size) with variable being feature, time the input window, and batch_size 1:n samples (= fullbatch)
+# Each sample consists of:
+#   - `input_window`: number of past steps given to the model (sequence length)
+#   - `output_window`: number of steps to predict
+#   - `output_shift`: stride between consecutive windows (controls overlap)
+#   - `lead_time`: prediction lead (e.g. lead_time=1 predicts starting 1 step ahead)
+#
+# This supports `many-to-one` / `many-to-many` forecasting depending on output_window.
+# Creates an array of shape (`variable`, `time`, `batch_size`) with variable being feature, time the input window, and `batch_size` 1:n samples (`= full batch`)
 output_shift = 1
 output_window = 1
 input_window = 10
@@ -128,11 +126,11 @@ xs[:, :, 1]
 # Second input_window/sample
 xs[:, :, 2]
 
-# test of shift	
+# test of shift
 xs[:, output_shift + 1, 1] == xs[:, 1, 2]
 
 
-# First output_window/sample with time label like :x30_to_x5_y4 which indicates an 'accumulation' of memory from x30 to x5 for the prediction of y4
+# First `output_window/sample` with time label like `:x30_to_x5_y4` which indicates an `accumulation` of memory from `x30 to x5` for the prediction of `y4`
 ys[:, :, 1]
 # Second output_window/sample
 ys[:, :, 2]
@@ -150,9 +148,13 @@ x_train
 y_train
 y_train_nan = .!isnan.(y_train)
 
-# Wrap the training windows/samples in a DataLoader to form batches.
-# Important: *batchsize is the number of windows/samples used per gradient step to update the parameters*.
-# Processing 32 windows in one array is usually much faster than doing 32 separate forward/backward passes with batch_size=1.
+# Wrap the training windows/samples in a `DataLoader` to form batches.
+#
+# [!IMPORTANT]
+#   `batchsize` is the number of windows/samples used per gradient step to update the parameters.
+#   Processing 32 windows in one array is usually much faster than doing 32 separate forward/backward passes with batch_size=1.
+#
+
 train_dl = EasyHybrid.DataLoader((x_train, y_train); batchsize = 32);
 
 # Run hybrid model forwards
@@ -188,6 +190,7 @@ out_lstm = train(
     loss_types = [:nse],
     sequence_kwargs = (; input_window = input_window, output_window = output_window, output_shift = output_shift, lead_time = 0),
     plotting = false,
+    show_progress = false,
     input_batchnorm = false,
     array_type = pref_array_type
 );
@@ -196,7 +199,7 @@ out_lstm.val_obs_pred
 
 # ## 10. Train Single NN Hybrid Model (Optional)
 
-# For comparison, we can also train a hybrid model with a standard feedforward neural network
+# For comparison, we can also train a hybrid model with a standard feed-forward neural network
 hm = constructHybridModel(
     predictors,
     forcing,
@@ -224,7 +227,8 @@ single_nn_out = train(
     training_loss = :nseLoss,
     loss_types = [:nse],
     array_type = :DimArray,
-    plotting = false
+    plotting = false,
+    show_progress = false,
 );
 
 # Close enough

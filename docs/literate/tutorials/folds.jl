@@ -5,12 +5,6 @@
 #
 # ## 1. Load Packages
 
-#using Pkg
-#project_path = "docs"
-#Pkg.activate(project_path)
-#EasyHybrid_path = joinpath(pwd())
-#Pkg.develop(path = EasyHybrid_path)
-
 using EasyHybrid
 using OhMyThreads
 using CairoMakie
