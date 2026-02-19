@@ -66,7 +66,7 @@ makedocs(;
         ],
         "Research" => [
             "Overview" => "research/overview.md",
-            "Synthetic Respiration" => "tutorials/synthetic_respiration.md",
+            "Synthetic Respiration" => "research/synthetic_respiration.md",
         ],
         "API" => "api.md",
     ],
