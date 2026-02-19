@@ -1,4 +1,9 @@
 {
+  "devDependencies": {
+    "@types/d3-format": "^3.0.4",
+    "@types/node": "^22.13.9",
+    "@types/markdown-it-footnote": "^3.0.4"
+  },
   "scripts": {
     "docs:dev": "vitepress dev build/.documenter",
     "docs:build": "vitepress build build/.documenter",
