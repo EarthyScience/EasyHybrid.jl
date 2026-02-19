@@ -36,7 +36,9 @@ function Base.show(io::IO, ::MIME"text/plain", tr::TrainResults)
         # Top-level field
         printstyled(io, "  $(name)"; color = 6)
         printstyled(io, ": "; color = :yellow)
-
+        if "$(name)" == "train_args"
+            continue
+        end
         # Summary line
         if isa(val, AbstractArray)
             printstyled(io, "$(size(val))"; color = :light_black)
