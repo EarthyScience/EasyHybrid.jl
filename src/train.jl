@@ -12,6 +12,7 @@ struct TrainResults
     st
     best_epoch
     best_loss
+    train_args
 end
 
 """
@@ -366,7 +367,8 @@ function train(
         ps,
         st,
         best_epoch,
-        best_agg_loss
+        best_agg_loss,
+        (;  nepochs, batchsize, opt, patience, autodiff_backend, return_gradients, array_type, training_loss, loss_types, extra_loss, agg, train_from, random_seed, file_name, hybrid_name, return_model, monitor_names, folder_to_save, plotting, show_progress, yscale)
     )
 end
 
