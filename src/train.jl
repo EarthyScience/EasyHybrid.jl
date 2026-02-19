@@ -12,7 +12,6 @@ struct TrainResults
     st
     best_epoch
     best_loss
-    train_args
 end
 
 """
@@ -355,6 +354,14 @@ function train(
     train_diffs = !isempty(set_diff) ? NamedTuple{Tuple(set_diff)}([getproperty(ŷ_train, e) for e in set_diff]) : nothing
     val_diffs = !isempty(set_diff) ? NamedTuple{Tuple(set_diff)}([getproperty(ŷ_val, e) for e in set_diff]) : nothing
 
+    # collect all training arguments into a NamedTuple for easier saving and logging
+    train_args = (; nepochs, batchsize, opt, patience, autodiff_backend, return_gradients, array_type, training_loss, loss_types, extra_loss, agg, train_from, random_seed, file_name, hybrid_name, return_model, monitor_names, folder_to_save, plotting, show_progress, yscale)
+
+    # get config settings and save to yaml file
+    get_config_settings = get_full_config(hybridModel, train_args)
+    path_yaml = joinpath(tmp_folder, "config_settings.yaml")
+    save_hybrid_config(get_config_settings, path_yaml)
+
     # TODO: save/output metrics
     return TrainResults(
         train_history,
@@ -368,7 +375,6 @@ function train(
         st,
         best_epoch,
         best_agg_loss,
-        (;  nepochs, batchsize, opt, patience, autodiff_backend, return_gradients, array_type, training_loss, loss_types, extra_loss, agg, train_from, random_seed, file_name, hybrid_name, return_model, monitor_names, folder_to_save, plotting, show_progress, yscale)
     )
 end
 
