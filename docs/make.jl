@@ -57,6 +57,7 @@ makedocs(;
         "Get Started" => "get_started.md",
         "Tutorial" => [
             "Overview" => "tutorials/overview.md",
+            "Synthetic Respiration" => "tutorials/synthetic_respiration.md",
             "Exponential Response" => "tutorials/exponential_res.md",
             "Hyperparameter Tuning" => "tutorials/hyperparameter_tuning.md",
             "Slurm" => "tutorials/slurm.md",
