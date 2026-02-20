@@ -131,4 +131,25 @@ const RbQ10_PARAMS = (
         # TODO: this is not working, need to fix GenericHybrid Model for DimensionalData
         # out = trainshort(dtuple_tuple)
     end
+
+    @testset "test two arguments train" begin
+        model = constructHybridModel(
+            predictors, forcing, target, RbQ10,
+            RbQ10_PARAMS, neural_param_names, global_param_names
+        )
+        @test model isa SingleNNHybridModel
+        # prepare_data should produce something consumable by split_data
+        ka = prepare_data(model, df)
+        @test !isnothing(ka)
+
+        out = train(
+            model, ka;
+            nepochs = 1,
+            batchsize = 12,
+            plotting = false,
+            show_progress = false,
+            hybrid_name = "test")
+        @test !isnothing(out)
+
+        end
 end

@@ -26,7 +26,7 @@ Default output file is `trained_model.jld2` at the current working directory und
 # Arguments:
 - `hybridModel`: The hybrid model to be trained.
 - `data`: The training data, either a single DataFrame, a single KeyedArray, or a tuple of KeyedArrays.
-- `save_ps`: A tuple of physical parameters to save during training.
+- `save_ps`: optional a tuple of physical parameters to save during training. Can be left out if not needed by using train(hybridModel, data; kwargs...)
 
 ## Core Training Parameters:
 - `nepochs`: Number of training epochs (default: 200).
@@ -375,6 +375,15 @@ function train(
         st,
         best_epoch,
         best_agg_loss,
+    )
+end
+
+function train(hybrid_model, data; kwargs...)
+    out = train(
+        hybrid_model, 
+        data, 
+        ();
+        kwargs...
     )
 end
 
