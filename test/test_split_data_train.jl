@@ -148,8 +148,9 @@ const RbQ10_PARAMS = (
             batchsize = 12,
             plotting = false,
             show_progress = false,
-            hybrid_name = "test")
+            hybrid_name = "test"
+        )
         @test !isnothing(out)
 
-        end
+    end
 end
