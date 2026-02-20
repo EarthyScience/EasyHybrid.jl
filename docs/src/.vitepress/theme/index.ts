@@ -12,6 +12,8 @@ import {
   NolebaseEnhancedReadabilitiesScreenMenu, 
 } from '@nolebase/vitepress-plugin-enhanced-readabilities/client'
 
+import { NolebaseGitChangelogPlugin } from '@nolebase/vitepress-plugin-git-changelog/client'
+
 import VersionPicker from "@/VersionPicker.vue"
 import StarUs from '@/StarUs.vue'
 import AuthorBadge from '@/AuthorBadge.vue'
@@ -19,12 +21,12 @@ import Authors from '@/Authors.vue'
 
 // light/dark theme toggle with view transitions
 import LayoutContainer from '@/LayoutContainer.vue' 
-
 import { enhanceAppWithTabs } from 'vitepress-plugin-tabs/client'
 
-import '@nolebase/vitepress-plugin-enhanced-readabilities/client/style.css'
 import './style.css'
 import './docstrings.css'
+import '@nolebase/vitepress-plugin-enhanced-readabilities/client/style.css'
+import '@nolebase/vitepress-plugin-git-changelog/client/style.css'
 
 export const Theme: ThemeConfig = {
   extends: DefaultTheme,
@@ -45,8 +47,14 @@ export const Theme: ThemeConfig = {
   enhanceApp({ app, router, siteData }) {
     enhanceAppWithTabs(app);
     app.component('VersionPicker', VersionPicker);
-    app.component('AuthorBadge', AuthorBadge)
-    app.component('Authors', Authors)
+    app.component('AuthorBadge', AuthorBadge);
+    app.component('Authors', Authors);
+    app.use(NolebaseGitChangelogPlugin, {
+      displayAuthorsInsideCommitLine: true,
+      hideChangelogHeader: true,
+      hideSortBy: true,
+      hideContributorsHeader: true
+      });
   }
 }
 export default Theme
