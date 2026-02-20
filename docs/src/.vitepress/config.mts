@@ -1,7 +1,8 @@
 import { defineConfig } from 'vitepress'
 import { tabsMarkdownPlugin } from 'vitepress-plugin-tabs'
 import { mathjaxPlugin } from './mathjax-plugin'
-import footnote from "markdown-it-footnote";
+import footnote from "markdown-it-footnote"
+import {GitChangelog, GitChangelogMarkdownSection} from '@nolebase/vitepress-plugin-git-changelog/vite'
 import path from 'path'
 
 // console.log(process.env)
@@ -56,6 +57,18 @@ export default defineConfig({
   vite: {
     plugins: [
       mathjax.vitePlugin,
+      GitChangelog({ 
+        repoURL: () => 'https://github.com/EarthyScience/EasyHybrid.jl', 
+      }), 
+      GitChangelogMarkdownSection({
+        exclude: (id) => (
+          id.includes(path.sep + "api" + path.sep) ||
+          id.includes(path.sep + "index" + path.sep)
+        ),
+        sections: {
+          disableContributors: true
+        }
+      }),
     ],
     define: {
       __DEPLOY_ABSPATH__: JSON.stringify('REPLACE_ME_DOCUMENTER_VITEPRESS_DEPLOY_ABSPATH'),
