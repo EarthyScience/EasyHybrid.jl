@@ -261,7 +261,9 @@ function train(
                     current_ŷ_val,
                     target_names,
                     epoch;
-                    monitor_names
+                    monitor_names,
+                    y_train,
+                    y_val,
                 )
                 # record a new frame
                 recordframe!(io)
