@@ -1,4 +1,4 @@
-export train, TrainResults, prepare_data, split_data, split_into_sequences
+export train, TrainResults, prepare_data, split_data, split_into_sequences, filter_sequences
 # beneficial for plotting based on type TrainResults?
 struct TrainResults
     train_history
@@ -437,7 +437,8 @@ function split_data(
         array_type::Symbol = :KeyedArray,
         kwargs...
     )
-    data_ = prepare_data(hybridModel, data; array_type = array_type)
+    data_ = prepare_data(hybridModel, data; array_type = array_type,
+                         drop_missing_rows = (sequence_kwargs === nothing))
 
     if sequence_kwargs !== nothing
         x_keyed, y_keyed = data_
@@ -445,6 +446,7 @@ function split_data(
         sis = merge(sis_default, sequence_kwargs)
         @info "Using split_into_sequences: $sis"
         x_all, y_all = split_into_sequences(x_keyed, y_keyed; sis.input_window, sis.output_window, sis.output_shift, sis.lead_time)
+        x_all, y_all = filter_sequences(x_all, y_all)
     else
         x_all, y_all = data_
     end
@@ -538,7 +540,7 @@ function prepare_data(hm, data::AbstractDimArray; array_type = :DimArray)
     return (data[variable = At(predictors_forcing)], data[variable = At(targets)])
 end
 
-function prepare_data(hm, data::DataFrame; array_type = :KeyedArray)
+function prepare_data(hm, data::DataFrame; array_type = :KeyedArray, drop_missing_rows = true)
     predictors_forcing, targets = get_prediction_target_names(hm)
 
     all_predictor_cols = unique(vcat(values(predictors_forcing)...))
@@ -549,20 +551,21 @@ function prepare_data(hm, data::DataFrame; array_type = :KeyedArray)
 
     mapcols(col -> replace!(col, missing => NaN), sdf; cols = names(sdf, Union{Missing, Real}))
 
-    # Separate predictor/forcing vs. target columns
-    predforce_cols = setdiff(col_to_select, targets)
+    if drop_missing_rows
+        # Separate predictor/forcing vs. target columns
+        predforce_cols = setdiff(col_to_select, targets)
 
-    # For each row, check if *any* predictor/forcing is missing
-    mask_missing_predforce = map(row -> any(isnan, row), eachrow(sdf[:, predforce_cols]))
+        # For each row, check if *any* predictor/forcing is missing
+        mask_missing_predforce = map(row -> any(isnan, row), eachrow(sdf[:, predforce_cols]))
 
-    # For each row, check if *at least one* target is present (i.e. not all missing)
-    mask_at_least_one_target = map(row -> any(!isnan, row), eachrow(sdf[:, targets]))
+        # For each row, check if *at least one* target is present (i.e. not all missing)
+        mask_at_least_one_target = map(row -> any(!isnan, row), eachrow(sdf[:, targets]))
 
-    # Keep rows where predictors/forcings are *complete* AND there's some target present
-    keep = .!mask_missing_predforce .& mask_at_least_one_target
-    sdf = sdf[keep, col_to_select]
+        # Keep rows where predictors/forcings are *complete* AND there's some target present
+        keep = .!mask_missing_predforce .& mask_at_least_one_target
+        sdf = sdf[keep, col_to_select]
+    end
 
-    # Convert to Float32 and to the specified array type
     if array_type == :KeyedArray
         ds = to_keyedArray(Float32.(sdf))
     else
@@ -651,6 +654,18 @@ end
 
 function getbyname(ka::Union{KeyedArray, AbstractDimArray}, name::Symbol)
     return @view ka[variable = At(name)]
+end
+
+"""
+    filter_sequences(x, y) -> (x_filtered, y_filtered)
+
+Drop 3rd-dim samples where any predictor is NaN or all targets are NaN.
+"""
+function filter_sequences(x, y)
+    n = size(x, 3)
+    valid = findall(ii -> !any(isnan, @view(x[:, :, ii])) && any(!isnan, @view(y[:, :, ii])), 1:n)
+    length(valid) < n && @info "Dropped $(n - length(valid)) / $n sequences with NaN predictors or all-NaN targets"
+    return x[:, :, valid], y[:, :, valid]
 end
 
 function split_into_sequences(x, y; input_window = 5, output_window = 1, output_shift = 1, lead_time = 1)
