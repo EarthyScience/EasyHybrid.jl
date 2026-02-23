@@ -123,8 +123,8 @@ function to_obs_tuple(ŷ, y, target_names)
     for t in target_names
         y_ = _get_target_y(y, t)
         ŷ_ = _get_target_ŷ(ŷ, y_, t) # this is to match the shape of the observations, which could have a time dimension
-        push!(tmp_obs, t => y_,)
-        push!(tmp_pred, t => to_obs(ŷ_,))
+        push!(tmp_obs, t => vec(y_),)
+        push!(tmp_pred, t => to_obs(vec(ŷ_,)))
     end
     out_pred = (; tmp_pred...)
     out_obs = (; tmp_obs...)
