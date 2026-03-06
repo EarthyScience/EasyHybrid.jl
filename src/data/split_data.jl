@@ -23,11 +23,11 @@ function split_data(
     )
 
     if sequence_kwargs !== nothing
-        x_keyed, y_keyed = data_
+        x_all, y_all = data_
         sis_default = (; input_window = 10, output_window = 1, output_shift = 1, lead_time = 1)
         sis = merge(sis_default, sequence_kwargs)
         @info "Using split_into_sequences: $sis"
-        x_all, y_all = split_into_sequences(x_keyed, y_keyed; sis.input_window, sis.output_window, sis.output_shift, sis.lead_time)
+        x_all, y_all = split_into_sequences(x_all, y_all; sis.input_window, sis.output_window, sis.output_shift, sis.lead_time)
         x_all, y_all = filter_sequences(x_all, y_all)
     else
         x_all, y_all = data_
