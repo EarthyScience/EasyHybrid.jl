@@ -50,24 +50,14 @@ using Static: False, True
     using ComponentArrays: ComponentArrays, ComponentArray
 end
 
-include("macro_hybrid.jl")
-include("utils/wrap_tuples.jl")
-include("utils/io.jl")
-include("utils/tools.jl")
+abstract type EasyHybridModels end
+
+include("utils/utils.jl")
+include("io/io.jl")
 include("models/models.jl")
-include("utils/show_generic.jl")
-include("utils/synthetic_test_data.jl")
-include("utils/compute_loss_types.jl")
-include("utils/show_loss_types.jl")
-include("utils/compute_loss.jl")
-include("utils/loss_fn.jl")
-include("plotrecipes.jl")
-include("train.jl")
-include("utils/show_train.jl")
-include("utils/helpers_for_HybridModel.jl")
-include("utils/helpers_data_loading.jl")
-include("tune.jl")
-include("utils/helpers_cross_validation.jl")
-include("utils/config_yaml.jl")
+include("data/data.jl")
+include("losses/losses.jl")
+include("training/training.jl")
+include("config/config.jl")
 
 end

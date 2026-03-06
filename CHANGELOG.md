@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Added an opinionated file/folder structure to the project, so that at least files are organized by topic [#241](https://github.com/EarthyScience/EasyHybrid.jl/pull/241)
 
 ## v0.1.8 - 2026-03-06
 - Maximizing and Minimizing metric, e.g. :nse and :nseLoss - this is breaking. In training_loss, you now have to use :nseLoss if you want to use 1 - NSE as loss function, :nse is now the real NSE -> 1 not the loss anymore. In loss_types for monitoring and plotting training and validation metrics, you can now also have functions that need to be maximized, e.g. :nse, :pearson (#179)
