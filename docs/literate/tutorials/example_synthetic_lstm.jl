@@ -197,7 +197,7 @@ out_lstm = train(
     training_loss = :nseLoss,
     loss_types = [:nse],
     sequence_kwargs = (; input_window = input_window, output_window = output_window, output_shift = output_shift, lead_time = 0),
-    plotting = false,
+    plotting = true,
     show_progress = false,
     input_batchnorm = false,
     array_type = pref_array_type

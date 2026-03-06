@@ -59,10 +59,13 @@ function initialize_plotting_observables(init_ŷ_train, init_ŷ_val, y_train, 
     val_h_obs = to_obs([p_val])
 
     # build NamedTuples of Observables for preds and obs
-    train_preds = to_obs_tuple(init_ŷ_train, target_names)
-    val_preds = to_obs_tuple(init_ŷ_val, target_names)
-    train_obs = to_tuple(y_train, target_names)
-    val_obs = to_tuple(y_val, target_names)
+    train_preds, train_obs = to_obs_tuple(init_ŷ_train, y_train, target_names)
+    val_preds, val_obs = to_obs_tuple(init_ŷ_val, y_val, target_names)
+
+    # train_preds = to_obs_tuple(init_ŷ_train, target_names)
+    # val_preds = to_obs_tuple(init_ŷ_val, target_names)
+    # train_obs = to_tuple(y_train, target_names)
+    # val_obs = to_tuple(y_val, target_names)
 
     # --- monitored parameters/state as Observables ---
     train_monitor = !isempty(monitor_names) ? monitor_to_obs(init_ŷ_train, monitor_names) : nothing
@@ -111,6 +114,21 @@ end
 
 function to_obs_tuple(y, target_names)
     return (; (t => to_obs(vec(getfield(y, t))) for t in target_names)...)
+end
+
+function to_obs_tuple(ŷ, y, target_names)
+    # first get observations, they could have a time dimension
+    tmp_obs = []
+    tmp_pred = []
+    for t in target_names
+        y_ = _get_target_y(y, t)
+        ŷ_ = _get_target_ŷ(ŷ, y_, t) # this is to match the shape of the observations, which could have a time dimension
+        push!(tmp_obs, t => vec(y_),)
+        push!(tmp_pred, t => to_obs(vec(ŷ_,)))
+    end
+    out_pred = (; tmp_pred...)
+    out_obs = (; tmp_obs...)
+    return out_pred, out_obs
 end
 
 function to_tuple(y::KeyedArray, target_names)

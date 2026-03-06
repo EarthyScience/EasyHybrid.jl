@@ -6,7 +6,7 @@ using Makie.Colors
 using DataFrames
 import Makie
 import EasyHybrid
-import EasyHybrid: get_loss_value
+import EasyHybrid: get_loss_value, _get_target_y, _get_target_ŷ
 using Statistics
 
 include("HybridTheme.jl")
@@ -346,7 +346,7 @@ function EasyHybrid.train_board(
         Label(gd_tm[i][1, 1:2, Top()], "$(t)")
 
         Makie.scatter!(ax_tr, p_tr_sub, o_tr_sub; color = :grey25, alpha = 0.6, markersize = 6)
-        Makie.lines!(ax_tr, sort(o_tr), sort(o_tr); color = :black, linestyle = :dash)
+        # Makie.lines!(ax_tr, sort(o_tr), sort(o_tr); color = :black, linestyle = :dash)
         # Validation scatter plot
         ax_val = Makie.Axis(
             gd_tm[i][1, 2]; aspect = 1, xlabel = "Predicted", ylabel = "",
@@ -371,7 +371,7 @@ function EasyHybrid.train_board(
         o_val_sub = @lift(o_val[$val_idx])
 
         Makie.scatter!(ax_val, p_val_sub, o_val_sub; color = :tomato, alpha = 0.6, markersize = 6)
-        Makie.lines!(ax_val, sort(o_val), sort(o_val); color = :black, linestyle = :dash)
+        # Makie.lines!(ax_val, sort(o_val), sort(o_val); color = :black, linestyle = :dash)
     end
     Label(gd_tm[1][1:end, 0], "Observed", tellheight = false, rotation = pi / 2)
     # Label(gd_tm[end+1,1:end], "Predicted")
@@ -433,7 +433,9 @@ function EasyHybrid.update_plotting_observables(
         current_ŷ_val,
         target_names,
         epoch;
-        monitor_names
+        monitor_names,
+        y_train,
+        y_val
     )
 
     l_value = get_loss_value(l_train, training_loss, Symbol("$agg"))
@@ -447,8 +449,15 @@ function EasyHybrid.update_plotting_observables(
 
     for t in target_names
         # replace the array stored in the Observable:
-        train_preds[t][] = vec(getfield(current_ŷ_train, t))
-        val_preds[t][] = vec(getfield(current_ŷ_val, t))
+        current_y_train = _get_target_y(y_train, t)
+        current_y_train_hat = _get_target_ŷ(current_ŷ_train, current_y_train, t)
+
+        current_y_val = _get_target_y(y_val, t)
+        current_y_val_hat = _get_target_ŷ(current_ŷ_val, current_y_val, t)
+
+        train_preds[t][] = current_y_train_hat
+        val_preds[t][] = current_y_val_hat
+
         # and notify Makie that it changed:
         notify(train_preds[t])
         notify(val_preds[t])
