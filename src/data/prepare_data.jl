@@ -51,7 +51,7 @@ function prepare_data(hm, data::Tuple; kwargs...)
 end
 
 """
-    prepare_data(hm, data::DataFrame)
+    prepare_data(hm, data::DataFrame; array_type=:KeyedArray, drop_missing_rows=true)
     prepare_data(hm, data::KeyedArray)
     prepare_data(hm, data::AbstractDimArray)
     prepare_data(hm, data::Tuple)
@@ -61,10 +61,13 @@ Prepare data for training by extracting predictor/forcing and target variables b
 # Arguments:
 - `hm`: The Hybrid Model
 - `data`: The input data, which can be a DataFrame, KeyedArray, or DimensionalData array.
+- `array_type`: (DataFrame only) Output array type: `:KeyedArray` (default) or `:DimArray`.
+- `drop_missing_rows`: (DataFrame only) If `true` (default), drop rows where any predictor is NaN or all targets are NaN.
 
 # Returns:
-- If `data` is a DataFrame, KeyedArray returns a tuple of (predictors_forcing, targets) as KeyedArrays.
-- If `data` is an AbstractDimArray returns a tuple of (predictors_forcing, targets) of AbstractDimArrays.
+- If `data` is a DataFrame: a tuple of (predictors_forcing, targets) as KeyedArrays or DimArrays depending on `array_type`.
+- If `data` is a KeyedArray: a tuple of (predictors_forcing, targets) as KeyedArrays.
+- If `data` is an AbstractDimArray: a tuple of (predictors_forcing, targets) as DimArrays.
 - If `data` is already a Tuple, it is returned as-is.
 """
 function prepare_data end

@@ -23,6 +23,8 @@ end
 Train a hybrid model using the provided data and save the training process to a file in JLD2 format. 
 Default output file is `trained_model.jld2` at the current working directory under `output_tmp`.
 
+Returns `nothing` without training if the training or validation data has zero size in any dimension, i.e. data preparation is not successful.
+
 # Arguments:
 - `hybridModel`: The hybrid model to be trained.
 - `data`: The training data, either a single DataFrame, a single KeyedArray, or a tuple of KeyedArrays.

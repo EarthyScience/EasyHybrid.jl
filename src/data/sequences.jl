@@ -18,12 +18,16 @@ end
 Slide a (input_window + lead_time) window over 2D `(feature, time)` arrays to produce
 3D `(feature, time, batch)` tensors for sequence-to-sequence training.
 
+# Arguments:
+- `x`: 2D input array `(feature, time)`.
+- `y`: 2D target array `(target, time)`.
 - `input_window`: number of input time steps per sample.
 - `output_window`: number of target time steps per sample.
 - `output_shift`: stride between consecutive samples.
 - `lead_time`: gap between end of input window and end of output window.
 
-Returns `(X, Y)` as KeyedArrays or DimArrays matching the input type.
+# Returns:
+- `(X, Y)` as KeyedArrays or DimArrays matching the input type.
 """
 function split_into_sequences(x, y; input_window = 5, output_window = 1, output_shift = 1, lead_time = 1)
     ndims(x) == 2 || throw(ArgumentError("expected x to be (feature, time); got ndims(x) = $(ndims(x))"))
