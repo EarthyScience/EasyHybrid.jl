@@ -1,7 +1,4 @@
 // .vitepress/theme/index.ts
-
-import "./smoothLoad.css"; // smooth loading on first visit
-
 import { h } from 'vue'
 import DefaultTheme from 'vitepress/theme'
 import type { Theme as ThemeConfig } from 'vitepress'
