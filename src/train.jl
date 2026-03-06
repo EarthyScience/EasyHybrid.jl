@@ -121,6 +121,11 @@ function train(
 
     (x_train, y_train), (x_val, y_val) = split_data(data, hybridModel; array_type = array_type, kwargs...)
 
+    if  any(size(x_train) .== 0)
+        @warn "Size of training data is 0 with dimensions $(size(x_train)); returning nothing, no training will be performed."
+        return nothing
+    end
+
     train_loader = DataLoader((x_train, y_train), batchsize = batchsize, shuffle = true)
 
     @info "Training data type: $(typeof(x_train))"
