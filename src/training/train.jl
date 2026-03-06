@@ -535,13 +535,13 @@ Split data into training and validation sets, either randomly, by grouping by ID
 """
 function split_data end
 
-function prepare_data(hm, data::KeyedArray; array_type = :KeyedArray)
+function prepare_data(hm, data::KeyedArray; kwargs...)
     predictors_forcing, targets = get_prediction_target_names(hm)
     # KeyedArray: use () syntax for views that are differentiable
     return (data(predictors_forcing), data(targets))
 end
 
-function prepare_data(hm, data::AbstractDimArray; array_type = :DimArray)
+function prepare_data(hm, data::AbstractDimArray; kwargs...)
     predictors_forcing, targets = get_prediction_target_names(hm)
     # DimArray: use [] syntax (copies, but differentiable)
     return (data[variable = At(predictors_forcing)], data[variable = At(targets)])
@@ -578,10 +578,10 @@ function prepare_data(hm, data::DataFrame; array_type = :KeyedArray, drop_missin
     else
         ds = to_dimArray(Float32.(sdf))
     end
-    return prepare_data(hm, ds; array_type = array_type)
+    return prepare_data(hm, ds)
 end
 
-function prepare_data(hm, data::Tuple; array_type = :DimArray)
+function prepare_data(hm, data::Tuple; kwargs...)
     return data
 end
 
