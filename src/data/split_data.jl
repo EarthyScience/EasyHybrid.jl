@@ -99,6 +99,7 @@ Split data into training and validation sets, either randomly, by grouping by ID
 - `split_data_at=0.8`: Ratio of data to use for training
 - `folds`: Vector or column name of fold assignments (1..k), one per sample/column for k-fold cross-validation
 - `val_fold`: The validation fold to use when `folds` is provided
+- `sequence_kwargs=nothing`: NamedTuple of keyword arguments forwarded to `split_into_sequences` (e.g. `(; input_window=10, output_window=1, output_shift=1, lead_time=2)`). When set, data is windowed into 3D sequences before splitting.
 
 # Behavior:
 - For DataFrame/KeyedArray: Supports random splitting, ID-based splitting, and external fold assignments
