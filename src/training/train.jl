@@ -121,7 +121,7 @@ function train(
 
     (x_train, y_train), (x_val, y_val) = split_data(data, hybridModel; array_type = array_type, kwargs...)
 
-    if  any(size(x_train) .== 0)
+    if any(size(x_train) .== 0)
         @warn "Size of training data is 0 with dimensions $(size(x_train)); returning nothing, no training will be performed."
         return nothing
     end
@@ -442,8 +442,10 @@ function split_data(
         array_type::Symbol = :KeyedArray,
         kwargs...
     )
-    data_ = prepare_data(hybridModel, data; array_type = array_type,
-                         drop_missing_rows = (sequence_kwargs === nothing))
+    data_ = prepare_data(
+        hybridModel, data; array_type = array_type,
+        drop_missing_rows = (sequence_kwargs === nothing)
+    )
 
     if sequence_kwargs !== nothing
         x_keyed, y_keyed = data_
