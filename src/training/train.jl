@@ -121,8 +121,8 @@ function train(
 
     (x_train, y_train), (x_val, y_val) = split_data(data, hybridModel; array_type = array_type, kwargs...)
 
-    if any(size(x_train) .== 0)
-        @warn "Size of training data is 0 with dimensions $(size(x_train)); returning nothing, no training will be performed."
+    if any(size(x_train) .== 0) || any(size(x_val) .== 0)
+        @warn "Size of training or validation data is 0 with dimensions $(size(x_train)) and $(size(x_val)); returning nothing, no training will be performed."
         return nothing
     end
 
