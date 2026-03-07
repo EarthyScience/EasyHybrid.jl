@@ -146,7 +146,8 @@ mspempty = ModelSpec()
 
 # Define hyperparameter search space
 nhyper = 4
-ho = @thyperopt for i=nhyper,
+# For actual parallel runs, change `@hyperopt` to `@thyperopt` below.
+ho = @hyperopt for i=nhyper,
     opt = [AdamW(0.01), AdamW(0.1), RMSProp(0.001), RMSProp(0.01)],
     input_batchnorm = [true, false]
     
