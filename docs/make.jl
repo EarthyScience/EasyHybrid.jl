@@ -46,12 +46,14 @@ end
 makedocs(;
     modules = [EasyHybrid],
     authors = "Lazaro Alonso, Bernhard Ahrens, Markus Reichstein",
-    repo = "https://github.com/EarthyScience/EasyHybrid.jl",
     sitename = "EasyHybrid.jl",
     format = DocumenterVitepress.MarkdownVitepress(
         repo = "github.com/EarthyScience/EasyHybrid.jl",
+        devbranch = "main",
         devurl = "dev",
     ),
+    source = "src",
+    build = "build",
     pages = [
         "Home" => "index.md",
         "Get Started" => "get_started.md",
@@ -73,7 +75,7 @@ makedocs(;
 )
 
 DocumenterVitepress.deploydocs(;
-    repo = "github.com/EarthyScience/EasyHybrid.jl", # full URL!
+    repo = "github.com/EarthyScience/EasyHybrid.jl.git",
     target = joinpath(@__DIR__, "build"),
     branch = "gh-pages",
     devbranch = "main",
