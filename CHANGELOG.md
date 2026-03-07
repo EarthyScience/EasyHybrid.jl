@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- fixes edit this page links [#244](https://github.com/EarthyScience/EasyHybrid.jl/pull/244)
 - run `print_banner()` on first load [#243](https://github.com/EarthyScience/EasyHybrid.jl/pull/243)
 - Added an opinionated file/folder structure to the project, so that at least files are organized by topic [#241](https://github.com/EarthyScience/EasyHybrid.jl/pull/241)
 

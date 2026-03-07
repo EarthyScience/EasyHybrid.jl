@@ -49,7 +49,7 @@ makedocs(;
     repo = "https://github.com/EarthyScience/EasyHybrid.jl",
     sitename = "EasyHybrid.jl",
     format = DocumenterVitepress.MarkdownVitepress(
-        repo = "https://github.com/EarthyScience/EasyHybrid.jl",
+        repo = "github.com/EarthyScience/EasyHybrid.jl",
         devurl = "dev",
     ),
     pages = [
