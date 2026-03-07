@@ -59,7 +59,7 @@ function print_banner(; version_string = _get_version_string())
     return
 end
 
-const EASYHYBRID_VERSION = pkgversion(@__MODULE__)
+const EASYHYBRID_VERSION = Base.pkgversion(@__MODULE__)
 
 function _get_version_string()
     version_string = string(EASYHYBRID_VERSION)

@@ -1,5 +1,5 @@
 """
-    EasyHybrid.jl — v$(EASYHYBRID_VERSION)
+    EasyHybrid.jl
 
 EasyHybrid is a Julia package for hybrid machine learning models, combining neural networks and traditional statistical methods. It provides tools for data preprocessing, model training, and evaluation, making it easier to build and deploy hybrid models.
 
@@ -7,7 +7,7 @@ The hybrid model combines a neural network h(x; θ), with inputs x and learnable
 
 - Documentation
 
-  $(DOC_URL)
+  https://earthyscience.github.io/EasyHybrid.jl/
 
 """
 module EasyHybrid
