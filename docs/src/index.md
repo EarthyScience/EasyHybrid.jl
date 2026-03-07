@@ -46,3 +46,9 @@ If you want to use the latest unreleased version of `EasyHybrid.jl` you can run 
 julia> using Pkg
 julia> Pkg.add(url="https://github.com/EarthyScience/EasyHybrid.jl")
 ```
+
+Afterwards, to use `EasyHybrid.jl` in Julia, users can simply include the `using EasyHybrid` command at the beginning of any session.
+
+```@example
+using EasyHybrid
+```
