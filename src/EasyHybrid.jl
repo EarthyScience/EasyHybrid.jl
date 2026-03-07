@@ -47,7 +47,7 @@ using Static: False, True
 
 @reexport begin
     import LuxCore
-    using Lux: Lux, Dense, Chain, Dropout, relu, sigmoid, swish
+    using Lux: Lux, Dense, Chain, Dropout, relu, sigmoid, swish, tanh, Recurrence, LSTMCell
     using Random
     using Statistics
     using DataFrames

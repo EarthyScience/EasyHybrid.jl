@@ -1,4 +1,4 @@
-export train, TrainResults, prepare_data, split_data, split_into_sequences
+export train, TrainResults
 # beneficial for plotting based on type TrainResults?
 struct TrainResults
     train_history
@@ -22,6 +22,8 @@ end
 
 Train a hybrid model using the provided data and save the training process to a file in JLD2 format. 
 Default output file is `trained_model.jld2` at the current working directory under `output_tmp`.
+
+Returns `nothing` without training if the training or validation data has zero size in any dimension, i.e. data preparation is not successful.
 
 # Arguments:
 - `hybridModel`: The hybrid model to be trained.
@@ -120,6 +122,11 @@ function train(
     end
 
     (x_train, y_train), (x_val, y_val) = split_data(data, hybridModel; array_type = array_type, kwargs...)
+
+    if any(size(x_train) .== 0) || any(size(x_val) .== 0)
+        @warn "Size of training or validation data is 0 with dimensions $(size(x_train)) and $(size(x_val)); returning nothing, no training will be performed."
+        return nothing
+    end
 
     train_loader = DataLoader((x_train, y_train), batchsize = batchsize, shuffle = true)
 
@@ -420,299 +427,10 @@ function header_and_paddings(nt; digits = 5)
     return headers, paddings
 end
 
-function split_data(data::Tuple{Tuple, Tuple}, hybridModel; kwargs...)
-    @warn "data was prepared already, none of the keyword arguments for split_data will be used"
-    return data
-end
-
-function split_data(
-        data::Union{DataFrame, KeyedArray, Tuple, AbstractDimArray},
-        hybridModel;
-        split_by_id::Union{Nothing, Symbol, AbstractVector} = nothing,
-        folds::Union{Nothing, AbstractVector, Symbol} = nothing,
-        val_fold::Union{Nothing, Int} = nothing,
-        shuffleobs::Bool = false,
-        split_data_at::Real = 0.8,
-        sequence_kwargs::Union{Nothing, NamedTuple} = nothing,
-        array_type::Symbol = :KeyedArray,
-        kwargs...
-    )
-    data_ = prepare_data(hybridModel, data; array_type = array_type)
-
-    if sequence_kwargs !== nothing
-        x_keyed, y_keyed = data_
-        sis_default = (; input_window = 10, output_window = 1, output_shift = 1, lead_time = 1)
-        sis = merge(sis_default, sequence_kwargs)
-        @info "Using split_into_sequences: $sis"
-        x_all, y_all = split_into_sequences(x_keyed, y_keyed; sis.input_window, sis.output_window, sis.output_shift, sis.lead_time)
-    else
-        x_all, y_all = data_
-    end
-
-
-    if split_by_id !== nothing && folds !== nothing
-
-        throw(ArgumentError("split_by_id and folds are not supported together; do the split when constructing folds"))
-
-    elseif split_by_id !== nothing
-        # --- Option A: split by ID ---
-        ids = isa(split_by_id, Symbol) ? getbyname(data, split_by_id) : split_by_id
-        unique_ids = unique(ids)
-        train_ids, val_ids = splitobs(unique_ids; at = split_data_at, shuffle = shuffleobs)
-        train_idx = findall(in(train_ids), ids)
-        val_idx = findall(in(val_ids), ids)
-
-        @info "Splitting data by $(split_by_id)"
-        @info "Number of unique $(split_by_id): $(length(unique_ids))"
-        @info "Train IDs: $(length(train_ids)) | Val IDs: $(length(val_ids))"
-
-        x_train, y_train = view_end_dim(x_all, train_idx), view_end_dim(y_all, train_idx)
-        x_val, y_val = view_end_dim(x_all, val_idx), view_end_dim(y_all, val_idx)
-        return (x_train, y_train), (x_val, y_val)
-
-    elseif folds !== nothing || val_fold !== nothing
-        # --- Option B: external K-fold assignment ---
-        @assert val_fold !== nothing "Provide val_fold when using folds."
-        @assert folds !== nothing "Provide folds when using val_fold."
-        @warn "shuffleobs is not supported when using folds and val_fold, this will be ignored and should be done during fold constructions"
-        f = isa(folds, Symbol) ? getbyname(data, folds) : folds
-        n = size(x_all, 2)
-        @assert length(f) == n "length(folds) ($(length(f))) must equal number of samples/columns ($n)."
-        @assert 1 ≤ val_fold ≤ maximum(f) "val_fold=$val_fold is out of range 1:$(maximum(f))."
-
-        val_idx = findall(==(val_fold), f)
-        @assert !isempty(val_idx) "No samples assigned to validation fold $val_fold."
-        train_idx = setdiff(1:n, val_idx)
-
-        @info "K-fold via external assignments: val_fold=$val_fold → train=$(length(train_idx)) val=$(length(val_idx))"
-
-        x_train, y_train = view_end_dim(x_all, train_idx), view_end_dim(y_all, train_idx)
-        x_val, y_val = view_end_dim(x_all, val_idx), view_end_dim(y_all, val_idx)
-        return (x_train, y_train), (x_val, y_val)
-
-    else
-        # --- Fallback: simple random/chronological split of prepared data ---
-        (x_train, y_train), (x_val, y_val) = splitobs((x_all, y_all); at = split_data_at, shuffle = shuffleobs)
-        return (x_train, y_train), (x_val, y_val)
-    end
-end
-
-
-"""
-    split_data(data, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8, kwargs...)
-    split_data(data::Union{DataFrame, KeyedArray}, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8, folds=nothing, val_fold=nothing, kwargs...)
-    split_data(data::AbstractDimArray, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8, kwargs...)
-    split_data(data::Tuple, hybridModel; split_by_id=nothing, shuffleobs=false, split_data_at=0.8, kwargs...)
-    split_data(data::Tuple{Tuple, Tuple}, hybridModel; kwargs...)
-
-Split data into training and validation sets, either randomly, by grouping by ID, or using external fold assignments.
-
-# Arguments:
-- `data`: The data to split, which can be a DataFrame, KeyedArray, AbstractDimArray, or Tuple
-- `hybridModel`: The hybrid model object used for data preparation
-- `split_by_id=nothing`: Either `nothing` for random splitting, a `Symbol` for column-based splitting, or an `AbstractVector` for custom ID-based splitting
-- `shuffleobs=false`: Whether to shuffle observations during splitting
-- `split_data_at=0.8`: Ratio of data to use for training
-- `folds`: Vector or column name of fold assignments (1..k), one per sample/column for k-fold cross-validation
-- `val_fold`: The validation fold to use when `folds` is provided
-
-# Behavior:
-- For DataFrame/KeyedArray: Supports random splitting, ID-based splitting, and external fold assignments
-- For AbstractDimArray/Tuple: Random splitting only after data preparation
-- For pre-split Tuple{Tuple, Tuple}: Returns input unchanged
-
-# Returns:
-- `((x_train, y_train), (x_val, y_val))`: Tuple containing training and validation data pairs
-"""
-function split_data end
-
-function prepare_data(hm, data::KeyedArray; array_type = :KeyedArray)
-    predictors_forcing, targets = get_prediction_target_names(hm)
-    # KeyedArray: use () syntax for views that are differentiable
-    return (data(predictors_forcing), data(targets))
-end
-
-function prepare_data(hm, data::AbstractDimArray; array_type = :DimArray)
-    predictors_forcing, targets = get_prediction_target_names(hm)
-    # DimArray: use [] syntax (copies, but differentiable)
-    return (data[variable = At(predictors_forcing)], data[variable = At(targets)])
-end
-
-function prepare_data(hm, data::DataFrame; array_type = :KeyedArray)
-    predictors_forcing, targets = get_prediction_target_names(hm)
-
-    all_predictor_cols = unique(vcat(values(predictors_forcing)...))
-    col_to_select = unique([all_predictor_cols; targets])
-
-    # subset to only the cols we care about
-    sdf = data[!, col_to_select]
-
-    mapcols(col -> replace!(col, missing => NaN), sdf; cols = names(sdf, Union{Missing, Real}))
-
-    # Separate predictor/forcing vs. target columns
-    predforce_cols = setdiff(col_to_select, targets)
-
-    # For each row, check if *any* predictor/forcing is missing
-    mask_missing_predforce = map(row -> any(isnan, row), eachrow(sdf[:, predforce_cols]))
-
-    # For each row, check if *at least one* target is present (i.e. not all missing)
-    mask_at_least_one_target = map(row -> any(!isnan, row), eachrow(sdf[:, targets]))
-
-    # Keep rows where predictors/forcings are *complete* AND there's some target present
-    keep = .!mask_missing_predforce .& mask_at_least_one_target
-    sdf = sdf[keep, col_to_select]
-
-    # Convert to Float32 and to the specified array type
-    if array_type == :KeyedArray
-        ds = to_keyedArray(Float32.(sdf))
-    else
-        ds = to_dimArray(Float32.(sdf))
-    end
-    return prepare_data(hm, ds; array_type = array_type)
-end
-
-function prepare_data(hm, data::Tuple; array_type = :DimArray)
-    return data
-end
-
-"""
-    prepare_data(hm, data::DataFrame)
-    prepare_data(hm, data::KeyedArray)
-    prepare_data(hm, data::AbstractDimArray)
-    prepare_data(hm, data::Tuple)
-
-Prepare data for training by extracting predictor/forcing and target variables based on the hybrid model's configuration.
-
-# Arguments:
-- `hm`: The Hybrid Model
-- `data`: The input data, which can be a DataFrame, KeyedArray, or DimensionalData array.
-
-# Returns:
-- If `data` is a DataFrame, KeyedArray returns a tuple of (predictors_forcing, targets) as KeyedArrays.
-- If `data` is an AbstractDimArray returns a tuple of (predictors_forcing, targets) of AbstractDimArrays.
-- If `data` is already a Tuple, it is returned as-is.
-"""
-function prepare_data end
-
-"""
-    get_prediction_target_names(hm)
-Utility function to extract predictor/forcing and target names from a hybrid model.
-
-# Arguments:
-- `hm`: The Hybrid Model
-
-Returns a tuple of (predictors_forcing, targets) names.
-"""
-function get_prediction_target_names(hm)
-    targets = hm.targets
-    predictors_forcing = Symbol[]
-    for prop in propertynames(hm)
-        if occursin("predictors", string(prop))
-            val = getproperty(hm, prop)
-            if isa(val, AbstractVector)
-                append!(predictors_forcing, val)
-            elseif isa(val, Union{NamedTuple, Tuple})
-                append!(predictors_forcing, unique(vcat(values(val)...)))
-            end
-        end
-    end
-    for prop in propertynames(hm)
-        if occursin("forcing", string(prop))
-            val = getproperty(hm, prop)
-            if isa(val, AbstractVector)
-                append!(predictors_forcing, val)
-            elseif isa(val, Union{Tuple, NamedTuple})
-                append!(predictors_forcing, unique(vcat(values(val)...)))
-            end
-        end
-    end
-    predictors_forcing = unique(predictors_forcing)
-
-    if isempty(predictors_forcing)
-        @warn "Note that you don't have predictors or forcing variables."
-    end
-    if isempty(targets)
-        @warn "Note that you don't have target names."
-    end
-    return predictors_forcing, targets
-end
-
 function get_ps_st(train_from::TrainResults)
     return train_from.ps, train_from.st
 end
 
 function get_ps_st(train_from::Tuple)
     return train_from
-end
-
-function getbyname(df::DataFrame, name::Symbol)
-    return df[!, name]
-end
-
-function getbyname(ka::Union{KeyedArray, AbstractDimArray}, name::Symbol)
-    return @view ka[variable = At(name)]
-end
-
-function split_into_sequences(x, y; input_window = 5, output_window = 1, output_shift = 1, lead_time = 1)
-    ndims(x) == 2 || throw(ArgumentError("expected x to be (feature, time); got ndims(x) = $(ndims(x))"))
-    ndims(y) == 2 || throw(ArgumentError("expected y to be (target, time); got ndims(y) = $(ndims(y))"))
-
-    Lx, Ly = size(x, 2), size(y, 2)
-    Lx == Ly || throw(ArgumentError("x and y must have same time length; got $Lx vs $Ly"))
-    lead_time ≥ 0 || throw(ArgumentError("lead_time must be ≥ 0 (0 = instantaneous end)"))
-
-    nfeat, ntarget = size(x, 1), size(y, 1)
-    L = Lx
-
-    featkeys = axiskeys(x, 1)
-    timekeys = axiskeys(x, 2)
-    targetkeys = axiskeys(y, 1)
-
-    lead_start = lead_time - output_window + 1
-
-    lag_keys = Symbol.(["x$(input_window + lead_time - 1)_to_x$(lag)" for lag in (input_window + lead_time - 1):-1:lead_time])
-    lead_keys = Symbol.(["_y$(lead)" for lead in ((output_window - 1):-1:0)])
-    lead_keys = Symbol.(lag_keys[(end - length(lead_keys) + 1):end], lead_keys)
-    lag_keys[(end - length(lead_keys) + 1):end] .= lead_keys
-
-    sx_min = max(1, 1 - (input_window + lead_time - output_window))
-    sx_max = L - input_window - lead_time + 1
-    sx_min <= sx_max || throw(ArgumentError("windows too long for series length"))
-
-    sx_vals = collect(sx_min:output_shift:sx_max)
-    num_samples = length(sx_vals)
-    num_samples ≥ 1 || throw(ArgumentError("no samples with given output_shift/windows"))
-
-    samplekeys = timekeys[sx_vals]
-
-    Xd = zeros(Float32, nfeat, input_window, num_samples)
-    Yd = zeros(Float32, ntarget, output_window, num_samples)
-
-    @inbounds @views for (ii, sx) in enumerate(sx_vals)
-        ex = sx + input_window - 1
-        sy = ex + lead_start
-        ey = ex + lead_time
-        Xd[:, :, ii] .= x[:, sx:ex]
-        Yd[:, :, ii] .= y[:, sy:ey]
-    end
-    if x isa KeyedArray
-        Xk = KeyedArray(Xd; variable = featkeys, time = lag_keys, batch_size = samplekeys)
-        Yk = KeyedArray(Yd; variable = targetkeys, time = lead_keys, batch_size = samplekeys)
-        return Xk, Yk
-    elseif x isa AbstractDimArray
-        Xk = DimArray(Xd, (variable = featkeys, time = lag_keys, batch_size = samplekeys))
-        Yk = DimArray(Yd, (variable = targetkeys, time = lead_keys, batch_size = samplekeys))
-        return Xk, Yk
-    else
-        throw(ArgumentError("expected Xd to be KeyedArray or AbstractDimArray; got $(typeof(Xd))"))
-    end
-end
-
-
-function view_end_dim(x_all::Union{KeyedArray{Float32, 2}, AbstractDimArray{Float32, 2}}, idx)
-    return view(x_all, :, idx)
-end
-
-function view_end_dim(x_all::Union{KeyedArray{Float32, 3}, AbstractDimArray{Float32, 3}}, idx)
-    return view(x_all, :, :, idx)
 end
