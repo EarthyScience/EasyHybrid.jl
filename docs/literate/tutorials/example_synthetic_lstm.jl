@@ -11,7 +11,6 @@
 using EasyHybrid
 using AxisKeys
 using DimensionalData
-using Lux
 
 # ## 2. Data Loading and Preprocessing
 
