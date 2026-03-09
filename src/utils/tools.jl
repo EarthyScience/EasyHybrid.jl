@@ -346,9 +346,9 @@ function toNamedTuple(ka::AbstractDimArray, variable::Symbol)
 end
 
 function toArray(ka::KeyedArray, variable)
-    return ka(variable = variable)
+    return Array(ka(variable = variable))
 end
 
 function toArray(ka::AbstractDimArray, variable)
-    return ka[variable = At(variable)]
+    return Array(ka[variable = At(variable)])
 end
