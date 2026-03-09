@@ -1,4 +1,4 @@
-export SingleNNModel, MultiNNModel, constructNNModel, prepare_hidden_chain, RecurrenceOutputDense
+export SingleNNModel, MultiNNModel, constructNNModel, prepare_hidden_chain, RecurrenceOutputDense, InputBatchNorm
 
 using Lux, LuxCore
 using ..EasyHybrid: hard_sigmoid
@@ -73,6 +73,34 @@ end
 
 # Fallback for regular array input (non-sequence mode)
 function (m::RecurrenceOutputDense)(x::AbstractArray, ps, st)
+    return LuxCore.apply(m.layer, x, ps, st)
+end
+
+"""
+    InputBatchNorm(chs; kwargs...)
+
+A wrapper around `BatchNorm` that handles 3D sequence input `(features, timesteps, batch)`.
+
+Lux's `BatchNorm` expects channels in the penultimate dimension, which works for 2D input
+`(features, batch)` but fails for 3D input `(features, timesteps, batch)` where features
+are in dim 1. This wrapper reshapes 3D input to 2D `(features, timesteps * batch)` before
+normalization, then reshapes back. For 2D input, delegates directly to `BatchNorm`.
+"""
+struct InputBatchNorm{B <: BatchNorm} <: LuxCore.AbstractLuxWrapperLayer{:layer}
+    layer::B
+end
+
+function InputBatchNorm(chs::Int; kwargs...)
+    return InputBatchNorm(BatchNorm(chs; kwargs...))
+end
+
+function (m::InputBatchNorm)(x::AbstractArray{T, 3}, ps, st) where T
+    feat, time, batch = size(x)
+    y_2d, st_new = LuxCore.apply(m.layer, reshape(x, feat, time * batch), ps, st)
+    return reshape(y_2d, feat, time, batch), st_new
+end
+
+function (m::InputBatchNorm)(x::AbstractArray, ps, st)
     return LuxCore.apply(m.layer, x, ps, st)
 end
 
@@ -175,7 +203,7 @@ function prepare_hidden_chain(
         if ends_with_sequence_recurrence
             # Chain ends with Recurrence layer (return_sequence=true) - add RecurrenceOutputDense to handle sequence output
             return Chain(
-                input_batchnorm ? BatchNorm(in_dim, affine = false) : identity,
+                input_batchnorm ? InputBatchNorm(in_dim, affine = false) : identity,
                 Dense(in_dim, first_h, activation),
                 hidden_layers.layers...,
                 RecurrenceOutputDense(last_h => last_h, activation),
@@ -183,7 +211,7 @@ function prepare_hidden_chain(
             )
         else
             return Chain(
-                input_batchnorm ? BatchNorm(in_dim, affine = false) : identity,
+                input_batchnorm ? InputBatchNorm(in_dim, affine = false) : identity,
                 Dense(in_dim, first_h, activation),
                 hidden_layers.layers...,
                 Dense(last_h, out_dim)
@@ -195,7 +223,7 @@ function prepare_hidden_chain(
         isempty(hs) && return Chain()
         in_dim == 0 && return Chain()
         return Chain(
-            input_batchnorm ? BatchNorm(in_dim, affine = false) : identity,
+            input_batchnorm ? InputBatchNorm(in_dim, affine = false) : identity,
             Dense(in_dim, hs[1], activation),
             (Dense(hs[i], hs[i + 1], activation) for i in 1:(length(hs) - 1))...,
             Dense(hs[end], out_dim)
