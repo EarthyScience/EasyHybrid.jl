@@ -352,3 +352,9 @@ end
 function toArray(ka::AbstractDimArray, variable)
     return Array(ka[variable = At(variable)])
 end
+
+function seed!(random_seed::Union{Int, Nothing})
+    isnothing(random_seed) && return
+    Random.seed!(random_seed)
+    return @debug "Random seed set to $random_seed"
+end
