@@ -12,12 +12,12 @@ function scrollToTop() {
       <div class="footer-col">
         <h4>EXPLORE</h4>
         <ul>
-          <li><a href="/get_started">Get Started</a></li>
-          <li><a href="/tutorials/overview">Tutorials</a></li>
-          <li><a href="/research/overview">Research</a></li>
-          <!-- <li><a href="/libraries">Libraries</a></li> -->
-          <!-- <li><a href="/news">News</a></li> -->
-          <!-- <li><a href="/team">Team</a></li> -->
+          <li><a href="./get_started">Get Started</a></li>
+          <li><a href="./tutorials/overview">Tutorials</a></li>
+          <li><a href="./research/overview">Research</a></li>
+          <!-- <li><a href="./libraries">Libraries</a></li> -->
+          <!-- <li><a href="./news">News</a></li> -->
+          <!-- <li><a href="./team">Team</a></li> -->
         </ul>
       </div>
 
@@ -73,6 +73,7 @@ function scrollToTop() {
 
     <div class="footer-bottom">
       <span>
+      Made with <a href="https://luxdl.github.io/DocumenterVitepress.jl/stable" target="_blank"><strong>DocumenterVitepress.jl</strong></a>. Powered by the <a href="https://www.julialang.org" target="_blank"><strong>Julia Programming Language</strong></a>.<br>
       © {{ new Date().getFullYear() }} The EasyHybrid Project Contributors. All rights reserved.
       </span>
       <button class="back-to-top" @click="scrollToTop">↑ Back to top</button>
@@ -94,7 +95,7 @@ function scrollToTop() {
   background: var(--vp-sidebar-bg-color);
   font-size: 14px;
   color: var(--vp-c-text-2);
-  z-index: 30;
+  z-index: 10;
 }
 
 
