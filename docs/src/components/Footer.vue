@@ -261,6 +261,11 @@ a:hover {
 }
 
 @media (max-width: 480px) {
+  .custom-footer {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+  }
   .footer-top {
     display: flex;
     flex-direction: column;
