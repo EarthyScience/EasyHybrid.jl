@@ -250,6 +250,16 @@ mjx-container svg path {
   }
 }
 
+.logo-row img {
+  max-width: 100%;
+  height: auto;
+}
+
+.logo-row {
+  max-width: 100%;
+  overflow: hidden;
+}
+
 /* Light mode: show light logo, hide dark logo */
 .logo-row img[alt="MPI-BGC-dark-mode"] {
   display: none;
