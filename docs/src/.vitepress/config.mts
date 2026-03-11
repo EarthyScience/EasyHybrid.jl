@@ -98,10 +98,6 @@ export default defineConfig({
     editLink: 'REPLACE_ME_DOCUMENTER_VITEPRESS',
     socialLinks: [
       // setup empty, so that padding is reserved for the user to add their own, or add more links if they want.
-    ],
-    footer: {
-      message: 'Made with <a href="https://luxdl.github.io/DocumenterVitepress.jl/stable/" target="_blank"><strong>DocumenterVitepress.jl</strong></a> <br>',
-      copyright: `© Copyright ${new Date().getUTCFullYear()}. Lazaro Alonso.`
-    },
+    ]
   }
 })
