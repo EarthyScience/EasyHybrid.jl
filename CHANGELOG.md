@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Added a custom footer section [#247](https://github.com/EarthyScience/EasyHybrid.jl/pull/247)
 
 ## v0.1.9 - 2026-03-08
 - Fixed 'Edit this page' links in documentation [#244](https://github.com/EarthyScience/EasyHybrid.jl/pull/244)

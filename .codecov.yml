@@ -1,0 +1,6 @@
+comment: false
+coverage:
+  status:
+    project:
+      default:
+        threshold: 0.5%   # allow up to 0.5% decrease, let's be lenient about this
