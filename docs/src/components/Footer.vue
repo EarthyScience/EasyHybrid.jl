@@ -13,7 +13,7 @@ function scrollToTop() {
         <h4>EXPLORE</h4>
         <ul>
           <li><a href="/get_started">Get Started</a></li>
-          <li><a href="tutorials/overview">Tutorials</a></li>
+          <li><a href="/tutorials/overview">Tutorials</a></li>
           <li><a href="/research/overview">Research</a></li>
           <!-- <li><a href="/libraries">Libraries</a></li> -->
           <!-- <li><a href="/news">News</a></li> -->
@@ -73,7 +73,7 @@ function scrollToTop() {
 
     <div class="footer-bottom">
       <span>
-        © 2023 The EasyHybrid Project Contributors.
+      © {{ new Date().getFullYear() }} The EasyHybrid Project Contributors. All rights reserved.
       </span>
       <button class="back-to-top" @click="scrollToTop">↑ Back to top</button>
     </div>
@@ -224,7 +224,9 @@ a:hover {
 
 @media (max-width: 768px) {
   .custom-footer {
-    padding: 32px 24px 16px;
+    padding: 32px 48px 16px;
+    margin-left: -24px;
+    margin-right: -24px;
   }
 
   .footer-top {
@@ -255,15 +257,6 @@ a:hover {
 
   .website-source {
     align-self: center;
-  }
-}
-
-@media (max-width: 768px) {
-  .custom-footer {
-    margin-left: -24px;
-    margin-right: -24px;
-    padding-left: calc(24px + 24px);
-    padding-right: calc(24px + 24px);
   }
 }
 
