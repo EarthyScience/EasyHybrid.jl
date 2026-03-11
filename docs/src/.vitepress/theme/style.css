@@ -50,6 +50,10 @@ VPFeatures {
   box-shadow: 0 12px 40px rgba(61, 217, 165, 0.08);
 }
 
+body {
+  overflow-x: hidden;
+}
+
 /* Fonts */
 @font-face {
   font-family: JuliaMono-Regular;

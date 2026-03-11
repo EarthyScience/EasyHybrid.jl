@@ -62,10 +62,10 @@ function scrollToTop() {
         <p>EasyHybrid.jl is developed by researchers at the</p>
         <div class="logo-row">
           <a href="https://www.bgc-jena.mpg.de/en/bgi/home" target="_blank">
-            <img :src="withBase('assets/MPI_BGC_wide_E_green_cmyk.png')" alt="MPI-BGC-light-mode" />
+            <img :src="withBase('MPI_BGC_wide_E_green_cmyk.png')" alt="MPI-BGC-light-mode" />
           </a>
           <a href="https://www.bgc-jena.mpg.de/en/bgi/home" target="_blank">
-            <img :src="withBase('assets/MPI_BGC_wide_E_neg_cmyk.png')" alt="MPI-BGC-dark-mode" />
+            <img :src="withBase('MPI_BGC_wide_E_neg_cmyk.png')" alt="MPI-BGC-dark-mode" />
           </a>
         </div>
       </div>
