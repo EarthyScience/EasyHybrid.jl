@@ -94,7 +94,7 @@ function InputBatchNorm(chs::Int; kwargs...)
     return InputBatchNorm(BatchNorm(chs; kwargs...))
 end
 
-function (m::InputBatchNorm)(x::AbstractArray{T, 3}, ps, st) where T
+function (m::InputBatchNorm)(x::AbstractArray{T, 3}, ps, st) where {T}
     feat, time, batch = size(x)
     y_2d, st_new = LuxCore.apply(m.layer, reshape(x, feat, time * batch), ps, st)
     return reshape(y_2d, feat, time, batch), st_new

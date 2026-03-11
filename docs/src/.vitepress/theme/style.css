@@ -239,3 +239,31 @@ mjx-container svg path {
 .highlight-link {
   color: var(--vp-c-brand-1);
 }
+
+@media (max-width: 960px) {
+  .VPDoc {
+    padding-bottom: 0 !important;
+  }
+}
+
+/* Light mode: show light logo, hide dark logo */
+.logo-row img[alt="MPI-BGC-dark-mode"] {
+  display: none;
+}
+
+/* Dark mode: show dark logo, hide light logo */
+.dark .logo-row img[alt="MPI-BGC-light-mode"] {
+  display: none;
+}
+.dark .logo-row img[alt="MPI-BGC-dark-mode"] {
+  display: block;
+}
+
+.logo-row a {
+  display: inline-flex;
+  transition: transform 0.2s ease;
+}
+
+.logo-row a:hover {
+  transform: scale(1.07);
+}
