@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Added a custom features+code sections in index.md [#248](https://github.com/EarthyScience/EasyHybrid.jl/pull/248)
 - Added a custom footer section [#247](https://github.com/EarthyScience/EasyHybrid.jl/pull/247)
 
 ## v0.1.9 - 2026-03-08
