@@ -60,7 +60,7 @@
 [codecov-url]: https://codecov.io/gh/EarthyScience/EasyHybrid.jl
 
 
-<img src="docs/src/assets/logo.png" align="right" width="200" style="padding-left:10px;"/>
+<img src="docs/src/public/logo.png" align="right" width="200" style="padding-left:10px;"/>
 
 > [!CAUTION]
 > Work in progress
