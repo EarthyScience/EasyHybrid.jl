@@ -1,3 +1,19 @@
+export train, TrainResults
+# beneficial for plotting based on type TrainResults?
+struct TrainResults
+    train_history
+    val_history
+    ps_history
+    train_obs_pred
+    val_obs_pred
+    train_diffs
+    val_diffs
+    ps
+    st
+    best_epoch
+    best_loss
+end
+
 function train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::DataConfig = DataConfig())
     validate_config(train_cfg)
     ext = load_makie_extension(train_cfg)

@@ -54,5 +54,5 @@ function compute_initial_state(model, x_train, y_train, x_val, y_val, ps, st, cf
 
     @info "Initial train loss: $(l_train) | val loss: $(l_val)"
 
-    return EpochSnapshot(l_train, l_val, ŷ_train, ŷ_val, is_no_nan_t, is_no_nan_v)
+    return EpochSnapshot(l_train, l_val, ŷ_train, ŷ_val, y_train, y_val, is_no_nan_t, is_no_nan_v)
 end

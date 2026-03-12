@@ -59,12 +59,12 @@ end
 
 abstract type EasyHybridModels end
 
+include("config/config.jl")
 include("utils/utils.jl")
-include("io/io.jl")
 include("models/models.jl")
 include("data/data.jl")
 include("losses/losses.jl")
 include("training/training.jl")
-include("config/config.jl")
+include("io/io.jl")
 
 end
