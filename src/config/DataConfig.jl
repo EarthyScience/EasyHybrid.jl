@@ -7,5 +7,7 @@
     val_fold = nothing
     # sequence-related
     sequence_length::Union{Int, Nothing} = nothing
-    sequence_stride::Int = 1
+    sequence_output_window::Int = 1
+    sequence_output_shift::Int = 1
+    sequence_lead_time::Int = 1
 end

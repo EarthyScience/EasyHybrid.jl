@@ -44,5 +44,5 @@ function evaluate_epoch(model, x_train, y_train, x_val, y_val, ps, st, init::Epo
         ps, st, cfg.loss_types, cfg.training_loss, cfg.extra_loss, cfg.agg
     )
 
-    return EpochSnapshot(l_train, l_val, ŷ_train, ŷ_val, init.is_no_nan_t, init.is_no_nan_v)
-end
+    return EpochSnapshot(l_train, l_val, ŷ_train, ŷ_val, y_train, y_val, init.is_no_nan_t, init.is_no_nan_v)
+end                                                           # ↑ y_train, y_val now included

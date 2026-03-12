@@ -31,3 +31,6 @@ function get_full_config(hm::LuxCore.AbstractLuxContainerLayer, train_args::Name
     full_config["train_args"] = get_train_config(train_args)
     return full_config
 end
+
+to_namedtuple(cfg::TrainConfig) = NamedTuple{fieldnames(TrainConfig)}(getfield(cfg, f) for f in fieldnames(TrainConfig))
+get_full_config(model, cfg::TrainConfig) = get_full_config(model, to_namedtuple(cfg))

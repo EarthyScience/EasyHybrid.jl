@@ -30,7 +30,7 @@ function train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::Da
     prog = build_progress(train_cfg)
     dashboard = init_dashboard(ext, init, train_cfg)
 
-    save_initial_state!(paths, model, ps, st)
+    save_initial_state!(paths, model, ps, st, train_cfg)
 
     record_or_run(ext, paths, train_cfg) do io
         for epoch in 1:train_cfg.nepochs
@@ -39,7 +39,7 @@ function train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::Da
 
             update!(history, snapshot)
             update!(stopper, snapshot, ps, st, epoch, train_cfg)
-            save_epoch!(paths, model, ps, st, snapshot, epoch)
+            save_epoch!(paths, model, ps, st, snapshot, epoch, train_cfg)
             update_dashboard!(dashboard, ext, snapshot, epoch, io)
             log_progress!(prog, init, snapshot, epoch, train_cfg)
 
@@ -78,36 +78,32 @@ function kwargs_to_configs(save_ps, kwargs)
     train_keys = fieldnames(TrainConfig)
     data_keys = fieldnames(DataConfig)
 
-    # rename old kwargs to new names before sorting
     kwargs = rename_deprecated_kwargs(kwargs)
 
-    train_kwargs = filter(((k, v),) -> k in train_keys, kwargs)
-    data_kwargs = filter(((k, v),) -> k in data_keys, kwargs)
+    train_kwargs = NamedTuple(k => kwargs[k] for k in keys(kwargs) if k in train_keys)
+    data_kwargs = NamedTuple(k => kwargs[k] for k in keys(kwargs) if k in data_keys)
 
-    unknown = filter(((k, v),) -> k ∉ train_keys && k ∉ data_keys, kwargs)
+    unknown = [k for k in keys(kwargs) if k ∉ train_keys && k ∉ data_keys]
     if !isempty(unknown)
-        @warn "Unknown kwargs will be ignored: $(join(keys(unknown), ", "))"
+        @warn "Unknown kwargs will be ignored: $(join(unknown, ", "))"
     end
 
-    # fold save_ps into tracked_params if provided
-    train_kwargs = if !isempty(save_ps)
+    if !isempty(save_ps)
         @warn "`save_ps` is deprecated, use `TrainConfig(tracked_params=(...))` instead."
-        merge(train_kwargs, (; tracked_params = save_ps))
-    else
-        train_kwargs
+        train_kwargs = merge(train_kwargs, (; tracked_params = save_ps))
     end
 
     return TrainConfig(; train_kwargs...), DataConfig(; data_kwargs...)
 end
 
-const DEPRECATED_KWARG_NAMES = (
+const DEPRECATED_KWARG_NAMES = Dict(
     :hybrid_name => :model_name,
     :folder_to_save => :output_folder,
 )
 
 function rename_deprecated_kwargs(kwargs)
-    renamed = map(kwargs) do (k, v)
-        if k in keys(DEPRECATED_KWARG_NAMES)
+    pairs = map(keys(kwargs), values(kwargs)) do k, v
+        if haskey(DEPRECATED_KWARG_NAMES, k)
             new_k = DEPRECATED_KWARG_NAMES[k]
             @warn "kwarg `$k` has been renamed to `$new_k`."
             new_k => v
@@ -115,5 +111,53 @@ function rename_deprecated_kwargs(kwargs)
             k => v
         end
     end
-    return renamed
+    return NamedTuple(pairs)
+end
+
+function evaluate_acc(ghm, x, y, y_no_nan, ps, st, loss_types, training_loss, extra_loss, agg)
+    loss_val, sts, ŷ = compute_loss(ghm, ps, st, (x, (y, y_no_nan)), logging = LoggingLoss(train_mode = false, loss_types = loss_types, training_loss = training_loss, extra_loss = extra_loss, agg = agg))
+    return loss_val, sts, ŷ
+end
+
+function styled_values(nt; digits = 5, color = nothing, paddings = nothing)
+    formatted = [
+        begin
+                value_str = @sprintf("%.*f", digits, v)
+                padded = isnothing(paddings) ? value_str : rpad(value_str, paddings[i])
+                isnothing(color) ? padded : styled"{$color:$padded}"
+            end
+            for (i, v) in enumerate(values(nt))
+    ]
+    return join(formatted, "  ")
+end
+
+function header_and_paddings(nt; digits = 5)
+    min_val_width = digits + 2  # 1 for "0", 1 for ".", rest for digits
+    paddings = map(k -> max(length(string(k)), min_val_width), keys(nt))
+    headers = [rpad(string(k), w) for (k, w) in zip(keys(nt), paddings)]
+    return headers, paddings
+end
+
+function get_ps_st(train_from::TrainResults)
+    return train_from.ps, train_from.st
+end
+
+function get_ps_st(train_from::Tuple)
+    return train_from
+end
+
+function WrappedTuples(vec::Vector{EpochSnapshot})
+    nt_vec = map(
+        s -> (;
+            l_train = s.l_train,
+            l_val = s.l_val,
+            ŷ_train = s.ŷ_train,
+            ŷ_val = s.ŷ_val,
+            y_train = s.y_train,
+            y_val = s.y_val,
+            is_no_nan_t = s.is_no_nan_t,
+            is_no_nan_v = s.is_no_nan_v,
+        ), vec
+    )
+    return WrappedTuples(nt_vec)
 end
