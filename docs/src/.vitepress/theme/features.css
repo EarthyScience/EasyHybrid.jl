@@ -1,0 +1,101 @@
+/* ── Feature showcase - alternating rows ── */
+.feature-showcase {
+  margin: 32px 0 48px;
+}
+
+.feature-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 32px;
+  align-items: center;
+  margin-bottom: 48px;
+}
+
+/* Use flex order instead of direction: rtl for safer reversal */
+.feature-row-reverse .feature-text {
+  order: 2;
+}
+
+.feature-row-reverse .feature-code {
+  order: 1;
+}
+
+.feature-text h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.feature-text p {
+  font-size: 17px;
+  line-height: 1.7;
+  /* Use a theme color token instead of opacity for proper dark mode support */
+  color: var(--vp-c-text-2);
+  margin: 0 0 16px 0;
+}
+
+.feature-links {
+  display: flex;
+  flex-wrap: wrap; /* Prevent overflow on small screens */
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.feature-links a {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--vp-c-brand-1);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.feature-links a:hover {
+  color: var(--vp-c-brand-2);
+  text-decoration: underline;
+}
+
+.feature-code div[class*='language-'] {
+  margin: 0;
+}
+
+/* Tablet: 768px–1023px */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .feature-row {
+    gap: 24px;
+  }
+
+  .feature-text h3 {
+    font-size: 16px;
+  }
+
+  .feature-text p {
+    font-size: 16px;
+  }
+
+  .feature-links a {
+    font-size: 14px;
+  }
+}
+
+/* Mobile: below 768px */
+@media (max-width: 767px) {
+  .feature-text h3 {
+    font-size: 16px;
+  }
+
+  .feature-text p {
+    font-size: 16px;
+  }
+
+  .feature-links a {
+    font-size: 14px;
+  }
+
+  /* Reset order so content stacks naturally on mobile */
+  .feature-row-reverse .feature-text,
+  .feature-row-reverse .feature-code {
+    order: unset;
+  }
+}
