@@ -24,6 +24,7 @@ import { enhanceAppWithTabs } from 'vitepress-plugin-tabs/client'
 import '@nolebase/vitepress-plugin-enhanced-readabilities/client/style.css'
 import './style.css'
 import './docstrings.css'
+import './features.css'
 
 export const Theme: ThemeConfig = {
   extends: DefaultTheme,
