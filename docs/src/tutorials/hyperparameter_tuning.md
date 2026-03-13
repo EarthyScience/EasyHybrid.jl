@@ -163,7 +163,8 @@ ho = @hyperopt for i=nhyper,
         nepochs = 10, 
         plotting = false, 
         show_progress = false, 
-        file_name = "test$i.jld2"
+        file_name = "test$i.jld2",
+        model_name = "model_$(i)"
     )
     
     out.best_loss

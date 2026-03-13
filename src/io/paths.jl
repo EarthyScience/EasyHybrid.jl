@@ -5,10 +5,10 @@ function resolve_paths(cfg::TrainConfig)
     @info "Training outputs will be saved to: $folder"
 
     return TrainingPaths(
-        joinpath(folder, "trained_model$(suffix).jld2"),
-        joinpath(folder, "best_model$(suffix).jld2"),
-        joinpath(folder, "config_settings.yaml"),
-        joinpath(folder, "train_history$(suffix).png"),
-        joinpath(folder, "training_history$(suffix).mp4"),
+        joinpath(folder, "trained_model_$(suffix).jld2"),
+        joinpath(folder, "best_model_$(suffix).jld2"),
+        joinpath(folder, "config_settings_$(suffix).yaml"),
+        joinpath(folder, "train_history_$(suffix).png"),
+        joinpath(folder, "training_history_$(suffix).mp4"),
     )
 end

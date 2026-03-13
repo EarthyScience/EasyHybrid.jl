@@ -106,7 +106,8 @@ single_nn_out = train(
     shuffleobs = true,
     loss_types = [:mse, :nse],
     show_progress = false,
-    extra_loss = extra_loss
+    extra_loss = extra_loss,
+    model_name="RbQ10_synthetic1"
 )
 
 # ### train on KeyedArray
@@ -121,7 +122,8 @@ single_nn_out = train(
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
     yscale = identity,       # Scaling for outputs
     show_progress = false,
-    shuffleobs = true
+    shuffleobs = true,
+    model_name="RbQ10_synthetic2"
 )
 
 # ### train on DimensionalData
@@ -136,7 +138,8 @@ single_nn_out = train(
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
     yscale = identity,       # Scaling for outputs
     show_progress = false,
-    shuffleobs = true
+    shuffleobs = true,
+    model_name="RbQ10_synthetic3"
 )
 
 LuxCore.testmode(single_nn_out.st)
@@ -170,7 +173,8 @@ multi_nn_out = train(
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
     yscale = identity,       # Scaling for outputs
     show_progress = false,
-    shuffleobs = true
+    shuffleobs = true,
+    model_name="RbQ10_synthetic4"
 )
 
 LuxCore.testmode(multi_nn_out.st)

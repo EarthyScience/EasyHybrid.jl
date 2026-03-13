@@ -6,8 +6,10 @@
     folds = nothing
     val_fold = nothing
     # sequence-related
+    sequence_kwargs::NamedTuple = (;)
     sequence_length::Union{Int, Nothing} = nothing
     sequence_output_window::Int = 1
     sequence_output_shift::Int = 1
     sequence_lead_time::Int = 1
+    input_batchnorm::Bool = false
 end

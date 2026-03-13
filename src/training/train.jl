@@ -28,7 +28,7 @@ function train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::Da
     stopper = EarlyStopping(init.l_val, ps, st, train_cfg.patience)
     paths = resolve_paths(train_cfg)
     prog = build_progress(train_cfg)
-    dashboard = init_dashboard(ext, init, train_cfg)
+    dashboard = init_dashboard(ext, init, train_cfg, model.targets)
 
     save_initial_state!(paths, model, ps, st, train_cfg)
 
@@ -74,14 +74,38 @@ function train(model, data, save_ps; kwargs...)
     return train(model, data; train_cfg, data_cfg)
 end
 
+function expand_sequence_kwargs(kwargs)
+    haskey(kwargs, :sequence_kwargs) || return kwargs
+
+    seq_kw = kwargs[:sequence_kwargs]
+    @warn "`sequence_kwargs` is deprecated, pass sequence options directly via `DataConfig` instead."
+
+    # map old sequence_kwargs keys to new DataConfig field names
+    key_map = Dict(
+        :input_window  => :sequence_length,
+        :output_window => :sequence_output_window,
+        :output_shift  => :sequence_output_shift,
+        :lead_time     => :sequence_lead_time,
+    )
+
+    expanded = NamedTuple(
+        get(key_map, k, k) => v for (k, v) in pairs(seq_kw)
+    )
+
+    # drop sequence_kwargs, merge expanded fields
+    remaining = NamedTuple(k => kwargs[k] for k in keys(kwargs) if k !== :sequence_kwargs)
+    return merge(remaining, expanded)
+end
+
 function kwargs_to_configs(save_ps, kwargs)
     train_keys = fieldnames(TrainConfig)
-    data_keys = fieldnames(DataConfig)
+    data_keys  = fieldnames(DataConfig)
 
     kwargs = rename_deprecated_kwargs(kwargs)
+    kwargs = expand_sequence_kwargs(kwargs)       # ← unpack sequence_kwargs if present
 
     train_kwargs = NamedTuple(k => kwargs[k] for k in keys(kwargs) if k in train_keys)
-    data_kwargs = NamedTuple(k => kwargs[k] for k in keys(kwargs) if k in data_keys)
+    data_kwargs  = NamedTuple(k => kwargs[k] for k in keys(kwargs) if k in data_keys)
 
     unknown = [k for k in keys(kwargs) if k ∉ train_keys && k ∉ data_keys]
     if !isempty(unknown)
