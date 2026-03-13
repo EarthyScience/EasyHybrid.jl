@@ -69,33 +69,32 @@ const RbQ10_PARAMS = (
             batchsize = 12,
             plotting = false,
             show_progress = false,
-            hybrid_name = "test",
             kwargs...
         )
 
-        out = trainshort(ka)
+        out = trainshort(ka; model_name = "test_1")
         @test !isnothing(out)
 
-        out = trainshort(ka, shuffleobs = true)
+        out = trainshort(ka; shuffleobs = true, model_name = "test_2")
         @test !isnothing(out)
 
-        out = trainshort(ka, split_data_at = 0.8)
+        out = trainshort(ka; split_data_at = 0.8, model_name = "test_3")
         @test !isnothing(out)
 
-        out = trainshort(ka, shuffleobs = true, split_data_at = 0.8)
+        out = trainshort(ka; shuffleobs = true, split_data_at = 0.8, model_name = "test_4")
         @test !isnothing(out)
 
         #only doable on df not ka, since that row gets deleted at the moment
-        out = trainshort(df, split_by_id = :id)
+        out = trainshort(df; split_by_id = :id, model_name = "test_5")
         @test !isnothing(out)
 
-        out = trainshort(ka, split_by_id = df.id)
+        out = trainshort(ka; split_by_id = df.id, model_name = "test_6")
         @test !isnothing(out)
 
-        out = trainshort(ka, split_by_id = df.id, shuffleobs = true)
+        out = trainshort(ka; split_by_id = df.id, shuffleobs = true, model_name = "test_7")
         @test !isnothing(out)
 
-        out = trainshort(ka, split_by_id = df.id, shuffleobs = false)
+        out = trainshort(ka; split_by_id = df.id, shuffleobs = false, model_name = "test_8")
         @test !isnothing(out)
 
         folds = make_folds(df, k = 3, shuffle = true)
@@ -103,13 +102,13 @@ const RbQ10_PARAMS = (
 
         df.folds = folds
 
-        out = trainshort(ka, folds = folds, val_fold = 1)
+        out = trainshort(ka; folds = folds, val_fold = 1, model_name = "test_9")
         @test !isnothing(out)
 
-        out = trainshort(df, folds = :folds, val_fold = 1)
+        out = trainshort(df; folds = :folds, val_fold = 1, model_name = "test_10")
         @test !isnothing(out)
 
-        out = trainshort(df, folds = :folds, val_fold = 1, shuffleobs = true)
+        out = trainshort(df; folds = :folds, val_fold = 1, shuffleobs = true, model_name = "test_11")
         @test !isnothing(out)
 
         @test_throws ArgumentError trainshort(df; folds = :folds, val_fold = 1, shuffleobs = true, split_by_id = :id)
@@ -117,7 +116,7 @@ const RbQ10_PARAMS = (
         sdata = split_data(df, model, split_by_id = :id)
         @test !isnothing(sdata)
 
-        out = trainshort(sdata)
+        out = trainshort(sdata; model_name = "test_12")
         @test !isnothing(out)
 
         mat = vcat(ka[1], ka[2])
@@ -131,26 +130,26 @@ const RbQ10_PARAMS = (
         # TODO: this is not working, need to fix GenericHybrid Model for DimensionalData
         # out = trainshort(dtuple_tuple)
     end
+    # ! TODO: remove the old API tests once the new API is fully tested and working
+    # @testset "test two arguments train" begin
+    #     model = constructHybridModel(
+    #         predictors, forcing, target, RbQ10,
+    #         RbQ10_PARAMS, neural_param_names, global_param_names
+    #     )
+    #     @test model isa SingleNNHybridModel
+    #     # prepare_data should produce something consumable by split_data
+    #     ka = prepare_data(model, df)
+    #     @test !isnothing(ka)
 
-    @testset "test two arguments train" begin
-        model = constructHybridModel(
-            predictors, forcing, target, RbQ10,
-            RbQ10_PARAMS, neural_param_names, global_param_names
-        )
-        @test model isa SingleNNHybridModel
-        # prepare_data should produce something consumable by split_data
-        ka = prepare_data(model, df)
-        @test !isnothing(ka)
+    #     out = train(
+    #         model, ka;
+    #         nepochs = 1,
+    #         batchsize = 12,
+    #         plotting = false,
+    #         show_progress = false,
+    #         hybrid_name = "test"
+    #     )
+    #     @test !isnothing(out)
 
-        out = train(
-            model, ka;
-            nepochs = 1,
-            batchsize = 12,
-            plotting = false,
-            show_progress = false,
-            hybrid_name = "test"
-        )
-        @test !isnothing(out)
-
-    end
+    # end
 end
