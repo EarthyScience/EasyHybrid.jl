@@ -3,12 +3,12 @@ export prepare_splits, maybe_build_sequences
 function prepare_splits(data, model, cfg::DataConfig)
     (x_train, y_train), (x_val, y_val) = split_data(
         data, model;
-        array_type    = cfg.array_type,
-        shuffleobs    = cfg.shuffleobs,
-        split_by_id   = cfg.split_by_id,
+        array_type = cfg.array_type,
+        shuffleobs = cfg.shuffleobs,
+        split_by_id = cfg.split_by_id,
         split_data_at = cfg.split_data_at,
-        folds         = cfg.folds,
-        val_fold      = cfg.val_fold,
+        folds = cfg.folds,
+        val_fold = cfg.val_fold,
         # pass sequence options through if set
         sequence_kwargs = maybe_build_sequence_kwargs(cfg),
     )
@@ -22,9 +22,9 @@ end
 function maybe_build_sequence_kwargs(cfg::DataConfig)
     isnothing(cfg.sequence_length) && return nothing
     return (;
-        input_window  = cfg.sequence_length,
+        input_window = cfg.sequence_length,
         output_window = cfg.sequence_output_window,
-        output_shift  = cfg.sequence_output_shift,
-        lead_time     = cfg.sequence_lead_time,
+        output_shift = cfg.sequence_output_shift,
+        lead_time = cfg.sequence_lead_time,
     )
 end

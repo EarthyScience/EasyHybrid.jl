@@ -82,10 +82,10 @@ function expand_sequence_kwargs(kwargs)
 
     # map old sequence_kwargs keys to new DataConfig field names
     key_map = Dict(
-        :input_window  => :sequence_length,
+        :input_window => :sequence_length,
         :output_window => :sequence_output_window,
-        :output_shift  => :sequence_output_shift,
-        :lead_time     => :sequence_lead_time,
+        :output_shift => :sequence_output_shift,
+        :lead_time => :sequence_lead_time,
     )
 
     expanded = NamedTuple(
@@ -99,13 +99,13 @@ end
 
 function kwargs_to_configs(save_ps, kwargs)
     train_keys = fieldnames(TrainConfig)
-    data_keys  = fieldnames(DataConfig)
+    data_keys = fieldnames(DataConfig)
 
     kwargs = rename_deprecated_kwargs(kwargs)
     kwargs = expand_sequence_kwargs(kwargs)       # ← unpack sequence_kwargs if present
 
     train_kwargs = NamedTuple(k => kwargs[k] for k in keys(kwargs) if k in train_keys)
-    data_kwargs  = NamedTuple(k => kwargs[k] for k in keys(kwargs) if k in data_keys)
+    data_kwargs = NamedTuple(k => kwargs[k] for k in keys(kwargs) if k in data_keys)
 
     unknown = [k for k in keys(kwargs) if k ∉ train_keys && k ∉ data_keys]
     if !isempty(unknown)

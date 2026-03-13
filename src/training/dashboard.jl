@@ -72,7 +72,7 @@ function save_dashboard_img!(dashboard, ext, paths::TrainingPaths, best_epoch::I
 end
 
 function record_or_run(f, ext, paths::TrainingPaths, cfg::TrainConfig)
-    if !isnothing(ext)
+    return if !isnothing(ext)
         record_history(dashboard_figure(), paths.history_video; framerate = 24) do io
             f(io)
         end
