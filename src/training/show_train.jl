@@ -66,3 +66,24 @@ function Base.show(io::IO, ::MIME"text/plain", tr::TrainResults)
     end
     return
 end
+
+function log_progress!(prog::Progress, init::EpochSnapshot, snapshot::EpochSnapshot, epoch::Int, cfg::TrainConfig)
+    eval_metric = cfg.loss_types[1]
+    _headers, paddings = header_and_paddings(get_loss_entries(init.l_train, eval_metric))
+
+    return next!(
+        prog;
+        showvalues = [
+            ("epoch ", epoch),
+            ("targets ", join(_headers, "  ")),
+            (styled"{red:training-start} ", styled_values(get_loss_entries(init.l_train, eval_metric); paddings)),
+            (styled"{bright_red:current} ", styled_values(get_loss_entries(snapshot.l_train, eval_metric); color = :bright_red, paddings)),
+            (styled"{cyan:validation-start}", styled_values(get_loss_entries(init.l_val, eval_metric); paddings)),
+            (styled"{bright_cyan:current} ", styled_values(get_loss_entries(snapshot.l_val, eval_metric); color = :bright_cyan, paddings)),
+        ]
+    )
+end
+
+function build_progress(cfg::TrainConfig)
+    return Progress(cfg.nepochs; desc = "Training loss", enabled = cfg.show_progress)
+end

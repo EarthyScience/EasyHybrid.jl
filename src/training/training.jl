@@ -1,3 +1,8 @@
+include("initialization.jl")
+include("history.jl")
+include("epoch.jl")
+include("dashboard.jl")
+include("early_stopping.jl")
 include("train.jl")
 include("show_train.jl")
 include("tune.jl")
