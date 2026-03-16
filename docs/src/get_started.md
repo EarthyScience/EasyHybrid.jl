@@ -124,6 +124,7 @@ out = train(
     yscale = identity,           # Scaling for outputs
     patience = 30,               # Early stopping patience
     show_progress=false,
+    model_name="RbQ10"
 )
 ```
 

@@ -199,7 +199,8 @@ out_lstm = train(
     plotting = false,
     show_progress = false,
     input_batchnorm = false,
-    array_type = pref_array_type
+    array_type = pref_array_type,
+    model_name = "RbQ10_synthetic_lstm"
 );
 
 out_lstm.val_obs_pred
@@ -236,6 +237,7 @@ single_nn_out = train(
     array_type = :DimArray,
     plotting = false,
     show_progress = false,
+    model_name = "RbQ10_synthetic_single_nn"
 );
 
 # Close enough
