@@ -7,14 +7,14 @@ struct TrainDashboard
     monitor_names
 end
 
-function init_dashboard(ext, init::EpochSnapshot, cfg::TrainConfig, target_names)
+function init_dashboard(ext, init::EpochSnapshot, cfg::TrainConfig, y_train, y_val, target_names)
     isnothing(ext) && return nothing
 
     observables, fixed_observations = initialize_plotting_observables(
         init.ŷ_train,
         init.ŷ_val,
-        init.y_train,
-        init.y_val,
+        y_train,
+        y_val,
         init.l_train,
         init.l_val,
         cfg.loss_types[1],

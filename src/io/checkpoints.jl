@@ -14,7 +14,7 @@ end
 
 function save_final!(paths::TrainingPaths, model, ps, st, x_train, y_train, x_val, y_val, stopper::EarlyStopping, cfg::TrainConfig)
     target_names = model.targets
-    save_epoch = stopper.best_epoch == 0 ? 1 : stopper.best_epoch
+    save_epoch = stopper.best_epoch == 0 ? 0 : stopper.best_epoch
     save_ps_st!(paths.best_model, model, ps, st, cfg.tracked_params, save_epoch)
 
     ŷ_train, αst_train = model(x_train, ps, LuxCore.testmode(st))

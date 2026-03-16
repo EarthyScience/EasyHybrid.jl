@@ -36,8 +36,8 @@ end
 is_done(es::EarlyStopping) = es.done
 
 # helper — extracts the aggregated scalar from a loss NamedTuple
-function extract_agg_loss(l)
-    return getproperty(l[1], :sum)   # or pass agg as argument if not always sum
+function extract_agg_loss(l, agg::Union{Function, Symbol} = :sum)
+    return getproperty(l[1], Symbol(agg))
 end
 
 function best_or_final(stopper::EarlyStopping, ps, st, cfg::TrainConfig)
@@ -79,7 +79,7 @@ function build_results(model, history::TrainingHistory, stopper::EarlyStopping, 
     return TrainResults(
         WrappedTuples(train_losses(history)),
         WrappedTuples(val_losses(history)),
-        WrappedTuples(history.snapshots),   # was ps_history
+        WrappedTuples(history.snapshots),
         train_obs_pred,
         val_obs_pred,
         train_diffs,

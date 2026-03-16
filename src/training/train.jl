@@ -1,19 +1,40 @@
-export train, TrainResults
-# beneficial for plotting based on type TrainResults?
-struct TrainResults
-    train_history
-    val_history
-    ps_history
-    train_obs_pred
-    val_obs_pred
-    train_diffs
-    val_diffs
-    ps
-    st
-    best_epoch
-    best_loss
-end
+export train
 
+"""
+    train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::DataConfig = DataConfig())
+
+Train a hybrid model using the provided data.
+
+Returns `nothing` if data preparation fails (zero-size dimension in training or validation data).
+
+# Arguments
+- `model`: The hybrid model to train.
+- `data`: Training data, a single `DimArray`, a single `DataFrame`, a single `KeyedArray`, or a tuple of those.
+
+# Keyword Arguments
+- `train_cfg`: Training configuration. See [`TrainConfig`](@ref) for all options.
+- `data_cfg`: Data preparation configuration. See [`DataConfig`](@ref) for all options.
+
+# Returns
+A [`TrainResults`](@ref) with the following fields:
+- `train_losses`: Per-epoch training losses.
+- `val_losses`: Per-epoch validation losses.
+- `snapshots`: Model parameter snapshots taken during training.
+- `train_obs_pred`: Observed vs. predicted values on the training set.
+- `val_obs_pred`: Observed vs. predicted values on the validation set.
+- `train_diffs`: Additional diagnostic variables computed on the training set.
+- `val_diffs`: Additional diagnostic variables computed on the validation set.
+- `ps`: Final (or best) model parameters.
+- `st`: Final (or best) model state.
+- `best_epoch`: Epoch at which the best validation loss was achieved.
+- `best_loss`: Best validation loss recorded during training.
+
+# Example
+```julia
+cfg = TrainConfig(nepochs=100, batchsize=32)
+result = train(myModel, myData; train_cfg=cfg)
+```
+"""
 function train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::DataConfig = DataConfig())
     validate_config(train_cfg)
     ext = load_makie_extension(train_cfg)
@@ -28,7 +49,7 @@ function train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::Da
     stopper = EarlyStopping(init.l_val, ps, st, train_cfg.patience)
     paths = resolve_paths(train_cfg)
     prog = build_progress(train_cfg)
-    dashboard = init_dashboard(ext, init, train_cfg, model.targets)
+    dashboard = init_dashboard(ext, init, train_cfg, y_train, y_val, model.targets)
 
     save_initial_state!(paths, model, ps, st, train_cfg)
 
@@ -121,6 +142,7 @@ function kwargs_to_configs(save_ps, kwargs)
 end
 
 const DEPRECATED_KWARG_NAMES = Dict(
+    :file_name => :model_name,
     :hybrid_name => :model_name,
     :folder_to_save => :output_folder,
 )
@@ -177,10 +199,6 @@ function WrappedTuples(vec::Vector{EpochSnapshot})
             l_val = s.l_val,
             ŷ_train = s.ŷ_train,
             ŷ_val = s.ŷ_val,
-            y_train = s.y_train,
-            y_val = s.y_val,
-            is_no_nan_t = s.is_no_nan_t,
-            is_no_nan_v = s.is_no_nan_v,
         ), vec
     )
     return WrappedTuples(nt_vec)

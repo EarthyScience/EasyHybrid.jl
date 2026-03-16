@@ -1,7 +1,19 @@
+"""
+Paths to all output files produced during a training run.
+"""
 struct TrainingPaths
-    checkpoint::String      # main .jld2 file, updated every epoch
-    best_model::String      # best model .jld2, updated on improvement
-    config_yaml::String     # config snapshot
-    history_img::String     # final dashboard screenshot
-    history_video::String   # training animation .mp4
+    "Main `.jld2` checkpoint file, updated every epoch."
+    checkpoint::String
+
+    "Best model `.jld2` file, updated whenever validation loss improves."
+    best_model::String
+
+    "YAML snapshot of the training configuration."
+    config_yaml::String
+
+    "Final dashboard screenshot saved at the end of training."
+    history_img::String
+
+    "Training animation saved as an `.mp4` file."
+    history_video::String
 end

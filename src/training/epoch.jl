@@ -35,14 +35,17 @@ function build_loss_fn(model, cfg::TrainConfig)
 end
 
 function evaluate_epoch(model, x_train, y_train, x_val, y_val, ps, st, init::EpochSnapshot, cfg::TrainConfig)
+    is_no_nan_t = .!isnan.(y_train)
+    is_no_nan_v = .!isnan.(y_val)
+
     l_train, _, ŷ_train = evaluate_acc(
-        model, x_train, y_train, init.is_no_nan_t,
+        model, x_train, y_train, is_no_nan_t,
         ps, st, cfg.loss_types, cfg.training_loss, cfg.extra_loss, cfg.agg
     )
     l_val, _, ŷ_val = evaluate_acc(
-        model, x_val, y_val, init.is_no_nan_v,
+        model, x_val, y_val, is_no_nan_v,
         ps, st, cfg.loss_types, cfg.training_loss, cfg.extra_loss, cfg.agg
     )
 
-    return EpochSnapshot(l_train, l_val, ŷ_train, ŷ_val, y_train, y_val, init.is_no_nan_t, init.is_no_nan_v)
-end                                                           # ↑ y_train, y_val now included
+    return EpochSnapshot(l_train, l_val, ŷ_train, ŷ_val)
+end
