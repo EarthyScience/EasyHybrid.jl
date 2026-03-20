@@ -16,15 +16,15 @@ end
 
 function init_model_state(model, cfg::TrainConfig)
     if isnothing(cfg.train_from)
-        ps, st = LuxCore.setup(Random.default_rng(), model)
+        ps, st = LuxCore.setup(Random.default_rng(), model) |> cfg.gdev
     else
-        ps, st = get_ps_st(cfg.train_from)
+        ps, st = get_ps_st(cfg.train_from) |> cfg.gdev
     end
 
-    ps = ComponentArray(ps)
-    opt_state = Lux.Training.TrainState(model, ps, st, cfg.opt)
+    # ps = ComponentArray(ps)
+    train_state = Lux.Training.TrainState(model, ps, st, cfg.opt)
 
-    return ps, st, opt_state
+    return ps, st, train_state
 end
 
 struct EpochSnapshot

@@ -42,7 +42,7 @@ function train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::Da
 
     (x_train, y_train), (x_val, y_val) = prepare_splits(data, model, data_cfg)
     loader = build_loader(x_train, y_train, train_cfg)
-    ps, st, opt_state = init_model_state(model, train_cfg)
+    ps, st, train_state = init_model_state(model, train_cfg)
 
     init = compute_initial_state(model, x_train, y_train, x_val, y_val, ps, st, train_cfg)
     history = TrainingHistory(init)
@@ -55,7 +55,7 @@ function train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::Da
 
     record_or_run(ext, paths, train_cfg) do io
         for epoch in 1:train_cfg.nepochs
-            ps, st, opt_state = run_epoch!(loader, model, ps, st, opt_state, train_cfg)
+            ps, st, train_state = run_epoch!(loader, model, ps, st, train_state, train_cfg)
             snapshot = evaluate_epoch(model, x_train, y_train, x_val, y_val, ps, st, init, train_cfg)
 
             update!(stopper, history, snapshot, ps, st, epoch, train_cfg)
