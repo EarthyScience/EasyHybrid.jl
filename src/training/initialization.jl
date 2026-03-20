@@ -41,11 +41,11 @@ function compute_initial_state(model, x_train, y_train, x_val, y_val, ps, st, cf
 
     l_train, _, ŷ_train = evaluate_acc(
         model, x_train, y_train, is_no_nan_t,
-        ps, st, cfg.loss_types, cfg.training_loss, cfg.extra_loss, cfg.agg
+        cfg.cdev(ps), cfg.cdev(st), cfg.loss_types, cfg.training_loss, cfg.extra_loss, cfg.agg
     )
     l_val, _, ŷ_val = evaluate_acc(
         model, x_val, y_val, is_no_nan_v,
-        ps, st, cfg.loss_types, cfg.training_loss, cfg.extra_loss, cfg.agg
+        cfg.cdev(ps), cfg.cdev(st), cfg.loss_types, cfg.training_loss, cfg.extra_loss, cfg.agg
     )
 
     @debug "Initial train loss: $(l_train) | val loss: $(l_val)"

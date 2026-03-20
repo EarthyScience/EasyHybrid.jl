@@ -360,7 +360,7 @@ end
 
 # ───────────────────────────────────────────────────────────────────────────
 # Forward pass for SingleNNHybridModel (optimized, no branching)
-function (m::SingleNNHybridModel)(ds_k::Union{KeyedArray, AbstractDimArray}, ps, st)
+function (m::SingleNNHybridModel)(ds_k, ps, st)
     # 1) get features
     predictors = toArray(ds_k, m.predictors)
 
