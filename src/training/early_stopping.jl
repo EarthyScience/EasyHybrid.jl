@@ -4,13 +4,13 @@ mutable struct EarlyStopping
     best_st
     best_epoch::Int
     counter::Int
-    patience::Int
+    cfg
     done::Bool
 end
 
-function EarlyStopping(init_loss, ps, st, patience::Int)
+function EarlyStopping(init_loss, ps, st, cfg)
     best_loss = extract_agg_loss(init_loss)
-    return EarlyStopping(best_loss, deepcopy(ps), deepcopy(st), 0, 0, patience, false)
+    return EarlyStopping(best_loss, deepcopy(cfg.cdev(ps)), deepcopy(cfg.cdev(st)), 0, 0, cfg.patience, false)
 end
 
 function update!(es::EarlyStopping, snapshot::EpochSnapshot, ps, st, epoch, cfg::TrainConfig)
@@ -18,8 +18,8 @@ function update!(es::EarlyStopping, snapshot::EpochSnapshot, ps, st, epoch, cfg:
 
     if isbetter(current_loss, es.best_loss, first(cfg.loss_types))
         es.best_loss = current_loss
-        es.best_ps = deepcopy(ps)
-        es.best_st = deepcopy(st)
+        es.best_ps = deepcopy(cfg.cdev(ps))
+        es.best_st = deepcopy(cfg.cdev(st))
         es.best_epoch = epoch
         es.counter = 0
     else
