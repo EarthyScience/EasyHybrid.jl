@@ -2,7 +2,7 @@
 ---
 authors:
   - name: Bernhard Ahrens
-    avatar: https://raw.githubusercontent.com/EarthyScience/EasyHybrid.jl/72c2fa9df829d46d25df15352a4b728d2dbe94ed/docs/src/assets/Bernhard_Ahrens.png
+    avatar: ../Bernhard_Ahrens.png
     link: https://www.bgc-jena.mpg.de/en/bgi/miss
   - name: Lazaro Alonso
     avatar: https://avatars.githubusercontent.com/u/19525261?v=4
@@ -146,7 +146,8 @@ mspempty = ModelSpec()
 
 # Define hyperparameter search space
 nhyper = 4
-ho = @thyperopt for i=nhyper,
+# For actual parallel runs, change `@hyperopt` to `@thyperopt` below.
+ho = @hyperopt for i=nhyper,
     opt = [AdamW(0.01), AdamW(0.1), RMSProp(0.001), RMSProp(0.01)],
     input_batchnorm = [true, false]
     
@@ -162,7 +163,8 @@ ho = @thyperopt for i=nhyper,
         nepochs = 10, 
         plotting = false, 
         show_progress = false, 
-        file_name = "test$i.jld2"
+        file_name = "test$i.jld2",
+        model_name = "model_$(i)"
     )
     
     out.best_loss
@@ -217,4 +219,4 @@ When tuning your hybrid model, consider these important hyperparameters:
 
 ## More Examples
 
-Check out the `projects/` directory for additional examples and use cases. Each project demonstrates different aspects of hybrid modeling with EasyHybrid.
+Check out the [overview](./overview.md) page for additional examples and use cases. Each project demonstrates different aspects of hybrid modeling with EasyHybrid.

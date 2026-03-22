@@ -1,4 +1,4 @@
-export SingleNNModel, MultiNNModel, constructNNModel, prepare_hidden_chain
+export SingleNNModel, MultiNNModel, constructNNModel, prepare_hidden_chain, RecurrenceOutputDense, InputBatchNorm
 
 using Lux, LuxCore
 using ..EasyHybrid: hard_sigmoid
@@ -17,6 +17,94 @@ struct SingleNNModel <: LuxCore.AbstractLuxContainerLayer{
 end
 
 """
+    RecurrenceOutputDense(in_dims => out_dims, [activation])
+
+A layer that wraps a Dense layer to handle sequence outputs from Recurrence layers.
+
+When a Recurrence layer has `return_sequence=true`, it outputs a tuple/vector of arrays 
+(one per timestep). This layer broadcasts the Dense operation over each timestep and 
+reshapes the result to `(features, timesteps, batch)` format.
+
+# Arguments
+- `in_dims::Int`: Input dimension (should match Recurrence output dimension)
+- `out_dims::Int`: Output dimension
+- `activation`: Activation function (default: `identity`)
+
+# Example
+```julia
+# Instead of manually creating:
+broadcast_layer = @compact(; layer = Dense(15 => 15)) do x
+    y = map(layer, x)
+    @return permutedims(stack(y; dims = 3), (1, 3, 2))
+end
+
+# Simply use:
+Chain(
+    Recurrence(LSTMCell(15 => 15), return_sequence = true),
+    RecurrenceOutputDense(15 => 15)
+)
+```
+"""
+struct RecurrenceOutputDense{D <: Dense} <: LuxCore.AbstractLuxWrapperLayer{:layer}
+    layer::D
+end
+
+function RecurrenceOutputDense(mapping::Pair{Int, Int}, activation = identity)
+    return RecurrenceOutputDense(Dense(mapping.first, mapping.second, activation))
+end
+
+function RecurrenceOutputDense(in_dims::Int, out_dims::Int, activation = identity)
+    return RecurrenceOutputDense(Dense(in_dims, out_dims, activation))
+end
+
+# Handle tuple output from Recurrence (return_sequence = true)
+function (m::RecurrenceOutputDense)(x::NTuple{N, <:AbstractArray}, ps, st) where {N}
+    y = map(xi -> first(LuxCore.apply(m.layer, xi, ps, st)), x)
+    result = permutedims(stack(y; dims = 3), (1, 3, 2))
+    return result, st
+end
+
+# Handle vector output from Recurrence (return_sequence = true)
+function (m::RecurrenceOutputDense)(x::AbstractVector{<:AbstractArray}, ps, st)
+    y = map(xi -> first(LuxCore.apply(m.layer, xi, ps, st)), x)
+    result = permutedims(stack(y; dims = 3), (1, 3, 2))
+    return result, st
+end
+
+# Fallback for regular array input (non-sequence mode)
+function (m::RecurrenceOutputDense)(x::AbstractArray, ps, st)
+    return LuxCore.apply(m.layer, x, ps, st)
+end
+
+"""
+    InputBatchNorm(chs; kwargs...)
+
+A wrapper around `BatchNorm` that handles 3D sequence input `(features, timesteps, batch)`.
+
+Lux's `BatchNorm` expects channels in the penultimate dimension, which works for 2D input
+`(features, batch)` but fails for 3D input `(features, timesteps, batch)` where features
+are in dim 1. This wrapper reshapes 3D input to 2D `(features, timesteps * batch)` before
+normalization, then reshapes back. For 2D input, delegates directly to `BatchNorm`.
+"""
+struct InputBatchNorm{B <: BatchNorm} <: LuxCore.AbstractLuxWrapperLayer{:layer}
+    layer::B
+end
+
+function InputBatchNorm(chs::Int; kwargs...)
+    return InputBatchNorm(BatchNorm(chs; kwargs...))
+end
+
+function (m::InputBatchNorm)(x::AbstractArray{T, 3}, ps, st) where {T}
+    feat, time, batch = size(x)
+    y_2d, st_new = LuxCore.apply(m.layer, reshape(x, feat, time * batch), ps, st)
+    return reshape(y_2d, feat, time, batch), st_new
+end
+
+function (m::InputBatchNorm)(x::AbstractArray, ps, st)
+    return LuxCore.apply(m.layer, x, ps, st)
+end
+
+"""
     prepare_hidden_chain(hidden_layers, in_dim, out_dim; activation, input_batchnorm=false)
 
 Construct a neural network `Chain` for use in NN models.
@@ -26,6 +114,8 @@ Construct a neural network `Chain` for use in NN models.
     - If a `Vector{Int}`, specifies the sizes of each hidden layer. 
       For example, `[32, 16]` creates two hidden layers with 32 and 16 units, respectively.
     - If a `Chain`, the user provides a pre-built chain of hidden layers (excluding input/output layers).
+      If the chain ends with a `Recurrence` layer, a `RecurrenceOutputDense` layer is automatically
+      added to handle the sequence output format.
 - `in_dim::Int`: Number of input features (input dimension).
 - `out_dim::Int`: Number of output features (output dimension).
 - `activation`: Activation function to use in hidden layers (default: `tanh`).
@@ -36,9 +126,21 @@ Construct a neural network `Chain` for use in NN models.
     - Optional input batch normalization (if `input_batchnorm=true`)
     - Input layer: `Dense(in_dim, h₁, activation)` where `h₁` is the first hidden size
     - Hidden layers: either user-supplied `Chain` or constructed from `hidden_layers`
+    - If last hidden layer is a `Recurrence`, a `RecurrenceOutputDense` is added to handle sequence output
     - Output layer: `Dense(hₖ, out_dim)` where `hₖ` is the last hidden size
 
 where `h₁` is the first hidden size and `hₖ` the last.
+
+# Example with Recurrence (LSTM)
+```julia
+# User only needs to define:
+NN_Memory = Chain(
+    Recurrence(LSTMCell(15 => 15), return_sequence = true),
+)
+
+# The function automatically adds the RecurrenceOutputDense layer to handle sequence output
+model = constructHybridModel(..., hidden_layers = NN_Memory, ...)
+```
 """
 function prepare_hidden_chain(
         hidden_layers::Union{Vector{Int}, Chain},
@@ -49,26 +151,81 @@ function prepare_hidden_chain(
     )
     if hidden_layers isa Chain
         # user gave a chain of hidden layers only
-        first_h = hidden_layers[1].out_dims
-        last_h = hidden_layers[end].out_dims
 
-        return Chain(
-            input_batchnorm ? BatchNorm(in_dim, affine = false) : identity,
-            Dense(in_dim, first_h, activation),
-            hidden_layers.layers...,
-            Dense(last_h, out_dim)
-        )
+        # Helper to safely extract dimensions from layers
+        function get_layer_dim(l, type)
+            if type == :input
+                hasproperty(l, :in_dims) && return l.in_dims
+                (l isa BatchNorm && hasproperty(l, :dims)) && return l.dims
+                (l isa Recurrence && hasproperty(l.cell, :in_dims)) && return l.cell.in_dims
+                (l isa CompactLuxLayer && hasproperty(l.layers, :in_dims)) && return l.layers.in_dims
+            elseif type == :output
+                hasproperty(l, :out_dims) && return l.out_dims
+                (l isa BatchNorm && hasproperty(l, :dims)) && return l.dims
+                (l isa Recurrence && hasproperty(l.cell, :out_dims)) && return l.cell.out_dims
+                (l isa CompactLuxLayer && hasproperty(l.layers, :out_dims)) && return l.layers.out_dims
+            end
+            return nothing
+        end
+
+        # Check if last layer is a Recurrence layer (needs special handling for sequence output)
+        # In this framework, we ALWAYS assume return_sequence=true for Recurrence layers
+        # (this is the EasyHybrid convention, regardless of Lux's default)
+        function is_sequence_recurrence(layer)
+            return layer isa Recurrence
+        end
+
+        last_layer = hidden_layers.layers[end]
+        ends_with_sequence_recurrence = is_sequence_recurrence(last_layer)
+
+        # Determine first_h by searching forward
+        first_h = nothing
+        for i in 1:length(hidden_layers)
+            d = get_layer_dim(hidden_layers[i], :input)
+            if !isnothing(d)
+                first_h = d
+                break
+            end
+        end
+        isnothing(first_h) && error("Could not determine input dimension of hidden_layers Chain.")
+
+        # Determine last_h by searching backward
+        last_h = nothing
+        for i in length(hidden_layers):-1:1
+            d = get_layer_dim(hidden_layers[i], :output)
+            if !isnothing(d)
+                last_h = d
+                break
+            end
+        end
+        isnothing(last_h) && error("Could not determine output dimension of hidden_layers Chain.")
+
+        if ends_with_sequence_recurrence
+            # Chain ends with Recurrence layer (return_sequence=true) - add RecurrenceOutputDense to handle sequence output
+            return Chain(
+                input_batchnorm ? InputBatchNorm(in_dim, affine = false) : identity,
+                Dense(in_dim, first_h, activation),
+                hidden_layers.layers...,
+                RecurrenceOutputDense(last_h => last_h, activation),
+                Dense(last_h, out_dim)
+            )
+        else
+            return Chain(
+                input_batchnorm ? InputBatchNorm(in_dim, affine = false) : identity,
+                Dense(in_dim, first_h, activation),
+                hidden_layers.layers...,
+                Dense(last_h, out_dim)
+            )
+        end
     else
         # user gave a vector of hidden‐layer sizes
         hs = hidden_layers
-        # build the hidden‐to‐hidden part
-        hidden_chain = length(hs) > 1 ?
-            Chain((Dense(hs[i], hs[i + 1], activation) for i in 1:(length(hs) - 1))...) :
-            Chain()
+        isempty(hs) && return Chain()
+        in_dim == 0 && return Chain()
         return Chain(
-            input_batchnorm ? BatchNorm(in_dim, affine = false) : identity,
+            input_batchnorm ? InputBatchNorm(in_dim, affine = false) : identity,
             Dense(in_dim, hs[1], activation),
-            hidden_chain.layers...,
+            (Dense(hs[i], hs[i + 1], activation) for i in 1:(length(hs) - 1))...,
             Dense(hs[end], out_dim)
         )
     end
@@ -236,3 +393,26 @@ function Base.show(io::IO, ::MIME"text/plain", m::MultiNNModel)
     end
     return println("scale NN outputs: ", m.scale_nn_outputs)
 end
+
+struct BroadcastLayer{T <: NamedTuple} <: LuxCore.AbstractLuxContainerLayer{(:layers,)}
+    layers::T
+end
+
+function BroadcastLayer(layers...)
+    for l in layers
+        if !iszero(LuxCore.statelength(l))
+            throw(ArgumentError("Stateful layer `$l` are not supported for `BroadcastLayer`."))
+        end
+    end
+    names = ntuple(i -> Symbol("layer_$i"), length(layers))
+    return BroadcastLayer(NamedTuple{names}(layers))
+end
+
+BroadcastLayer(; kwargs...) = BroadcastLayer(connection, (; kwargs...))
+
+function (m::BroadcastLayer)(x, ps, st::NamedTuple{names}) where {names}
+    results = (first ∘ Lux.apply).(values(m.layers), x, values(ps), values(st))
+    return results, st
+end
+
+Base.keys(m::BroadcastLayer) = Base.keys(getfield(m, :layers))

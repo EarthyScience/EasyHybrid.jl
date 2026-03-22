@@ -84,9 +84,31 @@ Returns a single loss value if `loss_spec` is provided, or a NamedTuple of losse
 """
 function _compute_loss end
 
+# Wrapper for time-based subsetting - dispatches on array type for differentiability
+_select_time(ŷ_t::KeyedArray, time_keys) = ŷ_t(time = time_keys)  # KeyedArray: () syntax - view & differentiable
+_select_time(ŷ_t::AbstractDimArray, time_keys) = ŷ_t[time = At(time_keys)]  # DimArray: [] syntax - copy & differentiable
+
+
+# For 2D y_t (from 3D y): needs time subsetting
+# y_t has dims (time, batch_size), ŷ[target] has (time=input_window, batch_size)
+# We subset ŷ to match y_t's time dimension (output_window)
+_get_target_ŷ(ŷ, y_t::Union{KeyedArray{T, 2}, AbstractDimArray{T, 2}}, target) where {T} =
+    _select_time(ŷ[target], axiskeys(y_t, :time))
+
+# For 1D y_t (from 2D y): no time subsetting needed
+_get_target_ŷ(ŷ, y_t::Union{KeyedArray{T, 1}, AbstractDimArray{T, 1}}, target) where {T} =
+    ŷ[target]
+
+_get_target_ŷ(ŷ, y_t, target) =
+    ŷ[target]
+
 function assemble_loss(ŷ, y, y_nan, targets, loss_spec)
     return [
-        _apply_loss(ŷ[target], _get_target_y(y, target), _get_target_nan(y_nan, target), loss_spec)
+        begin
+                y_t = _get_target_y(y, target)
+                ŷ_t = _get_target_ŷ(ŷ, y_t, target)
+                _apply_loss(ŷ_t, y_t, _get_target_nan(y_nan, target), loss_spec)
+            end
             for target in targets
     ]
 end
@@ -94,13 +116,18 @@ end
 function assemble_loss(ŷ, y, y_nan, targets, loss_spec::PerTarget)
     @assert length(targets) == length(loss_spec.losses) "Length of targets and PerTarget losses tuple must match"
     losses = [
-        _apply_loss(
-                ŷ,
-                _get_target_y(y, target),
-                _get_target_nan(y_nan, target),
-                target,
-                loss_t
-            ) for (target, loss_t) in zip(targets, loss_spec.losses)
+        begin
+                y_t = _get_target_y(y, target)
+                ŷ_t = _get_target_ŷ(ŷ, y_t, target)
+                y_nan_t = _get_target_nan(y_nan, target)
+                _apply_loss(
+                    ŷ_t,
+                    y_t,
+                    y_nan_t,
+                    loss_t
+                )
+            end
+            for (target, loss_t) in zip(targets, loss_spec.losses)
     ]
     return losses
 end
@@ -117,7 +144,7 @@ function _apply_loss(ŷ, y, y_nan, loss_spec::Tuple)
     return loss_fn(ŷ, y, y_nan, loss_spec)
 end
 function _apply_loss(ŷ, y, y_nan, target, loss_spec)
-    return _apply_loss(ŷ[target], y, y_nan, loss_spec)
+    return _apply_loss(_get_target_ŷ(ŷ, y, target), y, y_nan, loss_spec)
 end
 
 """
@@ -137,9 +164,27 @@ Helper function to apply the appropriate loss function based on the specificatio
 function _apply_loss end
 
 _get_target_y(y, target) = y(target)
-_get_target_y(y::AbstractDimArray, target) = y[col = At(target)] # assumes the DimArray uses :col indexing
-_get_target_y(y::AbstractDimArray, targets::Vector) = y[col = At(targets)] # for multiple targets
+_get_target_nan(y_nan, target) = y_nan(target)
 
+# For KeyedArray
+function _get_target_y(y::KeyedArray, target)
+    return y(variable = target)
+end
+
+function _get_target_y(y::KeyedArray, targets::Vector)
+    return y(variable = targets)
+end
+
+# For DimArray
+function _get_target_y(y::AbstractDimArray, target)
+    return y[variable = At(target)]
+end
+
+function _get_target_y(y::AbstractDimArray, targets::Vector)
+    return y[variable = At(targets)]
+end
+
+# For Tuple (e.g. (y_obs, y_sigma)), supports KeyedArray or DimArray as y_obs
 function _get_target_y(y::Tuple, target)
     y_obs, y_sigma = y
     sigma = y_sigma isa Number ? y_sigma : y_sigma(target)
@@ -147,16 +192,29 @@ function _get_target_y(y::Tuple, target)
     return (y_obs_val, sigma)
 end
 
-
 """
     _get_target_y(y, target)
 Helper function to extract target-specific values from `y`, handling cases where `y` can be a tuple of `(y_obs, y_sigma)`.
 """
 function _get_target_y end
 
-_get_target_nan(y_nan, target) = y_nan(target)
-_get_target_nan(y_nan::AbstractDimArray, target) = y_nan[col = At(target)] # assumes the DimArray uses :col indexing
-_get_target_nan(y_nan::AbstractDimArray, targets::Vector) = y_nan[col = At(targets)] # for multiple targets
+# For KeyedArray
+function _get_target_nan(y_nan::KeyedArray, target)
+    return y_nan(variable = target)
+end
+
+function _get_target_nan(y_nan::KeyedArray, targets::Vector)
+    return y_nan(variable = targets)
+end
+
+# For DimArray
+function _get_target_nan(y_nan::AbstractDimArray, target)
+    return y_nan[variable = At(target)]
+end
+
+function _get_target_nan(y_nan::AbstractDimArray, targets::Vector)
+    return y_nan[variable = At(targets)]
+end
 
 """
     _get_target_nan(y_nan, target)
@@ -179,3 +237,9 @@ end
 function _loss_name(loss_spec::Tuple)
     return _loss_name(loss_spec[1])
 end
+
+import ChainRulesCore
+import AxisKeys: KeyedArray
+import ChainRulesCore: ProjectTo, InplaceableThunk, unthunk
+
+(project::ProjectTo{KeyedArray})(dx::InplaceableThunk) = project(unthunk(dx))

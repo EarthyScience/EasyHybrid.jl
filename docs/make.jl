@@ -46,31 +46,36 @@ end
 makedocs(;
     modules = [EasyHybrid],
     authors = "Lazaro Alonso, Bernhard Ahrens, Markus Reichstein",
-    repo = "https://github.com/EarthyScience/EasyHybrid.jl",
     sitename = "EasyHybrid.jl",
     format = DocumenterVitepress.MarkdownVitepress(
-        repo = "https://github.com/EarthyScience/EasyHybrid.jl",
+        repo = "github.com/EarthyScience/EasyHybrid.jl",
+        devbranch = "main",
         devurl = "dev",
     ),
+    source = "src",
+    build = "build",
     pages = [
         "Home" => "index.md",
         "Get Started" => "get_started.md",
         "Tutorial" => [
+            "Overview" => "tutorials/overview.md",
             "Exponential Response" => "tutorials/exponential_res.md",
             "Hyperparameter Tuning" => "tutorials/hyperparameter_tuning.md",
             "Slurm" => "tutorials/slurm.md",
             "Cross-validation" => "tutorials/folds.md",
+            "LSTM Hybrid Model" => "tutorials/example_synthetic_lstm.md",
             "Loss Functions" => "tutorials/losses.md",
         ],
         "Research" => [
             "Overview" => "research/overview.md",
+            "Synthetic Respiration" => "research/synthetic_respiration.md",
         ],
         "API" => "api.md",
     ],
 )
 
 DocumenterVitepress.deploydocs(;
-    repo = "github.com/EarthyScience/EasyHybrid.jl", # full URL!
+    repo = "github.com/EarthyScience/EasyHybrid.jl.git",
     target = joinpath(@__DIR__, "build"),
     branch = "gh-pages",
     devbranch = "main",

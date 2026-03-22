@@ -1,6 +1,16 @@
 # Changelog
 
 ## Unreleased
+- Refactored the train function into smaller functions [#249](https://github.com/EarthyScience/EasyHybrid.jl/pull/249)
+- Added a custom features+code sections in index.md [#248](https://github.com/EarthyScience/EasyHybrid.jl/pull/248)
+- Added a custom footer section [#247](https://github.com/EarthyScience/EasyHybrid.jl/pull/247)
+
+## v0.1.9 - 2026-03-08
+- Fixed 'Edit this page' links in documentation [#244](https://github.com/EarthyScience/EasyHybrid.jl/pull/244)
+- run `print_banner()` on first load [#243](https://github.com/EarthyScience/EasyHybrid.jl/pull/243)
+- Added an opinionated file/folder structure to the project, so that at least files are organized by topic [#241](https://github.com/EarthyScience/EasyHybrid.jl/pull/241)
+
+## v0.1.8 - 2026-03-06
 - Maximizing and Minimizing metric, e.g. :nse and :nseLoss - this is breaking. In training_loss, you now have to use :nseLoss if you want to use 1 - NSE as loss function, :nse is now the real NSE -> 1 not the loss anymore. In loss_types for monitoring and plotting training and validation metrics, you can now also have functions that need to be maximized, e.g. :nse, :pearson (#179)
 - in loss_types [:nse, :mse] the first element, i.e. :nse in this example, is used in train_board plot - now you can use different metrics in training_loss and loss_types (#179)
 - first element in loss_types as y-axis label in train_board (#179)
