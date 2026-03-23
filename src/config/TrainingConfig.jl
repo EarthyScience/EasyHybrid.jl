@@ -61,9 +61,9 @@ loss computation, data handling, output, and visualization.
     checkpoint, `:final` for the last epoch. Default: `:best`.
     """
     return_model::Symbol = :best
-    
+
     """
-    Whether to keep or not all training history. Default: `true`.
+    Whether to keep or not all training history, namely, all `epoch_history` entries. Default: `true`.
     """
     keep_history::Bool = true
 
@@ -115,8 +115,8 @@ struct TrainResults
     "Per-epoch validation losses, wrapped as a `WrappedTuples` collection."
     val_history
 
-    "Model parameter snapshots taken throughout training, wrapped as a `WrappedTuples` collection."
-    ps_history
+    "Best or all epoch snapshots taken throughout training, wrapped as a `WrappedTuples` collection, containing losses and predictions for both train and validation sets."
+    epoch_history
 
     "Observed vs. predicted values on the training set."
     train_obs_pred

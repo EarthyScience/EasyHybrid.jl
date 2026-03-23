@@ -32,7 +32,7 @@ RbQ10 = RespirationRbQ10(NN, (:moisture_filled, :rgpot2), forcing_names, target_
 o_Rsonly = train(RbQ10, ds_keyed, (:Q10,); nepochs = 10, batchsize = 512, opt = Adam(0.01), file_name = "o_Rsonly.jld2");
 
 # Plot parameter history
-series(o_Rsonly.ps_history; axis = (; xlabel = "epoch", ylabel = ""))
+series(o_Rsonly.epoch_history; axis = (; xlabel = "epoch", ylabel = ""))
 
 include(joinpath(script_dir, "plotting.jl"))
 plot_scatter(o_Rsonly, "train")
@@ -65,7 +65,7 @@ Rsc = Rs_components(NN, (:rgpot2, :moisture_filled), (:cham_temp_filled,), targe
 o_Rscomponents = train(Rsc, ds_keyed, (:Q10_het, :Q10_myc, :Q10_root); nepochs = 10, batchsize = 512, opt = Adam(0.01), file_name = "o_Rscomponents.jld2");
 
 # Plot parameter history
-series(o_Rscomponents.ps_history; axis = (; xlabel = "epoch", ylabel = ""))
+series(o_Rscomponents.epoch_history; axis = (; xlabel = "epoch", ylabel = ""))
 
 # Plot predictions vs observations
 ŷ = Rsc(ds_keyed, o_Rscomponents.ps, o_Rscomponents.st)[1]

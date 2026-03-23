@@ -127,7 +127,7 @@ series(WrappedTuples(WrappedTuples(validation_loss).mse); axis = (; xlabel = "ep
 # load_group(output_file, "RespirationRbQ10")
 
 ## Plotting results
-series(out.ps_history; axis = (; xlabel = "epoch", ylabel = ""))
+series(out.epoch_history; axis = (; xlabel = "epoch", ylabel = ""))
 
 # with AoG
 yvars = target_names

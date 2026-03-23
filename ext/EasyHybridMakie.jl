@@ -608,7 +608,7 @@ Plot parameter evolution during training from TrainResults object.
 """
 function EasyHybrid.plot_parameters(results::EasyHybrid.TrainResults; param_names = nothing, layout = :subplots)
     # Get available parameter names
-    available_params = keys(results.ps_history)
+    available_params = keys(results.epoch_history)
     params_to_plot = isnothing(param_names) ? collect(available_params) : param_names
 
     # Validate parameter names
@@ -618,7 +618,7 @@ function EasyHybrid.plot_parameters(results::EasyHybrid.TrainResults; param_name
         end
     end
 
-    epochs = 0:(length(results.ps_history) - 1)
+    epochs = 0:(length(results.epoch_history) - 1)
 
     if layout == :subplots
         # Create subplot layout
@@ -636,7 +636,7 @@ function EasyHybrid.plot_parameters(results::EasyHybrid.TrainResults; param_name
 
             # Extract parameter values over epochs
             param_values = Float64[]
-            for ps_record in results.ps_history
+            for ps_record in results.epoch_history
                 push!(param_values, getproperty(ps_record, param))
             end
             Makie.lines!(ax, epochs, param_values; color = :steelblue, linewidth = 2)
@@ -651,7 +651,7 @@ function EasyHybrid.plot_parameters(results::EasyHybrid.TrainResults; param_name
 
         for param in params_to_plot
             param_values = Float64[]
-            for ps_record in results.ps_history
+            for ps_record in results.epoch_history
                 push!(param_values, getproperty(ps_record, param))
             end
             Makie.lines!(ax, epochs, param_values; label = string(param), linewidth = 2, color = colors)
@@ -679,9 +679,9 @@ Add a single parameter evolution plot to an existing axis.
 - Updated axis
 """
 function EasyHybrid.plot_parameters!(ax::Makie.Axis, results::EasyHybrid.TrainResults, param_name::Symbol; color = :steelblue)
-    epochs = 0:(length(results.ps_history) - 1)
+    epochs = 0:(length(results.epoch_history) - 1)
     param_values = Float64[]
-    for ps_record in results.ps_history
+    for ps_record in results.epoch_history
         push!(param_values, getproperty(ps_record, param_name))
     end
 
@@ -705,7 +705,7 @@ Create a comprehensive summary plot showing loss evolution and parameter evoluti
 """
 function EasyHybrid.plot_training_summary(results::EasyHybrid.TrainResults; loss_type = :mse, param_names = nothing, yscale = log10)
     # Get parameter info
-    available_params = keys(results.ps_history[1])
+    available_params = keys(results.epoch_history[1])
     params_to_plot = isnothing(param_names) ? collect(available_params) : param_names
     n_params = length(params_to_plot)
 
@@ -718,7 +718,7 @@ function EasyHybrid.plot_training_summary(results::EasyHybrid.TrainResults; loss
     Makie.hidexdecorations!(ax_loss)
 
     # Parameter plots
-    epochs = 0:(length(results.ps_history) - 1)
+    epochs = 0:(length(results.epoch_history) - 1)
 
     for (i, param) in enumerate(params_to_plot)
         row = i + 2
