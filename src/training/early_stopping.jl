@@ -2,18 +2,26 @@ mutable struct EarlyStopping
     best_loss
     best_ps
     best_st
+    best_snapshot::EpochSnapshot
     best_epoch::Int
     counter::Int
     patience::Int
     done::Bool
 end
 
-function EarlyStopping(init_loss, ps, st, patience::Int)
+function EarlyStopping(init_loss, init_snapshot::EpochSnapshot, ps, st, patience::Int)
     best_loss = extract_agg_loss(init_loss)
-    return EarlyStopping(best_loss, deepcopy(ps), deepcopy(st), 0, 0, patience, false)
+    return EarlyStopping(best_loss, deepcopy(ps), deepcopy(st), init_snapshot, 0, 0, patience, false)
 end
 
-function update!(es::EarlyStopping, snapshot::EpochSnapshot, ps, st, epoch, cfg::TrainConfig)
+function update!(es::EarlyStopping, history::TrainingHistory, snapshot::EpochSnapshot, ps, st, epoch, cfg::TrainConfig)
+    push_snapshot = if cfg.keep_history
+        EpochSnapshot(snapshot.l_train, snapshot.l_val, deepcopy(snapshot.ŷ_train), deepcopy(snapshot.ŷ_val))
+    else
+        snapshot
+    end
+    cfg.keep_history && push!(history.snapshots, push_snapshot)
+
     current_loss = extract_agg_loss(snapshot.l_val)
 
     if isbetter(current_loss, es.best_loss, first(cfg.loss_types))
@@ -21,6 +29,7 @@ function update!(es::EarlyStopping, snapshot::EpochSnapshot, ps, st, epoch, cfg:
         es.best_ps = deepcopy(ps)
         es.best_st = deepcopy(st)
         es.best_epoch = epoch
+        es.best_snapshot = EpochSnapshot(snapshot.l_train, snapshot.l_val, deepcopy(snapshot.ŷ_train), deepcopy(snapshot.ŷ_val))
         es.counter = 0
     else
         es.counter += 1

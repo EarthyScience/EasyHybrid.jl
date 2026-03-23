@@ -61,6 +61,11 @@ loss computation, data handling, output, and visualization.
     checkpoint, `:final` for the last epoch. Default: `:best`.
     """
     return_model::Symbol = :best
+    
+    """
+    Whether to keep or not all training history. Default: `true`.
+    """
+    keep_history::Bool = true
 
     "Vector of monitor names to track during training. Default: `[]`."
     monitor_names::Vector = []
