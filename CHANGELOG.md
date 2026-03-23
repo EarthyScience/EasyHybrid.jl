@@ -1,7 +1,7 @@
 # Changelog
 
 ## Unreleased
-- Adds an option to save the full history or not, and always saving the best snapshot. 
+- Adds an option to save the full history or not, and always saving the best snapshot [#251](https://github.com/EarthyScience/EasyHybrid.jl/pull/251)
 - Refactored the train function into smaller functions [#249](https://github.com/EarthyScience/EasyHybrid.jl/pull/249)
 - Added a custom features+code sections in index.md [#248](https://github.com/EarthyScience/EasyHybrid.jl/pull/248)
 - Added a custom footer section [#247](https://github.com/EarthyScience/EasyHybrid.jl/pull/247)
