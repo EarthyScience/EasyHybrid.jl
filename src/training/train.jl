@@ -58,8 +58,7 @@ function train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::Da
             ps, st, opt_state = run_epoch!(loader, model, ps, st, opt_state, train_cfg)
             snapshot = evaluate_epoch(model, x_train, y_train, x_val, y_val, ps, st, init, train_cfg)
 
-            update!(history, snapshot)
-            update!(stopper, snapshot, ps, st, epoch, train_cfg)
+            update!(stopper, history, snapshot, ps, st, epoch, train_cfg)
             save_epoch!(paths, model, ps, st, snapshot, epoch, train_cfg)
             update_dashboard!(dashboard, ext, snapshot, epoch, io)
             log_progress!(prog, init, snapshot, epoch, train_cfg)

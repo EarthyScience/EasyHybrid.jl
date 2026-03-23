@@ -47,7 +47,7 @@ RbQ10 = RespirationRbQ10(NN, (:SW_POT_sm, :SW_POT_sm_diff, :Temp), (:Temp,), (:R
 out = train(RbQ10, ds, (:Q10,); nepochs = 10, batchsize = 512, opt = Adam(0.01));
 
 ## Plotting results
-series(out.ps_history; axis = (; xlabel = "epoch", ylabel = ""))
+series(out.epoch_history; axis = (; xlabel = "epoch", ylabel = ""))
 
 # Test with LBFGS - I had good success with the hybrid example with that optimiser before.
 
