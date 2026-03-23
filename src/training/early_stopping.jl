@@ -13,8 +13,13 @@ function EarlyStopping(init_loss, ps, st, patience::Int)
     return EarlyStopping(best_loss, deepcopy(ps), deepcopy(st), 0, 0, patience, false)
 end
 
-function update!(es::EarlyStopping, snapshot::EpochSnapshot, ps, st, epoch, cfg::TrainConfig)
+function update!(es::EarlyStopping, history::TrainingHistory, snapshot::EpochSnapshot, ps, st, epoch, cfg::TrainConfig)
     current_loss = extract_agg_loss(snapshot.l_val)
+    new_snapshot = EpochSnapshot(snapshot.l_train, snapshot.l_val, deepcopy(snapshot.ŷ_train), deepcopy(snapshot.ŷ_val))
+
+    if cfg.keep_history
+        push!(history.snapshots, new_snapshot)
+    end
 
     if isbetter(current_loss, es.best_loss, first(cfg.loss_types))
         es.best_loss = current_loss
@@ -22,6 +27,9 @@ function update!(es::EarlyStopping, snapshot::EpochSnapshot, ps, st, epoch, cfg:
         es.best_st = deepcopy(st)
         es.best_epoch = epoch
         es.counter = 0
+        if !cfg.keep_history
+            history.snapshots[1] = new_snapshot
+        end
     else
         es.counter += 1
     end
