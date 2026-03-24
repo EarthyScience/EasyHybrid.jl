@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Sets fetch-depth 0 so that we can have access to the git history in the docs [#253](https://github.com/EarthyScience/EasyHybrid.jl/pull/253)
 - Adds an option to save the full history or not, and always saving the best snapshot [#251](https://github.com/EarthyScience/EasyHybrid.jl/pull/251)
 - Refactored the train function into smaller functions [#249](https://github.com/EarthyScience/EasyHybrid.jl/pull/249)
 - Added a custom features+code sections in index.md [#248](https://github.com/EarthyScience/EasyHybrid.jl/pull/248)
