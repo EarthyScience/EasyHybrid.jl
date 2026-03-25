@@ -1,3 +1,5 @@
+export lossplot, lossplot!
+
 function poplot()
     return @error("Please load `Makie.jl` and then call this function. If Makie is loaded, then you can't call `poplot` with no arguments!")
 end
@@ -140,3 +142,9 @@ function monitor_to_obs(ŷ, monitor_names; cuts = (0.25, 0.5, 0.75))
         )...,
     )
 end
+
+# for recipes
+function lossplot end
+function lossplot! end
+
+#

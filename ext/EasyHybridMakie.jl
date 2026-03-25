@@ -32,6 +32,8 @@ function _series(wt::WrappedTuples, attributes)
     return data_matrix, merged_attributes
 end
 
+include("recipes/LossPlot.jl")
+
 # =============================================================================
 # Prediction vs Observed Plotting Functions
 # =============================================================================
