@@ -5,9 +5,9 @@ using DataFrames
 using Statistics
 using DimensionalData
 using ChainRulesCore
-using GPUArraysCore
+# using GPUArraysCore
 
-GPUArraysCore.allowscalar(false)
+# GPUArraysCore.allowscalar(false)
 
 # ------------------------------------------------------------------------------
 # Synthetic data similar to the example's columns (no network calls)

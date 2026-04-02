@@ -362,7 +362,7 @@ end
 # Forward pass for SingleNNHybridModel (optimized, no branching)
 function (m::SingleNNHybridModel)(ds_k, ps, st)
     # 1) get features
-    predictors = toArray(ds_k, m.predictors)
+    predictors = ds_k[1]#toArray(ds_k, m.predictors)
 
     parameters = m.parameters
 
@@ -407,11 +407,12 @@ function (m::SingleNNHybridModel)(ds_k, ps, st)
     end
 
     # 5) unpack forcing data
-    forcing_data = toNamedTuple(ds_k, m.forcing)
+    forcing_data = ds_k[2]#toNamedTuple(ds_k, m.forcing)
 
     # 6) merge all parameters
     all_params = merge(scaled_nn_params, global_params, fixed_params)
     all_kwargs = merge(forcing_data, all_params)
+    # all_kwargs = merge(forcing_data, all_params)
 
     # 7) physics
     y_pred = m.mechanistic_model(; all_kwargs...)

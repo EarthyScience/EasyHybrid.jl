@@ -12,13 +12,13 @@ function save_epoch!(paths::TrainingPaths, model, ps, st, snapshot::EpochSnapsho
     return nothing
 end
 
-function save_final!(paths::TrainingPaths, model, ps, st, x_train, y_train, x_val, y_val, stopper::EarlyStopping, cfg::TrainConfig)
+function save_final!(paths::TrainingPaths, model, ps, st, x_train, forcings_train, y_train, x_val, forcings_val, y_val, stopper::EarlyStopping, cfg::TrainConfig)
     target_names = model.targets
     save_epoch = stopper.best_epoch == 0 ? 0 : stopper.best_epoch
     save_ps_st!(paths.best_model, model, cfg.cdev(ps), cfg.cdev(st), cfg.tracked_params, save_epoch)
 
-    ŷ_train, αst_train = model(x_train, cfg.cdev(ps), LuxCore.testmode(cfg.cdev(st)))
-    ŷ_val, αst_val = model(x_val, cfg.cdev(ps), LuxCore.testmode(cfg.cdev(st)))
+    ŷ_train, αst_train = model((cfg.cdev(x_train), cfg.cdev(forcings_train)), cfg.cdev(ps), LuxCore.testmode(cfg.cdev(st)))
+    ŷ_val, αst_val = model((cfg.cdev(x_val), cfg.cdev(forcings_val)), cfg.cdev(ps), LuxCore.testmode(cfg.cdev(st)))
 
     save_predictions!(paths.checkpoint, ŷ_train, αst_train, "training")
     save_predictions!(paths.checkpoint, ŷ_val, αst_val, "validation")
