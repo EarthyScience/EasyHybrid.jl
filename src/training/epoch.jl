@@ -2,7 +2,6 @@ function run_epoch!(loader, model, ps, st, train_state, cfg::TrainConfig)
     loss_fn = build_loss_fn(model, cfg)
 
     for (x, y) in loader
-
         _, _, _, train_state = Lux.Training.single_train_step!(
             cfg.autodiff_backend,
             loss_fn,
@@ -37,16 +36,22 @@ function build_loss_fn(model, cfg::TrainConfig)
     )
 end
 
-function evaluate_epoch(model, x_train, y_train, x_val, y_val, ps, st, init::EpochSnapshot, cfg::TrainConfig)
-    is_no_nan_t = .!isnan.(y_train)
-    is_no_nan_v = .!isnan.(y_val)
+function evaluate_epoch(model, x_train, forcings_train, y_train, x_val, forcings_val, y_val, ps, st, init::EpochSnapshot, cfg::TrainConfig)
+    is_no_nan_t = falses(length(first(y_train))) |> cfg.gdev
+    for vec in y_train 
+        is_no_nan_t = is_no_nan_t .|| .!isnan.(vec)
+    end
+    is_no_nan_v = falses(length(first(y_val))) |> cfg.gdev
+    for vec in y_val 
+        is_no_nan_v = is_no_nan_v .|| .!isnan.(vec)
+    end
 
     l_train, _, ŷ_train = evaluate_acc(
-        model, x_train, y_train, is_no_nan_t,
+        model, x_train, forcings_train, y_train, is_no_nan_t,
         ps, st, cfg.loss_types, cfg.training_loss, cfg.extra_loss, cfg.agg
     )
     l_val, _, ŷ_val = evaluate_acc(
-        model, x_val, y_val, is_no_nan_v,
+        model, x_val, forcings_val, y_val, is_no_nan_v,
         ps, st, cfg.loss_types, cfg.training_loss, cfg.extra_loss, cfg.agg
     )
 

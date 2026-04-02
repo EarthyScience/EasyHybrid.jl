@@ -40,11 +40,11 @@ function train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::Da
     ext = load_makie_extension(train_cfg)
     seed!(train_cfg.random_seed)
 
-    (x_train, y_train), (x_val, y_val) = prepare_splits(data, model, data_cfg)
-    loader = build_loader(x_train, y_train, train_cfg)
+    ((x_train, forcings_train), y_train), ((x_val, forcings_val), y_val) = prepare_splits(data, model, data_cfg)
+    loader = build_loader(x_train, forcings_train, y_train, train_cfg)
     ps, st, train_state = init_model_state(model, train_cfg)
-
-    init = compute_initial_state(model, x_train, y_train, x_val, y_val, ps, st, train_cfg)
+    
+    init = compute_initial_state(model, x_train, forcings_train, y_train, x_val, forcings_val, y_val, ps, st, train_cfg)
     history = TrainingHistory(init)
     stopper = EarlyStopping(init.l_val, ps, st, train_cfg)
     paths = resolve_paths(train_cfg)
@@ -56,7 +56,7 @@ function train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::Da
     record_or_run(ext, paths, train_cfg) do io
         for epoch in 1:train_cfg.nepochs
             ps, st, train_state = run_epoch!(loader, model, ps, st, train_state, train_cfg)
-            snapshot = evaluate_epoch(model, x_train, y_train, x_val, y_val, ps, st, init, train_cfg)
+            snapshot = evaluate_epoch(model, x_train, forcings_train, y_train, x_val, forcings_val, y_val, ps, st, init, train_cfg)
 
             update!(stopper, history, snapshot, ps, st, epoch, train_cfg)
             save_epoch!(paths, model, ps, st, snapshot, epoch, train_cfg)
@@ -69,9 +69,9 @@ function train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::Da
 
     save_dashboard_img!(dashboard, ext, paths, stopper.best_epoch)
     ps, st = best_or_final(stopper, ps, st, train_cfg)
-    save_final!(paths, model, ps, st, x_train, y_train, x_val, y_val, stopper, train_cfg)
+    save_final!(paths, model, ps, st, x_train, forcings_train, y_train, x_val, forcings_val, y_val, stopper, train_cfg)
 
-    return build_results(model, history, stopper, ps, st, x_train, y_train, x_val, y_val)
+    return build_results(model, history, stopper, ps, st, x_train, forcings_train, y_train, x_val, forcings_val, y_val, train_cfg)
 end
 
 function train(model, data, save_ps; kwargs...)
@@ -159,8 +159,8 @@ function rename_deprecated_kwargs(kwargs)
     return NamedTuple(pairs)
 end
 
-function evaluate_acc(ghm, x, y, y_no_nan, ps, st, loss_types, training_loss, extra_loss, agg)
-    loss_val, sts, ŷ = compute_loss(ghm, ps, st, (x, (y, y_no_nan)), logging = LoggingLoss(train_mode = false, loss_types = loss_types, training_loss = training_loss, extra_loss = extra_loss, agg = agg))
+function evaluate_acc(ghm, x, forcings, y, y_no_nan, ps, st, loss_types, training_loss, extra_loss, agg)
+    loss_val, sts, ŷ = compute_loss(ghm, ps, st, ((x, forcings), (y, y_no_nan)), logging = LoggingLoss(train_mode = false, loss_types = loss_types, training_loss = training_loss, extra_loss = extra_loss, agg = agg))
     return loss_val, sts, ŷ
 end
 

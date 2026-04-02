@@ -4,7 +4,7 @@ mutable struct EarlyStopping
     best_st
     best_epoch::Int
     counter::Int
-    cfg
+    patience::Int
     done::Bool
 end
 
@@ -70,16 +70,16 @@ function best_or_final(stopper::EarlyStopping, ps, st, cfg::TrainConfig)
     end
 end
 
-function build_results(model, history::TrainingHistory, stopper::EarlyStopping, ps, st, x_train, y_train, x_val, y_val)
+function build_results(model, history::TrainingHistory, stopper::EarlyStopping, ps, st, x_train, forcings_train, y_train, x_val, forcings_val, y_val, cfg::TrainConfig)
     target_names = model.targets
 
     # final predictions in test mode
-    ŷ_train, _ = model(x_train, ps, LuxCore.testmode(st))
-    ŷ_val, _ = model(x_val, ps, LuxCore.testmode(st))
+    ŷ_train, _ = model((cfg.cdev(x_train), cfg.cdev(forcings_train)), cfg.cdev(ps), LuxCore.testmode(st))
+    ŷ_val, _ = model((cfg.cdev(x_val), cfg.cdev(forcings_val)), cfg.cdev(ps), LuxCore.testmode(st))
 
     # observed vs predicted DataFrames
-    train_obs_pred = hcat(toDataFrame(y_train), toDataFrame(ŷ_train, target_names))
-    val_obs_pred = hcat(toDataFrame(y_val), toDataFrame(ŷ_val, target_names))
+    train_obs_pred = hcat(DataFrame(y_train), toDataFrame(ŷ_train, target_names))
+    val_obs_pred = hcat(DataFrame(y_val), toDataFrame(ŷ_val, target_names))
 
     # extra predictions without observational counterparts
     train_diffs, val_diffs = extract_diffs(ŷ_train, ŷ_val, target_names)
@@ -92,8 +92,8 @@ function build_results(model, history::TrainingHistory, stopper::EarlyStopping, 
         val_obs_pred,
         train_diffs,
         val_diffs,
-        ps,
-        st,
+        cfg.cdev(ps),
+        cfg.cdev(st),
         stopper.best_epoch,
         stopper.best_loss,
     )
