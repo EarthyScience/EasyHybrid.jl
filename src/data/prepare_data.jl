@@ -1,9 +1,12 @@
 export prepare_data
 
-function prepare_data(hm, data::KeyedArray; kwargs...)
-    predictors_forcing, targets = get_prediction_target_names(hm)
+function prepare_data(hm, data::KeyedArray; cfg=DataConfig(), kwargs...)
+    predictors, forcings, targets = get_prediction_target_names(hm)
     # KeyedArray: use () syntax for views that are differentiable
-    return (data(predictors_forcing), data(targets))
+    dev = cfg.gdev
+    targets_nt = NamedTuple([target => dev(Array(data(target))) for target in targets])
+    forcings_nt = NamedTuple([forcing => dev(Array(data(forcing))) for forcing in forcings])
+    return ((dev(Array(data(predictors))), forcings_nt), targets_nt)
 end
 
 function prepare_data(hm, data::AbstractDimArray; kwargs...)
@@ -13,10 +16,10 @@ function prepare_data(hm, data::AbstractDimArray; kwargs...)
 end
 
 function prepare_data(hm, data::DataFrame; array_type = :KeyedArray, drop_missing_rows = true)
-    predictors_forcing, targets = get_prediction_target_names(hm)
+    predictors, forcings, targets = get_prediction_target_names(hm)
 
-    all_predictor_cols = unique(vcat(values(predictors_forcing)...))
-    col_to_select = unique([all_predictor_cols; targets])
+    # all_predictor_cols = unique(vcat(values(predictors_forcing)...))
+    col_to_select = unique([predictors; forcings; targets])
 
     # subset to only the cols we care about
     sdf = data[!, col_to_select]
@@ -84,13 +87,15 @@ Returns a tuple of (predictors_forcing, targets) names.
 function get_prediction_target_names(hm)
     targets = hm.targets
     predictors_forcing = Symbol[]
+    predictors = Symbol[]
+    forcings = Symbol[]
     for prop in propertynames(hm)
         if occursin("predictors", string(prop))
             val = getproperty(hm, prop)
             if isa(val, AbstractVector)
-                append!(predictors_forcing, val)
+                append!(predictors, val)
             elseif isa(val, Union{NamedTuple, Tuple})
-                append!(predictors_forcing, unique(vcat(values(val)...)))
+                append!(predictors, unique(vcat(values(val)...)))
             end
         end
     end
@@ -98,13 +103,14 @@ function get_prediction_target_names(hm)
         if occursin("forcing", string(prop))
             val = getproperty(hm, prop)
             if isa(val, AbstractVector)
-                append!(predictors_forcing, val)
+                append!(forcings, val)
             elseif isa(val, Union{Tuple, NamedTuple})
-                append!(predictors_forcing, unique(vcat(values(val)...)))
+                append!(forcings, unique(vcat(values(val)...)))
             end
         end
     end
-    predictors_forcing = unique(predictors_forcing)
+    # predicto
+    # predictors_forcing = unique(predictors_forcing)
 
     if isempty(predictors_forcing)
         @warn "Note that you don't have predictors or forcing variables."
@@ -112,5 +118,5 @@ function get_prediction_target_names(hm)
     if isempty(targets)
         @warn "Note that you don't have target names."
     end
-    return predictors_forcing, targets
+    return predictors, forcings, targets
 end

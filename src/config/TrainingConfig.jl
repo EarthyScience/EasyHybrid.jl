@@ -28,6 +28,12 @@ loss computation, data handling, output, and visualization.
     "Whether to return gradients during training. Default: True()."
     return_gradients = True()
 
+    "Select a gpu_device or default to cpu if none available"
+    gdev = gpu_device()
+
+    "Set the `cpu_device`, useful for sending back to the cpu model parameters"
+    cdev = cpu_device()
+
     "Loss type to use during training. Default: `:mse`."
     training_loss::Symbol = :mse
 

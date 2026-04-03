@@ -23,16 +23,15 @@ function split_data(
     )
 
     if sequence_kwargs !== nothing
-        x_all, y_all = data_
+        (x_all, forcings_all), y_all = data_
         sis_default = (; input_window = 10, output_window = 1, output_shift = 1, lead_time = 1)
         sis = merge(sis_default, sequence_kwargs)
         @info "Using split_into_sequences: $sis"
         x_all, y_all = split_into_sequences(x_all, y_all; sis.input_window, sis.output_window, sis.output_shift, sis.lead_time)
         x_all, y_all = filter_sequences(x_all, y_all)
     else
-        x_all, y_all = data_
+        (x_all, forcings_all), y_all = data_
     end
-
 
     if split_by_id !== nothing && folds !== nothing
 
@@ -50,9 +49,9 @@ function split_data(
         @info "Number of unique $(split_by_id): $(length(unique_ids))"
         @info "Train IDs: $(length(train_ids)) | Val IDs: $(length(val_ids))"
 
-        x_train, y_train = view_end_dim(x_all, train_idx), view_end_dim(y_all, train_idx)
-        x_val, y_val = view_end_dim(x_all, val_idx), view_end_dim(y_all, val_idx)
-        return (x_train, y_train), (x_val, y_val)
+        x_train, forcings_train, y_train = view_end_dim(x_all, train_idx),view_end_dim(forcings_all, train_idx), view_end_dim(y_all, train_idx)
+        x_val, forcings_val, y_val = view_end_dim(x_all, val_idx),view_end_dim(forcings_all, val_idx), view_end_dim(y_all, val_idx)
+        return ((x_train, forcings_train), y_train), ((x_val,forcings_val), y_val)
 
     elseif folds !== nothing || val_fold !== nothing
         # --- Option B: external K-fold assignment ---
@@ -76,8 +75,8 @@ function split_data(
 
     else
         # --- Fallback: simple random/chronological split of prepared data ---
-        (x_train, y_train), (x_val, y_val) = splitobs((x_all, y_all); at = split_data_at, shuffle = shuffleobs)
-        return (x_train, y_train), (x_val, y_val)
+        (x_train, forcings_train, y_train), (x_val, forcings_val, y_val) = splitobs((x_all, forcings_all, y_all); at = split_data_at, shuffle = shuffleobs)
+        return ((x_train, forcings_train), y_train), ((x_val,forcings_val), y_val)
     end
 end
 
