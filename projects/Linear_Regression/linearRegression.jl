@@ -18,7 +18,7 @@ lhm = LinearHM(NN, (:x1, :x2), (:x3,), (:obs,), 0.0f0)
 out = train(lhm, ds_k, (:β,); nepochs = 2500, batchsize = 100, opt = Adam(0.001));
 
 ## Plotting results
-series(out.ps_history; axis = (; xlabel = "epoch", ylabel = ""))
+series(out.epoch_history; axis = (; xlabel = "epoch", ylabel = ""))
 # with AoG
 yvars = [:obs]
 xvars = Symbol.(string.(yvars) .* "_pred")

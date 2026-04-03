@@ -22,6 +22,11 @@ function run_epoch!(loader, model, ps, st, train_state, cfg::TrainConfig)
 
     return ps, st, train_state
 end
+function valid_mask(y)
+    is_no_nan = .!isnan.(y)
+    !any(is_no_nan) && return nothing
+    return is_no_nan
+end
 
 # TODO: move out to losses.jl?
 function build_loss_fn(model, cfg::TrainConfig)

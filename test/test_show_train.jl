@@ -27,7 +27,7 @@ using DataFrames
         # Comprehensive test covering all field types
         train_history = [(mse = (reco = 1.0, sum = 0.5), r2 = (reco = 0.9, sum = 0.45))]
         val_history = [(mse = (reco = 1.1, sum = 0.55), r2 = (reco = 0.88, sum = 0.44))]
-        ps_history = [(ϕ = (), monitor = (train = (), val = ()))]
+        epoch_history = [(ϕ = (), monitor = (train = (), val = ()))]
         train_obs_pred = DataFrame(reco = [1.0, 2.0], index = [1, 2], reco_pred = [1.1, 2.1])
         val_obs_pred = DataFrame(reco = [3.0], index = [3], reco_pred = [3.1])
         train_diffs = (Q10 = [2.0], rb = [1.0, 2.0], parameters = (rb = [1.0], Q10 = [2.0]))
@@ -38,7 +38,7 @@ using DataFrames
         best_loss = 0.123
 
         tr = TrainResults(
-            train_history, val_history, ps_history, train_obs_pred, val_obs_pred,
+            train_history, val_history, epoch_history, train_obs_pred, val_obs_pred,
             train_diffs, val_diffs, ps, st, best_epoch, best_loss
         )
 
@@ -48,7 +48,7 @@ using DataFrames
         @test all(
             occursin.(
                 [
-                    "train_history:", "val_history:", "ps_history:", "train_obs_pred:",
+                    "train_history:", "val_history:", "epoch_history:", "train_obs_pred:",
                     "val_obs_pred:", "train_diffs:", "val_diffs:", "ps:", "st:",
                     "best_epoch:", "best_loss:",
                 ], Ref(result)

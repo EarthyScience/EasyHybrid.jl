@@ -133,26 +133,37 @@ const RbQ10_PARAMS = (
         # TODO: this is not working, need to fix GenericHybrid Model for DimensionalData
         # out = trainshort(dtuple_tuple)
     end
-    # ! TODO: remove the old API tests once the new API is fully tested and working
-    # @testset "test two arguments train" begin
-    #     model = constructHybridModel(
-    #         predictors, forcing, target, RbQ10,
-    #         RbQ10_PARAMS, neural_param_names, global_param_names
-    #     )
-    #     @test model isa SingleNNHybridModel
-    #     # prepare_data should produce something consumable by split_data
-    #     ka = prepare_data(model, df)
-    #     @test !isnothing(ka)
 
-    #     out = train(
-    #         model, ka;
-    #         nepochs = 1,
-    #         batchsize = 12,
-    #         plotting = false,
-    #         show_progress = false,
-    #         hybrid_name = "test"
-    #     )
-    #     @test !isnothing(out)
+    @testset "test keep_history" begin
+        model = constructHybridModel(
+            predictors, forcing, target, RbQ10,
+            RbQ10_PARAMS, neural_param_names, global_param_names
+        )
+        @test model isa SingleNNHybridModel
+        # prepare_data should produce something consumable by split_data
+        ka = prepare_data(model, df)
+        @test !isnothing(ka)
 
-    # end
+        out_1 = train(
+            model, ka, ();
+            nepochs = 5,
+            batchsize = 12,
+            plotting = false,
+            show_progress = false,
+            keep_history = true,
+            hybrid_name = "keep_history_1"
+        )
+        out_2 = train(
+            model, ka, ();
+            nepochs = 5,
+            batchsize = 12,
+            plotting = false,
+            show_progress = false,
+            keep_history = false,
+            hybrid_name = "keep_history_2"
+        )
+        @test length(out_1.epoch_history) == 6 # 5 epochs + initial values
+        @test length(out_2.epoch_history) == 1
+
+    end
 end
