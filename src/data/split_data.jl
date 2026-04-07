@@ -69,9 +69,9 @@ function split_data(
 
         @info "K-fold via external assignments: val_fold=$val_fold → train=$(length(train_idx)) val=$(length(val_idx))"
 
-        x_train, y_train = view_end_dim(x_all, train_idx), view_end_dim(y_all, train_idx)
-        x_val, y_val = view_end_dim(x_all, val_idx), view_end_dim(y_all, val_idx)
-        return (x_train, y_train), (x_val, y_val)
+        x_train, forcings_train, y_train = view_end_dim(x_all, train_idx), view_end_dim(forcings_all, train_idx), view_end_dim(y_all, train_idx)
+        x_val, forcings_val, y_val = view_end_dim(x_all, val_idx), view_end_dim(forcings_all, val_idx), view_end_dim(y_all, val_idx)
+        return ((x_train, forcings_train), y_train), ((x_val, forcings_val), y_val)
 
     else
         # --- Fallback: simple random/chronological split of prepared data ---
@@ -117,6 +117,7 @@ end
 function getbyname(ka::Union{KeyedArray, AbstractDimArray}, name::Symbol)
     return @view ka[variable = At(name)]
 end
+
 function view_end_dim(x_all::AbstractArray{Float32}, idx)
     return view(x_all, ntuple(_ -> :, ndims(x_all) - 1)..., idx)
 end

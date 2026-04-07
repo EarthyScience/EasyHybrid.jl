@@ -448,7 +448,7 @@ function (m::SingleNNHybridModel)(df::DataFrame, ps, st)
 end
 
 # Forward pass for MultiNNHybridModel (optimized, no branching)
-function (m::MultiNNHybridModel)(ds_k::Union{KeyedArray, AbstractDimArray}, ps, st)
+function (m::MultiNNHybridModel)(ds_k, ps, st)
 
     parameters = m.parameters
 

@@ -257,7 +257,8 @@ end
         st = LuxCore.initialstates(rng, model)
 
         # Test forward pass
-        output, new_st = model(dk, ps, st)
+        dk_prepared = prepare_data(model, dk)
+        output, new_st = model(dk_prepared[1], ps, st)
 
         @test haskey(output, :y_pred)
         @test haskey(output, :parameters)
@@ -292,7 +293,8 @@ end
         ps = LuxCore.initialparameters(rng, model)
         st = LuxCore.initialstates(rng, model)
 
-        output, new_st = model(dk, ps, st)
+        dk_prepared = prepare_data(model, dk)
+        output, new_st = model(dk_prepared[1], ps, st)
 
         @test haskey(output, :y_pred)
         @test haskey(output, :parameters)
@@ -421,7 +423,8 @@ end
         st = LuxCore.initialstates(rng, model)
 
         # Test forward pass
-        output, new_st = model(dk, ps, st)
+        dk_prepared = prepare_data(model, dk)
+        output, new_st = model(dk_prepared[1], ps, st)
 
         @test haskey(output, :y_pred)
         @test haskey(output, :parameters)
@@ -459,7 +462,8 @@ end
 
         # ! TODO: Fix this test; currently fails due to nn_outputs not being returned
         # ERROR: type NamedTuple has no field nn1
-        output, new_st = model(dk, ps, st)
+        dk_prepared = prepare_data(model, dk)
+        output, new_st = model(dk_prepared[1], ps, st)
 
         @test haskey(output, :y_pred)
         @test haskey(output, :parameters)
@@ -498,7 +502,8 @@ end
         @test haskey(ps, :ps)  # Even with empty NN, ps key exists (may be empty)
         @test isempty(ps.ps[1])
 
-        output, new_st = model(dk, ps, st)
+        dk_prepared = prepare_data(model, dk)
+        output, new_st = model(dk_prepared[1], ps, st)
         @test haskey(output, :y_pred)
         @test haskey(output, :parameters)
     end
