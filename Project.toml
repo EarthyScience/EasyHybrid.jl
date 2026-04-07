@@ -6,7 +6,6 @@ authors = ["Lazaro Alonso", "Bernhard Ahrens", "Markus Reichstein"]
 [deps]
 AxisKeys = "94b1ba4f-4ee9-5380-92f1-94cde586c3c5"
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
-CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 ComponentArrays = "b0b7db55-cfe3-40fc-9ded-d10e2dbeff66"
@@ -45,7 +44,6 @@ EasyHybridMakie = "Makie"
 [compat]
 AxisKeys = "0.2"
 CSV = "0.10.15"
-CUDA = "5.11.0"
 Chain = "0.6, 1"
 ChainRulesCore = "1.25.1"
 ComponentArrays = "0.15.28"

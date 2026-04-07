@@ -256,8 +256,9 @@ end
         ps = LuxCore.initialparameters(rng, model)
         st = LuxCore.initialstates(rng, model)
 
+        data_ = prepare_data(model, dk)
         # Test forward pass
-        output, new_st = model(dk, ps, st)
+        output, new_st = model(data_[1], ps, st)
 
         @test haskey(output, :y_pred)
         @test haskey(output, :parameters)
@@ -292,7 +293,8 @@ end
         ps = LuxCore.initialparameters(rng, model)
         st = LuxCore.initialstates(rng, model)
 
-        output, new_st = model(dk, ps, st)
+        data_ = prepare_data(model, dk)
+        output, new_st = model(data_[1], ps, st)
 
         @test haskey(output, :y_pred)
         @test haskey(output, :parameters)
@@ -498,7 +500,9 @@ end
         @test haskey(ps, :ps)  # Even with empty NN, ps key exists (may be empty)
         @test isempty(ps.ps[1])
 
-        output, new_st = model(dk, ps, st)
+        data_ = prepare_data(model, dk)
+        # Test forward pass
+        output, new_st = model(data_[1], ps, st)
         @test haskey(output, :y_pred)
         @test haskey(output, :parameters)
     end

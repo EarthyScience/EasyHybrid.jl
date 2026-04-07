@@ -41,10 +41,14 @@ function train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::Da
     seed!(train_cfg.random_seed)
 
     ((x_train, forcings_train), y_train), ((x_val, forcings_val), y_val) = prepare_splits(data, model, data_cfg)
-    loader = build_loader(x_train, forcings_train, y_train, train_cfg)
+    mask_train, _ = valid_mask(y_train)
+    mask_val, _ = valid_mask(y_val)
+    mask_train = mask_train |> train_cfg.gdev
+    mask_val = mask_val |> train_cfg.gdev
+    loader = build_loader(x_train, forcings_train, y_train, mask_train, train_cfg)
     ps, st, train_state = init_model_state(model, train_cfg)
     
-    init = compute_initial_state(model, x_train, forcings_train, y_train, x_val, forcings_val, y_val, ps, st, train_cfg)
+    init = compute_initial_state(model, x_train, forcings_train, y_train, mask_train, x_val, forcings_val, y_val, mask_val, ps, st, train_cfg)
     history = TrainingHistory(init)
     stopper = EarlyStopping(init.l_val, ps, st, train_cfg)
     paths = resolve_paths(train_cfg)
@@ -56,7 +60,7 @@ function train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::Da
     record_or_run(ext, paths, train_cfg) do io
         for epoch in 1:train_cfg.nepochs
             ps, st, train_state = run_epoch!(loader, model, ps, st, train_state, train_cfg)
-            snapshot = evaluate_epoch(model, x_train, forcings_train, y_train, x_val, forcings_val, y_val, ps, st, init, train_cfg)
+            snapshot = evaluate_epoch(model, x_train, forcings_train, y_train, mask_train, x_val, forcings_val, y_val, mask_val, ps, st, init, train_cfg)
 
             update!(stopper, history, snapshot, ps, st, epoch, train_cfg)
             save_epoch!(paths, model, ps, st, snapshot, epoch, train_cfg)
@@ -72,6 +76,19 @@ function train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::Da
     save_final!(paths, model, ps, st, x_train, forcings_train, y_train, x_val, forcings_val, y_val, stopper, train_cfg)
 
     return build_results(model, history, stopper, ps, st, x_train, forcings_train, y_train, x_val, forcings_val, y_val, train_cfg)
+end
+
+function valid_mask(y)
+    nt = (;)
+    isempty=true
+    for (k,v) in pairs(y)
+        k_mask = .!isnan.(v)
+        if !all(k_mask .== false)
+            isempty=false
+        end
+        nt = merge(nt, NamedTuple([k => .!isnan.(v)]))
+    end
+    return nt, isempty
 end
 
 function train(model, data, save_ps; kwargs...)

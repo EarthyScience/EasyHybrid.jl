@@ -3,10 +3,10 @@ export prepare_data
 function prepare_data(hm, data::KeyedArray; cfg=DataConfig(), kwargs...)
     predictors, forcings, targets = get_prediction_target_names(hm)
     # KeyedArray: use () syntax for views that are differentiable
-    dev = cfg.gdev
-    targets_nt = NamedTuple([target => dev(Array(data(target))) for target in targets])
-    forcings_nt = NamedTuple([forcing => dev(Array(data(forcing))) for forcing in forcings])
-    return ((dev(Array(data(predictors))), forcings_nt), targets_nt)
+    X_arr = Array(data(predictors)) 
+    targets_nt = NamedTuple([target => Array(data(target)) for target in targets])
+    forcings_nt = NamedTuple([forcing => Array(data(forcing)) for forcing in forcings])
+    return ((X_arr, forcings_nt), targets_nt)
 end
 
 function prepare_data(hm, data::AbstractDimArray; kwargs...)
@@ -86,7 +86,6 @@ Returns a tuple of (predictors_forcing, targets) names.
 """
 function get_prediction_target_names(hm)
     targets = hm.targets
-    predictors_forcing = Symbol[]
     predictors = Symbol[]
     forcings = Symbol[]
     for prop in propertynames(hm)
@@ -112,8 +111,11 @@ function get_prediction_target_names(hm)
     # predicto
     # predictors_forcing = unique(predictors_forcing)
 
-    if isempty(predictors_forcing)
-        @warn "Note that you don't have predictors or forcing variables."
+    if isempty(predictors)
+        @warn "Note that you don't have predictors variables."
+    end
+    if isempty(forcings)
+        @warn "Note that you don't have forcing variables."
     end
     if isempty(targets)
         @warn "Note that you don't have target names."
