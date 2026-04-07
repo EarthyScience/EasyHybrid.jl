@@ -1,6 +1,6 @@
 import EasyHybrid: lossplot, lossplot!
 
-@recipe LossPlot (training_loss, validation_loss) begin
+@recipe LossPlot (epochs_range, training_loss, validation_loss) begin
     "Y-axis scale function, e.g. `log10`"
     yscale = identity
     "Number of recent epochs shown in the zoom panel"
@@ -18,12 +18,12 @@ import EasyHybrid: lossplot, lossplot!
 end
 
 function Makie.plot!(p::LossPlot)
-    Makie.lines!(p, p[:training_loss];
+    Makie.lines!(p, p[:epochs_range], p[:training_loss];
         color = p.training_color,
         linewidth = p.linewidth,
         label = p.training_label
         )
-    Makie.lines!(p, p[:validation_loss];
+    Makie.lines!(p, p[:epochs_range], p[:validation_loss];
         color = p.validation_color,
         linewidth = p.linewidth,
         label = p.validation_label)
