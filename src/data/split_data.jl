@@ -117,6 +117,21 @@ end
 function getbyname(ka::Union{KeyedArray, AbstractDimArray}, name::Symbol)
     return @view ka[variable = At(name)]
 end
+function view_end_dim(x_all::AbstractArray{Float32}, idx)
+    return view(x_all, ntuple(_ -> :, ndims(x_all) - 1)..., idx)
+end
+
+# function view_end_dim(x_all::AbstractMatrix{Float32}, idx)
+#     return view(x_all, :, idx)
+# end
+
+# function view_end_dim(x_all::AbstractArray{Float32, 3}, idx)
+#     return view(x_all, :, :, idx)
+# end
+
+function view_end_dim(x_all::NamedTuple, idx)
+    return map(x -> view_end_dim(x, idx), x_all)
+end
 
 function view_end_dim(x_all::Union{KeyedArray{Float32, 2}, AbstractDimArray{Float32, 2}}, idx)
     return view(x_all, :, idx)
