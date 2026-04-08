@@ -45,7 +45,7 @@ function train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::Da
     mask_val, _ = valid_mask(y_val)
     loader = build_loader(x_train, forcings_train, y_train, mask_train, train_cfg)
     ps, st, train_state = init_model_state(model, train_cfg)
-    
+
     init = compute_initial_state(model, x_train, forcings_train, y_train, mask_train, x_val, forcings_val, y_val, mask_val, ps, st, train_cfg)
     history = TrainingHistory(init)
     stopper = EarlyStopping(init.l_val, ps, st, train_cfg)
@@ -80,11 +80,11 @@ end
 
 function valid_mask(y)
     nt = (;)
-    isempty=true
-    for (k,v) in pairs(y)
+    isempty = true
+    for (k, v) in pairs(y)
         k_mask = .!isnan.(v)
         if !all(k_mask .== false)
-            isempty=false
+            isempty = false
         end
         nt = merge(nt, NamedTuple([k => .!isnan.(v)]))
     end

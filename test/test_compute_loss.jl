@@ -8,9 +8,9 @@ using DataFrames
 
 @testset "_compute_loss" begin
     # Test data setup
-    ŷ = (;var1 = [1.0, 2.0, 3.0], var2 = [2.0, 3.0, 4.0])
-    y = (;var1 = [1.1, 1.9, 3.2], var2 = [1.8, 3.1, 3.0])
-    y_nan = (;var1 = trues(3), var2 = trues(3))
+    ŷ = (; var1 = [1.0, 2.0, 3.0], var2 = [2.0, 3.0, 4.0])
+    y = (; var1 = [1.1, 1.9, 3.2], var2 = [1.8, 3.1, 3.0])
+    y_nan = (; var1 = trues(3), var2 = trues(3))
     targets = [:var1, :var2]
 
     @testset "Predefined losses" begin
@@ -88,7 +88,7 @@ using DataFrames
         @test loss isa Number
 
         # NaN handling
-    y_nan_with_false = (;var1 = BitVector([true, false, true]), var2 = BitVector([true, false, true]))
+        y_nan_with_false = (; var1 = BitVector([true, false, true]), var2 = BitVector([true, false, true]))
         loss = _compute_loss(ŷ, y, y_nan_with_false, targets, :mse, sum)
         @test !isnan(loss)
     end
@@ -252,7 +252,7 @@ end
     y_t = data[2]
 
     # Create target data functions
-    y_nan = (;var1 = trues(n_samples), var2 = trues(n_samples))
+    y_nan = (; var1 = trues(n_samples), var2 = trues(n_samples))
 
     @testset "Training mode with extra_loss" begin
         # Define extra loss function

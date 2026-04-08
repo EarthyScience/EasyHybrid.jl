@@ -1,7 +1,7 @@
 export prepare_splits, maybe_build_sequences
 
 function prepare_splits(data, model, cfg::DataConfig)
-    ((x_train, forcings_train), y_train), ((x_val, forcings_val),  y_val) = split_data(
+    ((x_train, forcings_train), y_train), ((x_val, forcings_val), y_val) = split_data(
         data, model;
         array_type = cfg.array_type,
         shuffleobs = cfg.shuffleobs,

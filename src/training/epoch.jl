@@ -1,8 +1,8 @@
 function collect_dim_data(x, y, cfg)
     x_col = Array(x[1])
-    forcing_nt = NamedTuple([k => Array(v) for (k,v) in pairs(x[2])])
-    targets_nt = NamedTuple([k => Array(v) for (k,v) in pairs(y[1])])
-    masks_nt = NamedTuple([k => Array(v) for (k,v) in pairs(y[2])])
+    forcing_nt = NamedTuple([k => Array(v) for (k, v) in pairs(x[2])])
+    targets_nt = NamedTuple([k => Array(v) for (k, v) in pairs(y[1])])
+    masks_nt = NamedTuple([k => Array(v) for (k, v) in pairs(y[2])])
     return ((x_col, forcing_nt), (targets_nt, masks_nt)) |> cfg.gdev
 end
 
@@ -29,7 +29,7 @@ function run_epoch!(loader, model, ps, st, train_state, cfg::TrainConfig)
 end
 
 function isemptybatch(mask)
-    return all(x->all(x .== 0), mask)
+    return all(x -> all(x .== 0), mask)
 end
 
 # TODO: move out to losses.jl?

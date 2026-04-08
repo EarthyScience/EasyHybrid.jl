@@ -50,9 +50,9 @@ function split_data(
         @info "Number of unique $(split_by_id): $(length(unique_ids))"
         @info "Train IDs: $(length(train_ids)) | Val IDs: $(length(val_ids))"
 
-        x_train, forcings_train, y_train = collect_end_dim(x_all, train_idx),collect_end_dim(forcings_all, train_idx), collect_end_dim(y_all, train_idx)
-        x_val, forcings_val, y_val = collect_end_dim(x_all, val_idx),collect_end_dim(forcings_all, val_idx), collect_end_dim(y_all, val_idx)
-        return ((x_train, forcings_train), y_train), ((x_val,forcings_val), y_val)
+        x_train, forcings_train, y_train = collect_end_dim(x_all, train_idx), collect_end_dim(forcings_all, train_idx), collect_end_dim(y_all, train_idx)
+        x_val, forcings_val, y_val = collect_end_dim(x_all, val_idx), collect_end_dim(forcings_all, val_idx), collect_end_dim(y_all, val_idx)
+        return ((x_train, forcings_train), y_train), ((x_val, forcings_val), y_val)
 
     elseif folds !== nothing || val_fold !== nothing
         # --- Option B: external K-fold assignment ---
@@ -70,14 +70,14 @@ function split_data(
 
         @info "K-fold via external assignments: val_fold=$val_fold → train=$(length(train_idx)) val=$(length(val_idx))"
 
-        x_train, forcings_train, y_train = collect_end_dim(x_all, train_idx),collect_end_dim(forcings_all, train_idx), collect_end_dim(y_all, train_idx)
-        x_val, forcings_val, y_val = collect_end_dim(x_all, val_idx),collect_end_dim(forcings_all, val_idx), collect_end_dim(y_all, val_idx)
-        return ((x_train, forcings_train), y_train), ((x_val,forcings_val), y_val)
+        x_train, forcings_train, y_train = collect_end_dim(x_all, train_idx), collect_end_dim(forcings_all, train_idx), collect_end_dim(y_all, train_idx)
+        x_val, forcings_val, y_val = collect_end_dim(x_all, val_idx), collect_end_dim(forcings_all, val_idx), collect_end_dim(y_all, val_idx)
+        return ((x_train, forcings_train), y_train), ((x_val, forcings_val), y_val)
 
     else
         # --- Fallback: simple random/chronological split of prepared data ---
         (x_train, forcings_train, y_train), (x_val, forcings_val, y_val) = splitobs((x_all, forcings_all, y_all); at = split_data_at, shuffle = shuffleobs)
-        return ((x_train, forcings_train), y_train), ((x_val,forcings_val), y_val)
+        return ((x_train, forcings_train), y_train), ((x_val, forcings_val), y_val)
     end
 end
 
@@ -133,7 +133,7 @@ end
 
 function view_end_dim(x_all::NamedTuple, idx)
     nt = (;)
-    for (k,v) in pairs(x_all)
+    for (k, v) in pairs(x_all)
         nt = merge(nt, NamedTuple([k => view_end_dim(v, idx)]))
     end
     return nt
@@ -157,7 +157,7 @@ end
 
 function collect_end_dim(x_all::NamedTuple, idx)
     nt = (;)
-    for (k,v) in pairs(x_all)
+    for (k, v) in pairs(x_all)
         nt = merge(nt, NamedTuple([k => collect_end_dim(v, idx)]))
     end
     return nt

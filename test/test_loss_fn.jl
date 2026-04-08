@@ -97,7 +97,7 @@ using EasyHybrid: bestdirection, isbetter, check_training_loss, Minimize, Maximi
         @test loss_fn(ŷ, y, y_nan, Val(:rmse)) ≈ sqrt(mean(abs2, valid_ŷ .- valid_y))
         @test loss_fn(ŷ, y, y_nan, Val(:mae)) ≈ mean(abs, valid_ŷ .- valid_y)
         @test loss_fn(ŷ, y, y_nan, Val(:pearson)) ≈ cor(valid_ŷ, valid_y)
-    
+
         r = cor(valid_ŷ, valid_y)
         # Not always true
         # @test loss_fn(ŷ, y, y_nan, Val(:r2)) ≈ r^2

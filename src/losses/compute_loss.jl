@@ -18,7 +18,7 @@ Main loss function for hybrid models that handles both training and evaluation m
   - `(loss_values, st, ŷ)`: NamedTuple of losses, state and predictions
 """
 function compute_loss(
-    HM::LuxCore.AbstractLuxContainerLayer, ps, st, ((x, forcings), (y_t, y_nan));
+        HM::LuxCore.AbstractLuxContainerLayer, ps, st, ((x, forcings), (y_t, y_nan));
         logging::LoggingLoss
     )
 
