@@ -56,6 +56,7 @@ function train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::Da
     save_initial_state!(paths, model, ps, st, train_cfg)
     ps = ps |> train_cfg.gdev
     st = st |> train_cfg.gdev
+    train_state = train_state |> train_cfg.gdev
     record_or_run(ext, paths, train_cfg) do io
         for epoch in 1:train_cfg.nepochs
             ps, st, train_state = run_epoch!(loader, model, ps, st, train_state, train_cfg)
