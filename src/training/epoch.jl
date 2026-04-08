@@ -13,7 +13,6 @@ function run_epoch!(loader, model, ps, st, train_state, cfg::TrainConfig)
         if isemptybatch(y_col[2])
             continue
         end
-        Main.@infiltrate
         _, _, _, train_state = Lux.Training.single_train_step!(
             cfg.autodiff_backend,
             loss_fn,
