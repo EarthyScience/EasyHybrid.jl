@@ -93,25 +93,25 @@ using DataFrames
         @test !isnan(loss)
     end
 
-    # @testset "DimensionalData interface" begin
-    #     # Create test DimensionalArrays
-    #     ŷ_dim = Dict(
-    #         :var1 => DimArray([1.0, 2.0, 3.0], (Ti(1:3),)),
-    #         :var2 => DimArray([2.0, 3.0, 4.0], (Ti(1:3),))
-    #     )
-    #     y_dim = DimArray([1.1 1.8; 1.9 3.1; 3.2 3.9], (Ti(1:3), Dim{:variable}([:var1, :var2])))
-    #     y_nan_dim = DimArray(trues(3, 2), (Ti(1:3), Dim{:variable}([:var1, :var2])))
-    #
-    #     # Test single predefined loss
-    #     loss = _compute_loss(ŷ_dim, y_dim, y_nan_dim, targets, :mse, sum)
-    #     @test loss isa Number
-    #
-    #     # Test multiple predefined losses
-    #     losses = _compute_loss(ŷ_dim, y_dim, y_nan_dim, targets, [:mse, :mae], sum)
-    #     @test losses isa NamedTuple
-    #     @test haskey(losses, :mse)
-    #     @test haskey(losses, :mae)
-    # end
+    @testset "DimensionalData interface" begin
+        # Create test DimensionalArrays
+        ŷ_dim = Dict(
+            :var1 => DimArray([1.0, 2.0, 3.0], (Ti(1:3),)),
+            :var2 => DimArray([2.0, 3.0, 4.0], (Ti(1:3),))
+        )
+        y_dim = DimArray([1.1 1.8; 1.9 3.1; 3.2 3.9], (Ti(1:3), Dim{:variable}([:var1, :var2])))
+        y_nan_dim = DimArray(trues(3, 2), (Ti(1:3), Dim{:variable}([:var1, :var2])))
+
+        # Test single predefined loss
+        loss = _compute_loss(ŷ_dim, y_dim, y_nan_dim, targets, :mse, sum)
+        @test loss isa Number
+
+        # Test multiple predefined losses
+        losses = _compute_loss(ŷ_dim, y_dim, y_nan_dim, targets, [:mse, :mae], sum)
+        @test losses isa NamedTuple
+        @test haskey(losses, :mse)
+        @test haskey(losses, :mae)
+    end
 end
 
 @testset "_get_target_nan" begin
