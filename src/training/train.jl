@@ -9,7 +9,7 @@ Returns `nothing` if data preparation fails (zero-size dimension in training or 
 
 # Arguments
 - `model`: The hybrid model to train.
-- `data`: Training data, a single `DimArray`, a single `DataFrame`, a single `KeyedArray`, or a tuple of those.
+- `data`: Training data, a single `DimArray`, a single `DataFrame`, or a single `KeyedArray`.
 
 # Keyword Arguments
 - `train_cfg`: Training configuration. See [`TrainConfig`](@ref) for all options.
@@ -43,8 +43,6 @@ function train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::Da
     ((x_train, forcings_train), y_train), ((x_val, forcings_val), y_val) = prepare_splits(data, model, data_cfg)
     mask_train, _ = valid_mask(y_train)
     mask_val, _ = valid_mask(y_val)
-    mask_train = mask_train |> train_cfg.gdev
-    mask_val = mask_val |> train_cfg.gdev
     loader = build_loader(x_train, forcings_train, y_train, mask_train, train_cfg)
     ps, st, train_state = init_model_state(model, train_cfg)
     
@@ -56,7 +54,8 @@ function train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::Da
     dashboard = init_dashboard(ext, init, train_cfg, y_train, y_val, model.targets)
 
     save_initial_state!(paths, model, ps, st, train_cfg)
-
+    ps = ps |> train_cfg.gdev
+    st = st |> train_cfg.gdev
     record_or_run(ext, paths, train_cfg) do io
         for epoch in 1:train_cfg.nepochs
             ps, st, train_state = run_epoch!(loader, model, ps, st, train_state, train_cfg)

@@ -18,10 +18,8 @@ function init_model_state(model, cfg::TrainConfig)
     if isnothing(cfg.train_from)
         ps, st = LuxCore.setup(Random.default_rng(), model)
         ps = ps |> ComponentArray
-        ps = ps |> cfg.gdev
-        st = st |> cfg.gdev
     else
-        ps, st = get_ps_st(cfg.train_from) |> cfg.gdev
+        ps, st = get_ps_st(cfg.train_from)
     end
 
     # ps = ComponentArray(ps)

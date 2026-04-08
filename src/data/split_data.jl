@@ -52,12 +52,6 @@ function split_data(
 
         x_train, forcings_train, y_train = collect_end_dim(x_all, train_idx),collect_end_dim(forcings_all, train_idx), collect_end_dim(y_all, train_idx)
         x_val, forcings_val, y_val = collect_end_dim(x_all, val_idx),collect_end_dim(forcings_all, val_idx), collect_end_dim(y_all, val_idx)
-        x_train = x_train |> cfg.gdev
-        forcings_train = forcings_train |> cfg.gdev
-        y_train = y_train |> cfg.gdev
-        x_val = x_val |> cfg.gdev
-        forcings_val = forcings_val |> cfg.gdev
-        y_val = y_val |> cfg.gdev
         return ((x_train, forcings_train), y_train), ((x_val,forcings_val), y_val)
 
     elseif folds !== nothing || val_fold !== nothing
@@ -78,23 +72,11 @@ function split_data(
 
         x_train, forcings_train, y_train = collect_end_dim(x_all, train_idx),collect_end_dim(forcings_all, train_idx), collect_end_dim(y_all, train_idx)
         x_val, forcings_val, y_val = collect_end_dim(x_all, val_idx),collect_end_dim(forcings_all, val_idx), collect_end_dim(y_all, val_idx)
-        x_train = x_train |> cfg.gdev
-        forcings_train = forcings_train |> cfg.gdev
-        y_train = y_train |> cfg.gdev
-        x_val = x_val |> cfg.gdev
-        forcings_val = forcings_val |> cfg.gdev
-        y_val = y_val |> cfg.gdev
         return ((x_train, forcings_train), y_train), ((x_val,forcings_val), y_val)
 
     else
         # --- Fallback: simple random/chronological split of prepared data ---
         (x_train, forcings_train, y_train), (x_val, forcings_val, y_val) = splitobs((x_all, forcings_all, y_all); at = split_data_at, shuffle = shuffleobs)
-        x_train = x_train |> cfg.gdev
-        forcings_train = forcings_train |> cfg.gdev
-        y_train = y_train |> cfg.gdev
-        x_val = x_val |> cfg.gdev
-        forcings_val = forcings_val |> cfg.gdev
-        y_val = y_val |> cfg.gdev
         return ((x_train, forcings_train), y_train), ((x_val,forcings_val), y_val)
     end
 end

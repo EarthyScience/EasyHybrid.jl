@@ -4,15 +4,19 @@ function prepare_data(hm, data::KeyedArray; cfg=DataConfig(), kwargs...)
     predictors, forcings, targets = get_prediction_target_names(hm)
     # KeyedArray: use () syntax for views that are differentiable
     X_arr = Array(data(predictors)) 
-    targets_nt = NamedTuple([target => Array(data(target)) for target in targets])
     forcings_nt = NamedTuple([forcing => Array(data(forcing)) for forcing in forcings])
+    targets_nt = NamedTuple([target => Array(data(target)) for target in targets])
     return ((X_arr, forcings_nt), targets_nt)
 end
 
 function prepare_data(hm, data::AbstractDimArray; kwargs...)
-    predictors_forcing, targets = get_prediction_target_names(hm)
+    predictors, forcings, targets = get_prediction_target_names(hm)
+    # KeyedArray: use () syntax for views that are differentiable
+    X_arr = data[variable = At(predictors)] 
+    forcings_nt = NamedTuple([forcing => data[variable = At(forcing)] for forcing in forcings])
+    targets_nt = NamedTuple([target => data[variable = At(target)] for target in targets])
     # DimArray: use [] syntax (copies, but differentiable)
-    return (data[variable = At(predictors_forcing)], data[variable = At(targets)])
+    return ((X_arr, forcings_nt), targets_nt)
 end
 
 function prepare_data(hm, data::DataFrame; array_type = :KeyedArray, drop_missing_rows = true)

@@ -2,6 +2,10 @@ function run_epoch!(loader, model, ps, st, train_state, cfg::TrainConfig)
     loss_fn = build_loss_fn(model, cfg)
 
     for (x, y) in loader
+        if isemptybatch(y[2])
+            continue
+        end
+        (x,y) = (x,y) |> cfg.gdev
         _, _, _, train_state = Lux.Training.single_train_step!(
             cfg.autodiff_backend,
             loss_fn,
@@ -16,12 +20,10 @@ function run_epoch!(loader, model, ps, st, train_state, cfg::TrainConfig)
 
     return ps, st, train_state
 end
-function valid_mask(y)
-    is_no_nan = .!isnan.(y)
-    !any(is_no_nan) && return nothing
-    return is_no_nan
-end
 
+function isemptybatch(mask)
+    return all(x->all(x .== 0), mask)
+end
 
 # TODO: move out to losses.jl?
 function build_loss_fn(model, cfg::TrainConfig)

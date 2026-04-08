@@ -56,10 +56,4 @@ cross-validation, and sequence construction for time-series training.
 
     "Whether to apply batch normalization to the model inputs. Default: `false`."
     input_batchnorm::Bool = false
-
-    "Select a gpu_device or default to cpu if none available"
-    gdev = gpu_device()
-
-    "Set the `cpu_device`, useful for sending back to the cpu model parameters"
-    cdev = cpu_device()
 end
