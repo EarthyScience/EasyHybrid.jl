@@ -112,8 +112,6 @@ function get_prediction_target_names(hm)
             end
         end
     end
-    # predicto
-    # predictors_forcing = unique(predictors_forcing)
 
     if isempty(predictors)
         @warn "Note that you don't have predictors variables."
