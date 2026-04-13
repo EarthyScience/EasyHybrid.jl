@@ -1,7 +1,7 @@
 export prepare_splits, maybe_build_sequences
 
 function prepare_splits(data, model, cfg::DataConfig)
-    (x_train, y_train), (x_val, y_val) = split_data(
+    ((x_train, forcings_train), y_train), ((x_val, forcings_val), y_val) = split_data(
         data, model;
         array_type = cfg.array_type,
         shuffleobs = cfg.shuffleobs,
@@ -16,7 +16,7 @@ function prepare_splits(data, model, cfg::DataConfig)
     @debug "Train size: $(size(x_train)), Val size: $(size(x_val))"
     @debug "Data type: $(typeof(x_train))"
 
-    return (x_train, y_train), (x_val, y_val)
+    return ((x_train, forcings_train), y_train), ((x_val, forcings_val), y_val)
 end
 
 function maybe_build_sequence_kwargs(cfg::DataConfig)

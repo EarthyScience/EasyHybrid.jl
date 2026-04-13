@@ -18,14 +18,14 @@ Main loss function for hybrid models that handles both training and evaluation m
   - `(loss_values, st, ŷ)`: NamedTuple of losses, state and predictions
 """
 function compute_loss(
-        HM::LuxCore.AbstractLuxContainerLayer, ps, st, (x, (y_t, y_nan));
+        HM::LuxCore.AbstractLuxContainerLayer, ps, st, ((x, forcings), (y_t, y_nan));
         logging::LoggingLoss
     )
 
     targets = HM.targets
     ext_loss = extra_loss(logging)
     if logging.train_mode
-        ŷ, st = HM(x, ps, st)
+        ŷ, st = HM((x, forcings), ps, st)
         loss_value = _compute_loss(ŷ, y_t, y_nan, targets, training_loss(logging), logging.agg)
         # Add extra_loss if provided
         if ext_loss !== nothing
@@ -34,7 +34,7 @@ function compute_loss(
         end
         stats = NamedTuple()
     else
-        ŷ, _ = HM(x, ps, LuxCore.testmode(st))
+        ŷ, _ = HM((x, forcings), ps, LuxCore.testmode(st))
         loss_value = _compute_loss(ŷ, y_t, y_nan, targets, loss_types(logging), logging.agg)
         # Add extra_loss entries if provided
         if ext_loss !== nothing
@@ -107,7 +107,9 @@ function assemble_loss(ŷ, y, y_nan, targets, loss_spec)
         begin
                 y_t = _get_target_y(y, target)
                 ŷ_t = _get_target_ŷ(ŷ, y_t, target)
-                _apply_loss(ŷ_t, y_t, _get_target_nan(y_nan, target), loss_spec)
+                y_nan_t = _get_target_y(y_nan, target)
+                _apply_loss(ŷ_t, y_t, y_nan_t, loss_spec)
+                # _apply_loss(ŷ_t, y_t, _get_target_nan(y_nan, target), loss_spec)
             end
             for target in targets
     ]
@@ -162,6 +164,9 @@ Helper function to apply the appropriate loss function based on the specificatio
 - Computed loss value
 """
 function _apply_loss end
+
+_get_target_y(y::NamedTuple, target) = y[target]
+_get_target_nan(y_nan::NamedTuple, target) = y_nan[target]
 
 _get_target_y(y, target) = y(target)
 _get_target_nan(y_nan, target) = y_nan(target)
