@@ -1,5 +1,9 @@
-function collect_dim_data(x, y, cfg)
-    x_col = Array(x[1])
+function collect_dim_data(x::T, y, cfg) where {T}
+    x_col = if x[1] isa NamedTuple
+        NamedTuple([name => Array(v) for (name, v) in pairs(x[1])])
+    else
+        Array(x[1])
+    end
     forcing_nt = NamedTuple([k => Array(v) for (k, v) in pairs(x[2])])
     targets_nt = NamedTuple([k => Array(v) for (k, v) in pairs(y[1])])
     masks_nt = NamedTuple([k => Array(v) for (k, v) in pairs(y[2])])
@@ -48,13 +52,14 @@ end
 
 function evaluate_epoch(model, x_train, forcings_train, y_train, mask_train, x_val, forcings_val, y_val, mask_val, ps, st, init::EpochSnapshot, cfg::TrainConfig)
     ps_cpu = ps |> cfg.cdev
+    st_cpu = st |> cfg.cdev
     l_train, _, ŷ_train = evaluate_acc(
         model, x_train, forcings_train, y_train, mask_train,
-        ps_cpu, st, cfg.loss_types, cfg.training_loss, cfg.extra_loss, cfg.agg
+        ps_cpu, st_cpu, cfg.loss_types, cfg.training_loss, cfg.extra_loss, cfg.agg
     )
     l_val, _, ŷ_val = evaluate_acc(
         model, x_val, forcings_val, y_val, mask_val,
-        ps_cpu, st, cfg.loss_types, cfg.training_loss, cfg.extra_loss, cfg.agg
+        ps_cpu, st_cpu, cfg.loss_types, cfg.training_loss, cfg.extra_loss, cfg.agg
     )
 
     return EpochSnapshot(l_train, l_val, ŷ_train, ŷ_val)

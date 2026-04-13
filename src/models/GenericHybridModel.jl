@@ -448,7 +448,7 @@ function (m::SingleNNHybridModel)(df::DataFrame, ps, st)
 end
 
 # Forward pass for MultiNNHybridModel (optimized, no branching)
-function (m::MultiNNHybridModel)(ds_k::Union{KeyedArray, AbstractDimArray}, ps, st)
+function (m::MultiNNHybridModel)(ds_k::Tuple, ps, st)
 
     parameters = m.parameters
 
@@ -468,8 +468,7 @@ function (m::MultiNNHybridModel)(ds_k::Union{KeyedArray, AbstractDimArray}, ps, 
     nn_states = NamedTuple()
 
     for (nn_name, nn) in pairs(m.NNs)
-        predictors = m.predictors[nn_name]
-        nn_out, st_nn = LuxCore.apply(nn, toArray(ds_k, predictors), ps[nn_name], st[nn_name])
+        nn_out, st_nn = LuxCore.apply(nn, ds_k[1][nn_name], ps[nn_name], st[nn_name])
         nn_outputs = merge(nn_outputs, NamedTuple{(nn_name,), Tuple{typeof(nn_out)}}((nn_out,)))
         nn_states = merge(nn_states, NamedTuple{(nn_name,), Tuple{typeof(st_nn)}}((st_nn,)))
     end
@@ -507,7 +506,7 @@ function (m::MultiNNHybridModel)(ds_k::Union{KeyedArray, AbstractDimArray}, ps, 
 
     # 6) unpack forcing data
 
-    forcing_data = toNamedTuple(ds_k, m.forcing)
+    forcing_data = ds_k[2]
     all_kwargs = merge(forcing_data, all_params)
 
     # 7) Apply mechanistic model
