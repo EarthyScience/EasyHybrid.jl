@@ -99,6 +99,16 @@ _get_target_ŷ(ŷ, y_t::Union{KeyedArray{T, 2}, AbstractDimArray{T, 2}}, target)
 _get_target_ŷ(ŷ, y_t::Union{KeyedArray{T, 1}, AbstractDimArray{T, 1}}, target) where {T} =
     ŷ[target]
 
+# For plain 2D y_t (after collect strips DimArray metadata): subset ŷ by matching
+# the output_window rows to the last rows of input_window (correct for lead_time=0).
+function _get_target_ŷ(ŷ, y_t::AbstractMatrix, target)
+    ŷ_t = ŷ[target]
+    nout = size(y_t, 1)
+    ŷ_t isa AbstractVector && return ŷ_t
+    size(ŷ_t, 1) == nout && return ŷ_t
+    return ŷ_t[end-nout+1:end, :]
+end
+
 _get_target_ŷ(ŷ, y_t, target) =
     ŷ[target]
 
@@ -167,9 +177,6 @@ function _apply_loss end
 
 _get_target_y(y::NamedTuple, target) = y[target]
 _get_target_nan(y_nan::NamedTuple, target) = y_nan[target]
-
-_get_target_y(y, target) = y(target)
-_get_target_nan(y_nan, target) = y_nan(target)
 
 # For KeyedArray
 function _get_target_y(y::KeyedArray, target)
