@@ -36,9 +36,11 @@ YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [weakdeps]
+GPUArrays = "0c68f7d7-f131-5f86-a1c3-88cf8149b2d7"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 
 [extensions]
+EasyHybridGPUArraysExt = "GPUArrays"
 EasyHybridMakie = "Makie"
 
 [compat]

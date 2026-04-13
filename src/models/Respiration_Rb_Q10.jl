@@ -48,25 +48,27 @@ end
 ŷ (respiration rate) is computed as a function of the neural network output `Rb(αᵢ(t))` and the temperature `T(t)` adjusted by the reference temperature `T_ref` (default 15°C) using the Q10 temperature sensitivity factor.
 ````
 """
+# function (hm::RespirationRbQ10)(ds_k, ps, st::NamedTuple)
+#     p = ds_k(hm.predictors)
+#     x = Array(ds_k(hm.forcing)) # don't propagate names after this
+#     Rb, stQ10 = LuxCore.apply(hm.NN, p, ps.ps, st.st) #! NN(αᵢ(t)) ≡ Rb(T(t), M(t))
+
+#     #TODO output name flexible - could be R_soil, heterotrophic, autotrophic, etc.
+#     R_soil = mRbQ10(Rb, ps.Q10, x, 15.0f0) # ? should 15°C be the reference temperature also an input variable?
+
+#     return (; R_soil, Rb), (; st = stQ10)
+# end
+
 function (hm::RespirationRbQ10)(ds_k, ps, st::NamedTuple)
-    p = ds_k(hm.predictors)
-    x = Array(ds_k(hm.forcing)) # don't propagate names after this
-    Rb, stQ10 = LuxCore.apply(hm.NN, p, ps.ps, st.st) #! NN(αᵢ(t)) ≡ Rb(T(t), M(t))
-
-    #TODO output name flexible - could be R_soil, heterotrophic, autotrophic, etc.
-    R_soil = mRbQ10(Rb, ps.Q10, x, 15.0f0) # ? should 15°C be the reference temperature also an input variable?
-
-    return (; R_soil, Rb), (; st = stQ10)
-end
-
-function (hm::RespirationRbQ10)(ds_k::AbstractDimArray, ps, st::NamedTuple)
-    p = ds_k[variable = At(hm.predictors)] # No @view - needs to be differentiable
-    x = Array(ds_k[variable = At(hm.forcing)]) # No @view - needs to be differentiable
+    p = parent(ds_k[variable = At(hm.predictors)]) # No @view - needs to be differentiable
+    x = parent(ds_k[variable = At(hm.forcing)]) # No @view - needs to be differentiable
 
     Rb, stQ10 = LuxCore.apply(hm.NN, p, ps.ps, st.st) #! NN(αᵢ(t)) ≡ Rb(T(t), M(t))
 
     #TODO output name flexible - could be R_soil, heterotrophic, autotrophic, etc.
     R_soil = mRbQ10(Rb, ps.Q10, x, 15.0f0) # ? should 15°C be the reference temperature also an input variable?
+    @show typeof(R_soil)
+    @show typeof(Rb)
 
     return (; R_soil, Rb), (; st = stQ10)
 end

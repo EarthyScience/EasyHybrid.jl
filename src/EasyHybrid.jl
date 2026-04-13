@@ -59,6 +59,22 @@ end
 
 abstract type EasyHybridModels end
 
+using Lux: gpu_device
+using DimensionalData
+using AxisKeys
+
+function to_gpu(A::AbstractDimArray)
+    dev = gpu_device()
+    return modify(dev, A)
+end
+
+function to_gpu(A::KeyedArray)
+    dev = gpu_device()
+    return KeyedArray(dev(parent(A)), axiskeys(A))
+end
+
+export to_gpu
+
 include("config/config.jl")
 include("utils/utils.jl")
 include("models/models.jl")

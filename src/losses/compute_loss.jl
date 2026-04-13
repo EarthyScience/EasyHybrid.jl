@@ -177,11 +177,11 @@ end
 
 # For DimArray
 function _get_target_y(y::AbstractDimArray, target)
-    return y[variable = At(target)]
+    return parent(y[variable = At(target)])
 end
 
 function _get_target_y(y::AbstractDimArray, targets::Vector)
-    return y[variable = At(targets)]
+    return parent(y[variable = At(targets)])
 end
 
 # For Tuple (e.g. (y_obs, y_sigma)), supports KeyedArray or DimArray as y_obs
@@ -209,11 +209,11 @@ end
 
 # For DimArray
 function _get_target_nan(y_nan::AbstractDimArray, target)
-    return y_nan[variable = At(target)]
+    return parent(y_nan[variable = At(target)])
 end
 
 function _get_target_nan(y_nan::AbstractDimArray, targets::Vector)
-    return y_nan[variable = At(targets)]
+    return parent(y_nan[variable = At(targets)])
 end
 
 """
