@@ -501,7 +501,7 @@ end
         st = LuxCore.initialstates(rng, model)
 
         @test haskey(ps, :ps)  # Even with empty NN, ps key exists (may be empty)
-        @test isempty(ps.ps)
+        @test isempty(ps.ps[1])
 
         data_ = prepare_data(model, dk)
         # Test forward pass
