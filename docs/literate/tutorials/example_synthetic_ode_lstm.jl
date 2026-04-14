@@ -24,6 +24,7 @@ using DimensionalData
 df = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc");
 df = df[1:20000, :];
 first(df, 5);
+df.C .= 0.0f0;
 
 # ## 3. Define the Process-Based ODE Step Function
 #
@@ -44,7 +45,7 @@ Single-pool carbon ODE step.  Returns the derivative `dC` and observable `reco`.
 function mOnePool_step(; C, rb, Q10, ta, tref = 15.0f0)
     reco = rb .* C .* Q10 .^ (0.1f0 .* (ta .- tref))
     dC   = .- reco
-    return (; dC, reco, Q10, rb)
+    return (; dC, reco, Q10, rb, C)
 end
 
 
@@ -65,7 +66,7 @@ parameters = (
 
 forcing    = [:ta]
 predictors = [:sw_pot, :dsw_pot]
-target     = [:reco]
+target     = [:reco, :C]
 
 global_param_names = [:Q10, :C]
 lstm_param_names   = [:rb]
@@ -120,7 +121,7 @@ train_dl = EasyHybrid.DataLoader((x_train, y_train); batchsize = 32);
 x_first = first(train_dl)[1]
 frun = hode(x_first, ps, st);
 frun[1].reco
-
+frun[1].C
 # ## 8. Train the ODE-LSTM Hybrid Model
 #
 # Uses the same `train` function and configuration objects as every other
@@ -188,7 +189,7 @@ frun2[1].reco
 out_ode_static = train(
     hode_static,
     df;
-    train_cfg = TrainConfig(
+    train_cfg = EasyHybrid.TrainConfig(
         nepochs       = 100,
         batchsize     = 128,
         opt           = RMSProp(0.01),
@@ -198,7 +199,7 @@ out_ode_static = train(
         show_progress = false,
         model_name    = "mOnePool_ode_lstm_static_C0",
     ),
-    data_cfg = DataConfig(
+    data_cfg = EasyHybrid.DataConfig(
         sequence_length       = input_window,
         sequence_output_window = output_window,
         sequence_output_shift  = output_shift,
