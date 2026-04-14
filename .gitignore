@@ -33,3 +33,4 @@ coverage/lcov.info
 !logo.png
 !logo_sq.png
 test/setup_local_testrun.jl
+docs/setup_local_docsrun.jl
