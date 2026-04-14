@@ -207,8 +207,11 @@ end
 """
     _get_target_y(y, target)
 Helper function to extract target-specific values from `y`, handling cases where `y` can be a tuple of `(y_obs, y_sigma)`.
+Supports NamedTuple, KeyedArray, AbstractDimArray, Tuple, and callables (functions).
 """
 function _get_target_y end
+
+_get_target_y(y_func, target) = y_func(target)
 
 # For KeyedArray
 function _get_target_nan(y_nan::KeyedArray, target)
@@ -232,8 +235,11 @@ end
     _get_target_nan(y_nan, target)
 
 Helper function to extract target-specific values from `y_nan`.
+Supports NamedTuple, KeyedArray, AbstractDimArray, and callables (functions).
 """
 function _get_target_nan end
+
+_get_target_nan(y_nan_func, target) = y_nan_func(target)
 
 # Helper to generate meaningful names for loss types
 function _loss_name(loss_spec::Symbol)
