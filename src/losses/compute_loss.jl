@@ -168,11 +168,11 @@ _get_target_nan(y_nan, target) = y_nan(target)
 
 # For KeyedArray
 function _get_target_y(y::KeyedArray, target)
-    return y(variable = target)
+    return copy(parent(y(target)))
 end
 
 function _get_target_y(y::KeyedArray, targets::Vector)
-    return y(variable = targets)
+    return copy(parent(y(targets)))
 end
 
 # For DimArray
@@ -200,20 +200,20 @@ function _get_target_y end
 
 # For KeyedArray
 function _get_target_nan(y_nan::KeyedArray, target)
-    return y_nan(variable = target)
+    return copy(parent(y_nan(target)))
 end
 
 function _get_target_nan(y_nan::KeyedArray, targets::Vector)
-    return y_nan(variable = targets)
+    return copy(parent(y_nan(targets)))
 end
 
 # For DimArray
 function _get_target_nan(y_nan::AbstractDimArray, target)
-    return parent(y_nan[variable = At(target)])
+    return copy(parent(y_nan[variable = At(target)]))
 end
 
 function _get_target_nan(y_nan::AbstractDimArray, targets::Vector)
-    return parent(y_nan[variable = At(targets)])
+    return copy(parent(y_nan[variable = At(targets)]))
 end
 
 """

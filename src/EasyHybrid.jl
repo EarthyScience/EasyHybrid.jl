@@ -19,7 +19,7 @@ using ChainRulesCore: ChainRulesCore
 using ComponentArrays: ComponentArrays, ComponentArray
 using DataFrameMacros: DataFrameMacros, @transform
 using DataFrames: DataFrames, DataFrame, GroupedDataFrame, Missing, coalesce, mapcols, select, missing, All
-using DimensionalData: DimensionalData, AbstractDimArray, Dim, DimArray, dims, groupby, lookup, At
+using DimensionalData: DimensionalData, AbstractDimArray, Dim, DimArray, dims, groupby, lookup, At, modify
 # Extend axiskeys to work with DimArrays (delegates to lookup)
 AxisKeys.axiskeys(da::AbstractDimArray) = Tuple(lookup(da, d) for d in dims(da))
 AxisKeys.axiskeys(da::AbstractDimArray, i::Int) = lookup(da, dims(da)[i])
@@ -28,7 +28,7 @@ using Downloads: Downloads
 using Hyperopt: Hyperopt, Hyperoptimizer
 using JLD2: JLD2, jldopen
 using LuxCore: LuxCore
-using Lux: Lux
+using Lux: Lux, gpu_device
 using MLJ: partition
 using MLUtils: MLUtils, DataLoader, kfolds, numobs, rpad, splitobs
 using NCDatasets: NCDatasets, NCDataset, close, name
@@ -58,22 +58,6 @@ using Static: False, True
 end
 
 abstract type EasyHybridModels end
-
-using Lux: gpu_device
-using DimensionalData
-using AxisKeys
-
-function to_gpu(A::AbstractDimArray)
-    dev = gpu_device()
-    return modify(dev, A)
-end
-
-function to_gpu(A::KeyedArray)
-    dev = gpu_device()
-    return KeyedArray(dev(parent(A)), axiskeys(A))
-end
-
-export to_gpu
 
 include("config/config.jl")
 include("utils/utils.jl")

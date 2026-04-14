@@ -72,7 +72,7 @@ targets = RbQ10.targets
 
 ls = EasyHybrid.compute_loss(RbQ10, ps, st, (ds_p_f, (ds_t, ds_t_nan)); logging = LoggingLoss())
 ls_logs = EasyHybrid.compute_loss(RbQ10, ps, st, (ds_p_f, (ds_t, ds_t_nan)); logging = LoggingLoss(train_mode = false))
-acc_ = EasyHybrid.evaluate_acc(RbQ10, ds_p_f, ds_t, ds_t_nan, ps, st, [:mse, :r2], :mse, sum)
+# acc_ = EasyHybrid.evaluate_acc(RbQ10, ds_p_f, ds_t, ds_t_nan, ps, st, [:mse, :r2], :mse, sum)
 
 using Zygote, ChainRulesCore, DimensionalData
 using EasyHybrid
@@ -115,6 +115,61 @@ l_metal, backtrace_metal = Zygote.pullback(
 );
 
 grads_dd_metal = backtrace_metal(l_metal)
+
+# KeyedArray GPU test
+
+ds_p_f, ds_t = EasyHybrid.prepare_data(RbQ10, ds_keyed)
+ds_t_nan = .!isnan.(ds_t)
+
+#! Now, these are KeyedArrays with data on the GPU
+# import ChainRulesCore: ProjectTo
+# import AxisKeys: KeyedArray
+# using ChainRulesCore: Tangent
+# import ChainRulesCore: rrule
+# using GPUArrays
+
+# (project::ProjectTo{KeyedArray})(dx::Tangent{<:KeyedArray}) = project(dx.data)
+# function ChainRulesCore.rrule(::typeof(getindex), A::KeyedArray{T,N,<:AbstractGPUArray}, args...) where {T,N}
+#     B = getindex(A, args...)
+
+#     function keyed_getindex_pb(ȳ)
+#         y     = ChainRulesCore.unthunk(ȳ)
+#         ydata = y isa AbstractArray ? parent(y) : y
+
+#         grad = similar(parent(A))
+#         fill!(grad, zero(eltype(grad)))
+#         grad[args...] .= ydata
+
+#         return (NoTangent(), grad, map(_ -> NoTangent(), args)...)
+#     end
+
+#     return B, keyed_getindex_pb
+# end
+
+ds_p_f_metal = to_gpu(ds_p_f)
+ds_t_metal = to_gpu(ds_t)
+ds_t_nan_metal = to_gpu(ds_t_nan)
+
+# parent(ds_p_f_metal(RbQ10.forcing))
+
+ls_metal = EasyHybrid.compute_loss(RbQ10, ps_metal, st_metal, (ds_p_f_metal, (ds_t_metal, ds_t_nan_metal));
+    logging = LoggingLoss())
+    
+p = copy(parent(ds_p_f_metal(RbQ10.predictors)))
+x = copy(parent(ds_p_f_metal(RbQ10.forcing)))
+Rb, stQ10 = LuxCore.apply(RbQ10.NN, p, ps_metal.ps, st_metal.st)
+
+
+l_kd, backtrace_keyed = Zygote.pullback(
+    (ps_metal) -> EasyHybrid.compute_loss(
+        RbQ10, ps_metal, st_metal, (ds_p_f_metal, (ds_t_metal, ds_t_nan_metal));
+        logging=EasyHybrid.LoggingLoss(training_loss = :mse, agg = sum)
+    ), ps_metal
+);
+
+
+grads_kd_metal = backtrace_keyed(l_kd)[1]
+
 
 
 using EasyHybrid.AxisKeys
