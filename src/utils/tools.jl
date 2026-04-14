@@ -240,17 +240,17 @@ the last `output_window` rows are selected before flattening.
 function toDataFrame(nt::NamedTuple, target_names, y_ref::NamedTuple)
     cols = [
         let
-            ŷ_t = nt[t]
-            y_t = y_ref[t]
-            matched = if ŷ_t isa AbstractMatrix && y_t isa AbstractMatrix && size(ŷ_t, 1) != size(y_t, 1)
-                nout = size(y_t, 1)
-                ŷ_t[end-nout+1:end, :]
+                ŷ_t = nt[t]
+                y_t = y_ref[t]
+                matched = if ŷ_t isa AbstractMatrix && y_t isa AbstractMatrix && size(ŷ_t, 1) != size(y_t, 1)
+                    nout = size(y_t, 1)
+                    ŷ_t[(end - nout + 1):end, :]
             else
-                ŷ_t
+                    ŷ_t
             end
-            Symbol(string(t) * "_pred") => vec(matched)
+                Symbol(string(t) * "_pred") => vec(matched)
         end
-        for t in target_names
+            for t in target_names
     ]
     return DataFrame(cols...)
 end

@@ -106,7 +106,7 @@ function _get_target_ŷ(ŷ, y_t::AbstractMatrix, target)
     nout = size(y_t, 1)
     ŷ_t isa AbstractVector && return ŷ_t
     size(ŷ_t, 1) == nout && return ŷ_t
-    return ŷ_t[end-nout+1:end, :]
+    return ŷ_t[(end - nout + 1):end, :]
 end
 
 _get_target_ŷ(ŷ, y_t, target) =
