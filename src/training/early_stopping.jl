@@ -78,8 +78,8 @@ function build_results(model, history::TrainingHistory, stopper::EarlyStopping, 
     ŷ_val, _ = model((cfg.cdev(x_val), cfg.cdev(forcings_val)), cfg.cdev(ps), LuxCore.testmode(st))
 
     # observed vs predicted DataFrames
-    train_obs_pred = hcat(DataFrame(y_train), toDataFrame(ŷ_train, target_names))
-    val_obs_pred = hcat(DataFrame(y_val), toDataFrame(ŷ_val, target_names))
+    train_obs_pred = hcat(toDataFrame(y_train), toDataFrame(ŷ_train, target_names, y_train))
+    val_obs_pred = hcat(toDataFrame(y_val), toDataFrame(ŷ_val, target_names, y_val))
 
     # extra predictions without observational counterparts
     train_diffs, val_diffs = extract_diffs(ŷ_train, ŷ_val, target_names)

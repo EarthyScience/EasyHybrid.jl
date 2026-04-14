@@ -32,3 +32,4 @@ coverage/lcov.info
 !MPI_BGC_wide_E_neg_cmyk.png
 !logo.png
 !logo_sq.png
+test/setup_local_testrun.jl
