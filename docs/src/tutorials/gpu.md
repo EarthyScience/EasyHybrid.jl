@@ -34,22 +34,22 @@ Then run the following to access a device:
 :::code-group
 
 ```julia [NVIDIA GPUs]
-using Lux, LuxCUDA
+using EasyHybrid, LuxCUDA
 gpu_device()
 ```
 
 ```julia [AMD ROCm GPUs]
-using Lux, AMDGPU
+using EasyHybrid, AMDGPU
 gpu_device()
 ```
 
 ```julia [Metal M-Series GPUs]
-using Lux, Metal
+using EasyHybrid, Metal
 gpu_device()
 ```
 
 ```julia [Intel GPUs]
-using Lux, oneAPI
+using EasyHybrid, oneAPI
 gpu_device()
 ```
 
