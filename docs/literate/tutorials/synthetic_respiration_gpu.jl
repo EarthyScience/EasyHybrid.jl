@@ -7,10 +7,7 @@
 #
 
 using EasyHybrid
-using CUDA
-using MLDataDevices
-
-@show CUDA.functional()
+using Metal
 
 # ## Data Loading and Preprocessing
 #
@@ -89,13 +86,14 @@ cfg = EasyHybrid.TrainConfig(
     opt = AdamW(0.1),
     monitor_names = [:rb, :Q10],
     yscale = identity,
-    loss_types = [:mse, :nse]
+    loss_types = [:mse, :nse],
+    show_progress=false,
 )
 
 # for small neural network cpu is faster than gpu
-tune(single_nn_hybrid_model,df,cfg; gdev = CUDADevice())
-tune(single_nn_hybrid_model,df,cfg; gdev = cpu_device())
+@time tune(single_nn_hybrid_model,df,cfg; gdev = gpu_device()) # CUDADevice()
+@time tune(single_nn_hybrid_model,df,cfg; gdev = cpu_device())
 
 # for larger neural network gpu is faster than cpu
-tune(single_nn_hybrid_model,df,cfg; gdev = CUDADevice(), hidden_layers = [256, 128, 64, 32, 16])
-tune(single_nn_hybrid_model,df,cfg; gdev = cpu_device(), hidden_layers = [256, 128, 64, 32, 16])
+@time tune(single_nn_hybrid_model,df,cfg; gdev = gpu_device(), hidden_layers = [256, 128, 64, 32, 16])
+@time tune(single_nn_hybrid_model,df,cfg; gdev = cpu_device(), hidden_layers = [256, 128, 64, 32, 16])
