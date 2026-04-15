@@ -21,14 +21,8 @@ function tune(hybrid_model, data, mspec::ModelSpec; kwargs...)
 
     hm = constructHybridModel(; kwargs_model...)
 
-    a, b = split_data(data, hm; kwargs_train...)
-
-    return out = train(
-        hm,
-        (a, b),
-        ();
-        kwargs_train...
-    )
+    train_cfg, data_cfg = EasyHybrid.kwargs_to_configs((), kwargs_train)
+    return train(hm, data; train_cfg, data_cfg)
 end
 
 function tune(hybrid_model, data; kwargs...)
@@ -36,16 +30,20 @@ function tune(hybrid_model, data; kwargs...)
 
     hm = constructHybridModel(; kwargs_model...)
 
-    a, b = EasyHybrid.split_data(data, hm; kwargs...)
+    train_cfg, data_cfg = EasyHybrid.kwargs_to_configs((), (; kwargs...))
+    return train(hm, data; train_cfg, data_cfg)
+end
 
-    out = train(
-        hm,
-        (a, b),
-        ();
-        kwargs...
-    )
+function tune(hybrid_model, data, train_cfg::TrainConfig; data_cfg::DataConfig = DataConfig(), kwargs...)
+    kwargs_model = merge(to_namedtuple(hybrid_model), hybrid_model.config, (; kwargs...))
+    hm = constructHybridModel(; kwargs_model...)
+    return train(hm, data; train_cfg, data_cfg)
+end
 
-    return out
+function tune(hybrid_model, data, data_cfg::DataConfig; train_cfg::TrainConfig = TrainConfig(), kwargs...)
+    kwargs_model = merge(to_namedtuple(hybrid_model), hybrid_model.config, (; kwargs...))
+    hm = constructHybridModel(; kwargs_model...)
+    return train(hm, data; train_cfg, data_cfg)
 end
 
 function best_hyperparams(ho::Hyperoptimizer)

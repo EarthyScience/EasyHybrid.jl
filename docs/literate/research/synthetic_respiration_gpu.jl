@@ -19,7 +19,7 @@ using MLDataDevices
 df = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc");
 
 # Select a subset of data for faster execution
-#df = df[1:20000, :];
+df = df[1:20000, :];
 #first(df, 5)
 
 # ## Define the Physical Model
@@ -82,34 +82,20 @@ single_nn_hybrid_model = constructHybridModel(
 
 # ### train on DataFrame
 # Train the hybrid model
-single_nn_out = train(
-    single_nn_hybrid_model,
-    df,
-    ();
-    nepochs = 20,           # Number of training epochs
-    batchsize = 64,         # Batch size for training
-    opt = AdamW(0.1),   # Optimizer and learning rate
-    monitor_names = [:rb, :Q10], # Parameters to monitor during training
-    yscale = identity,       # Scaling for outputs
-    shuffleobs = true,
-    loss_types = [:mse, :nse],
-    show_progress = true,
-    model_name = "RbQ10_synthetic1",
-    gdev = CUDADevice()
+
+cfg = EasyHybrid.TrainConfig(
+    nepochs = 20,
+    batchsize = 64,
+    opt = AdamW(0.1),
+    monitor_names = [:rb, :Q10],
+    yscale = identity,
+    loss_types = [:mse, :nse]
 )
 
-single_nn_out = train(
-    single_nn_hybrid_model,
-    df,
-    ();
-    nepochs = 20,           # Number of training epochs
-    batchsize = 64,         # Batch size for training
-    opt = AdamW(0.1),   # Optimizer and learning rate
-    monitor_names = [:rb, :Q10], # Parameters to monitor during training
-    yscale = identity,       # Scaling for outputs
-    shuffleobs = true,
-    loss_types = [:mse, :nse],
-    show_progress = true,
-    model_name = "RbQ10_synthetic2",
-    gdev = cpu_device()
-)
+# for small neural network cpu is faster than gpu
+tune(single_nn_hybrid_model,df,cfg; gdev = CUDADevice())
+tune(single_nn_hybrid_model,df,cfg; gdev = cpu_device())
+
+# for larger neural network gpu is faster than cpu
+tune(single_nn_hybrid_model,df,cfg; gdev = CUDADevice(), hidden_layers = [256, 128, 64, 32, 16])
+tune(single_nn_hybrid_model,df,cfg; gdev = cpu_device(), hidden_layers = [256, 128, 64, 32, 16])
