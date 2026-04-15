@@ -91,9 +91,9 @@ cfg = EasyHybrid.TrainConfig(
 )
 
 # for small neural network cpu is faster than gpu
-@time tune(single_nn_hybrid_model, df, cfg; gdev = gpu_device()) # CUDADevice()
-@time tune(single_nn_hybrid_model, df, cfg; gdev = cpu_device())
+@time tune(single_nn_hybrid_model, df, cfg; gdev = gpu_device(), model_name = "small_nn_gpu") # CUDADevice()
+@time tune(single_nn_hybrid_model, df, cfg; gdev = cpu_device(), model_name = "small_nn_cpu")
 
 # for larger neural network gpu is faster than cpu
-@time tune(single_nn_hybrid_model, df, cfg; gdev = gpu_device(), hidden_layers = [256, 128, 64, 32, 16])
-@time tune(single_nn_hybrid_model, df, cfg; gdev = cpu_device(), hidden_layers = [256, 128, 64, 32, 16])
+@time tune(single_nn_hybrid_model, df, cfg; gdev = gpu_device(), hidden_layers = [256, 128, 64, 32, 16], model_name = "large_nn_gpu")
+@time tune(single_nn_hybrid_model, df, cfg; gdev = cpu_device(), hidden_layers = [256, 128, 64, 32, 16], model_name = "large_nn_cpu")
