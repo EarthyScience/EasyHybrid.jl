@@ -7,7 +7,10 @@
 #
 
 using EasyHybrid
-using CUDA, cuDNN
+using CUDA
+using MLDataDevices
+
+@show CUDA.functional()
 
 # ## Data Loading and Preprocessing
 #
@@ -16,8 +19,8 @@ using CUDA, cuDNN
 df = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc");
 
 # Select a subset of data for faster execution
-df = df[1:20000, :];
-first(df, 5)
+#df = df[1:20000, :];
+#first(df, 5)
 
 # ## Define the Physical Model
 #
@@ -83,14 +86,30 @@ single_nn_out = train(
     single_nn_hybrid_model,
     df,
     ();
-    nepochs = 10,           # Number of training epochs
-    batchsize = 512,         # Batch size for training
+    nepochs = 20,           # Number of training epochs
+    batchsize = 64,         # Batch size for training
     opt = AdamW(0.1),   # Optimizer and learning rate
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
     yscale = identity,       # Scaling for outputs
     shuffleobs = true,
     loss_types = [:mse, :nse],
-    show_progress = false,
+    show_progress = true,
     model_name = "RbQ10_synthetic1",
-    gdev = gpu_device()
+    gdev = CUDADevice()
+)
+
+single_nn_out = train(
+    single_nn_hybrid_model,
+    df,
+    ();
+    nepochs = 20,           # Number of training epochs
+    batchsize = 64,         # Batch size for training
+    opt = AdamW(0.1),   # Optimizer and learning rate
+    monitor_names = [:rb, :Q10], # Parameters to monitor during training
+    yscale = identity,       # Scaling for outputs
+    shuffleobs = true,
+    loss_types = [:mse, :nse],
+    show_progress = true,
+    model_name = "RbQ10_synthetic2",
+    gdev = cpu_device()
 )

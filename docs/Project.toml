@@ -10,8 +10,8 @@ EasyHybrid = "61bb816a-e6af-4913-ab9e-91bff2e122e3"
 Hyperopt = "93e5fe13-2215-51db-baaf-2e9a34fb2712"
 Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
 Lux = "b2108857-7c20-44ae-9111-449ecde12c47"
+MLDataDevices = "7e8f7934-dd98-4c1a-8fe8-92b47a384d40"
 OhMyThreads = "67456a42-1dca-4109-a031-0a68de7e3ad5"
-cuDNN = "02a925ec-e4fe-4b08-9a7e-0d78e3d38ccd"
 
 [sources]
 EasyHybrid = {path = ".."}
