@@ -8,6 +8,7 @@
 
 using EasyHybrid
 using Metal
+# using CUDA
 
 # ## Data Loading and Preprocessing
 #
@@ -83,9 +84,7 @@ single_nn_hybrid_model = constructHybridModel(
 cfg = EasyHybrid.TrainConfig(
     nepochs = 20,
     batchsize = 64,
-    opt = AdamW(0.1),
-    monitor_names = [:rb, :Q10],
-    yscale = identity,
+    opt = AdamW(0.01),
     loss_types = [:mse, :nse],
     show_progress = false,
 )

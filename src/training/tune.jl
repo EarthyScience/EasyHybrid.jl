@@ -35,14 +35,11 @@ function tune(hybrid_model, data; kwargs...)
 end
 
 function tune(hybrid_model, data, train_cfg::TrainConfig; data_cfg::DataConfig = DataConfig(), kwargs...)
-    kwargs_model = merge(to_namedtuple(hybrid_model), hybrid_model.config, (; kwargs...))
+    kwargs_model = merge(to_namedtuple(hybrid_model), hybrid_model.config, to_namedtuple(train_cfg), to_namedtuple(data_cfg), (; kwargs...))
     hm = constructHybridModel(; kwargs_model...)
-    return train(hm, data; train_cfg, data_cfg)
-end
 
-function tune(hybrid_model, data, data_cfg::DataConfig; train_cfg::TrainConfig = TrainConfig(), kwargs...)
-    kwargs_model = merge(to_namedtuple(hybrid_model), hybrid_model.config, (; kwargs...))
-    hm = constructHybridModel(; kwargs_model...)
+    train_cfg, data_cfg = EasyHybrid.kwargs_to_configs((), merge(to_namedtuple(train_cfg), to_namedtuple(data_cfg), (; kwargs...)))
+
     return train(hm, data; train_cfg, data_cfg)
 end
 
