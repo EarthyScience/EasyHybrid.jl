@@ -18,7 +18,7 @@ df = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/
 
 # Select a subset of data for faster execution
 df = df[1:20000, :];
-#first(df, 5)
+first(df, 5)
 
 # ## Define the Physical Model
 #
@@ -58,10 +58,6 @@ global_param_names = [:Q10]        # Global parameters (same for all samples)
 neural_param_names = [:rb]         # Neural network predicted parameters
 
 # ## Single NN Hybrid Model Training
-#
-# using WGLMakie
-# Create single NN hybrid model using the unified constructor
-
 predictors_single_nn = [:sw_pot, :dsw_pot]   # Predictor variables (solar radiation, and its derivative)
 
 single_nn_hybrid_model = constructHybridModel(
@@ -90,9 +86,11 @@ cfg = EasyHybrid.TrainConfig(
 )
 
 # for small neural network cpu is faster than gpu
-@time tune(single_nn_hybrid_model, df, cfg; gdev = gpu_device(), model_name = "small_nn_gpu") # CUDADevice()
-@time tune(single_nn_hybrid_model, df, cfg; gdev = cpu_device(), model_name = "small_nn_cpu")
+@time tune(single_nn_hybrid_model, df, cfg; gdev = gpu_device(), model_name = "small_nn_gpu"); # CUDADevice()
+
+@time tune(single_nn_hybrid_model, df, cfg; gdev = cpu_device(), model_name = "small_nn_cpu");
 
 # for larger neural network gpu is faster than cpu
-@time tune(single_nn_hybrid_model, df, cfg; gdev = gpu_device(), hidden_layers = [256, 128, 64, 32, 16], model_name = "large_nn_gpu")
-@time tune(single_nn_hybrid_model, df, cfg; gdev = cpu_device(), hidden_layers = [256, 128, 64, 32, 16], model_name = "large_nn_cpu")
+@time tune(single_nn_hybrid_model, df, cfg; gdev = gpu_device(), hidden_layers = [256, 128, 64, 32, 16], model_name = "large_nn_gpu");
+
+@time tune(single_nn_hybrid_model, df, cfg; gdev = cpu_device(), hidden_layers = [256, 128, 64, 32, 16], model_name = "large_nn_cpu");
