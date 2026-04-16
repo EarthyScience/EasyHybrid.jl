@@ -15,6 +15,15 @@ ModelSpec(; hyper_model = NamedTuple(), hyper_train = NamedTuple()) = ModelSpec(
     return :(NamedTuple{$names, Tuple{$(types...)}}(($(vals...),)))
 end
 
+"""
+    tune(hybrid_model, data, mspec::ModelSpec; kwargs...)
+    tune(hybrid_model, data; kwargs...)
+    tune(hybrid_model, data, train_cfg::TrainConfig; data_cfg::DataConfig = DataConfig(), kwargs...)
+
+Construct a new hybrid model from `hybrid_model` plus hyperparameters, then call [`train`](@ref).
+
+Returns a [`TrainResults`](@ref) (or `nothing` if data preparation fails, as in `train`).
+"""
 function tune(hybrid_model, data, mspec::ModelSpec; kwargs...)
     kwargs_model = merge(to_namedtuple(hybrid_model), hybrid_model.config, (; kwargs...), mspec.hyper_model)
     kwargs_train = merge((; kwargs...), mspec.hyper_train)
