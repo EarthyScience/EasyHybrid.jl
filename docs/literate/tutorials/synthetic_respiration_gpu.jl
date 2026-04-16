@@ -17,7 +17,8 @@ using Metal
 df = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc");
 
 # Select a subset of data for faster execution
-df = df[1:20000, :];
+df = df[1:1000, :];
+nothing #hide
 first(df, 5)
 
 # ## Define the Physical Model
@@ -80,17 +81,20 @@ single_nn_hybrid_model = constructHybridModel(
 cfg = EasyHybrid.TrainConfig(
     nepochs = 20,
     batchsize = 64,
-    opt = AdamW(0.01),
+    opt = RMSProp(0.01),
     loss_types = [:mse, :nse],
     show_progress = false,
 )
 
-# for small neural network cpu is faster than gpu
+# ### Small neural network: CPU is faster than GPU
 @time tune(single_nn_hybrid_model, df, cfg; gdev = gpu_device(), model_name = "small_nn_gpu"); # CUDADevice()
+nothing #hide
 
 @time tune(single_nn_hybrid_model, df, cfg; gdev = cpu_device(), model_name = "small_nn_cpu");
+nothing #hide
 
-# for larger neural network gpu is faster than cpu
-@time tune(single_nn_hybrid_model, df, cfg; gdev = gpu_device(), hidden_layers = [256, 128, 64, 32, 16], model_name = "large_nn_gpu");
-
-@time tune(single_nn_hybrid_model, df, cfg; gdev = cpu_device(), hidden_layers = [256, 128, 64, 32, 16], model_name = "large_nn_cpu");
+# ### Larger neural network: GPU is faster than CPU
+@time tune(single_nn_hybrid_model, df, cfg; gdev = gpu_device(), hidden_layers = [512, 256, 128, 64, 32, 16], model_name = "large_nn_gpu");
+nothing #hide
+@time tune(single_nn_hybrid_model, df, cfg; gdev = cpu_device(), hidden_layers = [512, 256, 128, 64, 32, 16], model_name = "large_nn_cpu");
+nothing #hide
