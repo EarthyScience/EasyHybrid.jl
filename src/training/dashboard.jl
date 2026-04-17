@@ -61,7 +61,10 @@ function update_dashboard!(dashboard, ext, snapshot::EpochSnapshot, epoch::Int, 
         monitor_names = dashboard.monitor_names
     )
 
-    return recordframe!(io)
+    if io !== nothing
+        recordframe!(io)
+    end
+    return nothing
 end
 
 function save_dashboard_img!(dashboard, ext, paths::TrainingPaths, cfg::TrainConfig, best_epoch::Int)
