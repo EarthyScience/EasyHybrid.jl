@@ -44,8 +44,8 @@ function init_dashboard(ext, init::EpochSnapshot, cfg::TrainConfig, y_train, y_v
     )
 end
 
-function update_dashboard!(dashboard, ext, snapshot::EpochSnapshot, epoch::Int, io)
-    isnothing(ext) && return
+function update_dashboard!(dashboard, ext, snapshot::EpochSnapshot, epoch::Int, io, cfg::TrainConfig)
+    isnothing(ext) && !cfg.save_training && return
     isnothing(dashboard) && return
 
     update_plotting_observables(
@@ -64,15 +64,15 @@ function update_dashboard!(dashboard, ext, snapshot::EpochSnapshot, epoch::Int, 
     return recordframe!(io)
 end
 
-function save_dashboard_img!(dashboard, ext, paths::TrainingPaths, best_epoch::Int)
-    isnothing(ext) && return
+function save_dashboard_img!(dashboard, ext, paths::TrainingPaths, best_epoch::Int, cfg::TrainConfig)
+    isnothing(ext) && !cfg.save_training && return
 
     save_fig(paths.history_img, dashboard_figure())
     return @info "Dashboard saved to $(paths.history_img)"
 end
 
 function record_or_run(f, ext, paths::TrainingPaths, cfg::TrainConfig)
-    return if !isnothing(ext)
+    return if !isnothing(ext) && cfg.save_training
         record_history(dashboard_figure(), paths.history_video; framerate = 24) do io
             f(io)
         end

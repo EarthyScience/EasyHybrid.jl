@@ -73,6 +73,13 @@ loss computation, data handling, output, and visualization.
     """
     keep_history::Bool = true
 
+    """
+    Whether to save the training results to disk. Default: `true`.
+     If `true`, the training history, model parameters, and diagnostics will be saved to a specified output path, allowing for later analysis and reproducibility.
+     If `false`, the training results will not be saved to disk, and only the in-memory results will be available after training. This can be useful for quick experiments or when disk space is a concern, but it means that the training history and model parameters will not be preserved for future reference.
+    """
+    save_training::Bool = true
+
     "Vector of monitor names to track during training. Default: `[]`."
     monitor_names::Vector = []
 

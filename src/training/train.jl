@@ -64,14 +64,14 @@ function train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::Da
 
             update!(stopper, history, snapshot, ps, st, epoch, train_cfg)
             save_epoch!(paths, model, ps, st, snapshot, epoch, train_cfg)
-            update_dashboard!(dashboard, ext, snapshot, epoch, io)
+            update_dashboard!(dashboard, ext, snapshot, epoch, io, train_cfg)
             log_progress!(prog, init, snapshot, epoch, train_cfg)
 
             is_done(stopper) && break
         end
     end
 
-    save_dashboard_img!(dashboard, ext, paths, stopper.best_epoch)
+    save_dashboard_img!(dashboard, ext, paths, stopper.best_epoch, train_cfg)
     ps, st = best_or_final(stopper, ps, st, train_cfg)
     save_final!(paths, model, ps, st, x_train, forcings_train, y_train, x_val, forcings_val, y_val, stopper, train_cfg)
 

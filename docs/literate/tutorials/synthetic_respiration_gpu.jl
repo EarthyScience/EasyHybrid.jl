@@ -8,7 +8,7 @@
 
 using EasyHybrid
 using Metal
-# using CUDA
+## using CUDA
 using Lux
 
 # ## Data Loading and Preprocessing
@@ -85,16 +85,21 @@ cfg = EasyHybrid.TrainConfig(
     opt = RMSProp(0.01),
     loss_types = [:mse, :nse],
     show_progress = false,
-    keep_history = false
+    keep_history = false, # set to true to keep per-epoch history, losses, predictions, etc.
+    save_training = false, # Set to true to enable saving training history and checkpoints
 )
 
 using BenchmarkTools
 
-gpu_run() = tune(single_nn_hybrid_model, df, cfg;
-    gdev = gpu_device(), model_name = "small_nn_gpu")
+gpu_run() = tune(
+    single_nn_hybrid_model, df, cfg;
+    gdev = gpu_device(), model_name = "small_nn_gpu"
+)
 
-cpu_run() = tune(single_nn_hybrid_model, df, cfg;
-    gdev = cpu_device(), model_name = "small_nn_cpu")
+cpu_run() = tune(
+    single_nn_hybrid_model, df, cfg;
+    gdev = cpu_device(), model_name = "small_nn_cpu"
+)
 
 # warm-up to pay compilation once
 gpu_run()
@@ -102,15 +107,19 @@ cpu_run()
 
 # steady-state timing
 using BenchmarkTools
-@benchmark gpu_run() samples=3 evals=1
-@benchmark cpu_run() samples=3 evals=1
+@benchmark gpu_run() samples = 3 evals = 1
+@benchmark cpu_run() samples = 3 evals = 1
 
 # alternative
-gpu_stats = @timed @eval tune(single_nn_hybrid_model, df, cfg;
-    gdev = gpu_device(), model_name = "small_nn_gpu")
+gpu_stats = @timed @eval tune(
+    single_nn_hybrid_model, df, cfg;
+    gdev = gpu_device(), model_name = "small_nn_gpu"
+)
 
-cpu_stats = @timed @eval tune(single_nn_hybrid_model, df, cfg;
-    gdev = cpu_device(), model_name = "small_nn_cpu")
+cpu_stats = @timed @eval tune(
+    single_nn_hybrid_model, df, cfg;
+    gdev = cpu_device(), model_name = "small_nn_cpu"
+)
 
 gpu_nogc_nocomp = gpu_stats.time - gpu_stats.gctime - gpu_stats.compile_time - gpu_stats.recompile_time
 cpu_nogc_nocomp = cpu_stats.time - cpu_stats.gctime - cpu_stats.compile_time - cpu_stats.recompile_time
