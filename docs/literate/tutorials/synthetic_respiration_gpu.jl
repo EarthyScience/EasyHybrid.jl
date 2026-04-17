@@ -103,11 +103,15 @@ cpu_run() = tune(
 
 # warm-up to pay compilation once
 gpu_run()
-cpu_run()
+cpu_run();
+nothing # hide
 
 # steady-state timing
 using BenchmarkTools
 @benchmark gpu_run() samples = 3 evals = 1
+
+# now with CPU
+
 @benchmark cpu_run() samples = 3 evals = 1
 
 # alternative
@@ -121,5 +125,9 @@ cpu_stats = @timed @eval tune(
     gdev = cpu_device(), model_name = "small_nn_cpu"
 )
 
+# compute GPU time excluding GC and compilation time
+
 gpu_nogc_nocomp = gpu_stats.time - gpu_stats.gctime - gpu_stats.compile_time - gpu_stats.recompile_time
+
+# and for CPU
 cpu_nogc_nocomp = cpu_stats.time - cpu_stats.gctime - cpu_stats.compile_time - cpu_stats.recompile_time
