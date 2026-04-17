@@ -71,7 +71,7 @@ function train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::Da
         end
     end
 
-    save_dashboard_img!(dashboard, ext, paths, stopper.best_epoch, train_cfg)
+    save_dashboard_img!(dashboard, ext, paths, train_cfg, stopper.best_epoch)
     ps, st = best_or_final(stopper, ps, st, train_cfg)
     save_final!(paths, model, ps, st, x_train, forcings_train, y_train, x_val, forcings_val, y_val, stopper, train_cfg)
 

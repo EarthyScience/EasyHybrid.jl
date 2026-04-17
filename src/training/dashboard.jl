@@ -64,11 +64,13 @@ function update_dashboard!(dashboard, ext, snapshot::EpochSnapshot, epoch::Int, 
     return recordframe!(io)
 end
 
-function save_dashboard_img!(dashboard, ext, paths::TrainingPaths, best_epoch::Int, cfg::TrainConfig)
-    isnothing(ext) && !cfg.save_training && return
-
-    save_fig(paths.history_img, dashboard_figure())
-    return @info "Dashboard saved to $(paths.history_img)"
+function save_dashboard_img!(dashboard, ext, paths::TrainingPaths, cfg::TrainConfig, best_epoch::Int)
+    return if !isnothing(ext) && cfg.save_training
+        save_fig(paths.history_img, dashboard_figure())
+        @info "Dashboard saved to $(paths.history_img)"
+    else
+        nothing
+    end
 end
 
 function record_or_run(f, ext, paths::TrainingPaths, cfg::TrainConfig)
