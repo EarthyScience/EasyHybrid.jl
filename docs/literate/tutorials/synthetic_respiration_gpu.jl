@@ -9,6 +9,7 @@
 using EasyHybrid
 using Metal
 # using CUDA
+using Lux
 
 # ## Data Loading and Preprocessing
 #
@@ -17,7 +18,7 @@ using Metal
 df = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc");
 
 # Select a subset of data for faster execution
-df = df[1:1000, :];
+df = df[1:5000, :];
 nothing #hide
 first(df, 5)
 
@@ -84,17 +85,32 @@ cfg = EasyHybrid.TrainConfig(
     opt = RMSProp(0.01),
     loss_types = [:mse, :nse],
     show_progress = false,
+    keep_history = false
 )
 
-# ### Small neural network: CPU is faster than GPU
-@time tune(single_nn_hybrid_model, df, cfg; gdev = gpu_device(), model_name = "small_nn_gpu"); # CUDADevice()
-nothing #hide
+using BenchmarkTools
 
-@time tune(single_nn_hybrid_model, df, cfg; gdev = cpu_device(), model_name = "small_nn_cpu");
-nothing #hide
+gpu_run() = tune(single_nn_hybrid_model, df, cfg;
+    gdev = gpu_device(), model_name = "small_nn_gpu")
 
-# ### Larger neural network: GPU is faster than CPU
-@time tune(single_nn_hybrid_model, df, cfg; gdev = gpu_device(), hidden_layers = [512, 256, 128, 64, 32, 16], model_name = "large_nn_gpu");
-nothing #hide
-@time tune(single_nn_hybrid_model, df, cfg; gdev = cpu_device(), hidden_layers = [512, 256, 128, 64, 32, 16], model_name = "large_nn_cpu");
-nothing #hide
+cpu_run() = tune(single_nn_hybrid_model, df, cfg;
+    gdev = cpu_device(), model_name = "small_nn_cpu")
+
+# warm-up to pay compilation once
+gpu_run()
+cpu_run()
+
+# steady-state timing
+using BenchmarkTools
+@benchmark gpu_run() samples=3 evals=1
+@benchmark cpu_run() samples=3 evals=1
+
+# alternative
+gpu_stats = @timed @eval tune(single_nn_hybrid_model, df, cfg;
+    gdev = gpu_device(), model_name = "small_nn_gpu")
+
+cpu_stats = @timed @eval tune(single_nn_hybrid_model, df, cfg;
+    gdev = cpu_device(), model_name = "small_nn_cpu")
+
+gpu_nogc_nocomp = gpu_stats.time - gpu_stats.gctime - gpu_stats.compile_time - gpu_stats.recompile_time
+cpu_nogc_nocomp = cpu_stats.time - cpu_stats.gctime - cpu_stats.compile_time - cpu_stats.recompile_time

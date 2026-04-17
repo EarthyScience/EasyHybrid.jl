@@ -1,6 +1,6 @@
 [deps]
 AxisKeys = "94b1ba4f-4ee9-5380-92f1-94cde586c3c5"
-CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
 DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"

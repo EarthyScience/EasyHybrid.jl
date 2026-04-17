@@ -8,6 +8,7 @@ function save_ps_st(file_name, hm, ps, st, save_ps)
         NamedTuple{save_ps}(ps_values)
     end
 
+    isfile(file_name) && rm(file_name)
     return jldopen(file_name, "w") do file
         file["HybridModel_$hm_name/epoch_0"] = (ps, st)
         if !isempty(save_ps)
