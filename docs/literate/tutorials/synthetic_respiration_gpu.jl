@@ -91,43 +91,38 @@ cfg = EasyHybrid.TrainConfig(
 
 using BenchmarkTools
 
-gpu_run() = tune(
+gpu_small_nn() = tune(
     single_nn_hybrid_model, df, cfg;
     gdev = gpu_device(), model_name = "small_nn_gpu"
 )
 
-cpu_run() = tune(
+cpu_small_nn() = tune(
     single_nn_hybrid_model, df, cfg;
     gdev = cpu_device(), model_name = "small_nn_cpu"
+)
+
+gpu_large_nn() = tune(
+    single_nn_hybrid_model, df, cfg;
+    gdev = gpu_device(), model_name = "large_nn_gpu", hidden_layers = [512, 256, 128, 64, 32]
+)
+
+cpu_large_nn() = tune(
+    single_nn_hybrid_model, df, cfg;
+    gdev = cpu_device(), model_name = "large_nn_cpu", hidden_layers = [512, 256, 128, 64, 32]
 )
 
 # warm-up to pay compilation once
-gpu_run()
-cpu_run();
+gpu_small_nn()
+cpu_small_nn();
+gpu_large_nn();
+cpu_large_nn();
 nothing # hide
 
-# steady-state timing
+# # With Small NN CPU and GPU are on par
 using BenchmarkTools
-@benchmark gpu_run() samples = 3 evals = 1
+@benchmark gpu_small_nn() samples = 4 evals = 1
+@benchmark cpu_small_nn() samples = 4 evals = 1
 
-# now with CPU
-
-@benchmark cpu_run() samples = 3 evals = 1
-
-# alternative
-gpu_stats = @timed @eval tune(
-    single_nn_hybrid_model, df, cfg;
-    gdev = gpu_device(), model_name = "small_nn_gpu"
-)
-
-cpu_stats = @timed @eval tune(
-    single_nn_hybrid_model, df, cfg;
-    gdev = cpu_device(), model_name = "small_nn_cpu"
-)
-
-# compute GPU time excluding GC and compilation time
-
-gpu_nogc_nocomp = gpu_stats.time - gpu_stats.gctime - gpu_stats.compile_time - gpu_stats.recompile_time
-
-# and for CPU
-cpu_nogc_nocomp = cpu_stats.time - cpu_stats.gctime - cpu_stats.compile_time - cpu_stats.recompile_time
+# # With Large NN CPU is slower than GPU
+@benchmark gpu_large_nn() samples = 4 evals = 1
+@benchmark cpu_large_nn() samples = 4 evals = 1
