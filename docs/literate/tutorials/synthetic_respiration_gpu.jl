@@ -120,9 +120,13 @@ nothing # hide
 
 # # With Small NN CPU and GPU are on par
 using BenchmarkTools
+# Small NN on GPU
 @benchmark gpu_small_nn() samples = 4 evals = 1
+# Small NN on CPU
 @benchmark cpu_small_nn() samples = 4 evals = 1
 
 # # With Large NN CPU is slower than GPU
+# Large NN on GPU
 @benchmark gpu_large_nn() samples = 4 evals = 1
+# Large NN on CPU
 @benchmark cpu_large_nn() samples = 4 evals = 1
