@@ -62,7 +62,7 @@ neural_param_names = [:rb]         # Neural network predicted parameters
 # ## Single NN Hybrid Model Training
 predictors_single_nn = [:sw_pot, :dsw_pot]   # Predictor variables (solar radiation, and its derivative)
 
-single_nn_hybrid_model = constructHybridModel(
+small_nn_hybrid_model = constructHybridModel(
     predictors_single_nn,              # Input features
     forcing,                 # Forcing variables
     target,                  # Target variables
@@ -71,6 +71,20 @@ single_nn_hybrid_model = constructHybridModel(
     neural_param_names,      # NN-predicted parameters
     global_param_names,      # Global parameters
     hidden_layers = [16, 16], # Neural network architecture
+    activation = sigmoid,      # Activation function
+    scale_nn_outputs = true, # Scale neural network outputs
+    input_batchnorm = true   # Apply batch normalization to inputs
+)
+
+large_nn_hybrid_model = constructHybridModel(
+    predictors_single_nn,              # Input features
+    forcing,                 # Forcing variables
+    target,                  # Target variables
+    RbQ10,                  # Process-based model function
+    parameters,              # Parameter definitions
+    neural_param_names,      # NN-predicted parameters
+    global_param_names,      # Global parameters
+    hidden_layers = [1024, 512, 256, 128, 64], # Neural network architecture
     activation = sigmoid,      # Activation function
     scale_nn_outputs = true, # Scale neural network outputs
     input_batchnorm = true   # Apply batch normalization to inputs
@@ -92,27 +106,27 @@ cfg = EasyHybrid.TrainConfig(
 using BenchmarkTools
 
 gpu_small_nn() = tune(
-    single_nn_hybrid_model, df, cfg;
+    small_nn_hybrid_model, df, cfg;
     gdev = gpu_device(), model_name = "small_nn_gpu"
 )
 
 cpu_small_nn() = tune(
-    single_nn_hybrid_model, df, cfg;
+    small_nn_hybrid_model, df, cfg;
     gdev = cpu_device(), model_name = "small_nn_cpu"
 )
 
 gpu_large_nn() = tune(
-    single_nn_hybrid_model, df, cfg;
-    gdev = gpu_device(), model_name = "large_nn_gpu", hidden_layers = [1024, 512, 256, 128, 64]
+    large_nn_hybrid_model, df, cfg;
+    gdev = gpu_device(), model_name = "large_nn_gpu"
 )
 
 cpu_large_nn() = tune(
-    single_nn_hybrid_model, df, cfg;
-    gdev = cpu_device(), model_name = "large_nn_cpu", hidden_layers = [1024, 512, 256, 128, 64]
+    large_nn_hybrid_model, df, cfg;
+    gdev = cpu_device(), model_name = "large_nn_cpu"
 )
 
 # warm-up to pay compilation once
-gpu_small_nn()
+gpu_small_nn();
 cpu_small_nn();
 gpu_large_nn();
 cpu_large_nn();
