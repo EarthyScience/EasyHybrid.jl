@@ -103,12 +103,12 @@ cpu_small_nn() = tune(
 
 gpu_large_nn() = tune(
     single_nn_hybrid_model, df, cfg;
-    gdev = gpu_device(), model_name = "large_nn_gpu", hidden_layers = [512, 256, 128, 64, 32]
+    gdev = gpu_device(), model_name = "large_nn_gpu", hidden_layers = [1024, 512, 256, 128, 64]
 )
 
 cpu_large_nn() = tune(
     single_nn_hybrid_model, df, cfg;
-    gdev = cpu_device(), model_name = "large_nn_cpu", hidden_layers = [512, 256, 128, 64, 32]
+    gdev = cpu_device(), model_name = "large_nn_cpu", hidden_layers = [1024, 512, 256, 128, 64]
 )
 
 # warm-up to pay compilation once
@@ -118,15 +118,15 @@ gpu_large_nn();
 cpu_large_nn();
 nothing # hide
 
-# # With Small NN CPU and GPU are on par
+# ## With Large NN CPU is slower than GPU
+# Large NN on GPU
+@benchmark gpu_large_nn() samples = 4 evals = 1
+# Large NN on CPU
+@benchmark cpu_large_nn() samples = 4 evals = 1
+
+# ## With Small NN CPU and GPU are on par
 using BenchmarkTools
 # Small NN on GPU
 @benchmark gpu_small_nn() samples = 4 evals = 1
 # Small NN on CPU
 @benchmark cpu_small_nn() samples = 4 evals = 1
-
-# # With Large NN CPU is slower than GPU
-# Large NN on GPU
-@benchmark gpu_large_nn() samples = 4 evals = 1
-# Large NN on CPU
-@benchmark cpu_large_nn() samples = 4 evals = 1
