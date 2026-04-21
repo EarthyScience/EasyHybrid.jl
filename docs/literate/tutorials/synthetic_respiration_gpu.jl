@@ -84,7 +84,7 @@ large_nn_hybrid_model = constructHybridModel(
     parameters,              # Parameter definitions
     neural_param_names,      # NN-predicted parameters
     global_param_names,      # Global parameters
-    hidden_layers = [1024, 512, 256, 128, 64], # Neural network architecture
+    hidden_layers = [128, 64], # Neural network architecture
     activation = sigmoid,      # Activation function
     scale_nn_outputs = true, # Scale neural network outputs
     input_batchnorm = true   # Apply batch normalization to inputs
@@ -133,14 +133,21 @@ cpu_large_nn();
 nothing # hide
 
 # ## With Large NN CPU is slower than GPU
+
 # Large NN on GPU
+
 @benchmark gpu_large_nn() samples = 4 evals = 1
+
 # Large NN on CPU
+
 @benchmark cpu_large_nn() samples = 4 evals = 1
 
 # ## With Small NN CPU and GPU are on par
-using BenchmarkTools
+
 # Small NN on GPU
+
 @benchmark gpu_small_nn() samples = 4 evals = 1
+
 # Small NN on CPU
+
 @benchmark cpu_small_nn() samples = 4 evals = 1

@@ -50,14 +50,14 @@ end
 
 function best_or_final(stopper::EarlyStopping, ps, st, cfg::TrainConfig)
     if cfg.return_model == :best
-        @info """
+        @debug """
         Returning best model from epoch $(stopper.best_epoch) \
         with validation loss: $(stopper.best_loss)
         """
         return deepcopy(stopper.best_ps), deepcopy(stopper.best_st)
 
     elseif cfg.return_model == :final
-        @info """
+        @debug """
         Returning final model. \
         Best validation loss was $(stopper.best_loss) at epoch $(stopper.best_epoch)
         """
