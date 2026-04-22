@@ -122,7 +122,8 @@ x, y = prepare_data(hlstm, df, array_type = pref_array_type);
 output_shift = 1
 output_window = 1
 input_window = 10
-(xs, forcings_s), ys = split_into_sequences(x, y; input_window = input_window, output_window = output_window, output_shift = output_shift, lead_time = 0);
+xs, ys = split_into_sequences(x, y; input_window = input_window, output_window = output_window, output_shift = output_shift, lead_time = 0);
+ys_nan = .!isnan.(ys);
 
 # First input_window/sample
 xs[:, :, 1]
@@ -134,26 +135,22 @@ xs[:, output_shift + 1, 1] == xs[:, 1, 2]
 
 
 # First `output_window/sample` with time label like `:x30_to_x5_y4` which indicates an `accumulation` of memory from `x30 to x5` for the prediction of `y4`
-ys.reco
+ys[:, :, 1]
 # Second output_window/sample
-ys.reco[:, 2]
-
-forcings_s.ta
-
+ys[:, :, 2]
 
 # Any of the first output_window the same as the second output_window?
 # ideally not big overlap
 overlap = output_window - output_shift
-overlap_length = sum(in(ys.reco[:, 1]), ys.reco[:, 2])
+overlap_length = sum(in(ys[:, :, 1]), ys[:, :, 2])
 
 # Split the (windowed) dataset into train/validation in the same way as `train` does.
 sdf = split_data(df, hlstm, sequence_kwargs = (; input_window = input_window, output_window = output_window, output_shift = output_shift, lead_time = 0), array_type = pref_array_type);
 
-((x_train, f_train), y_train), ((x_val, f_val), y_val) = sdf;
+(x_train, y_train), (x_val, y_val) = sdf;
 x_train
 y_train
-f_train
-y_train_nan = map(v -> .!isnan.(v), y_train)
+y_train_nan = .!isnan.(y_train)
 
 # Wrap the training windows/samples in a `DataLoader` to form batches.
 #
@@ -165,24 +162,24 @@ y_train_nan = map(v -> .!isnan.(v), y_train)
 # :::
 #
 
-train_dl = EasyHybrid.DataLoader(((x_train, f_train), y_train); batchsize = 32);
+train_dl = EasyHybrid.DataLoader((x_train, y_train); batchsize = 32);
 
 # Run hybrid model forwards
-(x_first, forcings_first), y_first = first(train_dl)
+x_first = first(train_dl)[1]
+y_first = first(train_dl)[2]
 
 ps, st = Lux.setup(Random.default_rng(), hlstm);
-xf = (x_first, forcings_first)
-frun = hlstm(xf, ps, st);
+frun = hlstm(x_first, ps, st);
 
 # Extract predicted yhat
 reco_mod = frun[1].reco
 
 # Bring observations in same shape
-reco_obs = y_first.reco
+reco_obs = dropdims(y_first, dims = 1)
 reco_nan = .!isnan.(reco_obs);
 
 # Compute loss
-EasyHybrid.compute_loss(hlstm, ps, st, ((x_train, f_train), (y_train, y_train_nan)), logging = LoggingLoss(train_mode = true))
+EasyHybrid.compute_loss(hlstm, ps, st, (x_train, (y_train, y_train_nan)), logging = LoggingLoss(train_mode = true))
 
 # ## 9. Train LSTM Hybrid Model
 

@@ -220,41 +220,6 @@ function toDataFrame(
     return out
 end
 
-"""
-    toDataFrame(nt::NamedTuple)
-
-Convert a NamedTuple of arrays (vectors or matrices) into a DataFrame.
-Matrix values are flattened via `vec` so each key becomes a single column.
-"""
-function toDataFrame(nt::NamedTuple)
-    return DataFrame(; (k => vec(v) for (k, v) in pairs(nt))...)
-end
-
-"""
-    toDataFrame(nt::NamedTuple, target_names, y_ref::NamedTuple)
-
-Extract targets from prediction NamedTuple `nt` into a DataFrame with `_pred` suffix.
-When the prediction has more rows than the reference `y_ref` (e.g. input_window > output_window),
-the last `output_window` rows are selected before flattening.
-"""
-function toDataFrame(nt::NamedTuple, target_names, y_ref::NamedTuple)
-    cols = [
-        let
-                ŷ_t = nt[t]
-                y_t = y_ref[t]
-                matched = if ŷ_t isa AbstractMatrix && y_t isa AbstractMatrix && size(ŷ_t, 1) != size(y_t, 1)
-                    nout = size(y_t, 1)
-                    ŷ_t[(end - nout + 1):end, :]
-            else
-                    ŷ_t
-            end
-                Symbol(string(t) * "_pred") => vec(matched)
-        end
-            for t in target_names
-    ]
-    return DataFrame(cols...)
-end
-
 # Convenience: extract specific targets from a labeled array into a DataFrame
 """
     toDataFrame(arr, target_names)
