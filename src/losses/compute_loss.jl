@@ -18,14 +18,14 @@ Main loss function for hybrid models that handles both training and evaluation m
   - `(loss_values, st, ŷ)`: NamedTuple of losses, state and predictions
 """
 function compute_loss(
-        HM::LuxCore.AbstractLuxContainerLayer, ps, st, ((x, forcings), (y_t, y_nan));
+        HM::LuxCore.AbstractLuxContainerLayer, ps, st, (x, (y_t, y_nan));
         logging::LoggingLoss
     )
 
     targets = HM.targets
     ext_loss = extra_loss(logging)
     if logging.train_mode
-        ŷ, st = HM((x, forcings), ps, st)
+        ŷ, st = HM(x, ps, st)
         loss_value = _compute_loss(ŷ, y_t, y_nan, targets, training_loss(logging), logging.agg)
         # Add extra_loss if provided
         if ext_loss !== nothing
@@ -34,7 +34,7 @@ function compute_loss(
         end
         stats = NamedTuple()
     else
-        ŷ, _ = HM((x, forcings), ps, LuxCore.testmode(st))
+        ŷ, _ = HM(x, ps, LuxCore.testmode(st))
         loss_value = _compute_loss(ŷ, y_t, y_nan, targets, loss_types(logging), logging.agg)
         # Add extra_loss entries if provided
         if ext_loss !== nothing
@@ -99,16 +99,6 @@ _get_target_ŷ(ŷ, y_t::Union{KeyedArray{T, 2}, AbstractDimArray{T, 2}}, target)
 _get_target_ŷ(ŷ, y_t::Union{KeyedArray{T, 1}, AbstractDimArray{T, 1}}, target) where {T} =
     ŷ[target]
 
-# For plain 2D y_t (after collect strips DimArray metadata): subset ŷ by matching
-# the output_window rows to the last rows of input_window (correct for lead_time=0).
-function _get_target_ŷ(ŷ, y_t::AbstractMatrix, target)
-    ŷ_t = ŷ[target]
-    nout = size(y_t, 1)
-    ŷ_t isa AbstractVector && return ŷ_t
-    size(ŷ_t, 1) == nout && return ŷ_t
-    return ŷ_t[(end - nout + 1):end, :]
-end
-
 _get_target_ŷ(ŷ, y_t, target) =
     ŷ[target]
 
@@ -117,9 +107,7 @@ function assemble_loss(ŷ, y, y_nan, targets, loss_spec)
         begin
                 y_t = _get_target_y(y, target)
                 ŷ_t = _get_target_ŷ(ŷ, y_t, target)
-                y_nan_t = _get_target_y(y_nan, target)
-                _apply_loss(ŷ_t, y_t, y_nan_t, loss_spec)
-                # _apply_loss(ŷ_t, y_t, _get_target_nan(y_nan, target), loss_spec)
+                _apply_loss(ŷ_t, y_t, _get_target_nan(y_nan, target), loss_spec)
             end
             for target in targets
     ]
@@ -175,8 +163,8 @@ Helper function to apply the appropriate loss function based on the specificatio
 """
 function _apply_loss end
 
-_get_target_y(y::NamedTuple, target) = y[target]
-_get_target_nan(y_nan::NamedTuple, target) = y_nan[target]
+_get_target_y(y, target) = y(target)
+_get_target_nan(y_nan, target) = y_nan(target)
 
 # For KeyedArray
 function _get_target_y(y::KeyedArray, target)
@@ -207,11 +195,8 @@ end
 """
     _get_target_y(y, target)
 Helper function to extract target-specific values from `y`, handling cases where `y` can be a tuple of `(y_obs, y_sigma)`.
-Supports NamedTuple, KeyedArray, AbstractDimArray, Tuple, and callables (functions).
 """
 function _get_target_y end
-
-_get_target_y(y_func, target) = y_func(target)
 
 # For KeyedArray
 function _get_target_nan(y_nan::KeyedArray, target)
@@ -235,11 +220,8 @@ end
     _get_target_nan(y_nan, target)
 
 Helper function to extract target-specific values from `y_nan`.
-Supports NamedTuple, KeyedArray, AbstractDimArray, and callables (functions).
 """
 function _get_target_nan end
-
-_get_target_nan(y_nan_func, target) = y_nan_func(target)
 
 # Helper to generate meaningful names for loss types
 function _loss_name(loss_spec::Symbol)

@@ -69,7 +69,8 @@ function loss_fn(ŷ, y, y_nan, ::Val{:pearson})
     return cor(ŷ[y_nan], y[y_nan])
 end
 function loss_fn(ŷ, y, y_nan, ::Val{:r2})
-    return 1 - sum((y[y_nan] .- ŷ[y_nan]) .^ 2) / sum((y[y_nan] .- mean(y[y_nan])) .^ 2)
+    r = cor(ŷ[y_nan], y[y_nan])
+    return r * r
 end
 
 function loss_fn(ŷ, y, y_nan, ::Val{:pearsonLoss})
