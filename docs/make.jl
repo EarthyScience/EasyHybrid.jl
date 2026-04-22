@@ -63,9 +63,9 @@ makedocs(;
             "Hyperparameter Tuning" => "tutorials/hyperparameter_tuning.md",
             "GPU Acceleration" => "tutorials/gpu.md",
             "Synthetic Respiration on GPU" => "tutorials/synthetic_respiration_gpu.md",
-            "Slurm" => "tutorials/slurm.md",
+            # "Slurm" => "tutorials/slurm.md",
             "Cross-validation" => "tutorials/folds.md",
-            "LSTM Hybrid Model" => "tutorials/example_synthetic_lstm.md",
+            # "LSTM Hybrid Model" => "tutorials/example_synthetic_lstm.md",
             "Loss Functions" => "tutorials/losses.md",
         ],
         "Research" => [
