@@ -1,28 +1,39 @@
-function run_epoch!(loader, model, ps, st, opt_state, cfg::TrainConfig)
+function collect_dim_data(x::T, y, cfg) where {T}
+    x_col = if x[1] isa NamedTuple
+        NamedTuple([name => Array(v) for (name, v) in pairs(x[1])])
+    else
+        Array(x[1])
+    end
+    forcing_nt = NamedTuple([k => Array(v) for (k, v) in pairs(x[2])])
+    targets_nt = NamedTuple([k => Array(v) for (k, v) in pairs(y[1])])
+    masks_nt = NamedTuple([k => Array(v) for (k, v) in pairs(y[2])])
+    return ((x_col, forcing_nt), (targets_nt, masks_nt)) |> cfg.gdev
+end
+
+function run_epoch!(loader, model, ps, st, train_state, cfg::TrainConfig)
     loss_fn = build_loss_fn(model, cfg)
-
     for (x, y) in loader
-        is_no_nan = valid_mask(y)
-        isnothing(is_no_nan) && continue
-
-        _, _, _, opt_state = Lux.Training.single_train_step!(
+        (x_col, y_col) = collect_dim_data(x, y, cfg)
+        if isemptybatch(y_col[2])
+            continue
+        end
+        _, _, _, train_state = Lux.Training.single_train_step!(
             cfg.autodiff_backend,
             loss_fn,
-            (x, (y, is_no_nan)),
-            opt_state;
+            (x_col, y_col),
+            train_state;
             return_gradients = cfg.return_gradients
         )
     end
 
-    ps = opt_state.parameters
-    st = opt_state.states
+    ps = train_state.parameters
+    st = train_state.states
 
-    return ps, st, opt_state
+    return ps, st, train_state
 end
-function valid_mask(y)
-    is_no_nan = .!isnan.(y)
-    !any(is_no_nan) && return nothing
-    return is_no_nan
+
+function isemptybatch(mask)
+    return all(x -> all(x .== 0), mask)
 end
 
 # TODO: move out to losses.jl?
@@ -39,17 +50,16 @@ function build_loss_fn(model, cfg::TrainConfig)
     )
 end
 
-function evaluate_epoch(model, x_train, y_train, x_val, y_val, ps, st, init::EpochSnapshot, cfg::TrainConfig)
-    is_no_nan_t = .!isnan.(y_train)
-    is_no_nan_v = .!isnan.(y_val)
-
+function evaluate_epoch(model, x_train, forcings_train, y_train, mask_train, x_val, forcings_val, y_val, mask_val, ps, st, init::EpochSnapshot, cfg::TrainConfig)
+    ps_cpu = ps |> cfg.cdev
+    st_cpu = st |> cfg.cdev
     l_train, _, ŷ_train = evaluate_acc(
-        model, x_train, y_train, is_no_nan_t,
-        ps, st, cfg.loss_types, cfg.training_loss, cfg.extra_loss, cfg.agg
+        model, x_train, forcings_train, y_train, mask_train,
+        ps_cpu, st_cpu, cfg.loss_types, cfg.training_loss, cfg.extra_loss, cfg.agg
     )
     l_val, _, ŷ_val = evaluate_acc(
-        model, x_val, y_val, is_no_nan_v,
-        ps, st, cfg.loss_types, cfg.training_loss, cfg.extra_loss, cfg.agg
+        model, x_val, forcings_val, y_val, mask_val,
+        ps_cpu, st_cpu, cfg.loss_types, cfg.training_loss, cfg.extra_loss, cfg.agg
     )
 
     return EpochSnapshot(l_train, l_val, ŷ_train, ŷ_val)
