@@ -8,9 +8,9 @@ mutable struct EarlyStopping
     done::Bool
 end
 
-function EarlyStopping(init_loss, ps, st, patience::Int)
+function EarlyStopping(init_loss, ps, st, cfg)
     best_loss = extract_agg_loss(init_loss)
-    return EarlyStopping(best_loss, deepcopy(ps), deepcopy(st), 0, 0, patience, false)
+    return EarlyStopping(best_loss, deepcopy(cfg.cdev(ps)), deepcopy(cfg.cdev(st)), 0, 0, cfg.patience, false)
 end
 
 function update!(es::EarlyStopping, history::TrainingHistory, snapshot::EpochSnapshot, ps, st, epoch, cfg::TrainConfig)
@@ -23,8 +23,8 @@ function update!(es::EarlyStopping, history::TrainingHistory, snapshot::EpochSna
 
     if isbetter(current_loss, es.best_loss, first(cfg.loss_types))
         es.best_loss = current_loss
-        es.best_ps = deepcopy(ps)
-        es.best_st = deepcopy(st)
+        es.best_ps = deepcopy(cfg.cdev(ps))
+        es.best_st = deepcopy(cfg.cdev(st))
         es.best_epoch = epoch
         es.counter = 0
         if !cfg.keep_history
@@ -70,16 +70,16 @@ function best_or_final(stopper::EarlyStopping, ps, st, cfg::TrainConfig)
     end
 end
 
-function build_results(model, history::TrainingHistory, stopper::EarlyStopping, ps, st, x_train, y_train, x_val, y_val)
+function build_results(model, history::TrainingHistory, stopper::EarlyStopping, ps, st, x_train, forcings_train, y_train, x_val, forcings_val, y_val, cfg::TrainConfig)
     target_names = model.targets
 
     # final predictions in test mode
-    ŷ_train, _ = model(x_train, ps, LuxCore.testmode(st))
-    ŷ_val, _ = model(x_val, ps, LuxCore.testmode(st))
+    ŷ_train, _ = model((cfg.cdev(x_train), cfg.cdev(forcings_train)), cfg.cdev(ps), LuxCore.testmode(st))
+    ŷ_val, _ = model((cfg.cdev(x_val), cfg.cdev(forcings_val)), cfg.cdev(ps), LuxCore.testmode(st))
 
     # observed vs predicted DataFrames
-    train_obs_pred = hcat(toDataFrame(y_train), toDataFrame(ŷ_train, target_names))
-    val_obs_pred = hcat(toDataFrame(y_val), toDataFrame(ŷ_val, target_names))
+    train_obs_pred = hcat(toDataFrame(y_train), toDataFrame(ŷ_train, target_names, y_train))
+    val_obs_pred = hcat(toDataFrame(y_val), toDataFrame(ŷ_val, target_names, y_val))
 
     # extra predictions without observational counterparts
     train_diffs, val_diffs = extract_diffs(ŷ_train, ŷ_val, target_names)
@@ -92,8 +92,8 @@ function build_results(model, history::TrainingHistory, stopper::EarlyStopping, 
         val_obs_pred,
         train_diffs,
         val_diffs,
-        ps,
-        st,
+        cfg.cdev(ps),
+        cfg.cdev(st),
         stopper.best_epoch,
         stopper.best_loss,
     )
