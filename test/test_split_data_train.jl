@@ -5,9 +5,6 @@ using DataFrames
 using Statistics
 using DimensionalData
 using ChainRulesCore
-using GPUArraysCore
-
-GPUArraysCore.allowscalar(false)
 
 # ------------------------------------------------------------------------------
 # Synthetic data similar to the example's columns (no network calls)
@@ -63,7 +60,7 @@ const RbQ10_PARAMS = (
         )
         @test model isa SingleNNHybridModel
         # prepare_data should produce something consumable by split_data
-        ka = to_keyedArray(df)
+        ka = prepare_data(model, df)
         @test !isnothing(ka)
 
         trainshort(ka; kwargs...) = train(
@@ -122,10 +119,10 @@ const RbQ10_PARAMS = (
         out = trainshort(sdata; model_name = "test_12")
         @test !isnothing(out)
 
-        # # mat = vcat(ka[1], ka[2])
-        # da = DimArray(ka, (Dim{:variable}(ka.keys[1]), Dim{:batch_size}(1:size(ka, 2))))'
-        # ka = prepare_data(model, da)
-        # @test !isnothing(ka)
+        mat = vcat(ka[1], ka[2])
+        da = DimArray(mat, (Dim{:variable}(mat.keys[1]), Dim{:batch_size}(1:size(mat, 2))))'
+        ka = prepare_data(model, da)
+        @test !isnothing(ka)
 
         # TODO: this is not working, transpose da columns to rows?
         #dtuple_tuple = split_data(da, model)
