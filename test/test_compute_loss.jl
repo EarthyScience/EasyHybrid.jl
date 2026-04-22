@@ -8,9 +8,9 @@ using DataFrames
 
 @testset "_compute_loss" begin
     # Test data setup
-    ŷ = Dict(:var1 => [1.0, 2.0, 3.0], :var2 => [2.0, 3.0, 4.0])
-    y(target) = target == :var1 ? [1.1, 1.9, 3.2] : [1.8, 3.1, 3.9]
-    y_nan(target) = trues(3)
+    ŷ = (; var1 = [1.0, 2.0, 3.0], var2 = [2.0, 3.0, 4.0])
+    y = (; var1 = [1.1, 1.9, 3.2], var2 = [1.8, 3.1, 3.0])
+    y_nan = (; var1 = trues(3), var2 = trues(3))
     targets = [:var1, :var2]
 
     @testset "Predefined losses" begin
@@ -50,20 +50,47 @@ using DataFrames
             # Mix of predefined and custom
             loss_spec = PerTarget((:mse, custom_loss))
             loss_d = _compute_loss(ŷ, y, y_nan, targets, loss_spec, sum)
-            l_mse = loss_fn(ŷ[:var1], y(:var1), y_nan(:var1), Val(:mse))
-            l_custom = _apply_loss(ŷ[:var2], y(:var2), y_nan(:var2), custom_loss)
+            l_mse = loss_fn(ŷ[:var1], y[:var1], y_nan[:var1], Val(:mse))
+            l_custom = _apply_loss(ŷ[:var2], y[:var2], y_nan[:var2], custom_loss)
             @test loss_d ≈ l_mse + l_custom
 
             # Mix of custom losses with arguments
             loss_spec_args = PerTarget(((weighted_loss, (0.5,)), (scaled_loss, (scale = 2.0,))))
             loss_args = _compute_loss(ŷ, y, y_nan, targets, loss_spec_args, sum)
-            l_weighted = _apply_loss(ŷ[:var2], y(:var2), y_nan(:var2), (weighted_loss, (0.5,)))
-            l_scaled = _apply_loss(ŷ[:var2], y(:var2), y_nan(:var2), (scaled_loss, (scale = 2.0,)))
+            l_weighted = _apply_loss(ŷ[:var1], y[:var1], y_nan[:var1], (weighted_loss, (0.5,)))
+            l_scaled = _apply_loss(ŷ[:var2], y[:var2], y_nan[:var2], (scaled_loss, (scale = 2.0,)))
             @test loss_args ≈ l_weighted + l_scaled
 
             # Mismatched number of losses and targets
             @test_throws AssertionError _compute_loss(ŷ, y, y_nan, targets, PerTarget((:mse,)), sum)
         end
+    end
+
+    @testset "Loss value correctness" begin
+        # Test MSE calculation
+        mse_loss = _compute_loss(ŷ, y, y_nan, targets, :mse, sum)
+        expected_mse = sum(mean(abs2, ŷ[k] .- y[k]) for k in targets)
+        @test mse_loss ≈ expected_mse
+
+        # Test MAE calculation
+        mae_loss = _compute_loss(ŷ, y, y_nan, targets, :mae, sum)
+        expected_mae = sum(mean(abs, ŷ[k] .- y[k]) for k in targets)
+        @test mae_loss ≈ expected_mae
+    end
+
+    @testset "Edge cases" begin
+        # Empty targets
+        @test_throws ArgumentError _compute_loss(ŷ, y, y_nan, String[], :mse, sum)
+
+        # Single target
+        single_target = [:var1]
+        loss = _compute_loss(ŷ, y, y_nan, single_target, :mse, sum)
+        @test loss isa Number
+
+        # NaN handling
+        y_nan_with_false = (; var1 = BitVector([true, false, true]), var2 = BitVector([true, false, true]))
+        loss = _compute_loss(ŷ, y, y_nan_with_false, targets, :mse, sum)
+        @test !isnan(loss)
     end
 
     @testset "DimensionalData interface" begin
@@ -84,33 +111,6 @@ using DataFrames
         @test losses isa NamedTuple
         @test haskey(losses, :mse)
         @test haskey(losses, :mae)
-    end
-
-    @testset "Loss value correctness" begin
-        # Test MSE calculation
-        mse_loss = _compute_loss(ŷ, y, y_nan, targets, :mse, sum)
-        expected_mse = sum(mean(abs2, ŷ[k] .- y(k)) for k in targets)
-        @test mse_loss ≈ expected_mse
-
-        # Test MAE calculation
-        mae_loss = _compute_loss(ŷ, y, y_nan, targets, :mae, sum)
-        expected_mae = sum(mean(abs, ŷ[k] .- y(k)) for k in targets)
-        @test mae_loss ≈ expected_mae
-    end
-
-    @testset "Edge cases" begin
-        # Empty targets
-        @test_throws ArgumentError _compute_loss(ŷ, y, y_nan, String[], :mse, sum)
-
-        # Single target
-        single_target = [:var1]
-        loss = _compute_loss(ŷ, y, y_nan, single_target, :mse, sum)
-        @test loss isa Number
-
-        # NaN handling
-        y_nan_with_false(target) = [true, false, true]
-        loss = _compute_loss(ŷ, y, y_nan_with_false, targets, :mse, sum)
-        @test !isnan(loss)
     end
 end
 
@@ -248,11 +248,11 @@ end
         var1 = Float32.([1.1, 1.9, 3.2]),
         var2 = Float32.([1.8, 3.1, 3.9])
     )
-    x = to_keyedArray(df_test)
+    data = prepare_data(HM, df_test)
+    y_t = data[2]
 
     # Create target data functions
-    y_t(target) = target == :var1 ? df_test.var1 : df_test.var2
-    y_nan(target) = trues(n_samples)
+    y_nan = (; var1 = trues(n_samples), var2 = trues(n_samples))
 
     @testset "Training mode with extra_loss" begin
         # Define extra loss function
@@ -265,14 +265,14 @@ end
             train_mode = true
         )
 
-        loss_value, st_out, stats = compute_loss(HM, ps, st, (x, (y_t, y_nan)); logging = logging)
+        loss_value, st_out, stats = compute_loss(HM, ps, st, (data[1], (data[2], y_nan)); logging = logging)
 
         # Should be a single number (aggregated main loss + extra loss)
         @test loss_value isa Number
         @test stats == NamedTuple()
 
         # Get actual predictions from the model
-        ŷ_actual, _ = HM(x, ps, st)
+        ŷ_actual, _ = HM(data[1], ps, st)
 
         # Verify the loss includes extra loss
         main_loss = _compute_loss(
@@ -291,13 +291,13 @@ end
             train_mode = true
         )
 
-        loss_value, st_out, stats = compute_loss(HM, ps, st, (x, (y_t, y_nan)); logging = logging)
+        loss_value, st_out, stats = compute_loss(HM, ps, st, (data[1], (data[2], y_nan)); logging = logging)
 
         @test loss_value isa Number
         @test stats == NamedTuple()
 
         # Get actual predictions from the model
-        ŷ_actual, _ = HM(x, ps, st)
+        ŷ_actual, _ = HM(data[1], ps, st)
 
         # Should match the main loss only
         main_loss = _compute_loss(
@@ -317,7 +317,7 @@ end
             train_mode = false
         )
 
-        loss_value, st_out, stats = compute_loss(HM, ps, st, (x, (y_t, y_nan)); logging = logging)
+        loss_value, st_out, stats = compute_loss(HM, ps, st, (data[1], (data[2], y_nan)); logging = logging)
 
         # Should be a NamedTuple with loss_types and extra_loss
         @test loss_value isa NamedTuple
@@ -345,7 +345,7 @@ end
             train_mode = false
         )
 
-        loss_value, st_out, stats = compute_loss(HM, ps, st, (x, (y_t, y_nan)); logging = logging)
+        loss_value, st_out, stats = compute_loss(HM, ps, st, (data[1], (data[2], y_nan)); logging = logging)
 
         # Should be a NamedTuple with only loss_types
         @test loss_value isa NamedTuple

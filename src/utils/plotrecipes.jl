@@ -63,8 +63,8 @@ function initialize_plotting_observables(init_ŷ_train, init_ŷ_val, y_train, 
     # build NamedTuples of Observables for preds and obs
     train_preds = to_obs_tuple(init_ŷ_train, target_names)
     val_preds = to_obs_tuple(init_ŷ_val, target_names)
-    train_obs = to_tuple(y_train, target_names)
-    val_obs = to_tuple(y_val, target_names)
+    train_obs = map(Array, y_train)
+    val_obs = map(Array, y_val)
 
     # --- monitored parameters/state as Observables ---
     train_monitor = !isempty(monitor_names) ? monitor_to_obs(init_ŷ_train, monitor_names) : nothing
@@ -113,14 +113,6 @@ end
 
 function to_obs_tuple(y, target_names)
     return (; (t => to_obs(vec(getfield(y, t))) for t in target_names)...)
-end
-
-function to_tuple(y::KeyedArray, target_names)
-    return (; (t => y(variable = t) for t in target_names)...) # observations are fixed, no Observables are needed!
-end
-
-function to_tuple(y::AbstractDimArray, target_names)
-    return (; (t => Array(y[variable = At(t)]) for t in target_names)...) # observations are fixed, no Observables are needed!
 end
 
 function monitor_to_obs(ŷ, monitor_names; cuts = (0.25, 0.5, 0.75))

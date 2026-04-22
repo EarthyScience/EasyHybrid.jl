@@ -9,7 +9,7 @@ Returns `nothing` if data preparation fails (zero-size dimension in training or 
 
 # Arguments
 - `model`: The hybrid model to train.
-- `data`: Training data, a single `DimArray`, a single `DataFrame`, a single `KeyedArray`, or a tuple of those.
+- `data`: Training data, a single `DimArray`, a single `DataFrame`, or a single `KeyedArray`.
 
 # Keyword Arguments
 - `train_cfg`: Training configuration. See [`TrainConfig`](@ref) for all options.
@@ -40,38 +40,55 @@ function train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::Da
     ext = load_makie_extension(train_cfg)
     seed!(train_cfg.random_seed)
 
-    (x_train, y_train), (x_val, y_val) = prepare_splits(data, model, data_cfg)
-    loader = build_loader(x_train, y_train, train_cfg)
-    ps, st, opt_state = init_model_state(model, train_cfg)
+    ((x_train, forcings_train), y_train), ((x_val, forcings_val), y_val) = prepare_splits(data, model, data_cfg)
+    mask_train, _ = valid_mask(y_train)
+    mask_val, _ = valid_mask(y_val)
+    loader = build_loader(x_train, forcings_train, y_train, mask_train, train_cfg)
+    ps, st, train_state = init_model_state(model, train_cfg)
 
-    init = compute_initial_state(model, x_train, y_train, x_val, y_val, ps, st, train_cfg)
+    init = compute_initial_state(model, x_train, forcings_train, y_train, mask_train, x_val, forcings_val, y_val, mask_val, ps, st, train_cfg)
     history = TrainingHistory(init)
-    stopper = EarlyStopping(init.l_val, ps, st, train_cfg.patience)
+    stopper = EarlyStopping(init.l_val, ps, st, train_cfg)
     paths = resolve_paths(train_cfg)
     prog = build_progress(train_cfg)
     dashboard = init_dashboard(ext, init, train_cfg, y_train, y_val, model.targets)
 
     save_initial_state!(paths, model, ps, st, train_cfg)
-
+    ps = ps |> train_cfg.gdev
+    st = st |> train_cfg.gdev
+    train_state = train_state |> train_cfg.gdev
     record_or_run(ext, paths, train_cfg) do io
         for epoch in 1:train_cfg.nepochs
-            ps, st, opt_state = run_epoch!(loader, model, ps, st, opt_state, train_cfg)
-            snapshot = evaluate_epoch(model, x_train, y_train, x_val, y_val, ps, st, init, train_cfg)
+            ps, st, train_state = run_epoch!(loader, model, ps, st, train_state, train_cfg)
+            snapshot = evaluate_epoch(model, x_train, forcings_train, y_train, mask_train, x_val, forcings_val, y_val, mask_val, ps, st, init, train_cfg)
 
             update!(stopper, history, snapshot, ps, st, epoch, train_cfg)
             save_epoch!(paths, model, ps, st, snapshot, epoch, train_cfg)
-            update_dashboard!(dashboard, ext, snapshot, epoch, io)
+            update_dashboard!(dashboard, ext, snapshot, epoch, io, train_cfg)
             log_progress!(prog, init, snapshot, epoch, train_cfg)
 
             is_done(stopper) && break
         end
     end
 
-    save_dashboard_img!(dashboard, ext, paths, stopper.best_epoch)
+    save_dashboard_img!(dashboard, ext, paths, train_cfg, stopper.best_epoch)
     ps, st = best_or_final(stopper, ps, st, train_cfg)
-    save_final!(paths, model, ps, st, x_train, y_train, x_val, y_val, stopper, train_cfg)
+    save_final!(paths, model, ps, st, x_train, forcings_train, y_train, x_val, forcings_val, y_val, stopper, train_cfg)
 
-    return build_results(model, history, stopper, ps, st, x_train, y_train, x_val, y_val)
+    return build_results(model, history, stopper, ps, st, x_train, forcings_train, y_train, x_val, forcings_val, y_val, train_cfg)
+end
+
+function valid_mask(y)
+    nt = (;)
+    isempty = true
+    for (k, v) in pairs(y)
+        k_mask = .!isnan.(v)
+        if !all(k_mask .== false)
+            isempty = false
+        end
+        nt = merge(nt, NamedTuple([k => .!isnan.(v)]))
+    end
+    return nt, isempty
 end
 
 function train(model, data, save_ps; kwargs...)
@@ -159,8 +176,8 @@ function rename_deprecated_kwargs(kwargs)
     return NamedTuple(pairs)
 end
 
-function evaluate_acc(ghm, x, y, y_no_nan, ps, st, loss_types, training_loss, extra_loss, agg)
-    loss_val, sts, ŷ = compute_loss(ghm, ps, st, (x, (y, y_no_nan)), logging = LoggingLoss(train_mode = false, loss_types = loss_types, training_loss = training_loss, extra_loss = extra_loss, agg = agg))
+function evaluate_acc(ghm, x, forcings, y, y_no_nan, ps, st, loss_types, training_loss, extra_loss, agg)
+    loss_val, sts, ŷ = compute_loss(ghm, ps, st, ((x, forcings), (y, y_no_nan)), logging = LoggingLoss(train_mode = false, loss_types = loss_types, training_loss = training_loss, extra_loss = extra_loss, agg = agg))
     return loss_val, sts, ŷ
 end
 
