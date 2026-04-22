@@ -34,48 +34,67 @@ end
 
 # ───────────────────────────────────────────────────────────────────────────
 # Single NN Hybrid Model Structure (optimized for performance)
-struct SingleNNHybridModel <: LuxCore.AbstractLuxContainerLayer{
-        (
-            :NN, #:predictors, :forcing, :targets,
-            #:mechanistic_model, :parameters, :neural_param_names, :global_param_names, :fixed_param_names,
-            #:scale_nn_outputs, :start_from_default,
-        ),
-    }
+struct SingleNNHybridModel{NP, GP, FP, M<:Function} <: LuxCore.AbstractLuxContainerLayer{(:NN,)}
     NN::Chain
     predictors::Vector{Symbol}
     forcing::Vector{Symbol}
     targets::Vector{Symbol}
-    mechanistic_model::Function
+    mechanistic_model::M
     parameters::AbstractHybridModel
-    neural_param_names::Vector{Symbol}
-    global_param_names::Vector{Symbol}
-    fixed_param_names::Vector{Symbol}
+    neural_param_names::Val{NP}
+    global_param_names::Val{GP}
+    fixed_param_names::Val{FP}
     scale_nn_outputs::Bool
     start_from_default::Bool
     config::NamedTuple
 end
 
-# Multi-NN Hybrid Model Structure (optimized for performance)
-struct MultiNNHybridModel <: LuxCore.AbstractLuxContainerLayer{
-        (
-            :NNs, #:predictors, :forcing, :targets,
-            # :mechanistic_model, :parameters, :neural_param_names, :global_param_names, :fixed_param_names,
-            # :scale_nn_outputs, :start_from_default,
-        ),
-    }
+function SingleNNHybridModel(
+    NN, predictors, forcing, targets,
+    mechanistic_model, parameters,
+    neural_param_names, global_param_names, fixed_param_names,
+    scale_nn_outputs, start_from_default, config
+)
+    return SingleNNHybridModel(
+        NN, predictors, forcing, targets,
+        mechanistic_model, parameters,
+        Val(Tuple(neural_param_names)),
+        Val(Tuple(global_param_names)),
+        Val(Tuple(fixed_param_names)),
+        scale_nn_outputs, start_from_default, config
+    )
+end
 
-    NNs::NamedTuple
+# Multi-NN Hybrid Model Structure (optimized for performance)
+struct MultiNNHybridModel{NP, GP, FP, M<:Function, NNT<:NamedTuple} <: LuxCore.AbstractLuxContainerLayer{(:NNs,)}
+    NNs::NNT
     predictors::NamedTuple
     forcing::Vector{Symbol}
     targets::Vector{Symbol}
-    mechanistic_model::Function
+    mechanistic_model::M
     parameters::AbstractHybridModel
-    neural_param_names::Vector{Symbol}
-    global_param_names::Vector{Symbol}
-    fixed_param_names::Vector{Symbol}
+    neural_param_names::Val{NP}
+    global_param_names::Val{GP}
+    fixed_param_names::Val{FP}
     scale_nn_outputs::Bool
     start_from_default::Bool
     config::NamedTuple
+end
+
+function MultiNNHybridModel(
+    NNs, predictors, forcing, targets,
+    mechanistic_model, parameters,
+    neural_param_names, global_param_names, fixed_param_names,
+    scale_nn_outputs, start_from_default, config
+)
+    return MultiNNHybridModel(
+        NNs, predictors, forcing, targets,
+        mechanistic_model, parameters,
+        Val(Tuple(neural_param_names)),
+        Val(Tuple(global_param_names)),
+        Val(Tuple(fixed_param_names)),
+        scale_nn_outputs, start_from_default, config
+    )
 end
 
 # Unified constructor that dispatches based on predictors type
@@ -230,19 +249,18 @@ function LuxCore.initialparameters(rng::AbstractRNG, m::SingleNNHybridModel)
     ps_nn, _ = LuxCore.setup(rng, m.NN)
     nt = (; ps = ps_nn)
 
-    # Then append each global parameter as a 1-vector of Float32
-    if !isempty(m.global_param_names)
-        if m.start_from_default
-            for g in m.global_param_names
-                default_val = scale_single_param_minmax(g, m.parameters)
-                nt = merge(nt, NamedTuple{(g,), Tuple{Vector{Float32}}}(([Float32(default_val)],)))
+    global_names = _unwrap(m.global_param_names)
+    if !isempty(global_names)
+        vals = if m.start_from_default
+            ntuple(length(global_names)) do i
+                [Float32(scale_single_param_minmax(global_names[i], m.parameters))]
             end
         else
-            for g in m.global_param_names
-                random_val = rand(rng, Float32)
-                nt = merge(nt, NamedTuple{(g,), Tuple{Vector{Float32}}}(([random_val],)))
+            ntuple(length(global_names)) do i
+                [rand(rng, Float32)]
             end
         end
+        nt = merge(nt, NamedTuple{global_names}(vals))
     end
 
     return nt
@@ -250,73 +268,57 @@ end
 
 # Initial parameters for MultiNNHybridModel
 function LuxCore.initialparameters(rng::AbstractRNG, m::MultiNNHybridModel)
-    # Setup parameters for each neural network
-    nn_params = NamedTuple()
-    for (nn_name, nn) in pairs(m.NNs)
-        ps_nn, _ = LuxCore.setup(rng, nn)
-        nn_params = merge(nn_params, NamedTuple{(nn_name,), Tuple{typeof(ps_nn)}}((ps_nn,)))
-    end
-
-    # Start with the NN weights
+    nn_params = map(nn -> first(LuxCore.setup(rng, nn)), m.NNs)
     nt = (; nn_params...)
 
-    # Then append each global parameter as a 1-vector of Float32
-    if !isempty(m.global_param_names)
-        if m.start_from_default
-            for g in m.global_param_names
-                default_val = scale_single_param_minmax(g, m.parameters)
-                nt = merge(nt, NamedTuple{(g,), Tuple{Vector{Float32}}}(([Float32(default_val)],)))
+    global_names = _unwrap(m.global_param_names)
+    if !isempty(global_names)
+        vals = if m.start_from_default
+            ntuple(length(global_names)) do i
+                [Float32(scale_single_param_minmax(global_names[i], m.parameters))]
             end
         else
-            for g in m.global_param_names
-                random_val = rand(rng, Float32)
-                nt = merge(nt, NamedTuple{(g,), Tuple{Vector{Float32}}}(([random_val],)))
+            ntuple(length(global_names)) do i
+                [rand(rng, Float32)]
             end
         end
+        nt = merge(nt, NamedTuple{global_names}(vals))
     end
-
     return nt
 end
 
 # Initial states for SingleNNHybridModel
 function LuxCore.initialstates(rng::AbstractRNG, m::SingleNNHybridModel)
     _, st_nn = LuxCore.setup(rng, m.NN)
-    nt = (;)
 
-    # Then append each fixed parameter as a 1-vector of Float32
-    if !isempty(m.fixed_param_names)
-        for f in m.fixed_param_names
-            default_val = default(m.parameters)[f]
-            nt = merge(nt, NamedTuple{(f,), Tuple{Vector{Float32}}}(([Float32(default_val)],)))
+    fixed_names = _unwrap(m.fixed_param_names)
+    fixed = if !isempty(fixed_names)
+        vals = ntuple(length(fixed_names)) do i
+            [Float32(default(m.parameters)[fixed_names[i]])]
         end
+        NamedTuple{fixed_names}(vals)
+    else
+        NamedTuple()
     end
 
-    nt = (; st_nn = st_nn, fixed = nt)
-    return nt
+    return (; st_nn = st_nn, fixed = fixed)
 end
 
 # Initial states for MultiNNHybridModel
 function LuxCore.initialstates(rng::AbstractRNG, m::MultiNNHybridModel)
-    # Setup states for each neural network
-    nn_states = NamedTuple()
-    for (nn_name, nn) in pairs(m.NNs)
-        _, st_nn = LuxCore.setup(rng, nn)
-        nn_states = merge(nn_states, NamedTuple{(nn_name,), Tuple{typeof(st_nn)}}((st_nn,)))
-    end
+    nn_states = map(nn -> last(LuxCore.setup(rng, nn)), m.NNs)
 
-    # Start with the NN states
-    nt = (;)
-
-    # Then append each fixed parameter as a 1-vector of Float32
-    if !isempty(m.fixed_param_names)
-        for f in m.fixed_param_names
-            default_val = default(m.parameters)[f]
-            nt = merge(nt, NamedTuple{(f,), Tuple{Vector{Float32}}}(([Float32(default_val)],)))
+    fixed_names = _unwrap(m.fixed_param_names)
+    fixed = if !isempty(fixed_names)
+        vals = ntuple(length(fixed_names)) do i
+            [Float32(default(m.parameters)[fixed_names[i]])]
         end
+        NamedTuple{fixed_names}(vals)
+    else
+        NamedTuple()
     end
 
-    nt = (; nn_states..., fixed = nt)
-    return nt
+    return merge(nn_states, (fixed = fixed,))
 end
 
 function default(p::AbstractHybridModel)
@@ -361,66 +363,71 @@ end
 # ───────────────────────────────────────────────────────────────────────────
 # Forward pass for SingleNNHybridModel (optimized, no branching)
 function (m::SingleNNHybridModel)(ds_k, ps, st)
-    # 1) get features
-    predictors = ds_k[1] #toArray(ds_k, m.predictors)
+    predictors   = @inbounds ds_k[1]
+    forcing_data = @inbounds ds_k[2]
+    parameters   = m.parameters
 
-    parameters = m.parameters
-
-    # 2) scale global parameters (handle empty case)
-    if !isempty(m.global_param_names)
-        global_vals = Tuple(
-            scale_single_param(g, ps[g], parameters)
-                for g in m.global_param_names
-        )
-        global_params = NamedTuple{Tuple(m.global_param_names), Tuple{typeof.(global_vals)...}}(global_vals)
+    # 1) Global params
+    global_params = if !isempty(_unwrap(m.global_param_names))
+        _build_global_params(m, ps, parameters, m.global_param_names)
     else
-        global_params = NamedTuple()
+        NamedTuple()
     end
 
-    # 3) scale NN parameters (handle empty case)
-    if !isempty(m.neural_param_names)
-        nn_out, st_nn = LuxCore.apply(m.NN, predictors, ps.ps, st.st_nn)
-        nn_cols = eachslice(nn_out, dims = 1)
-        nn_params = NamedTuple(zip(m.neural_param_names, nn_cols))
-
-        # Use appropriate scaling based on setting
-        if m.scale_nn_outputs
-            scaled_nn_vals = Tuple(
-                scale_single_param(name, nn_params[name], parameters)
-                    for name in m.neural_param_names
-            )
-        else
-            scaled_nn_vals = Tuple(nn_params[name] for name in m.neural_param_names)
-        end
-        scaled_nn_params = NamedTuple(zip(m.neural_param_names, scaled_nn_vals))
+    # 2) NN params
+    nn_out, st_nn = LuxCore.apply(m.NN, predictors, ps.ps, st.st_nn)
+    nn_out = nn_out::Matrix{eltype(predictors)}
+    scaled_nn_params = if !isempty(_unwrap(m.neural_param_names))
+        _build_nn_params(m, nn_out, parameters, m.neural_param_names)
     else
-        scaled_nn_params = NamedTuple()
-        st_nn = st.st_nn
+        NamedTuple()
     end
 
-    # 4) pick fixed parameters (handle empty case)
-    if !isempty(m.fixed_param_names)
-        fixed_vals = Tuple(st.fixed[f] for f in m.fixed_param_names)
-        fixed_params = NamedTuple{Tuple(m.fixed_param_names), Tuple{typeof.(fixed_vals)...}}(fixed_vals)
+    # 3) Fixed params
+    fixed_params = if !isempty(_unwrap(m.fixed_param_names))
+        _build_fixed_params(m, st, m.fixed_param_names)
     else
-        fixed_params = NamedTuple()
+        NamedTuple()
     end
 
-    # 5) unpack forcing data
-    forcing_data = ds_k[2] #toNamedTuple(ds_k, m.forcing)
-
-    # 6) merge all parameters
-    all_params = merge(scaled_nn_params, global_params, fixed_params)
+    # 4) Merge & call mechanistic model
+    all_params = merge(scaled_nn_params, global_params)
+    all_params = merge(all_params, fixed_params)
     all_kwargs = merge(forcing_data, all_params)
-    # all_kwargs = merge(forcing_data, all_params)
 
-    # 7) physics
     y_pred = m.mechanistic_model(; all_kwargs...)
+    out    = merge(y_pred, (parameters = all_params,))
 
-    out = (; y_pred..., parameters = all_params)
-    st_new = (; st_nn = st_nn, fixed = st.fixed)
-
+    st_new = (st_nn = st_nn, fixed = st.fixed)
     return out, st_new
+end
+
+_unwrap(::Val{names}) where {names} = names
+
+function _build_global_params(m, ps, parameters, ::Val{names}) where {names}
+    vals = ntuple(length(names)) do i
+        scale_single_param(names[i], ps[names[i]], parameters)
+    end
+    return NamedTuple{names}(vals)
+end
+
+function _build_nn_params(m, nn_out, parameters, ::Val{names}) where {names}
+    N = length(names)
+    vals = if m.scale_nn_outputs
+        ntuple(N) do i
+            scale_single_param(names[i], view(nn_out, i, :), parameters)
+        end
+    else
+        ntuple(i -> view(nn_out, i, :), N)
+    end
+    return NamedTuple{names}(vals)
+end
+
+function _build_fixed_params(m, st, ::Val{names}) where {names}
+    vals = ntuple(length(names)) do i
+        st.fixed[names[i]]
+    end
+    return NamedTuple{names}(vals)
 end
 
 function (m::SingleNNHybridModel)(df::DataFrame, ps, st)
@@ -449,74 +456,54 @@ end
 
 # Forward pass for MultiNNHybridModel (optimized, no branching)
 function (m::MultiNNHybridModel)(ds_k::Tuple, ps, st)
+    parameters   = m.parameters
+    forcing_data = ds_k[2]
 
-    parameters = m.parameters
+    # Run all NNs in one type-stable map over the NamedTuple
+    nn_results = map(keys(m.NNs)) do nn_name
+        LuxCore.apply(m.NNs[nn_name], ds_k[1][nn_name], ps[nn_name], st[nn_name])
+    end
+    nn_outputs = map(first, nn_results)  # NamedTuple of raw outputs
+    nn_states  = map(last,  nn_results)  # NamedTuple of states
 
-    # 2) Scale global parameters (handle empty case)
-    if !isempty(m.global_param_names)
-        global_vals = Tuple(
-            scale_single_param(g, ps[g], parameters)
-                for g in m.global_param_names
-        )
-        global_params = NamedTuple{Tuple(m.global_param_names), Tuple{typeof.(global_vals)...}}(global_vals)
+    # Scale NN outputs
+    scaled_nn_params = _build_multi_nn_params(m, nn_outputs, parameters, m.neural_param_names)
+
+    # Global params
+    global_params = if !isempty(_unwrap(m.global_param_names))
+        _build_global_params(m, ps, parameters, m.global_param_names)
     else
-        global_params = NamedTuple()
+        NamedTuple()
     end
 
-    # 3) Run each neural network and collect outputs
-    nn_outputs = NamedTuple()
-    nn_states = NamedTuple()
-
-    for (nn_name, nn) in pairs(m.NNs)
-        nn_out, st_nn = LuxCore.apply(nn, ds_k[1][nn_name], ps[nn_name], st[nn_name])
-        nn_outputs = merge(nn_outputs, NamedTuple{(nn_name,), Tuple{typeof(nn_out)}}((nn_out,)))
-        nn_states = merge(nn_states, NamedTuple{(nn_name,), Tuple{typeof(st_nn)}}((st_nn,)))
-    end
-
-    # 4) Scale neural network parameters using the mapping
-    scaled_nn_params = NamedTuple()
-    for (nn_name, param_name) in zip(keys(m.NNs), m.neural_param_names)
-        nn_cols = eachrow(nn_outputs[nn_name])
-
-        # Create parameter for this NN
-        nn_param = NamedTuple{(param_name,), Tuple{typeof(nn_cols[1])}}((nn_cols[1],))
-
-        # Conditionally apply scaling based on scale_nn_outputs setting
-        if m.scale_nn_outputs
-            scaled_nn_val = scale_single_param(param_name, nn_param[param_name], parameters)
-        else
-            scaled_nn_val = nn_param[param_name]  # Use raw NN output without scaling
-        end
-
-        nn_scaled_param = NamedTuple{(param_name,), Tuple{typeof(scaled_nn_val)}}((scaled_nn_val,))
-
-        # Merge with existing scaled parameters
-        scaled_nn_params = merge(scaled_nn_params, nn_scaled_param)
-    end
-
-    # 5) Pick fixed parameters (handle empty case)
-    if !isempty(m.fixed_param_names)
-        fixed_vals = Tuple(st.fixed[f] for f in m.fixed_param_names)
-        fixed_params = NamedTuple{Tuple(m.fixed_param_names), Tuple{typeof.(fixed_vals)...}}(fixed_vals)
+    # Fixed params
+    fixed_params = if !isempty(_unwrap(m.fixed_param_names))
+        _build_fixed_params(m, st, m.fixed_param_names)
     else
-        fixed_params = NamedTuple()
+        NamedTuple()
     end
 
     all_params = merge(scaled_nn_params, global_params, fixed_params)
-
-    # 6) unpack forcing data
-
-    forcing_data = ds_k[2]
     all_kwargs = merge(forcing_data, all_params)
 
-    # 7) Apply mechanistic model
     y_pred = m.mechanistic_model(; all_kwargs...)
-
-    out = (; y_pred..., parameters = all_params, nn_outputs = nn_outputs)
-
-    st_new = (; nn_states..., fixed = st.fixed)
+    out    = merge(y_pred, (parameters = all_params, nn_outputs = nn_outputs))
+    st_new = merge(nn_states, (fixed = st.fixed,))
 
     return out, st_new
+end
+
+function _build_multi_nn_params(m, nn_outputs, parameters, ::Val{names}) where {names}
+    vals = if m.scale_nn_outputs
+        ntuple(length(names)) do i
+            scale_single_param(names[i], view(nn_outputs[names[i]], 1, :), parameters)
+        end
+    else
+        ntuple(length(names)) do i
+            view(nn_outputs[names[i]], 1, :)
+        end
+    end
+    return NamedTuple{names}(vals)
 end
 
 function (m::MultiNNHybridModel)(df::DataFrame, ps, st)
