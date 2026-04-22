@@ -4,35 +4,13 @@ export split_into_sequences, filter_sequences
     filter_sequences(x, y) -> (x_filtered, y_filtered)
 
 Drop 3rd-dim samples where any predictor is NaN or all targets are NaN.
-Accepts `x` as a 3D array or `(x_array, forcings)` Tuple.
 """
 function filter_sequences(x, y)
-    valid = _valid_seq_indices(x, y)
-    length(valid) < size(x, 3) && @info "Dropped $(size(x, 3) - length(valid)) / $(size(x, 3)) sequences with NaN predictors or all-NaN targets"
+    n = size(x, 3)
+    valid = findall(ii -> !any(isnan, @view(x[:, :, ii])) && any(!isnan, @view(y[:, :, ii])), 1:n)
+    length(valid) < n && @info "Dropped $(n - length(valid)) / $n sequences with NaN predictors or all-NaN targets"
     return x[:, :, valid], y[:, :, valid]
 end
-
-function filter_sequences(x_tuple::Tuple, y)
-    x, forcings = x_tuple
-    valid = _valid_seq_indices(x, y)
-    length(valid) < size(x, 3) && @info "Dropped $(size(x, 3) - length(valid)) / $(size(x, 3)) sequences with NaN predictors or all-NaN targets"
-    return (x[:, :, valid], map(v -> v[:, valid], forcings)), _subset_y(y, valid)
-end
-
-function _valid_seq_indices(x, y)
-    n = size(x, 3)
-    return findall(ii -> !any(isnan, @view(x[:, :, ii])) && any(!isnan, @view(y[:, :, ii])), 1:n)
-end
-
-function _valid_seq_indices(x, y::NamedTuple)
-    n = size(x, 3)
-    return findall(1:n) do ii
-        !any(isnan, @view(x[:, :, ii])) && any(v -> any(!isnan, @view(v[:, ii])), values(y))
-    end
-end
-
-_subset_y(y, valid) = y[:, :, valid]
-_subset_y(y::NamedTuple, valid) = map(v -> v[:, valid], y)
 
 """
     split_into_sequences(x, y; input_window=5, output_window=1, output_shift=1, lead_time=1)
@@ -41,81 +19,16 @@ Slide a (input_window + lead_time) window over 2D `(feature, time)` arrays to pr
 3D `(feature, time, batch)` tensors for sequence-to-sequence training.
 
 # Arguments:
-- `x`: 2D input array `(feature, time)`, or a `(x_array, forcings)` Tuple from `prepare_data`.
-- `y`: 2D target array `(target, time)`, or a `NamedTuple` of 1D target vectors.
+- `x`: 2D input array `(feature, time)`.
+- `y`: 2D target array `(target, time)`.
 - `input_window`: number of input time steps per sample.
 - `output_window`: number of target time steps per sample.
 - `output_shift`: stride between consecutive samples.
 - `lead_time`: gap between end of input window and end of output window.
 
 # Returns:
-- `(X, Y)` as 3D arrays. When `x` is a Tuple, returns `((X, forcings_windowed), Y)`.
+- `(X, Y)` as KeyedArrays or DimArrays matching the input type.
 """
-function split_into_sequences(x::Tuple, y::NamedTuple; kwargs...)
-    x_arr, forcings = x
-    targetkeys = keys(y)
-    y_arr = _nt_to_array(y, x_arr)
-    X_seq, Y_seq = split_into_sequences(x_arr, y_arr; kwargs...)
-    forcings_seq = _window_forcings(forcings, x_arr; kwargs...)
-    Y_nt = _array_to_nt(Y_seq, targetkeys)
-    return (X_seq, forcings_seq), Y_nt
-end
-
-function split_into_sequences(x::Tuple, y; kwargs...)
-    x_arr, forcings = x
-    X_seq, Y_seq = split_into_sequences(x_arr, y; kwargs...)
-    forcings_seq = _window_forcings(forcings, x_arr; kwargs...)
-    return (X_seq, forcings_seq), Y_seq
-end
-
-function split_into_sequences(x, y::NamedTuple; kwargs...)
-    targetkeys = keys(y)
-    y_arr = _nt_to_array(y, x)
-    X_seq, Y_seq = split_into_sequences(x, y_arr; kwargs...)
-    return X_seq, _array_to_nt(Y_seq, targetkeys)
-end
-
-function _array_to_nt(Y::KeyedArray, targetkeys)
-    return (; (k => Y(variable = k) for k in targetkeys)...)
-end
-
-function _array_to_nt(Y::AbstractDimArray, targetkeys)
-    return (; (k => Y[variable = At(k)] for k in targetkeys)...)
-end
-
-function _array_to_nt(Y, targetkeys)
-    return (; (k => Y[i, :, :] for (i, k) in enumerate(targetkeys))...)
-end
-
-function _nt_to_array(y::NamedTuple, x)
-    mat = Float32.(reduce(vcat, [reshape(Array(v), 1, :) for v in values(y)]))
-    if x isa KeyedArray
-        return wrapdims(mat; variable = collect(keys(y)), AxisKeys.dimnames(x)[2] => axiskeys(x, 2))
-    elseif x isa AbstractDimArray
-        return DimArray(mat, (Dim{:variable}(collect(keys(y))), dims(x, 2)))
-    else
-        throw(ArgumentError("x must be a KeyedArray or AbstractDimArray; got $(typeof(x))"))
-    end
-end
-
-function _window_forcings(forcings::NamedTuple, x; input_window = 5, output_window = 1, output_shift = 1, lead_time = 1)
-    isempty(forcings) && return forcings
-    L = size(x, 2)
-    sx_min = max(1, 1 - (input_window + lead_time - output_window))
-    sx_max = L - input_window - lead_time + 1
-    sx_vals = collect(sx_min:output_shift:sx_max)
-    num_samples = length(sx_vals)
-    return map(forcings) do v
-        arr = Float32.(Array(v))
-        out = zeros(Float32, input_window, num_samples)
-        @inbounds for (ii, sx) in enumerate(sx_vals)
-            ex = sx + input_window - 1
-            @views out[:, ii] .= arr[sx:ex]
-        end
-        out
-    end
-end
-
 function split_into_sequences(x, y; input_window = 5, output_window = 1, output_shift = 1, lead_time = 1)
     ndims(x) == 2 || throw(ArgumentError("expected x to be (feature, time); got ndims(x) = $(ndims(x))"))
     ndims(y) == 2 || throw(ArgumentError("expected y to be (target, time); got ndims(y) = $(ndims(y))"))
@@ -167,6 +80,6 @@ function split_into_sequences(x, y; input_window = 5, output_window = 1, output_
         Yk = DimArray(Yd, (variable = targetkeys, time = lead_keys, batch_size = samplekeys))
         return Xk, Yk
     else
-        throw(ArgumentError("expected x to be KeyedArray or AbstractDimArray; got $(typeof(x))"))
+        throw(ArgumentError("expected Xd to be KeyedArray or AbstractDimArray; got $(typeof(Xd))"))
     end
 end

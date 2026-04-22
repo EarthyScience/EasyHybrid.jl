@@ -176,7 +176,7 @@ end
         @test model isa SingleNNHybridModel
         @test model.predictors == predictors
         @test model.NN isa Chain
-        # @test typeof(model.NN.layers[1]) == Lux.NoOpLayer  # Empty chain
+        @test typeof(model.NN.layers[1]) == Lux.NoOpLayer  # Empty chain
     end
 
     @testset "SingleNNHybridModel initialparameters" begin
@@ -256,9 +256,8 @@ end
         ps = LuxCore.initialparameters(rng, model)
         st = LuxCore.initialstates(rng, model)
 
-        data_ = prepare_data(model, dk)
         # Test forward pass
-        output, new_st = model(data_[1], ps, st)
+        output, new_st = model(dk, ps, st)
 
         @test haskey(output, :y_pred)
         @test haskey(output, :parameters)
@@ -293,8 +292,7 @@ end
         ps = LuxCore.initialparameters(rng, model)
         st = LuxCore.initialstates(rng, model)
 
-        data_ = prepare_data(model, dk)
-        output, new_st = model(data_[1], ps, st)
+        output, new_st = model(dk, ps, st)
 
         @test haskey(output, :y_pred)
         @test haskey(output, :parameters)
@@ -422,9 +420,8 @@ end
         ps = LuxCore.initialparameters(rng, model)
         st = LuxCore.initialstates(rng, model)
 
-        data = prepare_data(model, dk)
         # Test forward pass
-        output, new_st = model(data[1], ps, st)
+        output, new_st = model(dk, ps, st)
 
         @test haskey(output, :y_pred)
         @test haskey(output, :parameters)
@@ -454,8 +451,6 @@ end
             scale_nn_outputs = true
         )
 
-        data = prepare_data(model, dk)
-        # Test forward pass
         @test model.scale_nn_outputs == true
 
         rng = Random.default_rng()
@@ -464,7 +459,7 @@ end
 
         # ! TODO: Fix this test; currently fails due to nn_outputs not being returned
         # ERROR: type NamedTuple has no field nn1
-        output, new_st = model(data[1], ps, st)
+        output, new_st = model(dk, ps, st)
 
         @test haskey(output, :y_pred)
         @test haskey(output, :parameters)
@@ -503,9 +498,7 @@ end
         @test haskey(ps, :ps)  # Even with empty NN, ps key exists (may be empty)
         @test isempty(ps.ps[1])
 
-        data_ = prepare_data(model, dk)
-        # Test forward pass
-        output, new_st = model(data_[1], ps, st)
+        output, new_st = model(dk, ps, st)
         @test haskey(output, :y_pred)
         @test haskey(output, :parameters)
     end

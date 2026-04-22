@@ -1,7 +1,6 @@
-function build_loader(x_train, forcings_train, y_train, mask, cfg::TrainConfig)
+function build_loader(x_train, y_train, cfg::TrainConfig)
     loader = DataLoader(
-        ((x_train, forcings_train), (y_train, mask));
-        parallel = true,
+        (x_train, y_train);
         batchsize = cfg.batchsize,
         shuffle = true,
     )
