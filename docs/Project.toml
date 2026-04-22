@@ -1,5 +1,6 @@
 [deps]
 AxisKeys = "94b1ba4f-4ee9-5380-92f1-94cde586c3c5"
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
@@ -11,6 +12,8 @@ GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 Hyperopt = "93e5fe13-2215-51db-baaf-2e9a34fb2712"
 Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
 Lux = "b2108857-7c20-44ae-9111-449ecde12c47"
+MLDataDevices = "7e8f7934-dd98-4c1a-8fe8-92b47a384d40"
+Metal = "dde4c033-4e86-420c-a63e-0dd931031962"
 OhMyThreads = "67456a42-1dca-4109-a031-0a68de7e3ad5"
 
 [sources]

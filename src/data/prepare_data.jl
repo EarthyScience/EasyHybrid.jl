@@ -1,22 +1,38 @@
 export prepare_data
 
-function prepare_data(hm, data::KeyedArray; kwargs...)
-    predictors_forcing, targets = get_prediction_target_names(hm)
+function prepare_data(hm, data::KeyedArray; cfg = DataConfig(), kwargs...)
+    predictors, forcings, targets = get_prediction_target_names(hm)
     # KeyedArray: use () syntax for views that are differentiable
-    return (data(predictors_forcing), data(targets))
+    X_arr = Array(data(predictors))
+    forcings_nt = NamedTuple([forcing => Array(data(forcing)) for forcing in forcings])
+    targets_nt = NamedTuple([target => Array(data(target)) for target in targets])
+    return ((X_arr, forcings_nt), targets_nt)
+end
+
+function prepare_data(hm::MultiNNHybridModel, data::KeyedArray; cfg = DataConfig(), kwargs...)
+    predictors, forcings, targets = get_prediction_target_names(hm)
+    # KeyedArray: use () syntax for views that are differentiable
+    X_all = NamedTuple([name => Array(data(p)) for (name, p) in pairs(predictors)])
+    forcings_nt = NamedTuple([forcing => Array(data(forcing)) for forcing in forcings])
+    targets_nt = NamedTuple([target => Array(data(target)) for target in targets])
+    return ((X_all, forcings_nt), targets_nt)
 end
 
 function prepare_data(hm, data::AbstractDimArray; kwargs...)
-    predictors_forcing, targets = get_prediction_target_names(hm)
+    predictors, forcings, targets = get_prediction_target_names(hm)
+    # KeyedArray: use () syntax for views that are differentiable
+    X_arr = data[variable = At(predictors)]
+    forcings_nt = NamedTuple([forcing => data[variable = At(forcing)] for forcing in forcings])
+    targets_nt = NamedTuple([target => data[variable = At(target)] for target in targets])
     # DimArray: use [] syntax (copies, but differentiable)
-    return (data[variable = At(predictors_forcing)], data[variable = At(targets)])
+    return ((X_arr, forcings_nt), targets_nt)
 end
 
 function prepare_data(hm, data::DataFrame; array_type = :KeyedArray, drop_missing_rows = true)
-    predictors_forcing, targets = get_prediction_target_names(hm)
+    predictors, forcings, targets = get_prediction_target_names(hm)
 
-    all_predictor_cols = unique(vcat(values(predictors_forcing)...))
-    col_to_select = unique([all_predictor_cols; targets])
+    # all_predictor_cols = unique(vcat(values(predictors_forcing)...))
+    col_to_select = unique([vcat(predictors...); forcings; targets])
 
     # subset to only the cols we care about
     sdf = data[!, col_to_select]
@@ -83,34 +99,17 @@ Returns a tuple of (predictors_forcing, targets) names.
 """
 function get_prediction_target_names(hm)
     targets = hm.targets
-    predictors_forcing = Symbol[]
-    for prop in propertynames(hm)
-        if occursin("predictors", string(prop))
-            val = getproperty(hm, prop)
-            if isa(val, AbstractVector)
-                append!(predictors_forcing, val)
-            elseif isa(val, Union{NamedTuple, Tuple})
-                append!(predictors_forcing, unique(vcat(values(val)...)))
-            end
-        end
-    end
-    for prop in propertynames(hm)
-        if occursin("forcing", string(prop))
-            val = getproperty(hm, prop)
-            if isa(val, AbstractVector)
-                append!(predictors_forcing, val)
-            elseif isa(val, Union{Tuple, NamedTuple})
-                append!(predictors_forcing, unique(vcat(values(val)...)))
-            end
-        end
-    end
-    predictors_forcing = unique(predictors_forcing)
+    predictors = hm.predictors
+    forcings = hm.forcing
 
-    if isempty(predictors_forcing)
-        @warn "Note that you don't have predictors or forcing variables."
+    if isempty(predictors)
+        @warn "Note that you don't have predictors variables."
+    end
+    if isempty(forcings)
+        @warn "Note that you don't have forcing variables."
     end
     if isempty(targets)
         @warn "Note that you don't have target names."
     end
-    return predictors_forcing, targets
+    return predictors, forcings, targets
 end
