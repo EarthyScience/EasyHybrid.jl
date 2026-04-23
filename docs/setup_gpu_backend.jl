@@ -34,8 +34,15 @@ function _load_gpu_backend()
             continue
         end
 
-        DeviceT = getfield(MLDataDevices, dev)
-        if MLDataDevices.functional(DeviceT)
+        # `using $pkg` may load an `MLDataDevices` package extension that
+        # adds new methods (e.g. a real `functional(::Type{CUDADevice})`).
+        # Those methods live in a newer world age than this function, so
+        # we must dispatch via `invokelatest` or we'll get the stale
+        # (pre-extension) method that reports `false`.
+        DeviceT = Base.invokelatest(getfield, MLDataDevices, dev)
+        is_functional = Base.invokelatest(MLDataDevices.functional, DeviceT)
+
+        if is_functional
             @info "GPU backend loaded: $pkg → $dev"
             return pkg, DeviceT
         else
