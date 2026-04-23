@@ -15,6 +15,7 @@ function split_data(
         split_data_at::Real = 0.8,
         sequence_kwargs::Union{Nothing, NamedTuple} = nothing,
         array_type::Symbol = :KeyedArray,
+        cfg = DataConfig(),
         kwargs...
     )
     data_ = prepare_data(
@@ -23,16 +24,15 @@ function split_data(
     )
 
     if sequence_kwargs !== nothing
-        x_all, y_all = data_
+        x_forcings, y_all = data_
         sis_default = (; input_window = 10, output_window = 1, output_shift = 1, lead_time = 1)
         sis = merge(sis_default, sequence_kwargs)
         @info "Using split_into_sequences: $sis"
-        x_all, y_all = split_into_sequences(x_all, y_all; sis.input_window, sis.output_window, sis.output_shift, sis.lead_time)
-        x_all, y_all = filter_sequences(x_all, y_all)
+        (x_all, forcings_all), y_all = split_into_sequences(x_forcings, y_all; sis.input_window, sis.output_window, sis.output_shift, sis.lead_time)
+        (x_all, forcings_all), y_all = filter_sequences((x_all, forcings_all), y_all)
     else
-        x_all, y_all = data_
+        (x_all, forcings_all), y_all = data_
     end
-
 
     if split_by_id !== nothing && folds !== nothing
 
@@ -50,9 +50,7 @@ function split_data(
         @info "Number of unique $(split_by_id): $(length(unique_ids))"
         @info "Train IDs: $(length(train_ids)) | Val IDs: $(length(val_ids))"
 
-        x_train, y_train = view_end_dim(x_all, train_idx), view_end_dim(y_all, train_idx)
-        x_val, y_val = view_end_dim(x_all, val_idx), view_end_dim(y_all, val_idx)
-        return (x_train, y_train), (x_val, y_val)
+        return _split_and_pack(x_all, forcings_all, y_all, train_idx, val_idx)
 
     elseif folds !== nothing || val_fold !== nothing
         # --- Option B: external K-fold assignment ---
@@ -60,7 +58,7 @@ function split_data(
         @assert folds !== nothing "Provide folds when using val_fold."
         @warn "shuffleobs is not supported when using folds and val_fold, this will be ignored and should be done during fold constructions"
         f = isa(folds, Symbol) ? getbyname(data, folds) : folds
-        n = size(x_all, 2)
+        n = _num_samples(x_all)
         @assert length(f) == n "length(folds) ($(length(f))) must equal number of samples/columns ($n)."
         @assert 1 ≤ val_fold ≤ maximum(f) "val_fold=$val_fold is out of range 1:$(maximum(f))."
 
@@ -70,14 +68,13 @@ function split_data(
 
         @info "K-fold via external assignments: val_fold=$val_fold → train=$(length(train_idx)) val=$(length(val_idx))"
 
-        x_train, y_train = view_end_dim(x_all, train_idx), view_end_dim(y_all, train_idx)
-        x_val, y_val = view_end_dim(x_all, val_idx), view_end_dim(y_all, val_idx)
-        return (x_train, y_train), (x_val, y_val)
+        return _split_and_pack(x_all, forcings_all, y_all, train_idx, val_idx)
 
     else
         # --- Fallback: simple random/chronological split of prepared data ---
-        (x_train, y_train), (x_val, y_val) = splitobs((x_all, y_all); at = split_data_at, shuffle = shuffleobs)
-        return (x_train, y_train), (x_val, y_val)
+        n = _num_samples(x_all)
+        train_idx, val_idx = splitobs(1:n; at = split_data_at, shuffle = shuffleobs)
+        return _split_and_pack(x_all, forcings_all, y_all, train_idx, val_idx)
     end
 end
 
@@ -115,8 +112,28 @@ function getbyname(df::DataFrame, name::Symbol)
     return df[!, name]
 end
 
-function getbyname(ka::Union{KeyedArray, AbstractDimArray}, name::Symbol)
-    return @view ka[variable = At(name)]
+function getbyname(ka::KeyedArray, name::Symbol)
+    return ka(variable = name)
+end
+
+function getbyname(ka::AbstractDimArray, name::Symbol)
+    return ka[variable = At(name)]
+end
+
+function view_end_dim(x_all::AbstractMatrix{T}, idx) where {T}
+    return view(x_all, :, idx)
+end
+
+function view_end_dim(x_all::AbstractVector{T}, idx) where {T}
+    return view(x_all, idx)
+end
+
+function view_end_dim(x_all::NamedTuple, idx)
+    nt = (;)
+    for (k, v) in pairs(x_all)
+        nt = merge(nt, NamedTuple([k => view_end_dim(v, idx)]))
+    end
+    return nt
 end
 
 function view_end_dim(x_all::Union{KeyedArray{Float32, 2}, AbstractDimArray{Float32, 2}}, idx)
@@ -125,4 +142,41 @@ end
 
 function view_end_dim(x_all::Union{KeyedArray{Float32, 3}, AbstractDimArray{Float32, 3}}, idx)
     return view(x_all, :, :, idx)
+end
+
+function collect_end_dim(x_all::AbstractMatrix{T}, idx) where {T}
+    return collect(getindex(x_all, :, idx))
+end
+
+function collect_end_dim(x_all::AbstractVector{T}, idx) where {T}
+    return collect(getindex(x_all, idx))
+end
+
+function collect_end_dim(x_all::NamedTuple, idx)
+    nt = (;)
+    for (k, v) in pairs(x_all)
+        nt = merge(nt, NamedTuple([k => collect_end_dim(v, idx)]))
+    end
+    return nt
+end
+
+function collect_end_dim(x_all::Union{KeyedArray{Float32, 2}, AbstractDimArray{Float32, 2}}, idx)
+    return collect(getindex(x_all, :, idx))
+end
+
+function collect_end_dim(x_all::Union{KeyedArray{Float32, 3}, AbstractDimArray{Float32, 3}}, idx)
+    return collect(getindex(x_all, :, :, idx))
+end
+
+_num_samples(x::AbstractArray) = size(x, 2)
+_num_samples(x::NamedTuple) = _num_samples(first(values(x)))
+
+function _split_and_pack(x_all, forcings_all, y_all, train_idx, val_idx)
+    x_train = collect_end_dim(x_all, train_idx)
+    forcings_train = collect_end_dim(forcings_all, train_idx)
+    y_train = collect_end_dim(y_all, train_idx)
+    x_val = collect_end_dim(x_all, val_idx)
+    forcings_val = collect_end_dim(forcings_all, val_idx)
+    y_val = collect_end_dim(y_all, val_idx)
+    return ((x_train, forcings_train), y_train), ((x_val, forcings_val), y_val)
 end
