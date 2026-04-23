@@ -194,33 +194,84 @@ bench_cpu_vs_gpu(large_nn_hybrid_model, df, cfg; label = "large NN"); # on our g
 # A ratio > 1 means GPU is faster than CPU; a ratio < 1 means GPU is slower.
 
 widths = [16, 64, 256, 512, 1024]
+depths = 2:5
 
-results = map(widths) do w
-    r = bench_cpu_vs_gpu(small_nn_hybrid_model, df, cfg;
-        label = "w=$w", hidden_layers = [w, w, w])
-    (; width = w, elapsed_ratio = r.elapsed_ratio, pure_ratio = r.pure_ratio,
-       cpu_time = r.cpu.time, gpu_time = r.gpu.time)
-end
+results = [
+    begin
+        r = bench_cpu_vs_gpu(small_nn_hybrid_model, df, cfg;
+            label = "d=$d w=$w", hidden_layers = fill(w, d))
+        (; depth = d, width = w,
+           elapsed_ratio = r.elapsed_ratio, pure_ratio = r.pure_ratio,
+           cpu_time = r.cpu.time, gpu_time = r.gpu.time)
+    end
+    for d in depths for w in widths
+]
 
 using CairoMakie
 
-fig = Figure(size = (720, 480))
+fig = Figure(size = (820, 520))
 ax = Axis(fig[1, 1];
-    xlabel = "Hidden-layer width (depth = 3)",
+    xlabel = "Hidden-layer width",
     ylabel = "GPU speedup (CPU / GPU)",
-    title  = "GPU speedup vs hidden-layer width",
+    title  = "GPU speedup vs hidden-layer width, per depth",
     xscale = log2,
     xticks = (widths, string.(widths)),
 )
 
-ws        = [r.width for r in results]
-elapsed_x = [r.elapsed_ratio for r in results]
-pure_x    = [r.pure_ratio    for r in results]
+hlines!(ax, [1.0]; color = :gray, linestyle = :dash) # break-even
 
-hlines!(ax, [1.0]; color = :gray, linestyle = :dash, label = "CPU = GPU")
-scatterlines!(ax, ws, elapsed_x; label = "elapsed", marker = :circle)
-scatterlines!(ax, ws, pure_x;    label = "pure",    marker = :diamond)
+# One colour per depth; `pure` is solid, `elapsed` is dashed.
+palette = Makie.wong_colors()
+for (i, d) in enumerate(depths)
+    rs = filter(r -> r.depth == d, results)
+    ws = [r.width for r in rs]
+    el = [r.elapsed_ratio for r in rs]
+    pr = [r.pure_ratio    for r in rs]
+    c  = palette[mod1(i, length(palette))]
+    # Only the solid (pure) line gets a label → legend entries are per-depth.
+    scatterlines!(ax, ws, pr; color = c, linestyle = :solid, marker = :circle, label = "depth=$d")
+    scatterlines!(ax, ws, el; color = c, linestyle = :dash,  marker = :xcross)
+end
 
-axislegend(ax; position = :lt)
+# Legend 1: depth → colour (auto-picked up from the labeled solid lines).
+axislegend(ax, "depth"; position = :lt)
+
+# Legend 2: line style → metric (built manually).
+style_elements = [
+    LineElement(color = :black, linestyle = :solid),
+    LineElement(color = :black, linestyle = :dash),
+]
+Legend(fig[1, 2], style_elements, ["pure", "elapsed"], "metric")
+
 fig
 
+
+batchsizes = [64, 128, 256, 512, 1024, 2048, 4096, 8192]
+bs_hidden  = [64, 64, 64]
+
+bs_results = map(batchsizes) do b
+    r = bench_cpu_vs_gpu(small_nn_hybrid_model, df, cfg;
+        label = "b=$b", batchsize = b, hidden_layers = bs_hidden)
+    (; batchsize = b, elapsed_ratio = r.elapsed_ratio, pure_ratio = r.pure_ratio,
+       cpu_time = r.cpu.time, gpu_time = r.gpu.time)
+end
+
+fig_bs = Figure(size = (720, 480))
+ax_bs  = Axis(fig_bs[1, 1];
+    xlabel = "Batch size (hidden = $bs_hidden)",
+    ylabel = "GPU speedup (CPU / GPU)",
+    title  = "GPU speedup vs batch size",
+    xscale = log2,
+    xticks = (batchsizes, string.(batchsizes)),
+)
+
+bs         = [r.batchsize     for r in bs_results]
+bs_elapsed = [r.elapsed_ratio for r in bs_results]
+bs_pure    = [r.pure_ratio    for r in bs_results]
+
+hlines!(ax_bs, [1.0]; color = :gray, linestyle = :dash) # break-even
+scatterlines!(ax_bs, bs, bs_pure;    color = :steelblue, linestyle = :solid, marker = :circle,  label = "pure")
+scatterlines!(ax_bs, bs, bs_elapsed; color = :steelblue, linestyle = :dash,  marker = :xcross, label = "elapsed")
+
+axislegend(ax_bs; position = :lt)
+fig_bs
