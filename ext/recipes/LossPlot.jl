@@ -53,3 +53,8 @@ function Makie.Legend(gp::Makie.GridPosition, ax::Makie.Axis, plt::LossPlot; kwa
     plots, labels = _lossplot_legend_entries(ax, plt)
     Makie.Legend(gp, plots, labels; kwargs...)
 end
+
+function Makie.update!(plt::LossPlot, epochs_range, training_loss, validation_loss)
+    Makie.update!(plt, arg1=epochs_range, arg2=training_loss, arg3=validation_loss)
+    return nothing
+end

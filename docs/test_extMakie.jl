@@ -3,10 +3,10 @@ using GLMakie
 using GLMakie.Makie.GeometryBasics: AbstractPoint
 using DataStructures: CircularBuffer
 
-n_epochs = [0]
+n_epochs = [0.9]
 t_arr = sin.(rand(1))
 v_arr = cos.(rand(1))
-fig, ax, plt = lossplot(n_epochs, t_arr, v_arr; axis= (; xlabel="epoch", ylabel ="loss",))
+fig, ax, plt = lossplot(n_epochs, t_arr, v_arr; axis= (; xlabel="Epochs", ylabel ="Loss",))
 hidespines!(ax, :r, :t)
 fig
 
@@ -88,8 +88,8 @@ for epoch in 1:1000
     
     #? now that all are updated and synchronized we can update the plot
     
-    update!(plt, arg1=n_epochs, arg2 = t_arr, arg3= v_arr)
-    update!(plt_z, arg1=n_epochs_buffer, arg2 = t_arr_buffer, arg3= v_arr_buffer)
+    update!(plt, n_epochs, t_arr, v_arr)
+    update!(plt_z, n_epochs_buffer, t_arr_buffer, v_arr_buffer)
     update!(plt_b, arg1=new_z_rect)
     autolimits!(ax)
     autolimits!(ax_z)
@@ -98,16 +98,16 @@ end
 fig
 
 
-oo = _project_points_to_figure(ax, Point2f(1000, 0.01))
-scatter!(fig.scene, Point2f(oo); color = :olive, markersize=15)
-fig
+# oo = _project_points_to_figure(ax, Point2f(1000, 0.01))
+# scatter!(fig.scene, Point2f(oo); color = :olive, markersize=15)
+# fig
 
 ax.yscale=log10
 
-oo2 = _project_points_to_figure(ax, Point2f(1000, 0.02))
-scatter!(fig.scene, Point2f(oo2); color = :orange, markersize=15)
+# oo2 = _project_points_to_figure(ax, Point2f(1000, 0.02))
+# scatter!(fig.scene, Point2f(oo2); color = :orange, markersize=15)
 
-# ax.xscale=log10
+ax.xscale=log10
 fig
 
 
