@@ -7,7 +7,6 @@
 #
 
 using EasyHybrid
-using GLMakie
 
 # ## Data Loading and Preprocessing
 #
