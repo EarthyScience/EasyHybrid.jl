@@ -135,7 +135,7 @@ hybrid_model = constructHybridModel(
 
 ```@example expo
 out =  train(hybrid_model, df, (:k,); nepochs=300, batchsize=64,
-    opt=AdamW(0.01, (0.9, 0.999), 0.01), loss_types=[:mse, :nse],
+    opt=AdamW(0.01, (0.9, 0.999), 0.01), loss_types=[:mse, :nse, :nseLoss],
     training_loss=:nseLoss, random_seed=123, yscale = identity,
     monitor_names=[:Resp0, :k],
     show_progress=false,

@@ -415,6 +415,27 @@ function EasyHybrid.train_board(
     return display(fig)
 end
 
+function EasyHybrid.train_dashboard(history, cfg)
+    n_epochs = get_epochs(history)
+    vals_train = get_loss_value_t(history, cfg.training_loss, Symbol("$(cfg.agg)"))
+    vals_val = get_loss_value_v(history, cfg.training_loss, Symbol("$(cfg.agg)"))
+
+    fig, ax, plt = lossplot(n_epochs, vals_train, vals_val;
+        axis= (; xlabel="Epochs", ylabel ="Loss",)
+        )
+    display(fig)
+    return fig, ax, plt
+end
+
+function EasyHybrid.update_step_dashboard!(dashboard, history, cfg)
+    n_epochs = get_epochs(history)
+    vals_train = get_loss_value_t(history, cfg.training_loss, Symbol("$(cfg.agg)"))
+    vals_val = get_loss_value_v(history, cfg.training_loss, Symbol("$(cfg.agg)"))
+    update!(dashboard.plt, n_epochs, vals_train, vals_val)
+    autolimits!(dashboard.ax)
+    return nothing
+end
+
 """
     update_plotting_observables(ext, train_h_obs, val_h_obs, train_preds, val_preds, train_monitor, val_monitor, hybridModel, x_train, x_val, ps, st, l_train, l_val, training_loss, agg, epoch, monitor_names)
 
