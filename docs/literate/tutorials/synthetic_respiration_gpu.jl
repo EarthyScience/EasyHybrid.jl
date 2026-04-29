@@ -6,7 +6,7 @@
 # on synthetic data for respiration modeling with Q10 temperature sensitivity.
 #
 
-## for development, use local setup
+# ## For development (local docs run)
 # include("../../setup_local_docsrun.jl")
 
 using EasyHybrid
@@ -19,17 +19,16 @@ include("../../setup_gpu_backend.jl")
 
 cpu_device() isa CPUDevice
 gpu_device() isa GPU_DEVICE_TYPE
+nothing #hide
 
 # ## Data Loading and Preprocessing
 #
-# Load synthetic dataset from GitHub into DataFrame
+# Load synthetic dataset from GitHub into a `DataFrame`.
 
-df = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc");
+df = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc")
 
-# Select a subset of data for faster execution
-#df = df[1:20000, :];
-#nothing #hide
-#first(df, 5)
+# Select a subset of data for faster execution (especially when benchmarking).
+df = df[1:20000, :]
 
 # ## Define the Physical Model
 #
@@ -50,10 +49,10 @@ end
 #
 # Parameter specification: (default, lower_bound, upper_bound)
 
+# Parameter name | Default | Lower | Upper
 parameters = (
-    ## Parameter name | Default | Lower | Upper      | Description
-    rb = (3.0f0, 0.0f0, 13.0f0),  # Basal respiration [μmol/m²/s]
-    Q10 = (2.0f0, 1.0f0, 4.0f0),   # Temperature sensitivity factor [-]
+    rb = (3.0f0, 0.0f0, 13.0f0), # Basal respiration [μmol/m²/s]
+    Q10 = (2.0f0, 1.0f0, 4.0f0), # Temperature sensitivity factor [-]
 )
 
 # ## Configure Hybrid Model Components
@@ -72,31 +71,31 @@ neural_param_names = [:rb]         # Neural network predicted parameters
 predictors_single_nn = [:sw_pot, :dsw_pot]   # Predictor variables (solar radiation, and its derivative)
 
 small_nn_hybrid_model = constructHybridModel(
-    predictors_single_nn,              # Input features
-    forcing,                 # Forcing variables
-    target,                  # Target variables
-    RbQ10,                  # Process-based model function
-    parameters,              # Parameter definitions
-    neural_param_names,      # NN-predicted parameters
-    global_param_names,      # Global parameters
+    predictors_single_nn, # Input features
+    forcing, # Forcing variables
+    target, # Target variables
+    RbQ10, # Process-based model function
+    parameters, # Parameter definitions
+    neural_param_names, # NN-predicted parameters
+    global_param_names, # Global parameters
     hidden_layers = [16, 16], # Neural network architecture
-    activation = sigmoid,      # Activation function
+    activation = sigmoid, # Activation function
     scale_nn_outputs = true, # Scale neural network outputs
-    input_batchnorm = true   # Apply batch normalization to inputs
+    input_batchnorm = true, # Apply batch normalization to inputs
 )
 
 large_nn_hybrid_model = constructHybridModel(
-    predictors_single_nn,              # Input features
-    forcing,                 # Forcing variables
-    target,                  # Target variables
-    RbQ10,                  # Process-based model function
-    parameters,              # Parameter definitions
-    neural_param_names,      # NN-predicted parameters
-    global_param_names,      # Global parameters
+    predictors_single_nn, # Input features
+    forcing, # Forcing variables
+    target, # Target variables
+    RbQ10, # Process-based model function
+    parameters, # Parameter definitions
+    neural_param_names, # NN-predicted parameters
+    global_param_names, # Global parameters
     hidden_layers = [512, 512, 512], # Neural network architecture
-    activation = sigmoid,      # Activation function
+    activation = sigmoid, # Activation function
     scale_nn_outputs = true, # Scale neural network outputs
-    input_batchnorm = true   # Apply batch normalization to inputs
+    input_batchnorm = true, # Apply batch normalization to inputs
 )
 
 # ### train on DataFrame
@@ -190,8 +189,8 @@ function bench_cpu_vs_gpu(model, df, cfg; label::AbstractString, warmup::Bool = 
     return (; cpu = slim(cpu_stats), gpu = slim(gpu_stats), elapsed_ratio, pure_ratio)
 end
 
-bench_cpu_vs_gpu(small_nn_hybrid_model, df, cfg; label = "small NN"); # on our gpu1-hpc22 0.57x
-bench_cpu_vs_gpu(large_nn_hybrid_model, df, cfg; label = "large NN"); # on our gpu1-hpc22 2.73x
+bench_cpu_vs_gpu(small_nn_hybrid_model, df, cfg; label = "small NN") # on our gpu1-hpc22 0.57x
+bench_cpu_vs_gpu(large_nn_hybrid_model, df, cfg; label = "large NN") # on our gpu1-hpc22 2.73x
 
 # ## Sweep: GPU speedup vs hidden-layer width
 #
@@ -204,17 +203,20 @@ depths = 2:5
 
 results = [
     begin
-            r = bench_cpu_vs_gpu(
-                small_nn_hybrid_model, df, cfg;
-                label = "d=$d w=$w", hidden_layers = fill(w, d)
-            )
-            (;
-                depth = d, width = w,
-                elapsed_ratio = r.elapsed_ratio, pure_ratio = r.pure_ratio,
-                cpu_time = r.cpu.time, gpu_time = r.gpu.time,
-            )
-        end
-        for d in depths for w in widths
+        r = bench_cpu_vs_gpu(
+            small_nn_hybrid_model, df, cfg;
+            label = "d=$d w=$w", hidden_layers = fill(w, d),
+        )
+        (;
+            depth = d,
+            width = w,
+            elapsed_ratio = r.elapsed_ratio,
+            pure_ratio = r.pure_ratio,
+            cpu_time = r.cpu.time,
+            gpu_time = r.gpu.time,
+        )
+    end
+    for d in depths for w in widths
 ]
 
 using CairoMakie
