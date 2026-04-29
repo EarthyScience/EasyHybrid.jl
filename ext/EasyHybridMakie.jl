@@ -451,9 +451,12 @@ function EasyHybrid.train_dashboard(history, cfg)
 end
 
 function z_Rect2(z_n_epochs, train_zoom, val_zoom)
+    mn_epoch = minimum(z_n_epochs)
+    mx_epoch = maximum(z_n_epochs)
+    xzoom_rect = mx_epoch - mn_epoch + 1
     mn_tv = minimum(map(minimum, [train_zoom, val_zoom]))
     mx_tv = maximum(map(maximum, [train_zoom, val_zoom]))
-    z_rect = Rect2(minimum(z_n_epochs), 0.95*mn_tv, maximum(z_n_epochs), 1.05*(mx_tv - mn_tv))
+    z_rect = Rect2(mn_epoch - 0.5, 0.95*mn_tv, xzoom_rect, 1.05*(mx_tv - mn_tv))
 
     return z_rect
 end
