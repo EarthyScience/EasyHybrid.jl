@@ -422,8 +422,9 @@ function EasyHybrid.train_dashboard(history, cfg)
     vals_val = get_loss_value_v(history, cfg.training_loss, Symbol("$(cfg.agg)"))
 
     fig, ax, plt = lossplot(n_epochs, vals_train, vals_val;
-        axis= (; xlabel="Epochs", ylabel ="Loss",)
-        ) 
+        axis= (; xlabel="Epochs", ylabel ="Loss", yscale=log10)
+        )
+    hidespines!(ax, :r, :t) 
     z_rect = z_Rect2(n_epochs, vals_train, vals_val)
 
     plt_rect = lines!(ax, z_rect, color=:dodgerblue, linewidth=1)   

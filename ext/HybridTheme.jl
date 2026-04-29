@@ -63,7 +63,11 @@ function theme_easy_hybrid()
             # ytrimspine = true,
             # rightspinevisible = false,
             # topspinevisible = false
-            spinewidth = 0.5,
+            spinewidth = 1,
+            leftspinecolor =:black,
+            bottomspinecolor = :black,
+            topspinecolor = :black,
+            rightspinecolor = :black,
             titlefont = :regular,
         ),
         Legend = (
