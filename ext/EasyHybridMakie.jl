@@ -423,7 +423,10 @@ function EasyHybrid.train_dashboard(history, cfg)
 
     fig, ax, plt = lossplot(n_epochs, vals_train, vals_val;
         axis= (; xlabel="Epochs", ylabel ="Loss",)
-        )    
+        ) 
+    z_rect = z_Rect2(n_epochs, vals_train, vals_val)
+
+    plt_rect = lines!(ax, z_rect, color=:dodgerblue, linewidth=1)   
 
     ax_z = Axis(fig[1, 1],
         width=Relative(0.35),
@@ -444,7 +447,15 @@ function EasyHybrid.train_dashboard(history, cfg)
     fig
 
     display(fig)
-    return fig, (; ax, ax_z), (; plt, plt_z)
+    return fig, (; ax, ax_z), (; plt, plt_rect, plt_z)
+end
+
+function z_Rect2(z_n_epochs, train_zoom, val_zoom)
+    mn_tv = minimum(map(minimum, [train_zoom, val_zoom]))
+    mx_tv = maximum(map(maximum, [train_zoom, val_zoom]))
+    z_rect = Rect2(minimum(z_n_epochs), 0.95*mn_tv, maximum(z_n_epochs), 1.05*(mx_tv - mn_tv))
+
+    return z_rect
 end
 
 function EasyHybrid.update_step_dashboard!(dashboard, history, cfg)
@@ -461,8 +472,12 @@ function EasyHybrid.update_step_dashboard!(dashboard, history, cfg)
     val_zoom = vals_val[zoom_idx:end]
     z_n_epochs = n_epochs[zoom_idx:end]
 
+    updatedRect2 = z_Rect2(z_n_epochs, train_zoom, val_zoom)
+    update!(dashboard.plt.plt_rect, arg1=updatedRect2)
+
     update!(dashboard.plt.plt_z, z_n_epochs, val_zoom, train_zoom)
     autolimits!(dashboard.ax.ax_z)
+    
     return nothing
 end
 
