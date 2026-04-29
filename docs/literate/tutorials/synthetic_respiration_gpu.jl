@@ -121,17 +121,17 @@ function _pure(s)
 end
 
 function _warn_overhead(tag, label, s, warn_frac)
-    gc_frac        = s.gctime         / s.time
-    compile_frac   = s.compile_time   / s.time
+    gc_frac = s.gctime / s.time
+    compile_frac = s.compile_time / s.time
     recompile_frac = s.recompile_time / s.time
-    overhead_frac  = gc_frac + compile_frac + recompile_frac
-    if overhead_frac > warn_frac
+    overhead_frac = gc_frac + compile_frac + recompile_frac
+    return if overhead_frac > warn_frac
         pct(x) = round(100 * x; digits = 1)
         @warn """[$label/$tag] $(pct(overhead_frac))% of elapsed time was overhead:
-                 gc=$(pct(gc_frac))% ($(round(s.gctime; digits=3))s), \
-                 compile=$(pct(compile_frac))% ($(round(s.compile_time; digits=3))s), \
-                 recompile=$(pct(recompile_frac))% ($(round(s.recompile_time; digits=3))s).
-                 Elapsed ratio will be misleading; prefer the pure ratio."""
+        gc=$(pct(gc_frac))% ($(round(s.gctime; digits = 3))s), \
+        compile=$(pct(compile_frac))% ($(round(s.compile_time; digits = 3))s), \
+        recompile=$(pct(recompile_frac))% ($(round(s.recompile_time; digits = 3))s).
+        Elapsed ratio will be misleading; prefer the pure ratio."""
     end
 end
 
@@ -156,12 +156,12 @@ function bench_cpu_vs_gpu(model, df, cfg; label::AbstractString, warmup::Bool = 
             keep_history = false,
             plotting = false,
         )
-        @suppress tune(model, df, warm_cfg; gdev = cpu_device(), tune_kwargs...);
-        @suppress tune(model, df, warm_cfg; gdev = gpu_device(), tune_kwargs...);
+        @suppress tune(model, df, warm_cfg; gdev = cpu_device(), tune_kwargs...)
+        @suppress tune(model, df, warm_cfg; gdev = gpu_device(), tune_kwargs...)
     end
 
-    cpu_stats = @suppress @timed tune(model, df, cfg; gdev = cpu_device(), tune_kwargs...);
-    gpu_stats = @suppress @timed tune(model, df, cfg; gdev = gpu_device(), tune_kwargs...);
+    cpu_stats = @suppress @timed tune(model, df, cfg; gdev = cpu_device(), tune_kwargs...)
+    gpu_stats = @suppress @timed tune(model, df, cfg; gdev = gpu_device(), tune_kwargs...)
 
     _warn_overhead("CPU", label, cpu_stats, warn_frac)
     _warn_overhead("GPU", label, gpu_stats, warn_frac)
@@ -169,14 +169,20 @@ function bench_cpu_vs_gpu(model, df, cfg; label::AbstractString, warmup::Bool = 
     cpu_pure = _pure(cpu_stats)
     gpu_pure = _pure(gpu_stats)
     elapsed_ratio = cpu_stats.time / gpu_stats.time
-    pure_ratio    = cpu_pure      / gpu_pure
+    pure_ratio = cpu_pure / gpu_pure
 
-    @printf("[%s] CPU: total=%.3fs compile=%.3fs recompile=%.3fs gc=%.3fs pure=%.3fs\n",
-            label, cpu_stats.time, cpu_stats.compile_time, cpu_stats.recompile_time, cpu_stats.gctime, cpu_pure)
-    @printf("[%s] GPU: total=%.3fs compile=%.3fs recompile=%.3fs gc=%.3fs pure=%.3fs\n",
-            label, gpu_stats.time, gpu_stats.compile_time, gpu_stats.recompile_time, gpu_stats.gctime, gpu_pure)
-    @printf("[%s] with GPU we get: elapsed=%.2fx  pure=%.2fx\n",
-            label, elapsed_ratio, pure_ratio)
+    @printf(
+        "[%s] CPU: total=%.3fs compile=%.3fs recompile=%.3fs gc=%.3fs pure=%.3fs\n",
+        label, cpu_stats.time, cpu_stats.compile_time, cpu_stats.recompile_time, cpu_stats.gctime, cpu_pure
+    )
+    @printf(
+        "[%s] GPU: total=%.3fs compile=%.3fs recompile=%.3fs gc=%.3fs pure=%.3fs\n",
+        label, gpu_stats.time, gpu_stats.compile_time, gpu_stats.recompile_time, gpu_stats.gctime, gpu_pure
+    )
+    @printf(
+        "[%s] with GPU we get: elapsed=%.2fx  pure=%.2fx\n",
+        label, elapsed_ratio, pure_ratio
+    )
 
     # Return a slim summary. We deliberately drop `.value` (the full TrainResults)
     # and `.gcstats` so that REPL/Literate printing of the return value stays compact.
@@ -193,85 +199,95 @@ bench_cpu_vs_gpu(large_nn_hybrid_model, df, cfg; label = "large NN"); # on our g
 # benchmark each on CPU and GPU, and plot the elapsed and pure ratios.
 # A ratio > 1 means GPU is faster than CPU; a ratio < 1 means GPU is slower.
 
-# widths = [16, 64, 256, 512, 1024]
-# depths = 2:5
+widths = [16, 64, 256, 512, 1024]
+depths = 2:5
 
-# results = [
-#     begin
-#         r = bench_cpu_vs_gpu(small_nn_hybrid_model, df, cfg;
-#             label = "d=$d w=$w", hidden_layers = fill(w, d))
-#         (; depth = d, width = w,
-#            elapsed_ratio = r.elapsed_ratio, pure_ratio = r.pure_ratio,
-#            cpu_time = r.cpu.time, gpu_time = r.gpu.time)
-#     end
-#     for d in depths for w in widths
-# ]
+results = [
+    begin
+            r = bench_cpu_vs_gpu(
+                small_nn_hybrid_model, df, cfg;
+                label = "d=$d w=$w", hidden_layers = fill(w, d)
+            )
+            (;
+                depth = d, width = w,
+                elapsed_ratio = r.elapsed_ratio, pure_ratio = r.pure_ratio,
+                cpu_time = r.cpu.time, gpu_time = r.gpu.time,
+            )
+        end
+        for d in depths for w in widths
+]
 
-# using CairoMakie
+using CairoMakie
 
-# fig = Figure(size = (820, 520))
-# ax = Axis(fig[1, 1];
-#     xlabel = "Hidden-layer width",
-#     ylabel = "GPU speedup (CPU / GPU)",
-#     title  = "GPU speedup vs hidden-layer width, per depth",
-#     xscale = log2,
-#     xticks = (widths, string.(widths)),
-# )
+fig = Figure(size = (820, 520))
+ax = Axis(
+    fig[1, 1];
+    xlabel = "Hidden-layer width",
+    ylabel = "GPU speedup (CPU / GPU)",
+    title = "GPU speedup vs hidden-layer width, per depth",
+    xscale = log2,
+    xticks = (widths, string.(widths)),
+)
 
-# hlines!(ax, [1.0]; color = :gray, linestyle = :dash) # break-even
+hlines!(ax, [1.0]; color = :gray, linestyle = :dash) # break-even
 
-# # One colour per depth; `pure` is solid, `elapsed` is dashed.
-# palette = Makie.wong_colors()
-# for (i, d) in enumerate(depths)
-#     rs = filter(r -> r.depth == d, results)
-#     ws = [r.width for r in rs]
-#     el = [r.elapsed_ratio for r in rs]
-#     pr = [r.pure_ratio    for r in rs]
-#     c  = palette[mod1(i, length(palette))]
-#     # Only the solid (pure) line gets a label → legend entries are per-depth.
-#     scatterlines!(ax, ws, pr; color = c, linestyle = :solid, marker = :circle, label = "depth=$d")
-#     scatterlines!(ax, ws, el; color = c, linestyle = :dash,  marker = :xcross)
-# end
+# One colour per depth; `pure` is solid, `elapsed` is dashed.
+palette = Makie.wong_colors()
+for (i, d) in enumerate(depths)
+    rs = filter(r -> r.depth == d, results)
+    ws = [r.width for r in rs]
+    el = [r.elapsed_ratio for r in rs]
+    pr = [r.pure_ratio    for r in rs]
+    c = palette[mod1(i, length(palette))]
+    # Only the solid (pure) line gets a label → legend entries are per-depth.
+    scatterlines!(ax, ws, pr; color = c, linestyle = :solid, marker = :circle, label = "depth=$d")
+    scatterlines!(ax, ws, el; color = c, linestyle = :dash, marker = :xcross)
+end
 
-# # Legend 1: depth → colour (auto-picked up from the labeled solid lines).
-# axislegend(ax, "depth"; position = :lt)
+# Legend 1: depth → colour (auto-picked up from the labeled solid lines).
+axislegend(ax, "depth"; position = :lt)
 
-# # Legend 2: line style → metric (built manually).
-# style_elements = [
-#     LineElement(color = :black, linestyle = :solid),
-#     LineElement(color = :black, linestyle = :dash),
-# ]
-# Legend(fig[1, 2], style_elements, ["pure", "elapsed"], "metric")
+# Legend 2: line style → metric (built manually).
+style_elements = [
+    LineElement(color = :black, linestyle = :solid),
+    LineElement(color = :black, linestyle = :dash),
+]
+Legend(fig[1, 2], style_elements, ["pure", "elapsed"], "metric")
 
-# fig
+fig
 
 
-# batchsizes = [64, 128, 256, 512, 1024, 2048, 4096, 8192]
-# bs_hidden  = [64, 64, 64]
+batchsizes = [64, 128, 256, 512, 1024, 2048, 4096, 8192]
+bs_hidden = [64, 64, 64]
 
-# bs_results = map(batchsizes) do b
-#     r = bench_cpu_vs_gpu(small_nn_hybrid_model, df, cfg;
-#         label = "b=$b", batchsize = b, hidden_layers = bs_hidden)
-#     (; batchsize = b, elapsed_ratio = r.elapsed_ratio, pure_ratio = r.pure_ratio,
-#        cpu_time = r.cpu.time, gpu_time = r.gpu.time)
-# end
+bs_results = map(batchsizes) do b
+    r = bench_cpu_vs_gpu(
+        small_nn_hybrid_model, df, cfg;
+        label = "b=$b", batchsize = b, hidden_layers = bs_hidden
+    )
+    (;
+        batchsize = b, elapsed_ratio = r.elapsed_ratio, pure_ratio = r.pure_ratio,
+        cpu_time = r.cpu.time, gpu_time = r.gpu.time,
+    )
+end
 
-# fig_bs = Figure(size = (720, 480))
-# ax_bs  = Axis(fig_bs[1, 1];
-#     xlabel = "Batch size (hidden = $bs_hidden)",
-#     ylabel = "GPU speedup (CPU / GPU)",
-#     title  = "GPU speedup vs batch size",
-#     xscale = log2,
-#     xticks = (batchsizes, string.(batchsizes)),
-# )
+fig_bs = Figure(size = (720, 480))
+ax_bs = Axis(
+    fig_bs[1, 1];
+    xlabel = "Batch size (hidden = $bs_hidden)",
+    ylabel = "GPU speedup (CPU / GPU)",
+    title = "GPU speedup vs batch size",
+    xscale = log2,
+    xticks = (batchsizes, string.(batchsizes)),
+)
 
-# bs         = [r.batchsize     for r in bs_results]
-# bs_elapsed = [r.elapsed_ratio for r in bs_results]
-# bs_pure    = [r.pure_ratio    for r in bs_results]
+bs = [r.batchsize     for r in bs_results]
+bs_elapsed = [r.elapsed_ratio for r in bs_results]
+bs_pure = [r.pure_ratio    for r in bs_results]
 
-# hlines!(ax_bs, [1.0]; color = :gray, linestyle = :dash) # break-even
-# scatterlines!(ax_bs, bs, bs_pure;    color = :steelblue, linestyle = :solid, marker = :circle,  label = "pure")
-# scatterlines!(ax_bs, bs, bs_elapsed; color = :steelblue, linestyle = :dash,  marker = :xcross, label = "elapsed")
+hlines!(ax_bs, [1.0]; color = :gray, linestyle = :dash) # break-even
+scatterlines!(ax_bs, bs, bs_pure; color = :steelblue, linestyle = :solid, marker = :circle, label = "pure")
+scatterlines!(ax_bs, bs, bs_elapsed; color = :steelblue, linestyle = :dash, marker = :xcross, label = "elapsed")
 
-# axislegend(ax_bs; position = :lt)
-# fig_bs
+axislegend(ax_bs; position = :lt)
+fig_bs

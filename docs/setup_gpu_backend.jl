@@ -20,9 +20,9 @@ using MLDataDevices
 
 const _GPU_TRIGGERS = [
     (:LuxCUDA, :CUDADevice),
-    (:AMDGPU,  :AMDGPUDevice),
-    (:Metal,   :MetalDevice),
-    (:oneAPI,  :oneAPIDevice),
+    (:AMDGPU, :AMDGPUDevice),
+    (:Metal, :MetalDevice),
+    (:oneAPI, :oneAPIDevice),
 ]
 
 function _load_gpu_backend()
