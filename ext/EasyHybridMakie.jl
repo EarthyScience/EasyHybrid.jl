@@ -8,6 +8,7 @@ import Makie
 import EasyHybrid
 import EasyHybrid: get_loss_value
 using Statistics
+using DataStructures: CircularBuffer
 
 include("HybridTheme.jl")
 
@@ -422,17 +423,46 @@ function EasyHybrid.train_dashboard(history, cfg)
 
     fig, ax, plt = lossplot(n_epochs, vals_train, vals_val;
         axis= (; xlabel="Epochs", ylabel ="Loss",)
-        )
+        )    
+
+    ax_z = Axis(fig[1, 1],
+        width=Relative(0.35),
+        height=Relative(0.35),
+        halign=0.95,
+        valign=1,
+        xlabel="",
+        ylabel="",
+        rightspinecolor = :dodgerblue,
+        leftspinecolor = :dodgerblue,
+        topspinecolor = :dodgerblue,
+        bottomspinecolor = :dodgerblue,
+        title="Zoomed View"
+    )
+
+    plt_z = lossplot!(ax_z, n_epochs, vals_train, vals_val)
+    translate!(ax_z.blockscene, 0, 0, 150)
+    fig
+
     display(fig)
-    return fig, ax, plt
+    return fig, (; ax, ax_z), (; plt, plt_z)
 end
 
 function EasyHybrid.update_step_dashboard!(dashboard, history, cfg)
+    zoom_epochs = 50
     n_epochs = get_epochs(history)
     vals_train = get_loss_value_t(history, cfg.training_loss, Symbol("$(cfg.agg)"))
     vals_val = get_loss_value_v(history, cfg.training_loss, Symbol("$(cfg.agg)"))
-    update!(dashboard.plt, n_epochs, vals_train, vals_val)
-    autolimits!(dashboard.ax)
+    
+    update!(dashboard.plt.plt, n_epochs, vals_train, vals_val)
+    autolimits!(dashboard.ax.ax)
+
+    zoom_idx = max(1, length(vals_train) - zoom_epochs)
+    train_zoom = vals_train[zoom_idx:end]
+    val_zoom = vals_val[zoom_idx:end]
+    z_n_epochs = n_epochs[zoom_idx:end]
+
+    update!(dashboard.plt.plt_z, z_n_epochs, val_zoom, train_zoom)
+    autolimits!(dashboard.ax.ax_z)
     return nothing
 end
 
