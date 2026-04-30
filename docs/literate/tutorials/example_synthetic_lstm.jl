@@ -207,6 +207,10 @@ EasyHybrid.compute_loss(hlstm, ps, st, ((x_train, f_train), (y_train, y_train_na
         model_name = "RbQ10_synthetic_lstm"
     );
 
+# ```@raw html
+# <video src="../training_history_RbQ10_synthetic_lstm.mp4" controls="controls" autoplay="autoplay"></video>
+# ```
+
 out_lstm.val_obs_pred
 
 # ## 10. Train Single NN Hybrid Model (Optional)
@@ -244,6 +248,9 @@ single_nn_out = train(
     model_name = "RbQ10_synthetic_single_nn"
 );
 
+# ```@raw html
+# <video src="../training_history_RbQ10_synthetic_single_nn.mp4" controls="controls" autoplay="autoplay"></video>
+# ```
+
 # Close enough
-out_lstm.best_loss
-single_nn_out.best_loss
+out_lstm.best_loss, single_nn_out.best_loss
