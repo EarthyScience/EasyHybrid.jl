@@ -53,8 +53,8 @@ function theme_easy_hybrid()
             ylabel = "y",
             xtickalign = 1,
             ytickalign = 1,
-            yticksize = 10,
-            xticksize = 10,
+            # yticksize = 5,
+            # xticksize = 5,
             xgridstyle = :dash, ygridstyle = :dash,
             xminorgridstyle = :dash, yminorgridstyle = :dash,
             xminorgridvisible = true,
@@ -63,7 +63,11 @@ function theme_easy_hybrid()
             # ytrimspine = true,
             # rightspinevisible = false,
             # topspinevisible = false
-            spinewidth = 0.5,
+            spinewidth = 1,
+            leftspinecolor =:black,
+            bottomspinecolor = :black,
+            topspinecolor = :black,
+            rightspinecolor = :black,
             titlefont = :regular,
         ),
         Legend = (

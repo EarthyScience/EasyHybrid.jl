@@ -8,6 +8,7 @@ import Makie
 import EasyHybrid
 import EasyHybrid: get_loss_value
 using Statistics
+using DataStructures: CircularBuffer
 
 include("HybridTheme.jl")
 
@@ -31,6 +32,8 @@ function _series(wt::WrappedTuples, attributes)
     merged_attributes = merge(user_attributes, plot_attributes)
     return data_matrix, merged_attributes
 end
+
+include("recipes/LossPlot.jl")
 
 # =============================================================================
 # Prediction vs Observed Plotting Functions
@@ -411,6 +414,75 @@ function EasyHybrid.train_board(
         end
     end
     return display(fig)
+end
+
+function EasyHybrid.train_dashboard(history, cfg)
+    n_epochs = get_epochs(history)
+    vals_train = get_loss_value_t(history, cfg.training_loss, Symbol("$(cfg.agg)"))
+    vals_val = get_loss_value_v(history, cfg.training_loss, Symbol("$(cfg.agg)"))
+
+    fig, ax, plt = lossplot(n_epochs, vals_train, vals_val;
+        axis= (; xlabel="Epochs", ylabel ="Loss", yscale=log10)
+        )
+    hidespines!(ax, :r, :t) 
+    z_rect = z_Rect2(n_epochs, vals_train, vals_val)
+
+    plt_rect = lines!(ax, z_rect, color=:dodgerblue, linewidth=1)   
+
+    ax_z = Axis(fig[1, 1],
+        width=Relative(0.35),
+        height=Relative(0.35),
+        halign=0.95,
+        valign=1,
+        xlabel="",
+        ylabel="",
+        rightspinecolor = :dodgerblue,
+        leftspinecolor = :dodgerblue,
+        topspinecolor = :dodgerblue,
+        bottomspinecolor = :dodgerblue,
+        title="Zoomed View"
+    )
+
+    plt_z = lossplot!(ax_z, n_epochs, vals_train, vals_val)
+    translate!(ax_z.blockscene, 0, 0, 150)
+    fig
+
+    display(fig)
+    return fig, (; ax, ax_z), (; plt, plt_rect, plt_z)
+end
+
+function z_Rect2(z_n_epochs, train_zoom, val_zoom)
+    mn_epoch = minimum(z_n_epochs)
+    mx_epoch = maximum(z_n_epochs)
+    xzoom_rect = mx_epoch - mn_epoch + 1
+    mn_tv = minimum(map(minimum, [train_zoom, val_zoom]))
+    mx_tv = maximum(map(maximum, [train_zoom, val_zoom]))
+    z_rect = Rect2(mn_epoch - 0.5, 0.95*mn_tv, xzoom_rect, 1.05*(mx_tv - mn_tv))
+
+    return z_rect
+end
+
+function EasyHybrid.update_step_dashboard!(dashboard, history, cfg)
+    zoom_epochs = 50
+    n_epochs = get_epochs(history)
+    vals_train = get_loss_value_t(history, cfg.training_loss, Symbol("$(cfg.agg)"))
+    vals_val = get_loss_value_v(history, cfg.training_loss, Symbol("$(cfg.agg)"))
+    
+    update!(dashboard.plt.plt, n_epochs, vals_train, vals_val)
+    autolimits!(dashboard.ax.ax)
+
+    zoom_idx = max(1, length(vals_train) - zoom_epochs)
+    train_zoom = vals_train[zoom_idx:end]
+    val_zoom = vals_val[zoom_idx:end]
+    z_n_epochs = n_epochs[zoom_idx:end]
+
+    updatedRect2 = z_Rect2(z_n_epochs, train_zoom, val_zoom)
+    update!(dashboard.plt.plt_rect, arg1=updatedRect2)
+
+    update!(dashboard.plt.plt_z, z_n_epochs, val_zoom, train_zoom)
+    autolimits!(dashboard.ax.ax_z)
+    
+    return nothing
 end
 
 """

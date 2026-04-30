@@ -1,3 +1,6 @@
+export lossplot, lossplot!
+export train_dashboard, update_step_dashboard!
+
 function poplot()
     return @error("Please load `Makie.jl` and then call this function. If Makie is loaded, then you can't call `poplot` with no arguments!")
 end
@@ -42,6 +45,8 @@ function record_history end
 function dashboard_figure end
 function recordframe! end
 function save_fig end
+function train_dashboard end
+function update_step_dashboard! end
 
 """
     initialize_plotting_observables(init_ŷ_train, init_ŷ_val, y_train, y_val, l_init_train, l_init_val, training_loss, agg, monitor_names, target_names)
@@ -132,3 +137,9 @@ function monitor_to_obs(ŷ, monitor_names; cuts = (0.25, 0.5, 0.75))
         )...,
     )
 end
+
+# for recipes
+function lossplot end
+function lossplot! end
+
+#

@@ -33,6 +33,7 @@ struct EpochSnapshot
     l_val
     ŷ_train
     ŷ_val
+    epoch
 end
 
 function compute_initial_state(model, x_train, forcings_train, y_train, mask_train, x_val, forcings_val, y_val, mask_val, ps, st, cfg::TrainConfig)
@@ -47,5 +48,5 @@ function compute_initial_state(model, x_train, forcings_train, y_train, mask_tra
 
     @debug "Initial train loss: $(l_train) | val loss: $(l_val)"
 
-    return EpochSnapshot(l_train, l_val, ŷ_train, ŷ_val)
+    return EpochSnapshot(l_train, l_val, ŷ_train, ŷ_val, 0.9)
 end
