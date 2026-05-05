@@ -138,6 +138,20 @@ function monitor_to_obs(ŷ, monitor_names; cuts = (0.25, 0.5, 0.75))
     )
 end
 
+function get_monitor_values(ŷ, monitor_names; cuts = (0.25, 0.5, 0.75))
+    labels = map(q -> Symbol("q$(Int(q * 100))"), cuts)
+    return (; (m => _monitor_entry(getfield(ŷ, m), cuts, labels) for m in monitor_names)...)
+end
+
+function _monitor_entry(v, cuts, labels)
+    v = vec(v)
+    if length(v) > 1
+        return (; :quantile => (; zip(labels, quantile(v, collect(cuts)))...))
+    else
+        return (; :scalar => v[1])
+    end
+end
+
 # for recipes
 function lossplot end
 function lossplot! end
