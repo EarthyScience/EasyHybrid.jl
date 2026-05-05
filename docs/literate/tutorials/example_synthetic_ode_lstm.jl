@@ -22,9 +22,8 @@ using DimensionalData
 # ## 2. Data Loading and Preprocessing
 
 df = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc");
-df = df[1:20000, :];
+df = df[1:1000, :];
 first(df, 5);
-df.C .= 0.0f0;
 
 # ## 3. Define the Process-Based ODE Step Function
 #
@@ -48,6 +47,24 @@ function mOnePool_step(; C, rb, Q10, ta, tref = 15.0f0)
     return (; dC, reco, Q10, rb, C)
 end
 
+# If you only need the derivative, you can "subset" the output in a few ways:
+#
+# - Access the named tuple field directly:
+#   `dC = mOnePool_step(; C, rb, Q10, ta).dC`
+#
+# - Destructure only the field you care about:
+#   `(; dC) = mOnePool_step(; C, rb, Q10, ta)`
+#
+# - Or define a small wrapper (handy when passing a function around):
+#
+function mOnePool_dC(; C, rb, Q10, ta, tref = 15.0f0)
+    return mOnePool_step(; C, rb, Q10, ta, tref).dC
+end
+
+function addODEProblem(model, u0, t, p, derivs)
+    probm = ODEProblem(fMicrobialModel, um0, tspan, pdefault)
+end
+
 
 # ## 4. Define Model Parameters
 #
@@ -66,10 +83,10 @@ parameters = (
 
 forcing    = [:ta]
 predictors = [:sw_pot, :dsw_pot]
-target     = [:reco, :C]
+target     = [:reco]
 
-global_param_names = [:Q10, :C]
-lstm_param_names   = [:rb]
+global_param_names = [:Q10]
+lstm_param_names = Vector{Symbol}()
 
 # ## 6. Construct the ODE-LSTM Hybrid Model
 #
@@ -122,6 +139,9 @@ x_first = first(train_dl)[1]
 frun = hode(x_first, ps, st);
 frun[1].reco
 frun[1].C
+frun[1].dC
+frun[1].Q10
+frun[1].rb
 # ## 8. Train the ODE-LSTM Hybrid Model
 #
 # Uses the same `train` function and configuration objects as every other
@@ -210,51 +230,3 @@ out_ode_static = train(
 
 out_ode.best_loss
 out_ode_static.best_loss
-
-# ## 10. Compare with the Algebraic LSTM (Optional)
-#
-# For reference, train the same model *without* an ODE — `rb` from LSTM,
-# but no evolving carbon pool.
-
-function RbQ10(; ta, Q10, rb, tref = 15.0f0)
-    reco = rb .* Q10 .^ (0.1f0 .* (ta .- tref))
-    return (; reco, Q10, rb)
-end
-
-NN_Memory = Chain(
-    Recurrence(LSTMCell(15 => 15), return_sequence = true),
-)
-
-hlstm = constructHybridModel(
-    predictors, forcing, target, RbQ10, parameters,
-    lstm_param_names, global_param_names;
-    hidden_layers     = NN_Memory,
-    scale_nn_outputs  = true,
-    input_batchnorm   = false,
-)
-
-out_lstm = train(
-    hlstm,
-    df;
-    train_cfg = TrainConfig(
-        nepochs       = 100,
-        batchsize     = 128,
-        opt           = RMSProp(0.01),
-        training_loss = :nseLoss,
-        loss_types    = [:nse],
-        plotting      = false,
-        show_progress = false,
-        model_name    = "RbQ10_synthetic_lstm_comparison",
-    ),
-    data_cfg = DataConfig(
-        sequence_length       = input_window,
-        sequence_output_window = output_window,
-        sequence_output_shift  = output_shift,
-        sequence_lead_time     = 0,
-        array_type             = pref_array_type,
-    ),
-);
-
-out_ode.best_loss
-out_ode_static.best_loss
-out_lstm.best_loss

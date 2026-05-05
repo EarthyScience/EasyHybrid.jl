@@ -333,8 +333,9 @@ function (m::ODEHybridModel)(ds_k::Union{KeyedArray, AbstractDimArray}, ps, st)
     )
     C = C .+ result_1[m.deriv_name]
 
-    # Accumulate target and NN-param trajectories via vcat (mutation-free for AD)
-    tgt_trajs = NamedTuple{Tuple(m.targets)}(Tuple(result_1[tgt] for tgt in m.targets))
+    # Accumulate *all* mechanistic outputs (not just targets) via vcat (mutation-free for AD)
+    result_names = collect(keys(result_1))
+    result_trajs = NamedTuple{Tuple(result_names)}(Tuple(result_1[k] for k in result_names))
     nn_trajs  = NamedTuple{Tuple(m.lstm_param_names)}(Tuple(nn_kw_1[n] for n in m.lstm_param_names))
 
     # ── remaining timesteps ──
@@ -348,8 +349,8 @@ function (m::ODEHybridModel)(ds_k::Union{KeyedArray, AbstractDimArray}, ps, st)
         )
         C = C .+ result_t[m.deriv_name]
 
-        tgt_trajs = NamedTuple{Tuple(m.targets)}(
-            Tuple(vcat(tgt_trajs[tgt], result_t[tgt]) for tgt in m.targets)
+        result_trajs = NamedTuple{Tuple(result_names)}(
+            Tuple(vcat(result_trajs[k], result_t[k]) for k in result_names)
         )
         nn_trajs = NamedTuple{Tuple(m.lstm_param_names)}(
             Tuple(vcat(nn_trajs[n], nn_kw_t[n]) for n in m.lstm_param_names)
@@ -357,7 +358,7 @@ function (m::ODEHybridModel)(ds_k::Union{KeyedArray, AbstractDimArray}, ps, st)
     end
 
     # ── output as plain NamedTuple (time subsetting handled by compute_loss) ──
-    output = tgt_trajs
+    output = result_trajs
 
     all_params = merge(nn_trajs, global_kw, fixed_kw, static_kw)
     output = merge(output, (; parameters = all_params))
