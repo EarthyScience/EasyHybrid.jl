@@ -141,10 +141,14 @@ end
 #
 # `warn_frac` is the fraction of total time spent in GC / (re)compile above
 # which a warning is emitted for that run; defaults to 5%.
+# A short 1-epoch run on each device triggers Julia/Zygote specialization
+# and GPU kernel compilation, so the timed runs below measure steady-state
+# training rather than first-call compile latency.
+#
+# Return a slim summary. We deliberately drop `.value` (the full TrainResults)
+# and `.gcstats` so that REPL/Literate printing of the return value stays compact.
 function bench_cpu_vs_gpu(model, df, cfg; label::AbstractString, warmup::Bool = true, warn_frac::Real = 0.05, tune_kwargs...)
-    # A short 1-epoch run on each device triggers Julia/Zygote specialization
-    # and GPU kernel compilation, so the timed runs below measure steady-state
-    # training rather than first-call compile latency.
+
     if warmup
         warm_cfg = EasyHybrid.TrainConfig(;
             nepochs = 1,
@@ -183,8 +187,6 @@ function bench_cpu_vs_gpu(model, df, cfg; label::AbstractString, warmup::Bool = 
         label, elapsed_ratio, pure_ratio
     )
 
-    # Return a slim summary. We deliberately drop `.value` (the full TrainResults)
-    # and `.gcstats` so that REPL/Literate printing of the return value stays compact.
     slim(s) = (; s.time, s.bytes, s.gctime, s.compile_time, s.recompile_time)
     return (; cpu = slim(cpu_stats), gpu = slim(gpu_stats), elapsed_ratio, pure_ratio)
 end
@@ -203,20 +205,20 @@ depths = 2:5
 
 results = [
     begin
-        r = bench_cpu_vs_gpu(
-            small_nn_hybrid_model, df, cfg;
-            label = "d=$d w=$w", hidden_layers = fill(w, d),
-        )
-        (;
-            depth = d,
-            width = w,
-            elapsed_ratio = r.elapsed_ratio,
-            pure_ratio = r.pure_ratio,
-            cpu_time = r.cpu.time,
-            gpu_time = r.gpu.time,
-        )
-    end
-    for d in depths for w in widths
+            r = bench_cpu_vs_gpu(
+                small_nn_hybrid_model, df, cfg;
+                label = "d=$d w=$w", hidden_layers = fill(w, d),
+            )
+            (;
+                depth = d,
+                width = w,
+                elapsed_ratio = r.elapsed_ratio,
+                pure_ratio = r.pure_ratio,
+                cpu_time = r.cpu.time,
+                gpu_time = r.gpu.time,
+            )
+        end
+        for d in depths for w in widths
 ]
 
 using CairoMakie

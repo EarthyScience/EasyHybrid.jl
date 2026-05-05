@@ -25,6 +25,12 @@ const _GPU_TRIGGERS = [
     (:oneAPI, :oneAPIDevice),
 ]
 
+# Note for Literate.jl:
+# `using $pkg` may load an `MLDataDevices` package extension that adds new
+# methods (e.g. a real `functional(::Type{CUDADevice})`). Those methods live in
+# a newer world age than `_load_gpu_backend()`, so we must dispatch via
+# `invokelatest` or we'll get the stale (pre-extension) method that reports
+# `false`.
 function _load_gpu_backend()
     for (pkg, dev) in _GPU_TRIGGERS
         try
@@ -33,12 +39,6 @@ function _load_gpu_backend()
             @debug "Skipping $pkg (not installed / failed to load)" exception = err
             continue
         end
-
-        # `using $pkg` may load an `MLDataDevices` package extension that
-        # adds new methods (e.g. a real `functional(::Type{CUDADevice})`).
-        # Those methods live in a newer world age than this function, so
-        # we must dispatch via `invokelatest` or we'll get the stale
-        # (pre-extension) method that reports `false`.
         DeviceT = Base.invokelatest(getfield, MLDataDevices, dev)
         is_functional = Base.invokelatest(MLDataDevices.functional, DeviceT)
 
