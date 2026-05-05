@@ -45,9 +45,30 @@ end
 
 """
     train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::DataConfig = DataConfig())
-    train(model, data; kwargs...)   # kwargs forwarded to `TrainConfig` / `DataConfig`
+    train(model, data; kwargs...)
 
 Train a hybrid model using the provided data.
+
+Two equivalent calling styles are supported:
+
+1. **Typed configs** — pass complete `TrainConfig` / `DataConfig` objects:
+   ```julia
+   train(model, data;
+       train_cfg = TrainConfig(nepochs=100, batchsize=32),
+       data_cfg  = DataConfig(split_data_at=0.8),
+   )
+   ```
+
+2. **Flat kwargs** — pass `TrainConfig` / `DataConfig` field names directly:
+   ```julia
+   train(model, data; nepochs=100, batchsize=32, split_data_at=0.8)
+   ```
+
+The two styles can also be mixed; flat kwargs override the corresponding fields of
+the supplied `train_cfg` / `data_cfg`:
+```julia
+train(model, data; train_cfg = TrainConfig(nepochs=100), nepochs = 10)  # nepochs = 10
+```
 
 Returns `nothing` if data preparation fails (zero-size dimension in training or validation data).
 
@@ -58,7 +79,7 @@ Returns `nothing` if data preparation fails (zero-size dimension in training or 
 # Keyword Arguments
 - `train_cfg`: Training configuration. See [`TrainConfig`](@ref) for all options.
 - `data_cfg`: Data preparation configuration. See [`DataConfig`](@ref) for all options.
-- Any other kwargs (deprecated) are forwarded as fields to `TrainConfig` / `DataConfig`.
+- Any other kwargs are forwarded as overrides to `train_cfg` / `data_cfg`.
 
 # Returns
 A [`TrainResults`](@ref) with the following fields:
@@ -73,12 +94,6 @@ A [`TrainResults`](@ref) with the following fields:
 - `st`: Final (or best) model state.
 - `best_epoch`: Epoch at which the best validation loss was achieved.
 - `best_loss`: Best validation loss recorded during training.
-
-# Example
-```julia
-cfg = TrainConfig(nepochs=100, batchsize=32)
-result = train(myModel, myData; train_cfg=cfg)
-```
 """
 function train(
     model, data;
@@ -87,9 +102,8 @@ function train(
     kwargs...,
 )
     if !isempty(kwargs)
-        train_cfg, data_cfg = kwargs_to_configs((), kwargs)
+        train_cfg, data_cfg = override_configs(train_cfg, data_cfg, kwargs)
     end
-
     return _train(model, data, train_cfg, data_cfg)
 end
 
@@ -107,20 +121,6 @@ function valid_mask(y)
 end
 
 function train(model, data, save_ps; kwargs...)
-    Base.depwarn(
-        """
-        `train(model, data, save_ps; kwargs...)` is deprecated.
-        Use the new API instead:
-
-            train(model, data;
-                train_cfg = TrainConfig(nepochs=100, ...),
-                data_cfg  = DataConfig(split_data_at=0.8, ...)
-            )
-
-        See `?TrainConfig` and `?DataConfig` for all available options.
-        """,
-        :train
-    )
 
     train_cfg, data_cfg = kwargs_to_configs(save_ps, kwargs)
     return _train(model, data, train_cfg, data_cfg)
@@ -130,7 +130,6 @@ function expand_sequence_kwargs(kwargs)
     haskey(kwargs, :sequence_kwargs) || return kwargs
 
     seq_kw = kwargs[:sequence_kwargs]
-    @warn "`sequence_kwargs` is deprecated, pass sequence options directly via `DataConfig` instead."
 
     # map old sequence_kwargs keys to new DataConfig field names
     key_map = Dict(
@@ -144,12 +143,18 @@ function expand_sequence_kwargs(kwargs)
         get(key_map, k, k) => v for (k, v) in pairs(seq_kw)
     )
 
-    # drop sequence_kwargs, merge expanded fields
     remaining = NamedTuple(k => kwargs[k] for k in keys(kwargs) if k !== :sequence_kwargs)
     return merge(remaining, expanded)
 end
 
-function kwargs_to_configs(save_ps, kwargs)
+"""
+    kwargs_to_configs(kwargs) -> (TrainConfig, DataConfig)
+
+Build a fresh `(TrainConfig, DataConfig)` pair from a flat collection of kwargs.
+Kwargs are split between the two configs based on `fieldnames(TrainConfig)` and
+`fieldnames(DataConfig)`; unknown kwargs are warned about and dropped.
+"""
+function kwargs_to_configs(kwargs)
     train_keys = fieldnames(TrainConfig)
     data_keys = fieldnames(DataConfig)
 
@@ -170,6 +175,47 @@ function kwargs_to_configs(save_ps, kwargs)
     end
 
     return TrainConfig(; train_kwargs...), DataConfig(; data_kwargs...)
+end
+
+"""
+    override_configs(train_cfg, data_cfg, kwargs)
+
+Return `(train_cfg′, data_cfg′)` where any field present in `kwargs` overrides the
+corresponding field of `train_cfg`/`data_cfg`. Fields not mentioned in `kwargs` are
+kept as-is. Unknown kwargs trigger a warning and are ignored.
+
+This is the merge step used by the deprecated kwargs path of `train` — it lets users
+mix the new typed API (`train_cfg=...`) with leftover individual kwargs, with kwargs
+taking precedence.
+"""
+function override_configs(train_cfg::TrainConfig, data_cfg::DataConfig, kwargs)
+    train_keys = fieldnames(TrainConfig)
+    data_keys = fieldnames(DataConfig)
+
+    kwargs = rename_deprecated_kwargs(kwargs)
+    kwargs = expand_sequence_kwargs(kwargs)
+
+    train_overrides = NamedTuple(k => kwargs[k] for k in keys(kwargs) if k in train_keys)
+    data_overrides  = NamedTuple(k => kwargs[k] for k in keys(kwargs) if k in data_keys)
+
+    unknown = [k for k in keys(kwargs) if k ∉ train_keys && k ∉ data_keys]
+    if !isempty(unknown)
+        @warn "Unknown kwargs will be ignored: $(join(unknown, ", "))"
+    end
+
+    return override_config(train_cfg, train_overrides), override_config(data_cfg, data_overrides)
+end
+
+"""
+    override_config(cfg, overrides::NamedTuple)
+
+Return a new `cfg` of the same type with the fields named in `overrides` replaced.
+Works with any `@kwdef` struct (e.g. [`TrainConfig`](@ref), [`DataConfig`](@ref)).
+"""
+function override_config(cfg::T, overrides::NamedTuple) where {T}
+    isempty(overrides) && return cfg
+    base = NamedTuple(k => getfield(cfg, k) for k in fieldnames(T))
+    return T(; merge(base, overrides)...)
 end
 
 const DEPRECATED_KWARG_NAMES = Dict(
