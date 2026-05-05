@@ -1,41 +1,6 @@
 export train
 
-"""
-    train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::DataConfig = DataConfig())
-
-Train a hybrid model using the provided data.
-
-Returns `nothing` if data preparation fails (zero-size dimension in training or validation data).
-
-# Arguments
-- `model`: The hybrid model to train.
-- `data`: Training data, a single `DimArray`, a single `DataFrame`, or a single `KeyedArray`.
-
-# Keyword Arguments
-- `train_cfg`: Training configuration. See [`TrainConfig`](@ref) for all options.
-- `data_cfg`: Data preparation configuration. See [`DataConfig`](@ref) for all options.
-
-# Returns
-A [`TrainResults`](@ref) with the following fields:
-- `train_losses`: Per-epoch training losses.
-- `val_losses`: Per-epoch validation losses.
-- `snapshots`: Model parameter snapshots taken during training.
-- `train_obs_pred`: Observed vs. predicted values on the training set.
-- `val_obs_pred`: Observed vs. predicted values on the validation set.
-- `train_diffs`: Additional diagnostic variables computed on the training set.
-- `val_diffs`: Additional diagnostic variables computed on the validation set.
-- `ps`: Final (or best) model parameters.
-- `st`: Final (or best) model state.
-- `best_epoch`: Epoch at which the best validation loss was achieved.
-- `best_loss`: Best validation loss recorded during training.
-
-# Example
-```julia
-cfg = TrainConfig(nepochs=100, batchsize=32)
-result = train(myModel, myData; train_cfg=cfg)
-```
-"""
-function train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::DataConfig = DataConfig())
+function _train(model, data, train_cfg::TrainConfig, data_cfg::DataConfig)
     validate_config(train_cfg)
     ext = load_makie_extension(train_cfg)
     seed!(train_cfg.random_seed)
@@ -78,6 +43,56 @@ function train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::Da
     return build_results(model, history, stopper, ps, st, x_train, forcings_train, y_train, x_val, forcings_val, y_val, train_cfg)
 end
 
+"""
+    train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::DataConfig = DataConfig())
+    train(model, data; kwargs...)   # kwargs forwarded to `TrainConfig` / `DataConfig`
+
+Train a hybrid model using the provided data.
+
+Returns `nothing` if data preparation fails (zero-size dimension in training or validation data).
+
+# Arguments
+- `model`: The hybrid model to train.
+- `data`: Training data, a single `DimArray`, a single `DataFrame`, or a single `KeyedArray`.
+
+# Keyword Arguments
+- `train_cfg`: Training configuration. See [`TrainConfig`](@ref) for all options.
+- `data_cfg`: Data preparation configuration. See [`DataConfig`](@ref) for all options.
+- Any other kwargs (deprecated) are forwarded as fields to `TrainConfig` / `DataConfig`.
+
+# Returns
+A [`TrainResults`](@ref) with the following fields:
+- `train_losses`: Per-epoch training losses.
+- `val_losses`: Per-epoch validation losses.
+- `snapshots`: Model parameter snapshots taken during training.
+- `train_obs_pred`: Observed vs. predicted values on the training set.
+- `val_obs_pred`: Observed vs. predicted values on the validation set.
+- `train_diffs`: Additional diagnostic variables computed on the training set.
+- `val_diffs`: Additional diagnostic variables computed on the validation set.
+- `ps`: Final (or best) model parameters.
+- `st`: Final (or best) model state.
+- `best_epoch`: Epoch at which the best validation loss was achieved.
+- `best_loss`: Best validation loss recorded during training.
+
+# Example
+```julia
+cfg = TrainConfig(nepochs=100, batchsize=32)
+result = train(myModel, myData; train_cfg=cfg)
+```
+"""
+function train(
+    model, data;
+    train_cfg::TrainConfig = TrainConfig(),
+    data_cfg::DataConfig  = DataConfig(),
+    kwargs...,
+)
+    if !isempty(kwargs)
+        train_cfg, data_cfg = kwargs_to_configs((), kwargs)
+    end
+
+    return _train(model, data, train_cfg, data_cfg)
+end
+
 function valid_mask(y)
     nt = (;)
     isempty = true
@@ -108,7 +123,7 @@ function train(model, data, save_ps; kwargs...)
     )
 
     train_cfg, data_cfg = kwargs_to_configs(save_ps, kwargs)
-    return train(model, data; train_cfg, data_cfg)
+    return _train(model, data, train_cfg, data_cfg)
 end
 
 function expand_sequence_kwargs(kwargs)
