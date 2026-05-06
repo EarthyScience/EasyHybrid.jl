@@ -51,55 +51,65 @@ end
 
 # Parameter name | Default | Lower | Upper
 parameters = (
-    rb = (3.0f0, 0.0f0, 13.0f0), # Basal respiration [μmol/m²/s]
-    Q10 = (2.0f0, 1.0f0, 4.0f0), # Temperature sensitivity factor [-]
+    rb = (3.0f0, 0.0f0, 13.0f0),
+    Q10 = (2.0f0, 1.0f0, 4.0f0),
 )
 
 # ## Configure Hybrid Model Components
 #
-# Define input variables
-forcing = [:ta]                    # Forcing variables (temperature)
+# Define input variables (forcing = temperature).
+forcing = [:ta]
 
-# Target variable
-target = [:reco]                   # Target variable (respiration)
+# Target variable (respiration).
+target = [:reco]
 
-# Parameter classification
-global_param_names = [:Q10]        # Global parameters (same for all samples)
-neural_param_names = [:rb]         # Neural network predicted parameters
+# Parameter classification: global parameters are shared across all samples,
+# neural-network-predicted parameters are produced by the NN per sample.
+global_param_names = [:Q10]
+neural_param_names = [:rb]
 
 # ## Single NN Hybrid Model Training
-predictors_single_nn = [:sw_pot, :dsw_pot]   # Predictor variables (solar radiation, and its derivative)
+#
+# Predictor variables for the NN: solar radiation potential and its derivative.
+predictors_single_nn = [:sw_pot, :dsw_pot]
 
+# `constructHybridModel` arguments: predictors, forcing, targets, the
+# process-based model function, parameter definitions, NN-predicted parameters
+# and global parameters. Keyword arguments configure the neural network
+# architecture, activation, output scaling and input batch normalization.
 small_nn_hybrid_model = constructHybridModel(
-    predictors_single_nn, # Input features
-    forcing, # Forcing variables
-    target, # Target variables
-    RbQ10, # Process-based model function
-    parameters, # Parameter definitions
-    neural_param_names, # NN-predicted parameters
-    global_param_names, # Global parameters
-    hidden_layers = [16, 16], # Neural network architecture
-    activation = sigmoid, # Activation function
-    scale_nn_outputs = true, # Scale neural network outputs
-    input_batchnorm = true, # Apply batch normalization to inputs
+    predictors_single_nn,
+    forcing,
+    target,
+    RbQ10,
+    parameters,
+    neural_param_names,
+    global_param_names,
+    hidden_layers = [16, 16],
+    activation = sigmoid,
+    scale_nn_outputs = true,
+    input_batchnorm = true,
 )
 
 large_nn_hybrid_model = constructHybridModel(
-    predictors_single_nn, # Input features
-    forcing, # Forcing variables
-    target, # Target variables
-    RbQ10, # Process-based model function
-    parameters, # Parameter definitions
-    neural_param_names, # NN-predicted parameters
-    global_param_names, # Global parameters
-    hidden_layers = [512, 512, 512], # Neural network architecture
-    activation = sigmoid, # Activation function
-    scale_nn_outputs = true, # Scale neural network outputs
-    input_batchnorm = true, # Apply batch normalization to inputs
+    predictors_single_nn,
+    forcing,
+    target,
+    RbQ10,
+    parameters,
+    neural_param_names,
+    global_param_names,
+    hidden_layers = [512, 512, 512],
+    activation = sigmoid,
+    scale_nn_outputs = true,
+    input_batchnorm = true,
 )
 
-# ### train on DataFrame
-# Train the hybrid model
+# ### Train on DataFrame
+#
+# Configure training. Set `keep_history = true` to keep per-epoch history
+# (losses, predictions, etc.), and `save_training = true` to persist training
+# history and checkpoints to disk.
 
 cfg = EasyHybrid.TrainConfig(
     nepochs = 10,
@@ -107,8 +117,8 @@ cfg = EasyHybrid.TrainConfig(
     opt = Adam(0.001),
     loss_types = [:mse, :nse],
     show_progress = false,
-    keep_history = false, # set to true to keep per-epoch history, losses, predictions, etc.
-    save_training = false, # Set to true to enable saving training history and checkpoints
+    keep_history = false,
+    save_training = false,
     plotting = false,
 )
 
@@ -191,8 +201,11 @@ function bench_cpu_vs_gpu(model, df, cfg; label::AbstractString, warmup::Bool = 
     return (; cpu = slim(cpu_stats), gpu = slim(gpu_stats), elapsed_ratio, pure_ratio)
 end
 
-bench_cpu_vs_gpu(small_nn_hybrid_model, df, cfg; label = "small NN") # on our gpu1-hpc22 0.57x
-bench_cpu_vs_gpu(large_nn_hybrid_model, df, cfg; label = "large NN") # on our gpu1-hpc22 2.73x
+# On our `gpu1-hpc22` machine these typically come out around 0.57x for the
+# small NN and 2.73x for the large NN.
+
+bench_cpu_vs_gpu(small_nn_hybrid_model, df, cfg; label = "small NN")
+bench_cpu_vs_gpu(large_nn_hybrid_model, df, cfg; label = "large NN")
 
 # ## Sweep: GPU speedup vs hidden-layer width
 #
@@ -233,7 +246,8 @@ ax = Axis(
     xticks = (widths, string.(widths)),
 )
 
-hlines!(ax, [1.0]; color = :gray, linestyle = :dash) # break-even
+# Break-even line (ratio = 1).
+hlines!(ax, [1.0]; color = :gray, linestyle = :dash)
 
 # One colour per depth; `pure` is solid, `elapsed` is dashed.
 palette = Makie.wong_colors()
@@ -289,7 +303,8 @@ bs = [r.batchsize     for r in bs_results]
 bs_elapsed = [r.elapsed_ratio for r in bs_results]
 bs_pure = [r.pure_ratio    for r in bs_results]
 
-hlines!(ax_bs, [1.0]; color = :gray, linestyle = :dash) # break-even
+# Break-even line (ratio = 1).
+hlines!(ax_bs, [1.0]; color = :gray, linestyle = :dash)
 scatterlines!(ax_bs, bs, bs_pure; color = :steelblue, linestyle = :solid, marker = :circle, label = "pure")
 scatterlines!(ax_bs, bs, bs_elapsed; color = :steelblue, linestyle = :dash, marker = :xcross, label = "elapsed")
 
