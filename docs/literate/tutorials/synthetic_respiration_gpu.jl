@@ -250,6 +250,7 @@ ax = Axis(
 hlines!(ax, [1.0]; color = :gray, linestyle = :dash)
 
 # One colour per depth; `pure` is solid, `elapsed` is dashed.
+# Only the solid (pure) line gets a label → legend entries are per-depth.
 palette = Makie.wong_colors()
 for (i, d) in enumerate(depths)
     rs = filter(r -> r.depth == d, results)
@@ -257,7 +258,6 @@ for (i, d) in enumerate(depths)
     el = [r.elapsed_ratio for r in rs]
     pr = [r.pure_ratio    for r in rs]
     c = palette[mod1(i, length(palette))]
-    # Only the solid (pure) line gets a label → legend entries are per-depth.
     scatterlines!(ax, ws, pr; color = c, linestyle = :solid, marker = :circle, label = "depth=$d")
     scatterlines!(ax, ws, el; color = c, linestyle = :dash, marker = :xcross)
 end
