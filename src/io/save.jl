@@ -1,6 +1,6 @@
 export get_all_groups
 export load_group
-function save_ps_st(file_name, hm, ps, st, save_ps)
+function save_ps_st(file_name, hm, ps, st, save_ps, epoch = 0)
     hm_name = string(nameof(typeof(hm)))
     # split physical parameters
     tmp_e = if !isempty(save_ps)
@@ -10,9 +10,9 @@ function save_ps_st(file_name, hm, ps, st, save_ps)
 
     isfile(file_name) && rm(file_name)
     return jldopen(file_name, "w") do file
-        file["HybridModel_$hm_name/epoch_0"] = (ps, st)
+        file["HybridModel_$hm_name/epoch_$epoch"] = (ps, st)
         if !isempty(save_ps)
-            file["physical_params/epoch_0"] = tmp_e
+            file["physical_params/epoch_$epoch"] = tmp_e
         end
     end
 end
