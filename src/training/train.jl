@@ -148,13 +148,16 @@ function expand_sequence_kwargs(kwargs)
 end
 
 """
-    kwargs_to_configs(kwargs) -> (TrainConfig, DataConfig)
+    kwargs_to_configs(save_ps, kwargs) -> (TrainConfig, DataConfig)
 
 Build a fresh `(TrainConfig, DataConfig)` pair from a flat collection of kwargs.
 Kwargs are split between the two configs based on `fieldnames(TrainConfig)` and
 `fieldnames(DataConfig)`; unknown kwargs are warned about and dropped.
+
+`save_ps` is the deprecated positional argument from `train(model, data, save_ps; ...)`;
+when non-empty it is forwarded as `tracked_params` on the resulting `TrainConfig`.
 """
-function kwargs_to_configs(kwargs)
+function kwargs_to_configs(save_ps, kwargs)
     train_keys = fieldnames(TrainConfig)
     data_keys = fieldnames(DataConfig)
 
