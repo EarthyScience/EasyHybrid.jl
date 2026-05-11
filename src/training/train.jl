@@ -51,7 +51,7 @@ function train(model, data; train_cfg::TrainConfig = TrainConfig(), data_cfg::Da
     stopper = EarlyStopping(init.l_val, ps, st, train_cfg)
     paths = resolve_paths(train_cfg)
     prog = build_progress(train_cfg)
-        
+
     # @show train_cfg.agg
     # @show train_cfg.training_loss
     # @show get_loss_value_t(history, train_cfg.training_loss, Symbol("$(train_cfg.agg)"))

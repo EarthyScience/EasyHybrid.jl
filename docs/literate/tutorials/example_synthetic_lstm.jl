@@ -187,25 +187,25 @@ EasyHybrid.compute_loss(hlstm, ps, st, ((x_train, f_train), (y_train, y_train_na
 
 # ## 9. Train LSTM Hybrid Model
 
-    out_lstm = train(
-        hlstm,
-        df,
-        ();
-        nepochs = 100,           # Number of training epochs
-        batchsize = 128,         # Batch size of training windows/samples
-        opt = RMSProp(0.01),   # Optimizer and learning rate
-        monitor_names = [:rb, :Q10], # Parameters to monitor during training
-        yscale = identity,       # Scaling for outputs
-        shuffleobs = true,
-        training_loss = :nseLoss,
-        loss_types = [:nse, :nseLoss],
-        sequence_kwargs = (; input_window = input_window, output_window = output_window, output_shift = output_shift, lead_time = 0),
-        plotting = true,
-        show_progress = false,
-        input_batchnorm = false,
-        array_type = pref_array_type,
-        model_name = "RbQ10_synthetic_lstm"
-    );
+out_lstm = train(
+    hlstm,
+    df,
+    ();
+    nepochs = 100,           # Number of training epochs
+    batchsize = 128,         # Batch size of training windows/samples
+    opt = RMSProp(0.01),   # Optimizer and learning rate
+    monitor_names = [:rb, :Q10], # Parameters to monitor during training
+    yscale = identity,       # Scaling for outputs
+    shuffleobs = true,
+    training_loss = :nseLoss,
+    loss_types = [:nse, :nseLoss],
+    sequence_kwargs = (; input_window = input_window, output_window = output_window, output_shift = output_shift, lead_time = 0),
+    plotting = true,
+    show_progress = false,
+    input_batchnorm = false,
+    array_type = pref_array_type,
+    model_name = "RbQ10_synthetic_lstm"
+);
 
 # ```@raw html
 # <video src="../training_history_RbQ10_synthetic_lstm.mp4" controls="controls" autoplay="autoplay"></video>

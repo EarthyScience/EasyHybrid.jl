@@ -1,4 +1,5 @@
 export lossplot, lossplot!
+export monitorplot, monitorplot!
 export train_dashboard, update_step_dashboard!
 
 function poplot()
@@ -155,5 +156,6 @@ end
 # for recipes
 function lossplot end
 function lossplot! end
-
+function monitorplot end
+function monitorplot! end
 #

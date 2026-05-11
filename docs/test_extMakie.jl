@@ -6,7 +6,10 @@ using DataStructures: CircularBuffer
 n_epochs = [0.9]
 t_arr = sin.(rand(1))
 v_arr = cos.(rand(1))
-fig, ax, plt = lossplot(n_epochs, t_arr, v_arr; axis= (; xlabel="Epochs", ylabel ="Loss",))
+fig, ax, plt = lossplot(n_epochs, t_arr, v_arr; axis = (; xlabel = "Epochs", ylabel = "Loss"))
+# axislegend(ax, plt)
+
+Legend(fig[1, 1, Top()], ax, plt)
 hidespines!(ax, :r, :t)
 fig
 
@@ -19,18 +22,20 @@ fill!(t_arr_buffer, t_arr[1])
 v_arr_buffer = CircularBuffer{Float64}(zoom_epochs)
 fill!(v_arr_buffer, v_arr[1])
 
-ax_z = Axis(fig[1, 1],
-    width=Relative(0.35),
-    height=Relative(0.35),
-    halign=0.95,
-    valign=1,
-    xlabel="",
-    ylabel="",
+ax_z = Axis(
+    fig[1, 1],
+    width = Relative(0.35),
+    height = Relative(0.35),
+    halign = 0.95,
+    valign = 1,
+    xlabel = "",
+    ylabel = "",
     rightspinecolor = :dodgerblue,
     leftspinecolor = :dodgerblue,
     topspinecolor = :dodgerblue,
     bottomspinecolor = :dodgerblue,
-    title="Zoomed View")
+    title = "Zoomed View"
+)
 
 plt_z = lossplot!(ax_z, n_epochs_buffer, t_arr_buffer, v_arr_buffer)
 # hidespines!(ax_z, :l, :t)
@@ -43,14 +48,14 @@ function current_rect2(n_epochs_buffer, t_arr_buffer, v_arr_buffer, zoom_epochs,
     xzoom_rect = epoch < zoom_epochs ? epoch : zoom_epochs
     mn_tv = minimum(map(minimum, [t_arr_buffer, v_arr_buffer]))
     mx_tv = maximum(map(maximum, [t_arr_buffer, v_arr_buffer]))
-    z_rect = Rect2(minimum(n_epochs_buffer), 0.95*mn_tv, xzoom_rect, 1.05*(mx_tv - mn_tv))
+    z_rect = Rect2(minimum(n_epochs_buffer), 0.95 * mn_tv, xzoom_rect, 1.05 * (mx_tv - mn_tv))
 
     return z_rect
 end
 
 z_rect = current_rect2(n_epochs_buffer, t_arr_buffer, v_arr_buffer, zoom_epochs, 0)
 
-plt_b = lines!(ax, z_rect, color=:dodgerblue, linewidth=1)
+plt_b = lines!(ax, z_rect, color = :dodgerblue, linewidth = 1)
 fig
 
 # scatter!(fig.scene, Point2f(o_ax_z))
@@ -69,13 +74,13 @@ end
 
 _axis_bottom_points(ax_z)
 
-Legend(fig[1,1, Top()],ax, plt; nbanks=3, framewidth=0.25, halign=0)
+Legend(fig[1, 1, Top()], ax, plt; nbanks = 3, framewidth = 0.25, halign = 0)
 fig
 
 for epoch in 1:1000
     # push a new data point
-    n_tv = sin(rand())/epoch
-    n_vv = cos(rand())/epoch
+    n_tv = sin(rand()) / epoch
+    n_vv = cos(rand()) / epoch
     push!(n_epochs, epoch)
     push!(t_arr, n_tv)
     push!(v_arr, n_vv)
@@ -85,12 +90,12 @@ for epoch in 1:1000
     push!(v_arr_buffer, n_vv)
 
     new_z_rect = current_rect2(n_epochs_buffer, t_arr_buffer, v_arr_buffer, zoom_epochs, epoch)
-    
+
     #? now that all are updated and synchronized we can update the plot
-    
+
     update!(plt, n_epochs, t_arr, v_arr)
     update!(plt_z, n_epochs_buffer, t_arr_buffer, v_arr_buffer)
-    update!(plt_b, arg1=new_z_rect)
+    update!(plt_b, arg1 = new_z_rect)
     autolimits!(ax)
     autolimits!(ax_z)
     sleep(0.002)
@@ -102,27 +107,21 @@ fig
 # scatter!(fig.scene, Point2f(oo); color = :olive, markersize=15)
 # fig
 
-ax.yscale=log10
+ax.yscale = log10
 
 # oo2 = _project_points_to_figure(ax, Point2f(1000, 0.02))
 # scatter!(fig.scene, Point2f(oo2); color = :orange, markersize=15)
 
-ax.xscale=log10
+ax.xscale = log10
 fig
-
-
-
-
-
-
 
 
 fig, ax, plt = lossplot(rand(10), rand(10))
 scatter!(rand(10), label = "some dots")
-Legend(fig[0,1], ax, plt; position =:ct, nbanks=3, tellheight=true, tellwidth=false)
+Legend(fig[0, 1], ax, plt; position = :ct, nbanks = 3, tellheight = true, tellwidth = false)
 fig
 
 fig, ax, plt = lossplot(rand(10), rand(10); validation_label = "validate me")
 scatter!(rand(10), label = "some dots")
-Legend(fig[0,1], ax, plt; position =:ct, nbanks=3, tellheight=true, tellwidth=false)
+Legend(fig[0, 1], ax, plt; position = :ct, nbanks = 3, tellheight = true, tellwidth = false)
 fig

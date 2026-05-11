@@ -64,7 +64,7 @@ function theme_easy_hybrid()
             # rightspinevisible = false,
             # topspinevisible = false
             spinewidth = 1,
-            leftspinecolor =:black,
+            leftspinecolor = :black,
             bottomspinecolor = :black,
             topspinecolor = :black,
             rightspinecolor = :black,

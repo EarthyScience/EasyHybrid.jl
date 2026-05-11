@@ -5,7 +5,7 @@ end
 
 function init_dashboard(ext, history::TrainingHistory, cfg::TrainConfig, y_train, y_val, target_names)
     isnothing(ext) && return nothing
-    
+
     fig, ax, plt = train_dashboard(history, cfg)
     return TrainDashboard(ax, plt)
 end

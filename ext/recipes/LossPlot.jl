@@ -18,43 +18,51 @@ import EasyHybrid: lossplot, lossplot!
 end
 
 function Makie.plot!(p::LossPlot)
-    Makie.lines!(p, p[:epochs_range], p[:training_loss];
+    Makie.lines!(
+        p, p[:epochs_range], p[:training_loss];
         color = p.training_color,
         linewidth = p.linewidth,
         label = p.training_label
-        )
-    Makie.lines!(p, p[:epochs_range], p[:validation_loss];
+    )
+    Makie.lines!(
+        p, p[:epochs_range], p[:validation_loss];
         color = p.validation_color,
         linewidth = p.linewidth,
-        label = p.validation_label)
+        label = p.validation_label
+    )
     return p
 end
 
-function _lossplot_legend_entries(ax::Makie.Axis, plt::LossPlot)
+function _legend_entries(ax::Makie.Axis, plt::LossPlot)
     loss_plots = collect(plt.plots)
     loss_labels = [plt.training_label[], plt.validation_label[]]
 
     other_plots = filter(ax.scene.plots) do p
         haskey(p.attributes, :label) &&
-        p.label[] != "" &&
-        p ∉ loss_plots
+            p.label[] != "" &&
+            p ∉ loss_plots
     end
     other_labels = String[p.label[] for p in other_plots]
 
     return [loss_plots; other_plots], [loss_labels; other_labels]
 end
 
-function Makie.axislegend(ax::Makie.Axis, plt::LossPlot; kwargs...)
-    plots, labels = _lossplot_legend_entries(ax, plt)
-    Makie.axislegend(ax, plots, labels; kwargs...)
+function Makie.axislegend(ax::Makie.Axis, plt::LossPlot; title = nothing, kwargs...)
+    plots, labels = _legend_entries(ax, plt)
+    return Makie.axislegend(ax, plots, labels, title; kwargs...)
 end
 
-function Makie.Legend(gp::Makie.GridPosition, ax::Makie.Axis, plt::LossPlot; kwargs...)
-    plots, labels = _lossplot_legend_entries(ax, plt)
-    Makie.Legend(gp, plots, labels; kwargs...)
+function Makie.Legend(gp::Makie.GridPosition, ax::Makie.Axis, plt::LossPlot; title = nothing, kwargs...)
+    plots, labels = _legend_entries(ax, plt)
+    return Makie.Legend(gp, plots, labels, title; kwargs...)
 end
 
 function Makie.update!(plt::LossPlot, epochs_range, training_loss, validation_loss)
-    Makie.update!(plt, arg1=epochs_range, arg2=training_loss, arg3=validation_loss)
+    Makie.update!(
+        plt,
+        arg1 = epochs_range,
+        arg2 = training_loss,
+        arg3 = validation_loss
+    )
     return nothing
 end
