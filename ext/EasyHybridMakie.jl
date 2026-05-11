@@ -424,8 +424,10 @@ function EasyHybrid.train_dashboard(history, cfg)
 
     fig, ax, plt = lossplot(
         n_epochs, vals_train, vals_val;
-        axis = (; xlabel = "Epochs", ylabel = "Loss", yscale = log10)
+        axis = (; xlabel = "Epochs", ylabel = "Loss", yscale = log10,
+            xtrimspine = (true, false), ytrimspine = true)
     )
+    Legend(fig[1, 1, Top()], ax, plt; orientation=:horizontal, halign=:left, framevisible=false)
     hidespines!(ax, :r, :t)
     z_rect = z_Rect2(n_epochs, vals_train, vals_val)
 
