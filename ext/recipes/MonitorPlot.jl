@@ -1,70 +1,76 @@
 import EasyHybrid: monitorplot, monitorplot!
 
-@recipe MonitorPlot (epochs_range, training_monitor, validation_monitor, monitor_name) begin
-    "Colour for training lines"
+@recipe MonitorPlot (epochs_range, y_train, y_val) begin
+    "Colour for training curves"
     training_color = :grey25
-    "Colour for validation lines (dashed)"
+    "Colour for validation curves"
     validation_color = :tomato
+    "Training label"
     training_label = "Training"
     "Validation label"
     validation_label = "Validation"
-    "Base line width (q50 uses this; q25/q75 use `linewidth / 2`)"
+    "Line width for both curves"
     linewidth = 2
+    "Whether the monitor data is quantile-based (i.e. contains multiple quantiles per monitor) or scalar-based (one value per monitor)"
+    is_quantile = false
+    "If `is_quantile` is true, the keys of the quantiles to plot, e.g. `[:q25, :q50, :q75]`. Ignored if `is_quantile` is false."
+    quantile_keys = Symbol[]
 end
 
 function Makie.plot!(p::MonitorPlot)
-    training_monitor = to_value(p[:training_monitor])
-    monitor_name = to_value(p[:monitor_name])
-    entry = training_monitor[monitor_name]
-    haskey(entry, :quantile) ? _plot_monitor_quantiles!(p) : _plot_monitor_lines!(p)
-    return p
-end
-
-function _plot_monitor_quantiles!(p)
-    monitor_name = to_value(p[:monitor_name])
-    tr_entry = to_value(p[:training_monitor])[monitor_name]
-    val_entry = to_value(p[:validation_monitor])[monitor_name]
-    labels = keys(tr_entry[:quantile])
-    n = length(labels)
-    mid_idx = haskey(tr_entry[:quantile], :q50) ? findfirst(==(:q50), labels) : n ÷ 2 + 1
-    mid = labels[mid_idx]
-
-    for (i, qntl) in enumerate(labels)
-        distance = abs(i - mid_idx)
-        alpha = 1.0 - 0.25 * distance
-        lw = p.linewidth[] / (1 + 0.5 * distance)
-        # label only the training line with the quantile name;
-        # validation is implied by the dashed style, no extra legend entry
-        tr_label = string(qntl)
-        val_label = ""
-
-        Makie.lines!(
-            p, p[:epochs_range], tr_entry[:quantile][qntl];
-            color = (p.training_color[], alpha), linewidth = lw, label = tr_label
-        )
-        Makie.lines!(
-            p, p[:epochs_range], val_entry[:quantile][qntl];
-            color = (p.validation_color[], alpha), linewidth = lw,
-            linestyle = :dash, label = val_label
-        )
+    if p.is_quantile[]
+        _plot_monitor_quantiles!(p)
+    else
+        _plot_monitor_lines!(p)
     end
     return p
 end
 
 function _plot_monitor_lines!(p)
-    monitor_name = to_value(p[:monitor_name])
-    tr = to_value(p[:training_monitor])[monitor_name][:scalar]
-    val = to_value(p[:validation_monitor])[monitor_name][:scalar]
-
     Makie.lines!(
-        p, p[:epochs_range], tr;
+        p, p[:epochs_range], p[:y_train];
         color = p.training_color, linewidth = p.linewidth, label = p.training_label
     )
     Makie.lines!(
-        p, p[:epochs_range], val;
-        color = p.validation_color, linewidth = p.linewidth, linestyle = :dash,
-        label = p.validation_label
+        p, p[:epochs_range], p[:y_val];
+        color = p.validation_color, linewidth = p.linewidth,
+        linestyle = :dash, label = p.validation_label
     )
+    return p
+end
+
+function _plot_monitor_quantiles!(p)
+    qkeys = p.quantile_keys[]
+    n = length(qkeys)
+    mid_idx = something(findfirst(==(:q50), qkeys), n ÷ 2 + 1)
+
+    for (i, qntl) in enumerate(qkeys)
+        distance = abs(i - mid_idx)
+        alpha = 1.0 - 0.25 * distance
+        lw = p.linewidth[] / (1 + 0.5 * distance)
+
+        # Create a plain Observable for this slot's data
+        tr_obs = Observable(p[:y_train][][qntl])
+        val_obs = Observable(p[:y_val][][qntl])
+
+        # Wire them to update whenever y_train / y_val change
+        on(p[:y_train]) do yt
+            tr_obs[] = yt[qntl]
+        end
+        on(p[:y_val]) do yv
+            val_obs[] = yv[qntl]
+        end
+
+        Makie.lines!(
+            p, p[:epochs_range], tr_obs;
+            color = (p.training_color[], alpha), linewidth = lw, label = string(qntl)
+        )
+        Makie.lines!(
+            p, p[:epochs_range], val_obs;
+            color = (p.validation_color[], alpha), linewidth = lw,
+            linestyle = :dash, label = ""
+        )
+    end
     return p
 end
 

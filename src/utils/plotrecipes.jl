@@ -149,7 +149,7 @@ function _monitor_entry(v, cuts, labels)
     if length(v) > 1
         return (; :quantile => (; zip(labels, quantile(v, collect(cuts)))...))
     else
-        return (; :scalar => v[1])
+        return (; :scalar => only(v))
     end
 end
 
