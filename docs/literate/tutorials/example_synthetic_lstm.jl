@@ -11,6 +11,7 @@
 using EasyHybrid
 using AxisKeys
 using DimensionalData
+using CairoMakie
 
 # ## 2. Data Loading and Preprocessing
 
@@ -197,14 +198,18 @@ out_lstm = train(
     yscale = identity,       # Scaling for outputs
     shuffleobs = true,
     training_loss = :nseLoss,
-    loss_types = [:nse],
+    loss_types = [:nse, :nseLoss],
     sequence_kwargs = (; input_window = input_window, output_window = output_window, output_shift = output_shift, lead_time = 0),
-    plotting = false,
+    plotting = true,
     show_progress = false,
     input_batchnorm = false,
     array_type = pref_array_type,
     model_name = "RbQ10_synthetic_lstm"
 );
+
+# ```@raw html
+# <video src="../training_history_RbQ10_synthetic_lstm.mp4" controls="controls" autoplay="autoplay"></video>
+# ```
 
 out_lstm.val_obs_pred
 
@@ -236,13 +241,16 @@ single_nn_out = train(
     yscale = identity,       # Scaling for outputs
     shuffleobs = true,
     training_loss = :nseLoss,
-    loss_types = [:nse],
+    loss_types = [:nse, :nseLoss],
     array_type = :DimArray,
-    plotting = false,
+    plotting = true,
     show_progress = false,
     model_name = "RbQ10_synthetic_single_nn"
 );
 
+# ```@raw html
+# <video src="../training_history_RbQ10_synthetic_single_nn.mp4" controls="controls" autoplay="autoplay"></video>
+# ```
+
 # Close enough
-out_lstm.best_loss
-single_nn_out.best_loss
+out_lstm.best_loss, single_nn_out.best_loss

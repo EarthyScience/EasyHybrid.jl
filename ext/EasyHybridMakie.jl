@@ -6,8 +6,9 @@ using Makie.Colors
 using DataFrames
 import Makie
 import EasyHybrid
-import EasyHybrid: get_loss_value
+import EasyHybrid: get_loss_value, get_monitor_values, collect_monitor_history
 using Statistics
+using DataStructures: CircularBuffer
 
 include("HybridTheme.jl")
 
@@ -31,6 +32,9 @@ function _series(wt::WrappedTuples, attributes)
     merged_attributes = merge(user_attributes, plot_attributes)
     return data_matrix, merged_attributes
 end
+
+include("recipes/LossPlot.jl")
+include("recipes/MonitorPlot.jl")
 
 # =============================================================================
 # Prediction vs Observed Plotting Functions
@@ -411,6 +415,183 @@ function EasyHybrid.train_board(
         end
     end
     return display(fig)
+end
+
+function _extract_monitor(monitor, name)
+    entry = monitor[name]
+    if haskey(entry, :quantile)
+        q = entry[:quantile]
+        return q, true, collect(keys(q))
+    else
+        return entry[:scalar], false, Symbol[]
+    end
+end
+
+function EasyHybrid.train_dashboard(history, cfg)
+    n_epochs = get_epochs(history)
+    vals_train = get_loss_value_t(history, cfg.training_loss, Symbol("$(cfg.agg)"))
+    vals_val = get_loss_value_v(history, cfg.training_loss, Symbol("$(cfg.agg)"))
+
+    fig, ax, plt = lossplot(
+        n_epochs, vals_train, vals_val;
+        axis = (;
+            xlabel = "Epochs", ylabel = "Loss", yscale = log10,
+            xtrimspine = (true, false), ytrimspine = true,
+        ),
+        figure = (; size = (1200, 800))
+    )
+    Legend(fig[1, 1, Top()], ax, plt; orientation = :horizontal, halign = :left, framevisible = false)
+    hidespines!(ax, :r, :t)
+    z_rect = z_Rect2(n_epochs, vals_train, vals_val)
+
+    plt_rect = lines!(ax, z_rect, color = :dodgerblue, linewidth = 1)
+
+    ax_z = Axis(
+        fig[1, 1],
+        width = Relative(0.35),
+        height = Relative(0.35),
+        halign = 0.95,
+        valign = 1,
+        xlabel = "",
+        ylabel = "",
+        rightspinecolor = :dodgerblue,
+        leftspinecolor = :dodgerblue,
+        topspinecolor = :dodgerblue,
+        bottomspinecolor = :dodgerblue,
+        title = "Zoomed View"
+    )
+
+    plt_z = lossplot!(ax_z, n_epochs, vals_train, vals_val)
+    translate!(ax_z.blockscene, 0, 0, 150)
+    if !isempty(cfg.monitor_names)
+        gl_m, axes_m, plts_m = setup_monitor_panel!(fig, (2, 1), history, cfg)
+    end
+
+    fig
+
+    display(fig)
+    
+    if !isempty(cfg.monitor_names)
+        return fig, (; ax, ax_z, axes_m), (; plt, plt_rect, plt_z, plts_m)
+    else
+        return fig, (; ax, ax_z), (; plt, plt_rect, plt_z)
+    end
+end
+
+function z_Rect2(z_n_epochs, train_zoom, val_zoom)
+    mn_epoch = minimum(z_n_epochs)
+    mx_epoch = maximum(z_n_epochs)
+    xzoom_rect = mx_epoch - mn_epoch + 1
+    mn_tv = minimum(map(minimum, [train_zoom, val_zoom]))
+    mx_tv = maximum(map(maximum, [train_zoom, val_zoom]))
+    z_rect = Rect2(mn_epoch - 0.5, 0.95 * mn_tv, xzoom_rect, 1.05 * (mx_tv - mn_tv))
+
+    return z_rect
+end
+
+function setup_monitor_panel!(fig, grid_position, history, cfg)
+    monitor_names = cfg.monitor_names
+    n = length(monitor_names)
+
+    raw_train = get_monitor_values(history, monitor_names, :train)
+    training_mon = collect_monitor_history(raw_train, monitor_names)
+    raw_val = get_monitor_values(history, monitor_names, :val)
+    validation_mon = collect_monitor_history(raw_val, monitor_names)
+
+    n_epochs = get_epochs(history)
+
+    # Use a nested GridLayout at the given position
+    gl = GridLayout(fig[grid_position...])
+
+    axes = Vector{Axis}(undef, n)
+    plts = Vector{MonitorPlot}(undef, n)
+
+    for (i, name) in enumerate(monitor_names)
+        y_train, is_q, qkeys = _extract_monitor(training_mon, name)
+        y_val, _, _ = _extract_monitor(validation_mon, name)
+
+        ax = Axis(
+            gl[1, i];
+            xlabel = "Epochs",
+            ylabel = string(name),
+            xtrimspine = (true, false),
+            ytrimspine = true,
+        )
+        hidespines!(ax, :r, :t)
+
+        plt = monitorplot!(
+            ax, n_epochs, y_train, y_val;
+            is_quantile = is_q,
+            quantile_keys = qkeys,
+        )
+        Legend(
+            gl[1, i, Top()], ax, plt;
+            orientation = :horizontal,
+            titleposition = :left,
+            framevisible = false,
+        )
+
+        axes[i] = ax
+        plts[i] = plt
+    end
+
+    return gl, axes, plts
+end
+
+function update_monitor_panel!(axes, plts, history, cfg)
+    monitor_names = cfg.monitor_names
+    n_epochs = get_epochs(history)
+
+    raw_train = get_monitor_values(history, monitor_names, :train)
+    training_mon = collect_monitor_history(raw_train, monitor_names)
+    raw_val = get_monitor_values(history, monitor_names, :val)
+    validation_mon = collect_monitor_history(raw_val, monitor_names)
+
+    for (i, name) in enumerate(monitor_names)
+        y_train, _, _ = _extract_monitor(training_mon, name)
+        y_val, _, _ = _extract_monitor(validation_mon, name)
+        update!(plts[i], n_epochs, y_train, y_val)
+        autolimits!(axes[i])
+    end
+    return
+end
+
+function EasyHybrid.update_step_dashboard!(dashboard, history, cfg)
+    zoom_epochs = 50
+    n_epochs = get_epochs(history)
+    vals_train = get_loss_value_t(history, cfg.training_loss, Symbol("$(cfg.agg)"))
+    vals_val = get_loss_value_v(history, cfg.training_loss, Symbol("$(cfg.agg)"))
+
+    # raw_train = get_monitor_values(history, cfg.monitor_names, :train)
+    # training_monitor = collect_monitor_history(raw_train, cfg.monitor_names)
+    # raw_validation = get_monitor_values(history, cfg.monitor_names, :val)
+    # validation_monitor = collect_monitor_history(raw_validation, cfg.monitor_names)
+    # @show training_monitor
+    # y_train, _, _ = _extract_monitor(training_monitor, :Resp0)
+    # y_val,   _, _ = _extract_monitor(validation_monitor, :Resp0)
+
+    update!(dashboard.plt.plt, n_epochs, vals_train, vals_val)
+    autolimits!(dashboard.ax.ax)
+
+    zoom_idx = max(1, length(vals_train) - zoom_epochs)
+    train_zoom = vals_train[zoom_idx:end]
+    val_zoom = vals_val[zoom_idx:end]
+    z_n_epochs = n_epochs[zoom_idx:end]
+
+    updatedRect2 = z_Rect2(z_n_epochs, train_zoom, val_zoom)
+    update!(dashboard.plt.plt_rect, arg1 = updatedRect2)
+
+    update!(dashboard.plt.plt_z, z_n_epochs, val_zoom, train_zoom)
+    autolimits!(dashboard.ax.ax_z)
+
+    # update!(dashboard.plt.plt_m, n_epochs, y_train, y_val)
+    # autolimits!(dashboard.ax.ax_m)
+    
+    if !isempty(cfg.monitor_names)
+        update_monitor_panel!(dashboard.ax.axes_m, dashboard.plt.plts_m, history, cfg)
+    end
+
+    return nothing
 end
 
 """
