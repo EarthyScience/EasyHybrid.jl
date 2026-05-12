@@ -10,6 +10,10 @@ function load_makie_extension(cfg::TrainConfig)
         @info "Plotting disabled."
         return nothing
     end
+    if !cfg.keep_history
+        @warn "Plotting enabled but keep_history is false. Plots will not be generated."
+        return nothing
+    end
 
     return ext
 end

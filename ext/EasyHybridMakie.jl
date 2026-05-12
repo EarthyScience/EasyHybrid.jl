@@ -463,13 +463,19 @@ function EasyHybrid.train_dashboard(history, cfg)
 
     plt_z = lossplot!(ax_z, n_epochs, vals_train, vals_val)
     translate!(ax_z.blockscene, 0, 0, 150)
-
-    gl_m, axes_m, plts_m = setup_monitor_panel!(fig, (2, 1), history, cfg)
+    if !isempty(cfg.monitor_names)
+        gl_m, axes_m, plts_m = setup_monitor_panel!(fig, (2, 1), history, cfg)
+    end
 
     fig
 
     display(fig)
-    return fig, (; ax, ax_z, axes_m), (; plt, plt_rect, plt_z, plts_m)
+    
+    if !isempty(cfg.monitor_names)
+        return fig, (; ax, ax_z, axes_m), (; plt, plt_rect, plt_z, plts_m)
+    else
+        return fig, (; ax, ax_z), (; plt, plt_rect, plt_z)
+    end
 end
 
 function z_Rect2(z_n_epochs, train_zoom, val_zoom)
@@ -580,8 +586,10 @@ function EasyHybrid.update_step_dashboard!(dashboard, history, cfg)
 
     # update!(dashboard.plt.plt_m, n_epochs, y_train, y_val)
     # autolimits!(dashboard.ax.ax_m)
-
-    update_monitor_panel!(dashboard.ax.axes_m, dashboard.plt.plts_m, history, cfg)
+    
+    if !isempty(cfg.monitor_names)
+        update_monitor_panel!(dashboard.ax.axes_m, dashboard.plt.plts_m, history, cfg)
+    end
 
     return nothing
 end
