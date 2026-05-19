@@ -58,7 +58,7 @@ A structure to define a logging loss function for hybrid models.
     - `(f, kwargs)`: keyword args, e.g. `(scaled_loss, (scale=2.0,))`
     - `(f, args, kwargs)`: both, e.g. `(complex_loss, (0.5,), (scale=2.0,))`
 - `training_loss`: The loss specification to use during training (same format as above)
-- `extra_loss`: Optional function `(ŷ; kwargs...) -> scalar` to add to training loss (default: `nothing`)
+- `extra_loss`: Optional function `(ŷ, ps; kwargs...) -> NamedTuple` (or splattable collection) added to training loss (default: `nothing`)
 - `agg`: Function to aggregate losses across targets, e.g. `sum` or `mean`
 - `train_mode`: If true, uses `training_loss`; otherwise uses `loss_types`.
 

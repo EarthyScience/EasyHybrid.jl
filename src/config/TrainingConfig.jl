@@ -44,7 +44,7 @@ loss computation, data handling, output, and visualization.
     """
     loss_types::Vector{Symbol} = [:mse, :r2]
 
-    "Additional loss term to add to the training loss. Default: `nothing`."
+    "Additional loss `(ŷ, ps; kwargs...) -> NamedTuple` added to the training loss. Default: `nothing`."
     extra_loss = nothing
 
     "Aggregation function applied to computed losses. Default: `sum`."

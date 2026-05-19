@@ -13,6 +13,7 @@ include("test_loss_fn.jl")
 include("test_show_train.jl")
 include("test_show_generic_hybrid.jl")
 include("test_wrap_tuples.jl")
+include("test_extract_weights.jl")
 
 @testset "LinearHM" begin
     # test model instantiation
