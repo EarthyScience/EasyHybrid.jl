@@ -1,5 +1,97 @@
 export train
 
+"""
+    is_optimisers_rule(opt) -> Bool
+
+Return `true` when `opt` originates from the `Optimisers.jl` package (e.g.
+`Adam`, `AdamW`, `RMSProp`, `OptimiserChain`), **or** when `opt` is a
+`NamedTuple` describing a per-branch optimizer (see [`is_per_branch_opt`](@ref)).
+
+The check on single rules is by source package
+(`nameof(parentmodule(typeof(opt))) === :Optimisers`) rather than by
+`isa Optimisers.AbstractRule`, because in some package combinations
+`Optim.jl` optimizers were observed to satisfy the `AbstractRule` test and
+get misrouted to the `Lux.Training` loop.
+
+The `Lux.Training`-based loop dispatches on this; everything else (including
+`Optim.jl` and `Optimization.jl` optimizers) is routed through the
+`Optimization.jl` driver.
+"""
+is_optimisers_rule(opt) =
+    nameof(parentmodule(typeof(opt))) === :Optimisers ||
+    is_per_branch_opt(opt)
+
+"""
+    is_per_branch_opt(opt) -> Bool
+
+Return `true` when `opt` is a `NamedTuple` describing a per-branch
+optimizer specification — i.e. one of:
+
+  - a `NamedTuple` of `Optimisers.AbstractRule`s (e.g.
+    `(; Rb = Adam(1e-3), Q10 = Descent(1e-2))`), or
+  - a `NamedTuple` of pre-built optimizer state trees as returned by
+    `Optimisers.setup(rule, ps_branch)`, or
+  - a mix of the two.
+
+Branches of the parameter tree not listed in `opt` fall back to the default
+rule `Adam()` (see [`build_opt_state`](@ref)).
+
+This is detected purely by `opt isa NamedTuple`; the per-branch dispatch is
+checked again per-leaf when [`build_opt_state`](@ref) walks the spec.
+"""
+is_per_branch_opt(opt) = opt isa NamedTuple
+
+"""
+    build_opt_state(opt, ps::NamedTuple; default_rule = Optimisers.Adam())
+
+Build the optimizer state tree consumed by `Lux.Training.TrainState` /
+`Optimisers.update!`. Three forms of `opt` are accepted:
+
+  1. `opt::Optimisers.AbstractRule` — single rule applied to the whole
+     parameter tree (delegates to `Optimisers.setup(opt, ps)`).
+  2. `opt::NamedTuple` of `Optimisers.AbstractRule`s — each rule is wired
+     to the matching top-level branch of `ps` via
+     `Optimisers.setup(rule, ps[name])`. Branches missing from `opt` use
+     `default_rule`.
+  3. `opt::NamedTuple` of pre-built state trees (already returned by a
+     prior `Optimisers.setup`) — used as-is. Form 2 and 3 can be mixed in
+     the same `NamedTuple`.
+
+The returned state tree has the same top-level keys as `ps`.
+
+# Example
+
+```julia
+ps, _ = LuxCore.setup(rng, hybrid_model)   # (; Rb = NN_ps, RUE = NN_ps, Q10 = [v])
+
+# Form 2 — preferred, lets the framework call `Optimisers.setup`:
+opt_state = build_opt_state(
+    (; Rb = Adam(1e-3), RUE = Adam(1e-3), Q10 = Descent(1e-2)),
+    ps,
+)
+```
+"""
+function build_opt_state(opt::Optimisers.AbstractRule, ps; default_rule = Optimisers.Adam())
+    return Optimisers.setup(opt, ps)
+end
+
+function build_opt_state(opt::NamedTuple, ps::NamedTuple; default_rule = Optimisers.Adam())
+    pairs_ = map(collect(keys(ps))) do k
+        if haskey(opt, k)
+            spec = opt[k]
+            return k => spec isa Optimisers.AbstractRule ?
+                Optimisers.setup(spec, getproperty(ps, k)) :
+                spec
+        else
+            return k => Optimisers.setup(default_rule, getproperty(ps, k))
+        end
+    end
+    extra = setdiff(collect(keys(opt)), collect(keys(ps)))
+    isempty(extra) ||
+        @warn "Per-branch optimizer keys not found in parameter tree, ignored: $(extra)"
+    return NamedTuple(pairs_)
+end
+
 function _train(model, data, train_cfg::TrainConfig, data_cfg::DataConfig)
     validate_config(train_cfg)
     ext = load_makie_extension(train_cfg)
@@ -41,6 +133,27 @@ function _train(model, data, train_cfg::TrainConfig, data_cfg::DataConfig)
     save_final!(paths, model, ps, st, x_train, forcings_train, y_train, x_val, forcings_val, y_val, stopper, train_cfg)
 
     return build_results(model, history, stopper, ps, st, x_train, forcings_train, y_train, x_val, forcings_val, y_val, train_cfg)
+end
+
+"""
+    _train(model, data, train_cfg, data_cfg, solve_kwargs)
+
+Dispatcher used by `train(...)`: routes to the original 4-arg `_train` body
+(the `Lux.Training` / `Optimisers.jl` loop) when `train_cfg.opt isa
+Optimisers.AbstractRule`, or to `_train_optimization` (which delegates batch
+iteration to `Optimization.jl`) otherwise. `solve_kwargs` are forwarded to
+`solve(...)` on the `Optimization.jl` branch and warned about on the
+`Optimisers.jl` branch.
+"""
+function _train(model, data, train_cfg::TrainConfig, data_cfg::DataConfig, solve_kwargs::NamedTuple)
+    return if is_optimisers_rule(train_cfg.opt)
+        if !isempty(solve_kwargs)
+            @warn "Unknown kwargs ignored on the Optimisers.jl path: $(join(keys(solve_kwargs), ", "))"
+        end
+        _train(model, data, train_cfg, data_cfg)
+    else
+        _train_optimization(model, data, train_cfg, data_cfg, solve_kwargs)
+    end
 end
 
 """
@@ -101,10 +214,8 @@ function train(
     data_cfg::DataConfig  = DataConfig(),
     kwargs...,
 )
-    if !isempty(kwargs)
-        train_cfg, data_cfg = override_configs(train_cfg, data_cfg, kwargs)
-    end
-    return _train(model, data, train_cfg, data_cfg)
+    train_cfg, data_cfg, solve_kwargs = override_configs(train_cfg, data_cfg, kwargs)
+    return _train(model, data, train_cfg, data_cfg, solve_kwargs)
 end
 
 function valid_mask(y)
@@ -121,9 +232,8 @@ function valid_mask(y)
 end
 
 function train(model, data, save_ps; kwargs...)
-
-    train_cfg, data_cfg = kwargs_to_configs(save_ps, kwargs)
-    return _train(model, data, train_cfg, data_cfg)
+    train_cfg, data_cfg, solve_kwargs = kwargs_to_configs(save_ps, kwargs)
+    return _train(model, data, train_cfg, data_cfg, solve_kwargs)
 end
 
 function expand_sequence_kwargs(kwargs)
@@ -148,11 +258,13 @@ function expand_sequence_kwargs(kwargs)
 end
 
 """
-    kwargs_to_configs(save_ps, kwargs) -> (TrainConfig, DataConfig)
+    kwargs_to_configs(save_ps, kwargs) -> (TrainConfig, DataConfig, NamedTuple)
 
 Build a fresh `(TrainConfig, DataConfig)` pair from a flat collection of kwargs.
 Kwargs are split between the two configs based on `fieldnames(TrainConfig)` and
-`fieldnames(DataConfig)`; unknown kwargs are warned about and dropped.
+`fieldnames(DataConfig)`; anything left over is returned as the third element
+and forwarded to `solve(...)` on the `Optimization.jl` path (or warned about
+on the `Optimisers.jl` path — see `_train`).
 
 `save_ps` is the deprecated positional argument from `train(model, data, save_ps; ...)`;
 when non-empty it is forwarded as `tracked_params` on the resulting `TrainConfig`.
@@ -166,30 +278,24 @@ function kwargs_to_configs(save_ps, kwargs)
 
     train_kwargs = NamedTuple(k => kwargs[k] for k in keys(kwargs) if k in train_keys)
     data_kwargs = NamedTuple(k => kwargs[k] for k in keys(kwargs) if k in data_keys)
-
-    unknown = [k for k in keys(kwargs) if k ∉ train_keys && k ∉ data_keys]
-    if !isempty(unknown)
-        @warn "Unknown kwargs will be ignored: $(join(unknown, ", "))"
-    end
+    solve_kwargs = NamedTuple(k => kwargs[k] for k in keys(kwargs) if k ∉ train_keys && k ∉ data_keys)
 
     if !isempty(save_ps)
         @warn "`save_ps` is deprecated, use `TrainConfig(tracked_params=(...))` instead."
         train_kwargs = merge(train_kwargs, (; tracked_params = save_ps))
     end
 
-    return TrainConfig(; train_kwargs...), DataConfig(; data_kwargs...)
+    return TrainConfig(; train_kwargs...), DataConfig(; data_kwargs...), solve_kwargs
 end
 
 """
-    override_configs(train_cfg, data_cfg, kwargs)
+    override_configs(train_cfg, data_cfg, kwargs) -> (TrainConfig, DataConfig, NamedTuple)
 
-Return `(train_cfg′, data_cfg′)` where any field present in `kwargs` overrides the
-corresponding field of `train_cfg`/`data_cfg`. Fields not mentioned in `kwargs` are
-kept as-is. Unknown kwargs trigger a warning and are ignored.
-
-This is the merge step used by the deprecated kwargs path of `train` — it lets users
-mix the new typed API (`train_cfg=...`) with leftover individual kwargs, with kwargs
-taking precedence.
+Return `(train_cfg′, data_cfg′, solve_kwargs)` where any field present in `kwargs`
+overrides the corresponding field of `train_cfg`/`data_cfg`. Fields not mentioned
+in `kwargs` are kept as-is. Anything left over is returned as `solve_kwargs` and
+forwarded to `solve(...)` on the `Optimization.jl` path (or warned about on the
+`Optimisers.jl` path — see `_train`).
 """
 function override_configs(train_cfg::TrainConfig, data_cfg::DataConfig, kwargs)
     train_keys = fieldnames(TrainConfig)
@@ -200,13 +306,11 @@ function override_configs(train_cfg::TrainConfig, data_cfg::DataConfig, kwargs)
 
     train_overrides = NamedTuple(k => kwargs[k] for k in keys(kwargs) if k in train_keys)
     data_overrides  = NamedTuple(k => kwargs[k] for k in keys(kwargs) if k in data_keys)
+    solve_kwargs    = NamedTuple(k => kwargs[k] for k in keys(kwargs) if k ∉ train_keys && k ∉ data_keys)
 
-    unknown = [k for k in keys(kwargs) if k ∉ train_keys && k ∉ data_keys]
-    if !isempty(unknown)
-        @warn "Unknown kwargs will be ignored: $(join(unknown, ", "))"
-    end
-
-    return override_config(train_cfg, train_overrides), override_config(data_cfg, data_overrides)
+    return override_config(train_cfg, train_overrides),
+           override_config(data_cfg, data_overrides),
+           solve_kwargs
 end
 
 """
