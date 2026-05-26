@@ -51,3 +51,5 @@ out = train(
     show_progress = false,
     hybrid_name = "expo_response"
 );
+
+# predictionplot(out.train_obs_pred[!, :Resp_obs], out.train_obs_pred[!, :Resp_obs_pred]; color = :tomato)

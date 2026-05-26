@@ -35,6 +35,7 @@ end
 
 include("recipes/LossPlot.jl")
 include("recipes/MonitorPlot.jl")
+include("recipes/PredictionPlot.jl")
 
 # =============================================================================
 # Prediction vs Observed Plotting Functions
@@ -427,7 +428,7 @@ function _extract_monitor(monitor, name)
     end
 end
 
-function EasyHybrid.train_dashboard(history, cfg)
+function EasyHybrid.train_dashboard(history, cfg, y_train, y_val)
     n_epochs = get_epochs(history)
     vals_train = get_loss_value_t(history, cfg.training_loss, Symbol("$(cfg.agg)"))
     vals_val = get_loss_value_v(history, cfg.training_loss, Symbol("$(cfg.agg)"))
@@ -464,9 +465,35 @@ function EasyHybrid.train_dashboard(history, cfg)
     plt_z = lossplot!(ax_z, n_epochs, vals_train, vals_val)
     translate!(ax_z.blockscene, 0, 0, 150)
     if !isempty(cfg.monitor_names)
-        gl_m, axes_m, plts_m = setup_monitor_panel!(fig, (2, 1), history, cfg)
+        gl_m, axes_m, plts_m = setup_monitor_panel!(fig, (2, 1:2), history, cfg)
     end
+    
+    y_pred_train = get_prediction_values(history, cfg.target_names[1], :train)
+    y_pred_val = get_prediction_values(history, cfg.target_names[1], :validation)
+    
+    y_obs_train = getfield(y_train, cfg.target_names[1])
+    y_obs_val = getfield(y_val, cfg.target_names[1])
 
+    gd_pred = GridLayout(fig[1, 2])
+    ax_pred_train = Axis(gd_pred[1, 1]; xlabel = "", ylabel = "Observed", title = "Training",
+        xtrimspine = true, ytrimspine = true, aspect=1)
+    hidespines!(ax_pred_train, :r, :t)
+    predictionplot!(ax_pred_train, y_pred_train, y_obs_train)
+    
+    ax_pred_val = Axis(gd_pred[1, 2]; xlabel = "", ylabel="",  title = "Validation",
+        xtrimspine = true, ytrimspine = true, aspect=1)
+    hidespines!(ax_pred_val, :l, :r, :t)
+    predictionplot!(ax_pred_val, y_pred_val, y_obs_val; color=:tomato)
+    hideydecorations!(ax_pred_val, grid = false, ticks=false)
+    linkyaxes!(ax_pred_train, ax_pred_val)
+    
+    Box(gd_pred[1, 1:2, Top()]; color = (:grey25, 0.1), strokevisible = false)
+    Label(gd_pred[1, 1:2, Top()], "$(cfg.target_names[1])")
+    
+    Box(gd_pred[1, 1:2, Bottom()]; color = (:grey45, 0.1), strokevisible = false)
+    Label(gd_pred[1, 1:2, Bottom()], "Predicted")
+    # colgap!(gd_pred, 30)
+    
     fig
 
     display(fig)
@@ -495,7 +522,7 @@ function setup_monitor_panel!(fig, grid_position, history, cfg)
 
     raw_train = get_monitor_values(history, monitor_names, :train)
     training_mon = collect_monitor_history(raw_train, monitor_names)
-    raw_val = get_monitor_values(history, monitor_names, :val)
+    raw_val = get_monitor_values(history, monitor_names, :validation)
     validation_mon = collect_monitor_history(raw_val, monitor_names)
 
     n_epochs = get_epochs(history)
@@ -544,7 +571,7 @@ function update_monitor_panel!(axes, plts, history, cfg)
 
     raw_train = get_monitor_values(history, monitor_names, :train)
     training_mon = collect_monitor_history(raw_train, monitor_names)
-    raw_val = get_monitor_values(history, monitor_names, :val)
+    raw_val = get_monitor_values(history, monitor_names, :validation)
     validation_mon = collect_monitor_history(raw_val, monitor_names)
 
     for (i, name) in enumerate(monitor_names)
@@ -564,7 +591,7 @@ function EasyHybrid.update_step_dashboard!(dashboard, history, cfg)
 
     # raw_train = get_monitor_values(history, cfg.monitor_names, :train)
     # training_monitor = collect_monitor_history(raw_train, cfg.monitor_names)
-    # raw_validation = get_monitor_values(history, cfg.monitor_names, :val)
+    # raw_validation = get_monitor_values(history, cfg.monitor_names, :validation)
     # validation_monitor = collect_monitor_history(raw_validation, cfg.monitor_names)
     # @show training_monitor
     # y_train, _, _ = _extract_monitor(training_monitor, :Resp0)

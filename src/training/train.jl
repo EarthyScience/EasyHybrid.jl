@@ -112,8 +112,9 @@ function train(model, data, save_ps; kwargs...)
         """,
         :train
     )
-
-    train_cfg, data_cfg = kwargs_to_configs(save_ps, kwargs)
+    target_names = model.targets
+    merge_kwargs = (; kwargs..., target_names)
+    train_cfg, data_cfg = kwargs_to_configs(save_ps, merge_kwargs)
     return train(model, data; train_cfg, data_cfg)
 end
 

@@ -17,13 +17,23 @@ function get_loss_value_v(history::TrainingHistory, loss_type::Symbol, agg::Symb
     return [get_loss_value(s.l_val, loss_type, agg) for s in history.snapshots]
 end
 
-function get_monitor_values(history::TrainingHistory, monitor_names::Vector{Symbol}, dataset::Symbol = :train)
-    if dataset == :train
+function get_prediction_values(history::TrainingHistory, target_name::Symbol, dataset_split::Symbol = :train)
+    ŷ_now = last(history.snapshots)
+    if dataset_split == :train
+        return getfield(ŷ_now.ŷ_train, target_name)
+    elseif dataset_split == :validation
+        return getfield(ŷ_now.ŷ_val, target_name)
+    else
+        throw(ArgumentError("Invalid dataset_split specified. Use :train or :validation."))
+    end
+end
+function get_monitor_values(history::TrainingHistory, monitor_names::Vector{Symbol}, dataset_split::Symbol = :train)
+    if dataset_split == :train
         return [get_monitor_values(s.ŷ_train, monitor_names) for s in history.snapshots]
-    elseif dataset == :val
+    elseif dataset_split == :validation
         return [get_monitor_values(s.ŷ_val, monitor_names) for s in history.snapshots]
     else
-        throw(ArgumentError("Invalid dataset specified. Use :train or :val."))
+        throw(ArgumentError("Invalid dataset_split specified. Use :train or :validation."))
     end
 end
 
@@ -58,3 +68,4 @@ export get_loss_value_t, get_loss_value_v
 export collect_monitor_history
 export get_epochs
 export get_monitor_values
+export get_prediction_values
