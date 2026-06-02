@@ -483,7 +483,10 @@ function (m::MultiNNHybridModel)(ds_k::Tuple, ps, st)
     # 4) Scale neural network parameters using the mapping
     scaled_nn_params = NamedTuple()
     for (nn_name, param_name) in zip(keys(m.NNs), m.neural_param_names)
-        nn_cols = eachrow(nn_outputs[nn_name])
+        # `eachslice(...; dims = 1)` (instead of `eachrow`) so this works for both
+        # the feed-forward case (2D `(param, batch)` output) and the recurrent/LSTM
+        # case (3D `(param, time, batch)` sequence output).
+        nn_cols = eachslice(nn_outputs[nn_name]; dims = 1)
 
         # Create parameter for this NN
         nn_param = NamedTuple{(param_name,), Tuple{typeof(nn_cols[1])}}((nn_cols[1],))
