@@ -1,4 +1,5 @@
 using EasyHybrid
+using ComponentArrays
 using Lux
 using Random
 using Test
@@ -30,4 +31,12 @@ using Zygote
 
     # biases are not regularized by default
     @test weight_l2(ps; key = :bias) ≈ sum(sum(abs2, b) for b in extract_weights(ps; key = :bias))
+
+    n_weights = sum(length, ws)
+    @test weight_l2(ps; normalize = true) ≈ manual_l2 / n_weights
+
+    ps_ca = ComponentArray((Rb = ps,))
+    @test !isempty(extract_weights(ps_ca.Rb))
+    @test weight_l2(ps_ca.Rb) ≈ manual_l2
+    @test weight_l2(ps_ca.Rb; normalize = true) ≈ manual_l2 / n_weights
 end
