@@ -345,6 +345,11 @@ function rename_deprecated_kwargs(kwargs)
 end
 
 function evaluate_acc(ghm, x, forcings, y, y_no_nan, ps, st, loss_types, training_loss, extra_loss, agg)
+    # Metric/validation evaluation is a plain forward pass (no autodiff). Switch
+    # to test mode so layers like BatchNorm use their running statistics instead
+    # of batch statistics, and to avoid LuxLib's "training is set to Val{true}()
+    # but is not being used within an autodiff call" warning.
+    st = LuxCore.testmode(st)
     loss_val, sts, ŷ = compute_loss(ghm, ps, st, ((x, forcings), (y, y_no_nan)), logging = LoggingLoss(train_mode = false, loss_types = loss_types, training_loss = training_loss, extra_loss = extra_loss, agg = agg))
     return loss_val, sts, ŷ
 end
