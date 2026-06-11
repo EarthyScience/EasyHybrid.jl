@@ -140,11 +140,23 @@ loss computation, data handling, output, and visualization.
     promote_f64::Bool = false
 
     """
-    `Optimization.jl` path only: build a validation `EpochSnapshot` (driving
-    history / early-stopping / dashboard) every `eval_every` callback hits.
-    Default: `1`.
+    `Optimization.jl` full-batch path only (`full_batch = true`): build a
+    validation `EpochSnapshot` (driving history / early-stopping / dashboard)
+    every `eval_every` solver iterations. Default: `1`.
     """
     eval_every::Int = 1
+
+    """
+    `Optimization.jl` minibatch path only (`full_batch = false`): number of
+    optimizer iterations to run on each *fixed* minibatch before resampling the
+    next one. Implements the "several L-BFGS steps per minibatch, then resample"
+    scheme of Le et al., 2011 (*On Optimization Methods for Deep Learning*, ICML,
+    §4.2): holding the minibatch fixed for a few iterations keeps the objective
+    (and L-BFGS curvature pairs / line search) consistent. `nepochs` controls the
+    number of outer resampling passes; `batchsize` the minibatch size. Setting
+    `inner_maxiters = 1` reduces to one optimizer step per minibatch. Default: `4`.
+    """
+    inner_maxiters::Int = 4
 end
 
 function validate_config(cfg::TrainConfig)
@@ -159,6 +171,12 @@ function validate_config(cfg::TrainConfig)
 
     cfg.patience > 0 ||
         throw(ArgumentError("patience must be positive, got $(cfg.patience)"))
+
+    cfg.eval_every > 0 ||
+        throw(ArgumentError("eval_every must be positive, got $(cfg.eval_every)"))
+
+    cfg.inner_maxiters > 0 ||
+        throw(ArgumentError("inner_maxiters must be positive, got $(cfg.inner_maxiters)"))
 
     check_training_loss(cfg.training_loss) # TODO: revisit implementation
 
