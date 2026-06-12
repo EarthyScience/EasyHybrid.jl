@@ -71,10 +71,10 @@ function weight_l2(ps; key::Symbol = :weight, normalize::Bool = false)
     return normalize ? (n > 0 ? s / n : zero(s)) : s
 end
 
-_weight_l2_stats(::Any, ::Symbol) = (0f0, 0)
+_weight_l2_stats(::Any, ::Symbol) = (0.0f0, 0)
 
 function _weight_l2_stats(node::Union{NamedTuple, ComponentArray}, key::Symbol)
-    s = 0f0
+    s = 0.0f0
     n = 0
     for name in propertynames(node)
         child = getproperty(node, name)

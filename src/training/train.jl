@@ -209,11 +209,11 @@ A [`TrainResults`](@ref) with the following fields:
 - `best_loss`: Best validation loss recorded during training.
 """
 function train(
-    model, data;
-    train_cfg::TrainConfig = TrainConfig(),
-    data_cfg::DataConfig  = DataConfig(),
-    kwargs...,
-)
+        model, data;
+        train_cfg::TrainConfig = TrainConfig(),
+        data_cfg::DataConfig = DataConfig(),
+        kwargs...,
+    )
     train_cfg, data_cfg, solve_kwargs = override_configs(train_cfg, data_cfg, kwargs)
     return _train(model, data, train_cfg, data_cfg, solve_kwargs)
 end
@@ -305,12 +305,12 @@ function override_configs(train_cfg::TrainConfig, data_cfg::DataConfig, kwargs)
     kwargs = expand_sequence_kwargs(kwargs)
 
     train_overrides = NamedTuple(k => kwargs[k] for k in keys(kwargs) if k in train_keys)
-    data_overrides  = NamedTuple(k => kwargs[k] for k in keys(kwargs) if k in data_keys)
-    solve_kwargs    = NamedTuple(k => kwargs[k] for k in keys(kwargs) if k ∉ train_keys && k ∉ data_keys)
+    data_overrides = NamedTuple(k => kwargs[k] for k in keys(kwargs) if k in data_keys)
+    solve_kwargs = NamedTuple(k => kwargs[k] for k in keys(kwargs) if k ∉ train_keys && k ∉ data_keys)
 
     return override_config(train_cfg, train_overrides),
-           override_config(data_cfg, data_overrides),
-           solve_kwargs
+        override_config(data_cfg, data_overrides),
+        solve_kwargs
 end
 
 """
