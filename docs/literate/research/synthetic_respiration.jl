@@ -89,7 +89,7 @@ single_nn_hybrid_model = constructHybridModel(
 
 # ### train on DataFrame
 
-extra_loss = function (ŷ)
+function rb_prior_extra_loss(ŷ, ps)
     return (; a = sum((5.0 .- ŷ.rb) .^ 2))
 end
 
@@ -106,7 +106,7 @@ single_nn_out = train(
     shuffleobs = true,
     loss_types = [:mse, :nse],
     show_progress = false,
-    extra_loss = extra_loss,
+    extra_loss = rb_prior_extra_loss,
     model_name = "RbQ10_synthetic1"
 )
 

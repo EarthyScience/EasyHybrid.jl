@@ -13,7 +13,33 @@ loss computation, data handling, output, and visualization.
     "Size of the training batches. Default: 64."
     batchsize::Int = 64
 
-    "Optimizer to use for training. Default: Adam(0.01)."
+    """
+    Optimizer to use for training. Default: `Adam(0.01)`.
+
+    On the `Optimisers.jl` path (selected when `opt` originates from
+    `Optimisers.jl`) three forms are accepted:
+
+    1. A single `Optimisers.AbstractRule` (default), applied to the whole
+       parameter tree, e.g. `Adam(0.01)`. `ps` is wrapped in a
+       `ComponentArray`.
+    2. A `NamedTuple` of rules — one per top-level branch of the parameter
+       tree — e.g. for an `RbQ10` hybrid model:
+
+       ```julia
+       opt = (; Rb = Adam(1e-3), Q10 = Descent(1e-2))
+       ```
+
+       The framework calls `Optimisers.setup` per branch; branches not
+       listed fall back to `Adam()`. `ps` is kept as a nested `NamedTuple`
+       (no `ComponentArray` wrap) because `Optimisers.jl` treats a
+       `ComponentArray` as a single leaf and would collapse the per-branch
+       state tree.
+    3. A `NamedTuple` of pre-built state trees (already returned by
+       `Optimisers.setup`). Useful when one branch needs an
+       `Optimisers.OptimiserChain` or a frozen leaf built up by hand.
+
+    Forms 2 and 3 can be freely mixed in the same `NamedTuple`.
+    """
     opt = Adam(0.01)
 
     """
@@ -44,7 +70,7 @@ loss computation, data handling, output, and visualization.
     """
     loss_types::Vector{Symbol} = [:mse, :r2]
 
-    "Additional loss term to add to the training loss. Default: `nothing`."
+    "Additional loss `(ŷ, ps; kwargs...) -> NamedTuple` added to the training loss. Default: `nothing`."
     extra_loss = nothing
 
     "Aggregation function applied to computed losses. Default: `sum`."
@@ -97,6 +123,40 @@ loss computation, data handling, output, and visualization.
 
     "Tuple of parameter names to track across epochs. Default: `()`."
     tracked_params::Tuple = ()
+
+    """
+    `Optimization.jl` path only: pass the full training set as a single tuple
+    to `OptimizationProblem` instead of an `MLUtils.DataLoader`. Has no effect
+    on the `Optimisers.jl` path. Default: `false`.
+    """
+    full_batch::Bool = false
+
+    """
+    `Optimization.jl` path only: promote `ps` to `Float64` before optimization.
+    Mirrors the workaround documented in `projects/RbQ10/Q10_lbfgs.jl` for
+    [Lux.jl#1260](https://github.com/LuxDL/Lux.jl/issues/1260). Has no effect
+    on the `Optimisers.jl` path. Default: `false`.
+    """
+    promote_f64::Bool = false
+
+    """
+    `Optimization.jl` full-batch path only (`full_batch = true`): build a
+    validation `EpochSnapshot` (driving history / early-stopping / dashboard)
+    every `eval_every` solver iterations. Default: `1`.
+    """
+    eval_every::Int = 1
+
+    """
+    `Optimization.jl` minibatch path only (`full_batch = false`): number of
+    optimizer iterations to run on each *fixed* minibatch before resampling the
+    next one. Implements the "several L-BFGS steps per minibatch, then resample"
+    scheme of Le et al., 2011 (*On Optimization Methods for Deep Learning*, ICML,
+    §4.2): holding the minibatch fixed for a few iterations keeps the objective
+    (and L-BFGS curvature pairs / line search) consistent. `nepochs` controls the
+    number of outer resampling passes; `batchsize` the minibatch size. Setting
+    `inner_maxiters = 1` reduces to one optimizer step per minibatch. Default: `4`.
+    """
+    inner_maxiters::Int = 4
 end
 
 function validate_config(cfg::TrainConfig)
@@ -111,6 +171,12 @@ function validate_config(cfg::TrainConfig)
 
     cfg.patience > 0 ||
         throw(ArgumentError("patience must be positive, got $(cfg.patience)"))
+
+    cfg.eval_every > 0 ||
+        throw(ArgumentError("eval_every must be positive, got $(cfg.eval_every)"))
+
+    cfg.inner_maxiters > 0 ||
+        throw(ArgumentError("inner_maxiters must be positive, got $(cfg.inner_maxiters)"))
 
     check_training_loss(cfg.training_loss) # TODO: revisit implementation
 

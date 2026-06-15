@@ -34,6 +34,37 @@ end
 _subset_y(y, valid) = y[:, :, valid]
 _subset_y(y::NamedTuple, valid) = map(v -> v[:, valid], y)
 
+# NamedTuple predictors (MultiNNHybridModel): every branch is a 3D
+# `(feature, time, batch)` array sharing the batch axis with forcings/targets.
+# Drop a sequence if any branch has a NaN predictor or all targets are NaN.
+function filter_sequences(x_tuple::Tuple{<:NamedTuple, <:Any}, y)
+    x, forcings = x_tuple
+    valid = _valid_seq_indices(x, y)
+    nseq = _nseq(x)
+    length(valid) < nseq && @info "Dropped $(nseq - length(valid)) / $nseq sequences with NaN predictors or all-NaN targets"
+    x_filtered = map(b -> b[:, :, valid], x)
+    forcings_filtered = map(v -> v[:, valid], forcings)
+    return (x_filtered, forcings_filtered), _subset_y(y, valid)
+end
+
+_nseq(x::NamedTuple) = size(first(values(x)), 3)
+
+_branches_finite(x::NamedTuple, ii) = all(b -> !any(isnan, @view(b[:, :, ii])), values(x))
+_targets_present(y, ii) = any(!isnan, @view(y[:, :, ii]))
+_targets_present(y::NamedTuple, ii) = any(v -> any(!isnan, @view(v[:, ii])), values(y))
+
+# `(x::NamedTuple, y::NamedTuple)` is defined explicitly to disambiguate against
+# `_valid_seq_indices(x, y::NamedTuple)` above.
+function _valid_seq_indices(x::NamedTuple, y::NamedTuple)
+    n = _nseq(x)
+    return findall(ii -> _branches_finite(x, ii) && _targets_present(y, ii), 1:n)
+end
+
+function _valid_seq_indices(x::NamedTuple, y)
+    n = _nseq(x)
+    return findall(ii -> _branches_finite(x, ii) && _targets_present(y, ii), 1:n)
+end
+
 """
     split_into_sequences(x, y; input_window=5, output_window=1, output_shift=1, lead_time=1)
 
@@ -66,6 +97,44 @@ function split_into_sequences(x::Tuple, y; kwargs...)
     X_seq, Y_seq = split_into_sequences(x_arr, y; kwargs...)
     forcings_seq = _window_forcings(forcings, x_arr; kwargs...)
     return (X_seq, forcings_seq), Y_seq
+end
+
+# MultiNNHybridModel support.
+#
+# For `MultiNNHybridModel`, `prepare_data` returns the predictors as a
+# NamedTuple of per-branch `(feature, time)` arrays (one per neural network),
+# while forcings and targets stay shared across branches. Window every branch on
+# the common time axis and keep the NamedTuple structure so the model's forward
+# pass can index `ds_k[1][nn_name]`.
+function split_into_sequences(x::Tuple{<:NamedTuple, <:Any}, y::NamedTuple; kwargs...)
+    x_branches, forcings = x
+    isempty(x_branches) && throw(ArgumentError("predictor NamedTuple is empty"))
+    targetkeys = keys(y)
+
+    # All branches share the same time axis; use the first as the reference for
+    # windowing the (shared) targets and forcings.
+    ref = _as_keyed_time(first(values(x_branches)))
+    y_arr = _nt_to_array(y, ref)
+
+    X_seq = map(b -> first(split_into_sequences(_as_keyed_time(b), y_arr; kwargs...)), x_branches)
+    _, Y_seq = split_into_sequences(ref, y_arr; kwargs...)
+    forcings_seq = _window_forcings(forcings, ref; kwargs...)
+
+    return (X_seq, forcings_seq), _array_to_nt(Y_seq, targetkeys)
+end
+
+# Predictor branches built for `MultiNNHybridModel` are plain matrices (their
+# axis keys are stripped in `prepare_data`). Wrap them with synthetic keys so
+# they flow through the keyed windowing path and produce keyed 3D outputs that
+# `collect_end_dim`/`view_end_dim` understand. Keyed/Dim inputs pass through.
+function _as_keyed_time(b)
+    (b isa KeyedArray || b isa AbstractDimArray) && return b
+    ndims(b) == 2 || throw(ArgumentError("expected a 2D (feature, time) predictor branch; got ndims = $(ndims(b))"))
+    return KeyedArray(
+        Float32.(b);
+        variable = Symbol.("f", 1:size(b, 1)),
+        time = 1:size(b, 2),
+    )
 end
 
 function split_into_sequences(x, y::NamedTuple; kwargs...)

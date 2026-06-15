@@ -255,8 +255,9 @@ end
     y_nan = (; var1 = trues(n_samples), var2 = trues(n_samples))
 
     @testset "Training mode with extra_loss" begin
-        # Define extra loss function
-        extra_loss_func(ŷ) = [sum(abs, ŷ.var1), sum(abs, ŷ.var2)]
+        function extra_loss_func(ŷ, ps)
+            return [sum(abs, ŷ.var1), sum(abs, ŷ.var2)]
+        end
 
         logging = LoggingLoss(
             loss_types = [:mse],
@@ -278,7 +279,7 @@ end
         main_loss = _compute_loss(
             ŷ_actual, y_t, y_nan, targets, :mse, sum
         )
-        extra_loss_vals = extra_loss_func(ŷ_actual)
+        extra_loss_vals = extra_loss_func(ŷ_actual, ps)
         expected_loss = sum([main_loss, extra_loss_vals...])
         @test loss_value ≈ expected_loss
     end
@@ -307,8 +308,9 @@ end
     end
 
     @testset "Evaluation mode with extra_loss" begin
-        # Define extra loss function that returns a NamedTuple
-        extra_loss_func(ŷ) = (var1_extra = sum(abs, ŷ.var1), var2_extra = sum(abs, ŷ.var2))
+        function extra_loss_func(ŷ, ps)
+            return (var1_extra = sum(abs, ŷ.var1), var2_extra = sum(abs, ŷ.var2))
+        end
 
         logging = LoggingLoss(
             loss_types = [:mse, :mae],
@@ -357,5 +359,25 @@ end
         @test stats isa NamedTuple
         @test haskey(stats, :var1)
         @test haskey(stats, :var2)
+    end
+
+    @testset "Training mode with weight_l2 extra_loss" begin
+        λ = 1.0f-4
+        function nn_weight_extra_loss(ŷ, ps)
+            return (; l2_ps = λ * weight_l2(ps.ps))
+        end
+
+        logging = LoggingLoss(
+            loss_types = [:mse],
+            training_loss = :mse,
+            extra_loss = nn_weight_extra_loss,
+            train_mode = true
+        )
+
+        loss_value, _, _ = compute_loss(HM, ps, st, (data[1], (data[2], y_nan)); logging = logging)
+        ŷ_actual, _ = HM(data[1], ps, st)
+        main_loss = _compute_loss(ŷ_actual, y_t, y_nan, targets, :mse, sum)
+        expected = main_loss + λ * weight_l2(ps.ps)
+        @test loss_value ≈ expected
     end
 end

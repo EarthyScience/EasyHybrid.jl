@@ -1,4 +1,4 @@
-export SingleNNHybridModel, MultiNNHybridModel, constructHybridModel, scale_single_param, AbstractHybridModel, build_hybrid, ParameterContainer, default, lower, upper, hard_sigmoid, inv_sigmoid
+export SingleNNHybridModel, MultiNNHybridModel, constructHybridModel, scale_single_param, AbstractHybridModel, build_hybrid, ParameterContainer, default, lower, upper, hard_sigmoid, inv_hard_sigmoid, inv_sigmoid
 export HybridParams
 
 # Import necessary components for neural networks
@@ -8,6 +8,13 @@ using Lux: sigmoid
 # Define the hard sigmoid activation function
 function hard_sigmoid(x)
     return clamp.(0.2 .* x .+ 0.5, 0.0, 1.0)
+end
+
+# Inverse of `hard_sigmoid` on the linear region (0, 1).
+# Saturated inputs (y ≤ 0 or y ≥ 1) are extrapolated linearly since the
+# clamp makes the forward map non-invertible there.
+function inv_hard_sigmoid(y)
+    return (y .- 0.5) ./ 0.2
 end
 
 abstract type AbstractHybridModel end
@@ -476,7 +483,10 @@ function (m::MultiNNHybridModel)(ds_k::Tuple, ps, st)
     # 4) Scale neural network parameters using the mapping
     scaled_nn_params = NamedTuple()
     for (nn_name, param_name) in zip(keys(m.NNs), m.neural_param_names)
-        nn_cols = eachrow(nn_outputs[nn_name])
+        # `eachslice(...; dims = 1)` (instead of `eachrow`) so this works for both
+        # the feed-forward case (2D `(param, batch)` output) and the recurrent/LSTM
+        # case (3D `(param, time, batch)` sequence output).
+        nn_cols = eachslice(nn_outputs[nn_name]; dims = 1)
 
         # Create parameter for this NN
         nn_param = NamedTuple{(param_name,), Tuple{typeof(nn_cols[1])}}((nn_cols[1],))
