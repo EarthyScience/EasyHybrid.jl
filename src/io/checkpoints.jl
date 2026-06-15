@@ -20,7 +20,7 @@ function save_final!(paths::TrainingPaths, model, ps, st, x_train, forcings_trai
     if cfg.save_training
         target_names = model.targets
         save_epoch = stopper.best_epoch == 0 ? 0 : stopper.best_epoch
-        save_ps_st!(paths.best_model, model, cfg.cdev(ps), cfg.cdev(st), cfg.tracked_params, save_epoch)
+        save_ps_st(paths.best_model, model, cfg.cdev(ps), cfg.cdev(st), cfg.tracked_params, save_epoch)
 
         ŷ_train, αst_train = model((cfg.cdev(x_train), cfg.cdev(forcings_train)), cfg.cdev(ps), LuxCore.testmode(cfg.cdev(st)))
         ŷ_val, αst_val = model((cfg.cdev(x_val), cfg.cdev(forcings_val)), cfg.cdev(ps), LuxCore.testmode(cfg.cdev(st)))

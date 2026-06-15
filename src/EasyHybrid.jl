@@ -32,6 +32,7 @@ using Lux: Lux
 using MLJ: partition
 using MLUtils: MLUtils, DataLoader, kfolds, numobs, rpad, splitobs
 using NCDatasets: NCDatasets, NCDataset, close, name
+using Optimization: Optimization, OptimizationFunction, OptimizationProblem, solve, remake
 using OptimizationOptimisers: OptimizationOptimisers, AdamW, Adam, Optimisers
 using OrderedCollections: OrderedDict
 using PrettyTables: PrettyTables
@@ -54,15 +55,16 @@ using Static: False, True
     using DataFrames
     using CSV
     using AxisKeys: axiskeys
+    using Optimization: Optimization, OptimizationFunction, OptimizationProblem, solve, remake
     using OptimizationOptimisers: OptimizationOptimisers, Optimisers, Adam, AdamW, RMSProp
     using ComponentArrays: ComponentArrays, ComponentArray
 end
 
 abstract type EasyHybridModels end
 
-include("config/config.jl")
 include("utils/utils.jl")
 include("models/models.jl")
+include("config/config.jl")
 include("data/data.jl")
 include("losses/losses.jl")
 include("training/training.jl")
