@@ -1,6 +1,9 @@
 # Changelog
 
 ## Unreleased
+- Added a GitHub Actions workflow for posting a PR preview comment with a link to the documentation preview.
+
+## v0.2.0 - 2026-06-16
 - Sets fetch-depth 0 so that we can have access to the git history in the docs [#253](https://github.com/EarthyScience/EasyHybrid.jl/pull/253)
 - Adds an option to save the full history or not, and always saving the best snapshot [#251](https://github.com/EarthyScience/EasyHybrid.jl/pull/251)
 - Refactored the train function into smaller functions [#249](https://github.com/EarthyScience/EasyHybrid.jl/pull/249)
