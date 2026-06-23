@@ -1,7 +1,7 @@
 # Changelog
 
 ## Unreleased
-- Added a GitHub Actions workflow for posting a PR preview comment with a link to the documentation preview.
+- Added a GitHub Actions workflow for posting a PR preview comment with a link to the documentation preview [#272](https://github.com/EarthyScience/EasyHybrid.jl/pull/272)
 
 ## v0.2.0 - 2026-06-16
 - Sets fetch-depth 0 so that we can have access to the git history in the docs [#253](https://github.com/EarthyScience/EasyHybrid.jl/pull/253)
