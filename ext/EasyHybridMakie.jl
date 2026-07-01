@@ -593,14 +593,6 @@ function EasyHybrid.update_step_dashboard!(dashboard, history, cfg)
     vals_train = get_loss_value_t(history, cfg.training_loss, Symbol("$(cfg.agg)"))
     vals_val = get_loss_value_v(history, cfg.training_loss, Symbol("$(cfg.agg)"))
 
-    # raw_train = get_monitor_values(history, cfg.monitor_names, :train)
-    # training_monitor = collect_monitor_history(raw_train, cfg.monitor_names)
-    # raw_validation = get_monitor_values(history, cfg.monitor_names, :validation)
-    # validation_monitor = collect_monitor_history(raw_validation, cfg.monitor_names)
-    # @show training_monitor
-    # y_train, _, _ = _extract_monitor(training_monitor, :Resp0)
-    # y_val,   _, _ = _extract_monitor(validation_monitor, :Resp0)
-
     update!(dashboard.plt.plt, n_epochs, vals_train, vals_val)
     autolimits!(dashboard.ax.ax)
 
@@ -614,9 +606,6 @@ function EasyHybrid.update_step_dashboard!(dashboard, history, cfg)
 
     update!(dashboard.plt.plt_z, z_n_epochs, val_zoom, train_zoom)
     autolimits!(dashboard.ax.ax_z)
-
-    # update!(dashboard.plt.plt_m, n_epochs, y_train, y_val)
-    # autolimits!(dashboard.ax.ax_m)
 
     if !isempty(cfg.monitor_names)
         update_monitor_panel!(dashboard.ax.axes_m, dashboard.plt.plts_m, history, cfg)
