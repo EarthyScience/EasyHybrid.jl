@@ -108,7 +108,7 @@ loss computation, data handling, output, and visualization.
 
     "Vector of monitor names to track during training. Default: `[]`."
     monitor_names::Vector = []
-    
+
     "Vector of target names for plotting. Default: `[]`."
     target_names::Vector = []
 

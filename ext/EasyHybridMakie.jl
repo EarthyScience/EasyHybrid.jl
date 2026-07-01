@@ -467,41 +467,45 @@ function EasyHybrid.train_dashboard(history, cfg, y_train, y_val)
     if !isempty(cfg.monitor_names)
         gl_m, axes_m, plts_m = setup_monitor_panel!(fig, (2, 1:2), history, cfg)
     end
-    
+
     y_pred_train = get_prediction_values(history, cfg.target_names[1], :train)
     y_pred_val = get_prediction_values(history, cfg.target_names[1], :validation)
-    
+
     y_obs_train = getfield(y_train, cfg.target_names[1])
     y_obs_val = getfield(y_val, cfg.target_names[1])
 
     gd_pred = GridLayout(fig[1, 2])
-    ax_pred_train = Axis(gd_pred[1, 1]; xlabel = "", ylabel = "Observed", title = "Training",
-        xtrimspine = true, ytrimspine = true, aspect=1)
+    ax_pred_train = Axis(
+        gd_pred[1, 1]; xlabel = "", ylabel = "Observed", title = "Training",
+        xtrimspine = true, ytrimspine = true, aspect = 1
+    )
     hidespines!(ax_pred_train, :r, :t)
-    predictionplot!(ax_pred_train, y_pred_train, y_obs_train)
-    
-    ax_pred_val = Axis(gd_pred[1, 2]; xlabel = "", ylabel="",  title = "Validation",
-        xtrimspine = true, ytrimspine = true, aspect=1)
+    plt_pred_train = predictionplot!(ax_pred_train, y_pred_train, y_obs_train)
+
+    ax_pred_val = Axis(
+        gd_pred[1, 2]; xlabel = "", ylabel = "", title = "Validation",
+        xtrimspine = true, ytrimspine = true, aspect = 1
+    )
     hidespines!(ax_pred_val, :l, :r, :t)
-    predictionplot!(ax_pred_val, y_pred_val, y_obs_val; color=:tomato)
-    hideydecorations!(ax_pred_val, grid = false, ticks=false)
+    plt_pred_val = predictionplot!(ax_pred_val, y_pred_val, y_obs_val; color = :tomato)
+    hideydecorations!(ax_pred_val, grid = false, ticks = false)
     linkyaxes!(ax_pred_train, ax_pred_val)
-    
+
     Box(gd_pred[1, 1:2, Top()]; color = (:grey25, 0.1), strokevisible = false)
     Label(gd_pred[1, 1:2, Top()], "$(cfg.target_names[1])")
-    
+
     Box(gd_pred[1, 1:2, Bottom()]; color = (:grey45, 0.1), strokevisible = false)
     Label(gd_pred[1, 1:2, Bottom()], "Predicted")
     # colgap!(gd_pred, 30)
-    
+
     fig
 
     display(fig)
-    
+
     if !isempty(cfg.monitor_names)
-        return fig, (; ax, ax_z, axes_m), (; plt, plt_rect, plt_z, plts_m)
+        return fig, (; ax, ax_z, axes_m, ax_pred_train, ax_pred_val), (; plt, plt_rect, plt_z, plts_m, plt_pred_train, plt_pred_val)
     else
-        return fig, (; ax, ax_z), (; plt, plt_rect, plt_z)
+        return fig, (; ax, ax_z, ax_pred_train, ax_pred_val), (; plt, plt_rect, plt_z, plt_pred_train, plt_pred_val)
     end
 end
 
@@ -613,9 +617,18 @@ function EasyHybrid.update_step_dashboard!(dashboard, history, cfg)
 
     # update!(dashboard.plt.plt_m, n_epochs, y_train, y_val)
     # autolimits!(dashboard.ax.ax_m)
-    
+
     if !isempty(cfg.monitor_names)
         update_monitor_panel!(dashboard.ax.axes_m, dashboard.plt.plts_m, history, cfg)
+    end
+
+    if hasproperty(dashboard.plt, :plt_pred_train)
+        y_pred_train = get_prediction_values(history, cfg.target_names[1], :train)
+        y_pred_val = get_prediction_values(history, cfg.target_names[1], :validation)
+        update!(dashboard.plt.plt_pred_train, y_pred_train)
+        update!(dashboard.plt.plt_pred_val, y_pred_val)
+        autolimits!(dashboard.ax.ax_pred_train)
+        autolimits!(dashboard.ax.ax_pred_val)
     end
 
     return nothing
