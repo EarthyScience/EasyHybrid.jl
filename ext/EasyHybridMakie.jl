@@ -36,6 +36,7 @@ end
 include("recipes/LossPlot.jl")
 include("recipes/MonitorPlot.jl")
 include("recipes/PredictionPlot.jl")
+include("recipes/TimeSeriesPlot.jl")
 
 # =============================================================================
 # Prediction vs Observed Plotting Functions
@@ -465,7 +466,7 @@ function EasyHybrid.train_dashboard(history, cfg, y_train, y_val)
     plt_z = lossplot!(ax_z, n_epochs, vals_train, vals_val)
     translate!(ax_z.blockscene, 0, 0, 150)
     if !isempty(cfg.monitor_names)
-        gl_m, axes_m, plts_m = setup_monitor_panel!(fig, (2, 1:2), history, cfg)
+        gl_m, axes_m, plts_m = setup_monitor_panel!(fig, (3, 1:2), history, cfg)
     end
 
     y_pred_train = get_prediction_values(history, cfg.target_names[1], :train)
@@ -498,14 +499,31 @@ function EasyHybrid.train_dashboard(history, cfg, y_train, y_val)
     Label(gd_pred[1, 1:2, Bottom()], "Predicted")
     # colgap!(gd_pred, 30)
 
+    gd_ts = GridLayout(fig[2, 1:2])
+    ax_ts_train = Axis(
+        gd_ts[1, 1]; xlabel = "Time Index", ylabel = "Value", title = "Training (Time Series)",
+        xtrimspine = true, ytrimspine = true
+    )
+    hidespines!(ax_ts_train, :r, :t)
+    plt_ts_train = timeseriesplot!(ax_ts_train, y_pred_train, y_obs_train)
+
+    ax_ts_val = Axis(
+        gd_ts[1, 2]; xlabel = "Time Index", ylabel = "", title = "Validation (Time Series)",
+        xtrimspine = true, ytrimspine = true
+    )
+    hidespines!(ax_ts_val, :l, :r, :t)
+    plt_ts_val = timeseriesplot!(ax_ts_val, y_pred_val, y_obs_val)
+    hideydecorations!(ax_ts_val, grid = false, ticks = false)
+    linkyaxes!(ax_ts_train, ax_ts_val)
+
     fig
 
     display(fig)
 
     if !isempty(cfg.monitor_names)
-        return fig, (; ax, ax_z, axes_m, ax_pred_train, ax_pred_val), (; plt, plt_rect, plt_z, plts_m, plt_pred_train, plt_pred_val)
+        return fig, (; ax, ax_z, axes_m, ax_pred_train, ax_pred_val, ax_ts_train, ax_ts_val), (; plt, plt_rect, plt_z, plts_m, plt_pred_train, plt_pred_val, plt_ts_train, plt_ts_val)
     else
-        return fig, (; ax, ax_z, ax_pred_train, ax_pred_val), (; plt, plt_rect, plt_z, plt_pred_train, plt_pred_val)
+        return fig, (; ax, ax_z, ax_pred_train, ax_pred_val, ax_ts_train, ax_ts_val), (; plt, plt_rect, plt_z, plt_pred_train, plt_pred_val, plt_ts_train, plt_ts_val)
     end
 end
 
@@ -618,6 +636,11 @@ function EasyHybrid.update_step_dashboard!(dashboard, history, cfg)
         update!(dashboard.plt.plt_pred_val, y_pred_val)
         autolimits!(dashboard.ax.ax_pred_train)
         autolimits!(dashboard.ax.ax_pred_val)
+
+        update!(dashboard.plt.plt_ts_train, y_pred_train)
+        update!(dashboard.plt.plt_ts_val, y_pred_val)
+        autolimits!(dashboard.ax.ax_ts_train)
+        autolimits!(dashboard.ax.ax_ts_val)
     end
 
     return nothing
