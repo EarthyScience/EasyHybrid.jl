@@ -84,7 +84,7 @@ function Expo_resp_model(; T, Resp0, k)
     return (; Resp_obs, Resp0, k)
 end
 
-hybrid_model = constructHybridModel(
+hybrid_model = HybridModel(
     predictors,
     forcings,
     targets,

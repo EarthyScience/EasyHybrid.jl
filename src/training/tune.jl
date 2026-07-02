@@ -26,7 +26,7 @@ Returns a [`TrainResults`](@ref) (or `nothing` if data preparation fails, as in 
 """
 function tune(hybrid_model, data, mspec::ModelSpec; kwargs...)
     kwargs_model = merge(to_namedtuple(hybrid_model), hybrid_model.config, (; kwargs...), mspec.hyper_model)
-    hm = constructHybridModel(; kwargs_model...)
+    hm = HybridModel(; kwargs_model...)
 
     kwargs_train = merge((; kwargs...), mspec.hyper_train, (; target_names = hm.targets))
     train_cfg, data_cfg = EasyHybrid.kwargs_to_configs((), kwargs_train)
@@ -35,7 +35,7 @@ end
 
 function tune(hybrid_model, data; kwargs...)
     kwargs_model = merge(to_namedtuple(hybrid_model), hybrid_model.config, (; kwargs...))
-    hm = constructHybridModel(; kwargs_model...)
+    hm = HybridModel(; kwargs_model...)
 
     kwargs_train = merge((; kwargs...), (; target_names = hm.targets))
     train_cfg, data_cfg = EasyHybrid.kwargs_to_configs((), kwargs_train)
@@ -44,7 +44,7 @@ end
 
 function tune(hybrid_model, data, train_cfg::TrainConfig; data_cfg::DataConfig = DataConfig(), kwargs...)
     kwargs_model = merge(to_namedtuple(hybrid_model), hybrid_model.config, to_namedtuple(train_cfg), to_namedtuple(data_cfg), (; kwargs...))
-    hm = constructHybridModel(; kwargs_model...)
+    hm = HybridModel(; kwargs_model...)
 
     kwargs_train = merge(to_namedtuple(train_cfg), to_namedtuple(data_cfg), (; kwargs...), (; target_names = hm.targets))
     train_cfg_new, data_cfg_new = EasyHybrid.kwargs_to_configs((), kwargs_train)

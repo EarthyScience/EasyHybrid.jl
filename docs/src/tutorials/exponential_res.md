@@ -117,7 +117,7 @@ global_param_names = [:k]
 ```
 
 ```@example expo
-hybrid_model = constructHybridModel(
+hybrid_model = HybridModel(
     predictors,
     forcings,
     targets,

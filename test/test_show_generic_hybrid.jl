@@ -1,4 +1,4 @@
-using EasyHybrid: HybridParams, ParameterContainer, SingleNNHybridModel, MultiNNHybridModel
+using EasyHybrid: HybridParams, ParameterContainer, HybridModel
 using EasyHybrid: _print_field, _print_header, IndentedIO
 
 @testset "show_generic.jl" begin
@@ -44,12 +44,12 @@ using EasyHybrid: _print_field, _print_header, IndentedIO
         @test occursin("ParameterContainer(a, b)", result)
     end
 
-    @testset "SingleNNHybridModel show" begin
+    @testset "HybridModel show" begin
         function test_model(; x1, a, b)
             return (; y_pred = a .* x1 .+ b)
         end
 
-        model = constructHybridModel(
+        model = HybridModel(
             [:x1, :x2], [:x3], [:y], test_model,
             (a = (1.0, 0.0, 2.0), b = (2.0, 1.0, 3.0)),
             [:a], [:b];
@@ -71,12 +71,12 @@ using EasyHybrid: _print_field, _print_header, IndentedIO
         )
     end
 
-    @testset "MultiNNHybridModel show" begin
+    @testset "HybridModel show" begin
         function test_model(; x1, x2, x3, a, b, c, d)
             return (; obs = a .* x2 .+ d .* x1 .+ b)
         end
 
-        model = constructHybridModel(
+        model = HybridModel(
             (a = [:x2, :x3], d = [:x1]), [:x1], [:obs], test_model,
             (a = (1.0, 0.0, 5.0), b = (2.0, 0.0, 10.0), c = (0.5, 0.0, 2.0), d = (0.5, 0.0, 2.0)),
             [:b];  # Only global_param_names, neural_param_names derived from predictors keys

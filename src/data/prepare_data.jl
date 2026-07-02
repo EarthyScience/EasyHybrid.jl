@@ -3,19 +3,14 @@ export prepare_data
 function prepare_data(hm, data::KeyedArray; cfg = DataConfig(), kwargs...)
     predictors, forcings, targets = get_prediction_target_names(hm)
     # KeyedArray: use () syntax for views that are differentiable
-    X_arr = Array(data(predictors))
+    if predictors isa NamedTuple
+        X = NamedTuple([name => Array(data(p)) for (name, p) in pairs(predictors)])
+    else
+        X = Array(data(predictors))
+    end
     forcings_nt = NamedTuple([forcing => Array(data(forcing)) for forcing in forcings])
     targets_nt = NamedTuple([target => Array(data(target)) for target in targets])
-    return ((X_arr, forcings_nt), targets_nt)
-end
-
-function prepare_data(hm::MultiNNHybridModel, data::KeyedArray; cfg = DataConfig(), kwargs...)
-    predictors, forcings, targets = get_prediction_target_names(hm)
-    # KeyedArray: use () syntax for views that are differentiable
-    X_all = NamedTuple([name => Array(data(p)) for (name, p) in pairs(predictors)])
-    forcings_nt = NamedTuple([forcing => Array(data(forcing)) for forcing in forcings])
-    targets_nt = NamedTuple([target => Array(data(target)) for target in targets])
-    return ((X_all, forcings_nt), targets_nt)
+    return ((X, forcings_nt), targets_nt)
 end
 
 function prepare_data(hm, data::AbstractDimArray; kwargs...)

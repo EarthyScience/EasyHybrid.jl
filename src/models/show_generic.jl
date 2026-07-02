@@ -100,62 +100,48 @@ function Base.show(io::IO, pc::ParameterContainer)
     return print(io, ")")
 end
 
-function Base.show(io::IO, ::MIME"text/plain", hm::SingleNNHybridModel)
-    _print_header(io, "Hybrid Model (Single NN)")
+function Base.show(io::IO, ::MIME"text/plain", hm::HybridModel)
+    if hm.predictors isa NamedTuple
+        _print_header(io, "Hybrid Model (Multi NN)")
 
-    printstyled(io, "Neural Network: \n", color = :light_black)
-    show(IndentedIO(io), MIME"text/plain"(), hm.NN)
-    println(io)
+        # Neural networks
+        _print_header(io, "Neural Networks:", color = :light_black, bold = false)
+        n_nns = length(hm.NNs)
+        idx = 0
+        for (name, nn) in pairs(hm.NNs)
+            idx += 1
+            printstyled(io, "  ", color = :light_black)
+            printstyled(io, string(name), color = :cyan, bold = true)
+            println(io, ":")
+            show(IndentedIO(io; indent = "    "), MIME"text/plain"(), nn)
+            if idx < n_nns
+                println(io)
+            end
+        end
+        println(io)
 
-    _print_header(io, "Configuration:", color = :light_blue, bold = false)
-    _print_field(io, "predictors", hm.predictors)
-    _print_field(io, "forcing", hm.forcing)
-    _print_field(io, "targets", hm.targets)
-    _print_field(io, "mechanistic_model", hm.mechanistic_model, value_color = :light_blue)
-    _print_field(io, "neural_param_names", hm.neural_param_names, value_color = :light_blue)
-    _print_field(io, "global_param_names", hm.global_param_names, value_color = :green)
-    _print_field(io, "fixed_param_names", hm.fixed_param_names, value_color = :yellow)
-    _print_field(io, "scale_nn_outputs", hm.scale_nn_outputs, value_color = hm.scale_nn_outputs ? :green : :red)
-    _print_field(io, "start_from_default", hm.start_from_default, value_color = hm.start_from_default ? :green : :red)
-    _print_field(io, "config", hm.config, value_color = :cyan)
+        # Configuration
+        _print_header(io, "Configuration:", color = :light_blue, bold = false)
 
-    println(io)
-    _print_header(io, "Parameters:", color = :light_blue, bold = false)
-    io_full = IOContext(IndentedIO(io), :compact => false, :limit => false)
-    return show(io_full, MIME"text/plain"(), hm.parameters)
-end
-
-function Base.show(io::IO, ::MIME"text/plain", hm::MultiNNHybridModel)
-    _print_header(io, "Hybrid Model (Multi NN)")
-
-    # Neural networks
-    _print_header(io, "Neural Networks:", color = :light_black, bold = false)
-    n_nns = length(hm.NNs)
-    idx = 0
-    for (name, nn) in pairs(hm.NNs)
-        idx += 1
-        printstyled(io, "  ", color = :light_black)
-        printstyled(io, string(name), color = :cyan, bold = true)
+        # Predictors are per-network (NamedTuple)
+        printstyled(io, "  predictors", color = :light_black)
         println(io, ":")
-        show(IndentedIO(io; indent = "    "), MIME"text/plain"(), nn)
-        if idx < n_nns
+        for (name, preds) in pairs(hm.predictors)
+            printstyled(io, "    ", color = :light_black)
+            printstyled(io, string(name), color = :yellow)
+            print(io, " = ")
+            printstyled(io, preds, color = :cyan)
             println(io)
         end
-    end
-    println(io)
+    else
+        _print_header(io, "Hybrid Model (Single NN)")
 
-    # Configuration
-    _print_header(io, "Configuration:", color = :light_blue, bold = false)
-
-    # Predictors are per-network (NamedTuple)
-    printstyled(io, "  predictors", color = :light_black)
-    println(io, ":")
-    for (name, preds) in pairs(hm.predictors)
-        printstyled(io, "    ", color = :light_black)
-        printstyled(io, string(name), color = :yellow)
-        print(io, " = ")
-        printstyled(io, preds, color = :cyan)
+        printstyled(io, "Neural Network: \n", color = :light_black)
+        show(IndentedIO(io), MIME"text/plain"(), hm.NNs)
         println(io)
+
+        _print_header(io, "Configuration:", color = :light_blue, bold = false)
+        _print_field(io, "predictors", hm.predictors)
     end
 
     _print_field(io, "forcing", hm.forcing)
@@ -175,8 +161,6 @@ function Base.show(io::IO, ::MIME"text/plain", hm::MultiNNHybridModel)
     _print_field(io, "config", hm.config, value_color = :cyan)
 
     println(io)
-
-    # Parameters
     _print_header(io, "Parameters:", color = :light_blue, bold = false)
     io_full = IOContext(IndentedIO(io), :compact => false, :limit => false)
     return show(io_full, MIME"text/plain"(), hm.parameters)
