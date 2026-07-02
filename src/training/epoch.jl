@@ -50,7 +50,7 @@ function build_loss_fn(model, cfg::TrainConfig)
     )
 end
 
-function evaluate_epoch(model, x_train, forcings_train, y_train, mask_train, x_val, forcings_val, y_val, mask_val, ps, st, init::EpochSnapshot, cfg::TrainConfig)
+function evaluate_epoch(model, x_train, forcings_train, y_train, mask_train, x_val, forcings_val, y_val, mask_val, ps, st, epoch::Int, init::EpochSnapshot, cfg::TrainConfig)
     ps_cpu = ps |> cfg.cdev
     st_cpu = st |> cfg.cdev
     l_train, _, ŷ_train = evaluate_acc(
@@ -62,5 +62,5 @@ function evaluate_epoch(model, x_train, forcings_train, y_train, mask_train, x_v
         ps_cpu, st_cpu, cfg.loss_types, cfg.training_loss, cfg.extra_loss, cfg.agg
     )
 
-    return EpochSnapshot(l_train, l_val, ŷ_train, ŷ_val)
+    return EpochSnapshot(l_train, l_val, ŷ_train, ŷ_val, epoch)
 end

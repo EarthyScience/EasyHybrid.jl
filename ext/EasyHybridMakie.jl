@@ -6,8 +6,9 @@ using Makie.Colors
 using DataFrames
 import Makie
 import EasyHybrid
-import EasyHybrid: get_loss_value
+import EasyHybrid: get_loss_value, get_monitor_values, collect_monitor_history
 using Statistics
+using DataStructures: CircularBuffer
 
 include("HybridTheme.jl")
 
@@ -31,6 +32,11 @@ function _series(wt::WrappedTuples, attributes)
     merged_attributes = merge(user_attributes, plot_attributes)
     return data_matrix, merged_attributes
 end
+
+include("recipes/LossPlot.jl")
+include("recipes/MonitorPlot.jl")
+include("recipes/PredictionPlot.jl")
+include("recipes/TimeSeriesPlot.jl")
 
 # =============================================================================
 # Prediction vs Observed Plotting Functions
@@ -411,6 +417,233 @@ function EasyHybrid.train_board(
         end
     end
     return display(fig)
+end
+
+function _extract_monitor(monitor, name)
+    entry = monitor[name]
+    if haskey(entry, :quantile)
+        q = entry[:quantile]
+        return q, true, collect(keys(q))
+    else
+        return entry[:scalar], false, Symbol[]
+    end
+end
+
+function EasyHybrid.train_dashboard(history, cfg, y_train, y_val)
+    n_epochs = get_epochs(history)
+    vals_train = get_loss_value_t(history, cfg.training_loss, Symbol("$(cfg.agg)"))
+    vals_val = get_loss_value_v(history, cfg.training_loss, Symbol("$(cfg.agg)"))
+
+    fig, ax, plt = lossplot(
+        n_epochs, vals_train, vals_val;
+        axis = (;
+            xlabel = "Epochs", ylabel = "Loss", yscale = log10,
+            xtrimspine = (true, false), ytrimspine = true,
+        ),
+        figure = (; size = (1200, 800))
+    )
+    Legend(fig[1, 1, Top()], ax, plt; orientation = :horizontal, halign = :left, framevisible = false)
+    hidespines!(ax, :r, :t)
+    z_rect = z_Rect2(n_epochs, vals_train, vals_val)
+
+    plt_rect = lines!(ax, z_rect, color = :dodgerblue, linewidth = 1)
+
+    ax_z = Axis(
+        fig[1, 1],
+        width = Relative(0.35),
+        height = Relative(0.35),
+        halign = 0.95,
+        valign = 1,
+        xlabel = "",
+        ylabel = "",
+        rightspinecolor = :dodgerblue,
+        leftspinecolor = :dodgerblue,
+        topspinecolor = :dodgerblue,
+        bottomspinecolor = :dodgerblue,
+        title = "Zoomed View"
+    )
+
+    plt_z = lossplot!(ax_z, n_epochs, vals_train, vals_val)
+    translate!(ax_z.blockscene, 0, 0, 150)
+    if !isempty(cfg.monitor_names)
+        gl_m, axes_m, plts_m = setup_monitor_panel!(fig, (3, 1:2), history, cfg)
+    end
+
+    y_pred_train = get_prediction_values(history, cfg.target_names[1], :train)
+    y_pred_val = get_prediction_values(history, cfg.target_names[1], :validation)
+
+    y_obs_train = getfield(y_train, cfg.target_names[1])
+    y_obs_val = getfield(y_val, cfg.target_names[1])
+
+    gd_pred = GridLayout(fig[1, 2])
+    ax_pred_train = Axis(
+        gd_pred[1, 1]; xlabel = "", ylabel = "Observed", title = "Training",
+        xtrimspine = true, ytrimspine = true, aspect = 1
+    )
+    hidespines!(ax_pred_train, :r, :t)
+    plt_pred_train = predictionplot!(ax_pred_train, y_pred_train, y_obs_train)
+
+    ax_pred_val = Axis(
+        gd_pred[1, 2]; xlabel = "", ylabel = "", title = "Validation",
+        xtrimspine = true, ytrimspine = true, aspect = 1
+    )
+    hidespines!(ax_pred_val, :l, :r, :t)
+    plt_pred_val = predictionplot!(ax_pred_val, y_pred_val, y_obs_val; color = :tomato)
+    hideydecorations!(ax_pred_val, grid = false, ticks = false)
+    linkyaxes!(ax_pred_train, ax_pred_val)
+
+    Box(gd_pred[1, 1:2, Top()]; color = (:grey25, 0.1), strokevisible = false)
+    Label(gd_pred[1, 1:2, Top()], "$(cfg.target_names[1])")
+
+    Box(gd_pred[1, 1:2, Bottom()]; color = (:grey45, 0.1), strokevisible = false)
+    Label(gd_pred[1, 1:2, Bottom()], "Predicted")
+    # colgap!(gd_pred, 30)
+
+    gd_ts = GridLayout(fig[2, 1:2])
+    ax_ts_train = Axis(
+        gd_ts[1, 1]; xlabel = "Time Index", ylabel = "Value", title = "Training (Time Series)",
+        xtrimspine = true, ytrimspine = true
+    )
+    hidespines!(ax_ts_train, :r, :t)
+    plt_ts_train = timeseriesplot!(ax_ts_train, y_pred_train, y_obs_train)
+
+    ax_ts_val = Axis(
+        gd_ts[1, 2]; xlabel = "Time Index", ylabel = "", title = "Validation (Time Series)",
+        xtrimspine = true, ytrimspine = true
+    )
+    hidespines!(ax_ts_val, :l, :r, :t)
+    plt_ts_val = timeseriesplot!(ax_ts_val, y_pred_val, y_obs_val)
+    hideydecorations!(ax_ts_val, grid = false, ticks = false)
+    linkyaxes!(ax_ts_train, ax_ts_val)
+
+    fig
+
+    display(fig)
+
+    if !isempty(cfg.monitor_names)
+        return fig, (; ax, ax_z, axes_m, ax_pred_train, ax_pred_val, ax_ts_train, ax_ts_val), (; plt, plt_rect, plt_z, plts_m, plt_pred_train, plt_pred_val, plt_ts_train, plt_ts_val)
+    else
+        return fig, (; ax, ax_z, ax_pred_train, ax_pred_val, ax_ts_train, ax_ts_val), (; plt, plt_rect, plt_z, plt_pred_train, plt_pred_val, plt_ts_train, plt_ts_val)
+    end
+end
+
+function z_Rect2(z_n_epochs, train_zoom, val_zoom)
+    mn_epoch = minimum(z_n_epochs)
+    mx_epoch = maximum(z_n_epochs)
+    xzoom_rect = mx_epoch - mn_epoch + 1
+    mn_tv = minimum(map(minimum, [train_zoom, val_zoom]))
+    mx_tv = maximum(map(maximum, [train_zoom, val_zoom]))
+    z_rect = Rect2(mn_epoch - 0.5, 0.95 * mn_tv, xzoom_rect, 1.05 * (mx_tv - mn_tv))
+
+    return z_rect
+end
+
+function setup_monitor_panel!(fig, grid_position, history, cfg)
+    monitor_names = cfg.monitor_names
+    n = length(monitor_names)
+
+    raw_train = get_monitor_values(history, monitor_names, :train)
+    training_mon = collect_monitor_history(raw_train, monitor_names)
+    raw_val = get_monitor_values(history, monitor_names, :validation)
+    validation_mon = collect_monitor_history(raw_val, monitor_names)
+
+    n_epochs = get_epochs(history)
+
+    # Use a nested GridLayout at the given position
+    gl = GridLayout(fig[grid_position...])
+
+    axes = Vector{Axis}(undef, n)
+    plts = Vector{MonitorPlot}(undef, n)
+
+    for (i, name) in enumerate(monitor_names)
+        y_train, is_q, qkeys = _extract_monitor(training_mon, name)
+        y_val, _, _ = _extract_monitor(validation_mon, name)
+
+        ax = Axis(
+            gl[1, i];
+            xlabel = "Epochs",
+            ylabel = string(name),
+            xtrimspine = (true, false),
+            ytrimspine = true,
+        )
+        hidespines!(ax, :r, :t)
+
+        plt = monitorplot!(
+            ax, n_epochs, y_train, y_val;
+            is_quantile = is_q,
+            quantile_keys = qkeys,
+        )
+        Legend(
+            gl[1, i, Top()], ax, plt;
+            orientation = :horizontal,
+            titleposition = :left,
+            framevisible = false,
+        )
+
+        axes[i] = ax
+        plts[i] = plt
+    end
+
+    return gl, axes, plts
+end
+
+function update_monitor_panel!(axes, plts, history, cfg)
+    monitor_names = cfg.monitor_names
+    n_epochs = get_epochs(history)
+
+    raw_train = get_monitor_values(history, monitor_names, :train)
+    training_mon = collect_monitor_history(raw_train, monitor_names)
+    raw_val = get_monitor_values(history, monitor_names, :validation)
+    validation_mon = collect_monitor_history(raw_val, monitor_names)
+
+    for (i, name) in enumerate(monitor_names)
+        y_train, _, _ = _extract_monitor(training_mon, name)
+        y_val, _, _ = _extract_monitor(validation_mon, name)
+        update!(plts[i], n_epochs, y_train, y_val)
+        autolimits!(axes[i])
+    end
+    return
+end
+
+function EasyHybrid.update_step_dashboard!(dashboard, history, cfg)
+    zoom_epochs = 50
+    n_epochs = get_epochs(history)
+    vals_train = get_loss_value_t(history, cfg.training_loss, Symbol("$(cfg.agg)"))
+    vals_val = get_loss_value_v(history, cfg.training_loss, Symbol("$(cfg.agg)"))
+
+    update!(dashboard.plt.plt, n_epochs, vals_train, vals_val)
+    autolimits!(dashboard.ax.ax)
+
+    zoom_idx = max(1, length(vals_train) - zoom_epochs)
+    train_zoom = vals_train[zoom_idx:end]
+    val_zoom = vals_val[zoom_idx:end]
+    z_n_epochs = n_epochs[zoom_idx:end]
+
+    updatedRect2 = z_Rect2(z_n_epochs, train_zoom, val_zoom)
+    update!(dashboard.plt.plt_rect, arg1 = updatedRect2)
+
+    update!(dashboard.plt.plt_z, z_n_epochs, val_zoom, train_zoom)
+    autolimits!(dashboard.ax.ax_z)
+
+    if !isempty(cfg.monitor_names)
+        update_monitor_panel!(dashboard.ax.axes_m, dashboard.plt.plts_m, history, cfg)
+    end
+
+    if hasproperty(dashboard.plt, :plt_pred_train)
+        y_pred_train = get_prediction_values(history, cfg.target_names[1], :train)
+        y_pred_val = get_prediction_values(history, cfg.target_names[1], :validation)
+        update!(dashboard.plt.plt_pred_train, y_pred_train)
+        update!(dashboard.plt.plt_pred_val, y_pred_val)
+        autolimits!(dashboard.ax.ax_pred_train)
+        autolimits!(dashboard.ax.ax_pred_val)
+
+        update!(dashboard.plt.plt_ts_train, y_pred_train)
+        update!(dashboard.plt.plt_ts_val, y_pred_val)
+        autolimits!(dashboard.ax.ax_ts_train)
+        autolimits!(dashboard.ax.ax_ts_val)
+    end
+
+    return nothing
 end
 
 """

@@ -108,7 +108,13 @@ function _train(model, data, train_cfg::TrainConfig, data_cfg::DataConfig)
     stopper = EarlyStopping(init.l_val, ps, st, train_cfg)
     paths = resolve_paths(train_cfg)
     prog = build_progress(train_cfg)
-    dashboard = init_dashboard(ext, init, train_cfg, y_train, y_val, model.targets)
+
+    # @show train_cfg.agg
+    # @show train_cfg.training_loss
+    # @show get_loss_value_t(history, train_cfg.training_loss, Symbol("$(train_cfg.agg)"))
+    # @show get_loss_value_v(history, train_cfg.val_loss, Symbol("$(train_cfg.agg)"))
+
+    dashboard = init_dashboard(ext, history, train_cfg, y_train, y_val, model.targets)
 
     save_initial_state!(paths, model, ps, st, train_cfg)
     ps = ps |> train_cfg.gdev
@@ -117,20 +123,20 @@ function _train(model, data, train_cfg::TrainConfig, data_cfg::DataConfig)
     record_or_run(ext, paths, train_cfg) do io
         for epoch in 1:train_cfg.nepochs
             ps, st, train_state = run_epoch!(loader, model, ps, st, train_state, train_cfg)
-            snapshot = evaluate_epoch(model, x_train, forcings_train, y_train, mask_train, x_val, forcings_val, y_val, mask_val, ps, st, init, train_cfg)
+            snapshot = evaluate_epoch(model, x_train, forcings_train, y_train, mask_train, x_val, forcings_val, y_val, mask_val, ps, st, epoch, init, train_cfg)
 
-            update!(stopper, history, snapshot, ps, st, epoch, train_cfg)
-            save_epoch!(paths, model, ps, st, snapshot, epoch, train_cfg)
-            update_dashboard!(dashboard, ext, snapshot, epoch, io, train_cfg)
-            log_progress!(prog, init, snapshot, epoch, train_cfg)
+            update!(stopper, history, snapshot, ps, st, train_cfg)
+            # save_epoch!(paths, model, ps, st, snapshot, train_cfg)
+            update_dashboard!(dashboard, ext, history, io, train_cfg)
+            # log_progress!(prog, init, snapshot, train_cfg)
 
             is_done(stopper) && break
         end
     end
 
-    save_dashboard_img!(dashboard, ext, paths, train_cfg, stopper.best_epoch)
+    # save_dashboard_img!(dashboard, ext, paths, train_cfg, stopper.best_epoch)
     ps, st = best_or_final(stopper, ps, st, train_cfg)
-    save_final!(paths, model, ps, st, x_train, forcings_train, y_train, x_val, forcings_val, y_val, stopper, train_cfg)
+    # save_final!(paths, model, ps, st, x_train, forcings_train, y_train, x_val, forcings_val, y_val, stopper, train_cfg)
 
     return build_results(model, history, stopper, ps, st, x_train, forcings_train, y_train, x_val, forcings_val, y_val, train_cfg)
 end
@@ -232,7 +238,9 @@ function valid_mask(y)
 end
 
 function train(model, data, save_ps; kwargs...)
-    train_cfg, data_cfg, solve_kwargs = kwargs_to_configs(save_ps, kwargs)
+    target_names = model.targets
+    merge_kwargs = (; kwargs..., target_names)
+    train_cfg, data_cfg, solve_kwargs = kwargs_to_configs(save_ps, merge_kwargs)
     return _train(model, data, train_cfg, data_cfg, solve_kwargs)
 end
 

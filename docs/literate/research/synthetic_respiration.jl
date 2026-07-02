@@ -98,7 +98,7 @@ single_nn_out = train(
     single_nn_hybrid_model,
     df,
     ();
-    nepochs = 10,           # Number of training epochs
+    nepochs = 100,           # Number of training epochs
     batchsize = 512,         # Batch size for training
     opt = AdamW(0.1),   # Optimizer and learning rate
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
