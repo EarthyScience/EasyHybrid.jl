@@ -303,9 +303,11 @@ end
 # ───────────────────────────────────────────────────────────────────────────
 function _run_nn(m::HybridModel{<:Any, <:NamedTuple}, ds_k::Tuple, ps, st)
     nn_names = keys(m.NNs)
-    applied = map(LuxCore.apply, m.NNs, ds_k[1][nn_names], ps[nn_names], st[nn_names])
-    nn_outputs = map(first, applied)
-    nn_states = map(last, applied)
+    applied = map(nn_names) do nn_name
+        LuxCore.apply(m.NNs[nn_name], ds_k[1][nn_name], ps[nn_name], st[nn_name])
+    end
+    nn_outputs = NamedTuple{nn_names}(map(first, applied))
+    nn_states = NamedTuple{nn_names}(map(last, applied))
 
     scaled_vals = Tuple(
         begin
