@@ -13,9 +13,9 @@ function EarlyStopping(init_loss, ps, st, cfg)
     return EarlyStopping(best_loss, deepcopy(cfg.cdev(ps)), deepcopy(cfg.cdev(st)), 0, 0, cfg.patience, false)
 end
 
-function update!(es::EarlyStopping, history::TrainingHistory, snapshot::EpochSnapshot, ps, st, epoch, cfg::TrainConfig)
+function update!(es::EarlyStopping, history::TrainingHistory, snapshot::EpochSnapshot, ps, st, cfg::TrainConfig)
     current_loss = extract_agg_loss(snapshot.l_val)
-    new_snapshot = EpochSnapshot(snapshot.l_train, snapshot.l_val, deepcopy(snapshot.ŷ_train), deepcopy(snapshot.ŷ_val))
+    new_snapshot = EpochSnapshot(snapshot.l_train, snapshot.l_val, deepcopy(snapshot.ŷ_train), deepcopy(snapshot.ŷ_val), snapshot.epoch)
 
     if cfg.keep_history
         push!(history.snapshots, new_snapshot)
@@ -25,7 +25,7 @@ function update!(es::EarlyStopping, history::TrainingHistory, snapshot::EpochSna
         es.best_loss = current_loss
         es.best_ps = deepcopy(cfg.cdev(ps))
         es.best_st = deepcopy(cfg.cdev(st))
-        es.best_epoch = epoch
+        es.best_epoch = snapshot.epoch
         es.counter = 0
         if !cfg.keep_history
             history.snapshots[1] = new_snapshot
@@ -36,7 +36,7 @@ function update!(es::EarlyStopping, history::TrainingHistory, snapshot::EpochSna
 
     return if es.counter >= es.patience
         metric_name = first(keys(snapshot.l_val))
-        @warn "Early stopping at epoch $epoch, best validation loss wrt $metric_name: $(es.best_loss) at epoch $(es.best_epoch)"
+        @warn "Early stopping at epoch $(snapshot.epoch), best validation loss wrt $metric_name: $(es.best_loss) at epoch $(es.best_epoch)"
         es.done = true
     end
 end

@@ -168,9 +168,7 @@ function collect_end_dim(x_all::Union{KeyedArray{Float32, 3}, AbstractDimArray{F
     return collect(getindex(x_all, :, :, idx))
 end
 
-# 2D (feature, time): split along time; 3D (feature, time, batch): split along batch
-_num_samples(x::AbstractArray{<:Any, 3}) = size(x, 3)
-_num_samples(x::AbstractArray) = size(x, 2)
+_num_samples(x::AbstractArray) = size(x, ndims(x))
 _num_samples(x::NamedTuple) = _num_samples(first(values(x)))
 
 function _split_and_pack(x_all, forcings_all, y_all, train_idx, val_idx)

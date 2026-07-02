@@ -10,5 +10,7 @@ function resolve_paths(cfg::TrainConfig)
         joinpath(folder, "config_settings$(suffix).yaml"),
         joinpath(folder, "train_history$(suffix).png"),
         joinpath(folder, "training_history$(suffix).mp4"),
+        folder,
+        suffix,
     )
 end
