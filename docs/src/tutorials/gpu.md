@@ -55,12 +55,12 @@ gpu_device()
 
 :::
 
-In your training call, pass `arch = GPU()`. For example:
+In your training call, pass `gdev = gpu_device()`. For example:
 
 ```julia
 using EasyHybrid, Metal
 
-train(...; arch = GPU())
+train(...; gdev = gpu_device())
 ```
 
 That is all you need. Your hybrid model will now train on the GPU.

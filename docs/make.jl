@@ -59,6 +59,7 @@ makedocs(;
         "Get Started" => "get_started.md",
         "Tutorial" => [
             "Overview" => "tutorials/overview.md",
+            "Dashboard" => "tutorials/dashboard.md",
             "Exponential Response" => "tutorials/exponential_res.md",
             "Hyperparameter Tuning" => "tutorials/hyperparameter_tuning.md",
             "GPU Acceleration" => "tutorials/gpu.md",
