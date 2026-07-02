@@ -54,7 +54,7 @@ function _train_optimization(model, data, train_cfg::TrainConfig, data_cfg::Data
     stopper = EarlyStopping(init.l_val, ps_ca, st, train_cfg)
     paths = resolve_paths(train_cfg)
     prog = build_progress(train_cfg)
-    dashboard = init_dashboard(ext, init, train_cfg, y_train, y_val, model.targets)
+    dashboard = init_dashboard(ext, history, train_cfg, y_train, y_val, model.targets)
 
     save_initial_state!(paths, model, ps_ca, st, train_cfg)
 
@@ -62,7 +62,7 @@ function _train_optimization(model, data, train_cfg::TrainConfig, data_cfg::Data
     opt_func = OptimizationFunction(loss_fn, train_cfg.autodiff_backend)
 
     final_ps = Ref{Any}(ps_ca)
-    record_or_run(ext, paths, train_cfg) do io
+    record_or_run(ext, dashboard, paths, train_cfg) do streams
         if train_cfg.full_batch
             # Convert once (not per objective/gradient evaluation): the full
             # training set is the fixed `p` for the entire solve.
@@ -74,7 +74,7 @@ function _train_optimization(model, data, train_cfg::TrainConfig, data_cfg::Data
                 model, st, init, history, stopper, dashboard, ext, prog, paths,
                 x_train, forcings_train, y_train, mask_train,
                 x_val, forcings_val, y_val, mask_val,
-                io, train_cfg, final_ps,
+                streams, train_cfg, final_ps,
             )
             res = solve(opt_prob, train_cfg.opt; callback = cb, solve_kwargs...)
             final_ps[] = res.u
@@ -84,7 +84,7 @@ function _train_optimization(model, data, train_cfg::TrainConfig, data_cfg::Data
                 dashboard, ext, prog, paths,
                 x_train, forcings_train, y_train, mask_train,
                 x_val, forcings_val, y_val, mask_val,
-                io, train_cfg, solve_kwargs,
+                streams, train_cfg, solve_kwargs,
             )
         end
     end
@@ -150,7 +150,7 @@ function _run_minibatch!(
         dashboard, ext, prog, paths,
         x_train, forcings_train, y_train, mask_train,
         x_val, forcings_val, y_val, mask_val,
-        io, cfg::TrainConfig, solve_kwargs::NamedTuple,
+        streams, cfg::TrainConfig, solve_kwargs::NamedTuple,
     )
     loader = build_loader(x_train, forcings_train, y_train, mask_train, cfg)
     inner_kwargs = Base.structdiff(solve_kwargs, (; maxiters = nothing, epochs = nothing))
@@ -179,11 +179,11 @@ function _run_minibatch!(
         snapshot = evaluate_epoch(
             model, x_train, forcings_train, y_train, mask_train,
             x_val, forcings_val, y_val, mask_val,
-            ps, st, init, cfg,
+            ps, st, epoch, init, cfg,
         )
-        update!(stopper, history, snapshot, ps, st, epoch, cfg)
+        update!(stopper, history, snapshot, ps, st, cfg)
         save_epoch!(paths, model, ps, st, snapshot, epoch, cfg)
-        update_dashboard!(dashboard, ext, snapshot, epoch, io, cfg)
+        update_dashboard!(dashboard, ext, history, streams, cfg)
         log_progress!(prog, init, snapshot, epoch, cfg)
 
         is_done(stopper) && break
@@ -196,7 +196,7 @@ function _optim_callback(
         model, st, init, history, stopper, dashboard, ext, prog, paths,
         x_train, forcings_train, y_train, mask_train,
         x_val, forcings_val, y_val, mask_val,
-        io, cfg::TrainConfig, final_ps,
+        streams, cfg::TrainConfig, final_ps,
     )
     return function (state, _loss)
         iter = state.iter
@@ -207,11 +207,11 @@ function _optim_callback(
             snapshot = evaluate_epoch(
                 model, x_train, forcings_train, y_train, mask_train,
                 x_val, forcings_val, y_val, mask_val,
-                ps_cur, st, init, cfg,
+                ps_cur, st, iter, init, cfg,
             )
-            update!(stopper, history, snapshot, ps_cur, st, iter, cfg)
+            update!(stopper, history, snapshot, ps_cur, st, cfg)
             save_epoch!(paths, model, ps_cur, st, snapshot, iter, cfg)
-            update_dashboard!(dashboard, ext, snapshot, iter, io, cfg)
+            update_dashboard!(dashboard, ext, history, streams, cfg)
             log_progress!(prog, init, snapshot, iter, cfg)
         end
 

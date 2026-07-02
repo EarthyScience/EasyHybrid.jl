@@ -16,4 +16,10 @@ struct TrainingPaths
 
     "Training animation saved as an `.mp4` file."
     history_video::String
+
+    "Base directory for training outputs."
+    base_dir::String
+
+    "Suffix for output files."
+    suffix::String
 end
