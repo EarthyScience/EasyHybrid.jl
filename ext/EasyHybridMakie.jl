@@ -396,17 +396,23 @@ function _build_component!(comp, fig, layout, history, cfg, y_train, y_val, n_ep
         y_obs_train = getfield(y_train, cfg.target_names[1])
         y_obs_val = getfield(y_val, cfg.target_names[1])
 
+        mn, mx = extrema(filter(!isnan, [vec(y_obs_train); vec(y_obs_val)]))
+        δd = 0.02 * (mx - mn)
+        lims = (mn - δd, mx + δd, mn - δd, mx + δd)
+
         gd_pred = GridLayout(layout)
         ax_pred_train = Axis(
             gd_pred[1, 1]; xlabel = "", ylabel = "Observed", title = "Training",
-            xtrimspine = true, ytrimspine = true, aspect = 1
+            xtrimspine = true, ytrimspine = true, aspect = 1,
+            limits = lims
         )
         hidespines!(ax_pred_train, :r, :t)
         plt_pred_train = predictionplot!(ax_pred_train, y_pred_train, y_obs_train)
 
         ax_pred_val = Axis(
             gd_pred[1, 2]; xlabel = "", ylabel = "", title = "Validation",
-            xtrimspine = true, ytrimspine = true, aspect = 1
+            xtrimspine = true, ytrimspine = true, aspect = 1,
+            limits = lims
         )
         hidespines!(ax_pred_val, :l, :r, :t)
         plt_pred_val = predictionplot!(ax_pred_val, y_pred_val, y_obs_val; color = :tomato)
@@ -428,17 +434,23 @@ function _build_component!(comp, fig, layout, history, cfg, y_train, y_val, n_ep
         y_obs_train = getfield(y_train, cfg.target_names[1])
         y_obs_val = getfield(y_val, cfg.target_names[1])
 
+        mn, mx = extrema(filter(!isnan, [vec(y_obs_train); vec(y_obs_val)]))
+        δd = 0.02 * (mx - mn)
+        y_lims = (mn - δd, mx + δd)
+
         gd_ts = GridLayout(layout)
         ax_ts_train = Axis(
             gd_ts[1, 1]; xlabel = "Index", ylabel = "Value", title = "Training",
-            xtrimspine = true, ytrimspine = true
+            xtrimspine = true, ytrimspine = true,
+            limits = (1, length(y_obs_train), y_lims[1], y_lims[2])
         )
         hidespines!(ax_ts_train, :r, :t)
         plt_ts_train = timeseriesplot!(ax_ts_train, y_pred_train, y_obs_train)
 
         ax_ts_val = Axis(
             gd_ts[1, 2]; xlabel = "Index", ylabel = "", title = "Validation",
-            xtrimspine = true, ytrimspine = true
+            xtrimspine = true, ytrimspine = true,
+            limits = (1, length(y_obs_val), y_lims[1], y_lims[2])
         )
         hidespines!(ax_ts_val, :l, :r, :t)
         plt_ts_val = timeseriesplot!(ax_ts_val, y_pred_val, y_obs_val)
@@ -615,8 +627,8 @@ function EasyHybrid.update_step_dashboards!(dashboard, history, cfg)
         y_pred_val = get_prediction_values(history, cfg.target_names[1], :validation)
         update!(dashboard.plots[:prediction].plt_pred_train, y_pred_train)
         update!(dashboard.plots[:prediction].plt_pred_val, y_pred_val)
-        autolimits!(dashboard.axes[:prediction].ax_pred_train)
-        autolimits!(dashboard.axes[:prediction].ax_pred_val)
+        # autolimits!(dashboard.axes[:prediction].ax_pred_train)
+        # autolimits!(dashboard.axes[:prediction].ax_pred_val)
     end
 
     if haskey(dashboard.plots, :timeseries)
@@ -624,8 +636,8 @@ function EasyHybrid.update_step_dashboards!(dashboard, history, cfg)
         y_pred_val = get_prediction_values(history, cfg.target_names[1], :validation)
         update!(dashboard.plots[:timeseries].plt_ts_train, y_pred_train)
         update!(dashboard.plots[:timeseries].plt_ts_val, y_pred_val)
-        autolimits!(dashboard.axes[:timeseries].ax_ts_train)
-        autolimits!(dashboard.axes[:timeseries].ax_ts_val)
+        # autolimits!(dashboard.axes[:timeseries].ax_ts_train)
+        # autolimits!(dashboard.axes[:timeseries].ax_ts_val)
     end
 
     if haskey(dashboard.plots, :monitor) && !isempty(cfg.monitor_names)
