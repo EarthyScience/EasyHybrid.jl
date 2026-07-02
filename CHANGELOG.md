@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Refactored the training dashboard into modular, "Lego-like" components (`dashboard_components`, `split_dashboard`, `save_animations`), allowing for customizable rendering and individual animation saves via `TrainConfig` or `train` keyword arguments, while preserving the old default behavior [#273](https://github.com/EarthyScience/EasyHybrid.jl/pull/273)
 - Added a GitHub Actions workflow for posting a PR preview comment with a link to the documentation preview [#272](https://github.com/EarthyScience/EasyHybrid.jl/pull/272)
 
 ## v0.2.0 - 2026-06-16
