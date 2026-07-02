@@ -211,7 +211,7 @@ out_lstm = train(
 # <video src="../training_history_RbQ10_synthetic_lstm.mp4" controls="controls" autoplay="autoplay"></video>
 # ```
 
-out_lstm.val_obs_pred
+first(out_lstm.val_obs_pred, 5)
 
 # ## 10. Train Single NN Hybrid Model (Optional)
 
