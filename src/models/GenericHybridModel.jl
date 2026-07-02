@@ -205,12 +205,7 @@ end
 # ───────────────────────────────────────────────────────────────────────────
 # Helper functions for NN initialization
 function _init_nn_params(rng::AbstractRNG, m::HybridModel{<:Any, <:NamedTuple})
-    nn_params = NamedTuple()
-    for (nn_name, nn) in pairs(m.NNs)
-        ps_nn, _ = LuxCore.setup(rng, nn)
-        nn_params = merge(nn_params, NamedTuple{(nn_name,), Tuple{typeof(ps_nn)}}((ps_nn,)))
-    end
-    return (; nn_params...)
+    return map(nn -> LuxCore.setup(rng, nn)[1], m.NNs)
 end
 
 function _init_nn_params(rng::AbstractRNG, m::HybridModel{<:Any, <:Vector})
@@ -241,12 +236,7 @@ function LuxCore.initialparameters(rng::AbstractRNG, m::HybridModel)
 end
 
 function _init_nn_states(rng::AbstractRNG, m::HybridModel{<:Any, <:NamedTuple})
-    nn_states = NamedTuple()
-    for (nn_name, nn) in pairs(m.NNs)
-        _, st_nn = LuxCore.setup(rng, nn)
-        nn_states = merge(nn_states, NamedTuple{(nn_name,), Tuple{typeof(st_nn)}}((st_nn,)))
-    end
-    return nn_states
+    return map(nn -> LuxCore.setup(rng, nn)[2], m.NNs)
 end
 
 function _init_nn_states(rng::AbstractRNG, m::HybridModel{<:Any, <:Vector})
@@ -312,31 +302,20 @@ end
 # ───────────────────────────────────────────────────────────────────────────
 # ───────────────────────────────────────────────────────────────────────────
 function _run_nn(m::HybridModel{<:Any, <:NamedTuple}, ds_k::Tuple, ps, st)
-    nn_outputs = NamedTuple()
-    nn_states = NamedTuple()
+    applied = map(LuxCore.apply, m.NNs, ds_k[1], ps, st)
+    nn_outputs = map(first, applied)
+    nn_states = map(last, applied)
 
-    for (nn_name, nn) in pairs(m.NNs)
-        nn_out, st_nn = LuxCore.apply(nn, ds_k[1][nn_name], ps[nn_name], st[nn_name])
-        nn_outputs = merge(nn_outputs, NamedTuple{(nn_name,), Tuple{typeof(nn_out)}}((nn_out,)))
-        nn_states = merge(nn_states, NamedTuple{(nn_name,), Tuple{typeof(st_nn)}}((st_nn,)))
-    end
+    scaled_vals = Tuple(
+        begin
+                val = eachslice(nn_outputs[nn_name]; dims = 1)[1]
+                m.scale_nn_outputs ? scale_single_param(param_name, val, m.parameters) : val
+            end
+            for (nn_name, param_name) in zip(keys(m.NNs), m.neural_param_names)
+    )
+    scaled_nn_params = NamedTuple{Tuple(m.neural_param_names)}(scaled_vals)
 
-    scaled_nn_params = NamedTuple()
-    for (nn_name, param_name) in zip(keys(m.NNs), m.neural_param_names)
-        nn_cols = eachslice(nn_outputs[nn_name]; dims = 1)
-        nn_param = NamedTuple{(param_name,), Tuple{typeof(nn_cols[1])}}((nn_cols[1],))
-
-        if m.scale_nn_outputs
-            scaled_nn_val = scale_single_param(param_name, nn_param[param_name], m.parameters)
-        else
-            scaled_nn_val = nn_param[param_name]
-        end
-
-        nn_scaled_param = NamedTuple{(param_name,), Tuple{typeof(scaled_nn_val)}}((scaled_nn_val,))
-        scaled_nn_params = merge(scaled_nn_params, nn_scaled_param)
-    end
-
-    return scaled_nn_params, (; nn_states...), (; nn_outputs = nn_outputs)
+    return scaled_nn_params, nn_states, (; nn_outputs = nn_outputs)
 end
 
 function _run_nn(m::HybridModel{<:Any, <:Vector}, ds_k::Tuple, ps, st)
