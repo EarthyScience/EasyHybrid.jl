@@ -430,14 +430,14 @@ function _build_component!(comp, fig, layout, history, cfg, y_train, y_val, n_ep
 
         gd_ts = GridLayout(layout)
         ax_ts_train = Axis(
-            gd_ts[1, 1]; xlabel = "Time Index", ylabel = "Value", title = "Training (Time Series)",
+            gd_ts[1, 1]; xlabel = "Index", ylabel = "Value", title = "Training",
             xtrimspine = true, ytrimspine = true
         )
         hidespines!(ax_ts_train, :r, :t)
         plt_ts_train = timeseriesplot!(ax_ts_train, y_pred_train, y_obs_train)
 
         ax_ts_val = Axis(
-            gd_ts[1, 2]; xlabel = "Time Index", ylabel = "", title = "Validation (Time Series)",
+            gd_ts[1, 2]; xlabel = "Index", ylabel = "", title = "Validation",
             xtrimspine = true, ytrimspine = true
         )
         hidespines!(ax_ts_val, :l, :r, :t)
@@ -538,6 +538,7 @@ function setup_monitor_panel!(fig, grid_position, history, cfg)
             orientation = :horizontal,
             titleposition = :left,
             framevisible = false,
+            nbanks = 2,
         )
 
         axes[i] = ax
