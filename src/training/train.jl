@@ -117,9 +117,9 @@ function _train(model, data, train_cfg::TrainConfig, data_cfg::DataConfig)
     dashboard = init_dashboard(ext, history, train_cfg, y_train, y_val, model.targets)
 
     save_initial_state!(paths, model, ps, st, train_cfg)
-    ps = ps |> train_cfg.gdev
-    st = st |> train_cfg.gdev
-    train_state = train_state |> train_cfg.gdev
+    ps = ps |> train_cfg.arch
+    st = st |> train_cfg.arch
+    train_state = train_state |> train_cfg.arch
     record_or_run(ext, dashboard, paths, train_cfg) do streams
         for epoch in 1:train_cfg.nepochs
             ps, st, train_state = run_epoch!(loader, model, ps, st, train_state, train_cfg)

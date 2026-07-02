@@ -107,22 +107,22 @@ using BenchmarkTools
 
 gpu_small_nn() = tune(
     small_nn_hybrid_model, df, cfg;
-    gdev = gpu_device(), model_name = "small_nn_gpu"
+    arch = gpu_device(), model_name = "small_nn_gpu"
 )
 
 cpu_small_nn() = tune(
     small_nn_hybrid_model, df, cfg;
-    gdev = cpu_device(), model_name = "small_nn_cpu"
+    arch = cpu_device(), model_name = "small_nn_cpu"
 )
 
 gpu_large_nn() = tune(
     large_nn_hybrid_model, df, cfg;
-    gdev = gpu_device(), model_name = "large_nn_gpu"
+    arch = gpu_device(), model_name = "large_nn_gpu"
 )
 
 cpu_large_nn() = tune(
     large_nn_hybrid_model, df, cfg;
-    gdev = cpu_device(), model_name = "large_nn_cpu"
+    arch = cpu_device(), model_name = "large_nn_cpu"
 )
 
 # warm-up to pay compilation once

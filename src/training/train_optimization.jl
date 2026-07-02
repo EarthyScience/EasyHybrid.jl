@@ -114,7 +114,7 @@ batch (shape `((x, forcings), (y, mask))`), produced once per (mini)batch by
 `collect_dim_data` in the caller — *not* inside this closure. Keeping the data
 prep out of the loss is important: L-BFGS line searches call the objective many
 times per iteration, so re-running `collect_dim_data` (NamedTuple rebuilds,
-`Array` copies, `gdev` transfers) on every evaluation was a major slowdown,
+`Array` copies, `arch` transfers) on every evaluation was a major slowdown,
 especially on the minibatch path. It also keeps the closure trivially
 Zygote-differentiable (no `pairs(...)`/`∇map` in the AD tape).
 """

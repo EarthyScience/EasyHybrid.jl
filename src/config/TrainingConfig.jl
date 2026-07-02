@@ -55,7 +55,7 @@ loss computation, data handling, output, and visualization.
     return_gradients = True()
 
     "Select a gpu_device or default to cpu if none available"
-    gdev = gpu_device()
+    arch = gpu_device()
 
     "Set the `cpu_device`, useful for sending back to the cpu model parameters"
     cdev = cpu_device()

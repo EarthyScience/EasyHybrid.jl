@@ -7,7 +7,7 @@ function collect_dim_data(x::T, y, cfg) where {T}
     forcing_nt = NamedTuple([k => Array(v) for (k, v) in pairs(x[2])])
     targets_nt = NamedTuple([k => Array(v) for (k, v) in pairs(y[1])])
     masks_nt = NamedTuple([k => Array(v) for (k, v) in pairs(y[2])])
-    return ((x_col, forcing_nt), (targets_nt, masks_nt)) |> cfg.gdev
+    return ((x_col, forcing_nt), (targets_nt, masks_nt)) |> cfg.arch
 end
 
 function run_epoch!(loader, model, ps, st, train_state, cfg::TrainConfig)
