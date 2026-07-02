@@ -120,14 +120,14 @@ function _train(model, data, train_cfg::TrainConfig, data_cfg::DataConfig)
     ps = ps |> train_cfg.gdev
     st = st |> train_cfg.gdev
     train_state = train_state |> train_cfg.gdev
-    record_or_run(ext, paths, train_cfg) do io
+    record_or_run(ext, dashboard, paths, train_cfg) do streams
         for epoch in 1:train_cfg.nepochs
             ps, st, train_state = run_epoch!(loader, model, ps, st, train_state, train_cfg)
             snapshot = evaluate_epoch(model, x_train, forcings_train, y_train, mask_train, x_val, forcings_val, y_val, mask_val, ps, st, epoch, init, train_cfg)
 
             update!(stopper, history, snapshot, ps, st, train_cfg)
             # save_epoch!(paths, model, ps, st, snapshot, train_cfg)
-            update_dashboard!(dashboard, ext, history, io, train_cfg)
+            update_dashboard!(dashboard, ext, history, streams, train_cfg)
             # log_progress!(prog, init, snapshot, train_cfg)
 
             is_done(stopper) && break

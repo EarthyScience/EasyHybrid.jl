@@ -108,7 +108,7 @@ function Makie.axislegend(ax::Makie.Axis, plt::MonitorPlot; title = nothing, kwa
     return Makie.axislegend(ax, [leg_entry.extras; leg_entry.plots], [leg_entry.extra_labels; leg_entry.labels], title; kwargs...)
 end
 
-function Makie.Legend(gp::Makie.GridPosition, ax::Makie.Axis, plt::MonitorPlot; title = nothing, kwargs...)
+function Makie.Legend(gp, ax::Makie.Axis, plt::MonitorPlot; title = nothing, kwargs...)
     leg_entry = _legend_entries(ax, plt)
     return Makie.Legend(gp, [leg_entry.extras; leg_entry.plots], [leg_entry.extra_labels; leg_entry.labels], title; kwargs...)
 end

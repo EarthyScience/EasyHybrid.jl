@@ -3,6 +3,7 @@ export monitorplot, monitorplot!
 export predictionplot, predictionplot!
 export timeseriesplot, timeseriesplot!
 export train_dashboard, update_step_dashboard!
+export build_dashboards, update_step_dashboards!
 
 function poplot()
     return @error("Please load `Makie.jl` and then call this function. If Makie is loaded, then you can't call `poplot` with no arguments!")
@@ -48,8 +49,12 @@ function record_history end
 function dashboard_figure end
 function recordframe! end
 function save_fig end
+function VideoStream end
+function save_video end
 function train_dashboard end
 function update_step_dashboard! end
+function build_dashboards end
+function update_step_dashboards! end
 
 """
     initialize_plotting_observables(init_ŷ_train, init_ŷ_val, y_train, y_val, l_init_train, l_init_val, training_loss, agg, monitor_names, target_names)

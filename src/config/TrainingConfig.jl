@@ -121,6 +121,15 @@ loss computation, data handling, output, and visualization.
     "Whether to show progress bars during training. Default: `true`."
     show_progress::Bool = true
 
+    "Which components to show in the dashboard. Options: `:loss`, `:prediction`, `:timeseries`, `:monitor`. Default: `[:loss, :prediction, :timeseries, :monitor]`."
+    dashboard_components::Vector{Symbol} = [:loss, :prediction, :timeseries, :monitor]
+
+    "If `true`, each component requested will be rendered in its own separate figure instead of one unified dashboard. Default: `false`."
+    split_dashboard::Bool = false
+
+    "Which components to save as animations. By default `[:all]` saves the unified dashboard if `split_dashboard=false` or all individual components if `true`."
+    save_animations::Vector{Symbol} = [:all]
+
     "Scale applied to the y-axis for plotting. Default: `identity`."
     yscale = identity
 

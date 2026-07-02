@@ -52,7 +52,7 @@ function Makie.axislegend(ax::Makie.Axis, plt::LossPlot; title = nothing, kwargs
     return Makie.axislegend(ax, plots, labels, title; kwargs...)
 end
 
-function Makie.Legend(gp::Makie.GridPosition, ax::Makie.Axis, plt::LossPlot; title = nothing, kwargs...)
+function Makie.Legend(gp, ax::Makie.Axis, plt::LossPlot; title = nothing, kwargs...)
     plots, labels = _legend_entries(ax, plt)
     return Makie.Legend(gp, plots, labels, title; kwargs...)
 end
