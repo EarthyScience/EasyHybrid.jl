@@ -302,7 +302,8 @@ end
 # ───────────────────────────────────────────────────────────────────────────
 # ───────────────────────────────────────────────────────────────────────────
 function _run_nn(m::HybridModel{<:Any, <:NamedTuple}, ds_k::Tuple, ps, st)
-    applied = map(LuxCore.apply, m.NNs, ds_k[1], ps, st)
+    nn_names = keys(m.NNs)
+    applied = map(LuxCore.apply, m.NNs, ds_k[1][nn_names], ps[nn_names], st[nn_names])
     nn_outputs = map(first, applied)
     nn_states = map(last, applied)
 
