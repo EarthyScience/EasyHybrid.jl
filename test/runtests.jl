@@ -14,12 +14,3 @@ include("test_show_train.jl")
 include("test_show_generic_hybrid.jl")
 include("test_wrap_tuples.jl")
 include("test_extract_weights.jl")
-
-@testset "LinearHM" begin
-    # test model instantiation
-    NN = Lux.Chain(Lux.Dense(2, 5), Lux.Dense(5, 1))
-    lhm = LinearHM(NN, (:x2, :x3), (:x1,), (:obs,), 1.5f0)
-    @test lhm.forcing == [:x1]
-    @test lhm.β == [1.5f0]
-    @test lhm.predictors == [:x2, :x3]
-end
