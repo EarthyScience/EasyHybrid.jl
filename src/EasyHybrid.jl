@@ -28,7 +28,7 @@ using Downloads: Downloads
 using Hyperopt: Hyperopt, Hyperoptimizer
 using JLD2: JLD2, jldopen
 using LuxCore: LuxCore
-using Lux: Lux
+using Lux: Lux, BatchNorm, sigmoid
 using MLJ: partition
 using MLUtils: MLUtils, DataLoader, kfolds, numobs, rpad, splitobs
 using NCDatasets: NCDatasets, NCDataset, close, name

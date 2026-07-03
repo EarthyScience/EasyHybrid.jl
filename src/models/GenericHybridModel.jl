@@ -1,11 +1,15 @@
-export HybridModel, ParameterContainer
+export HybridModel, ParameterContainer, constructHybridModel
 
-# Import necessary components for neural networks
-using Lux: BatchNorm
-using Lux: sigmoid
+"""
+    ParameterContainer{NT <: NamedTuple, T}
 
+A container for holding the parameter definitions of a model, including their default values, lower bounds, and upper bounds.
+"""
 mutable struct ParameterContainer{NT <: NamedTuple, T}
+    "The raw parameter definitions. A `NamedTuple` where each entry is a tuple of `(default, lower, upper)` bounds for a parameter."
     values::NT
+
+    "A `ComponentArray` matrix representation of the parameter bounds, organized for efficient access by name and bound type."
     table::T
 
     function ParameterContainer(values::NT) where {NT <: NamedTuple}
@@ -23,37 +27,37 @@ It combines predictive neural networks (`NNs`) with a `mechanistic_model` to for
 struct HybridModel{T, P} <: LuxCore.AbstractLuxContainerLayer{(:NNs,)}
     "Neural network(s) used to predict parameters. Can be a single `Chain` or a `NamedTuple` of `Chain`s."
     NNs::T
-    
+
     "Predictor variables for the neural networks. Can be a `Vector{Symbol}` or a `NamedTuple`."
     predictors::P
-    
+
     "Forcing variables passed directly to the mechanistic model."
     forcing::Vector{Symbol}
-    
+
     "Target variables the model will output/be trained against."
     targets::Vector{Symbol}
-    
+
     "The core process-based or mechanistic model function."
     mechanistic_model::Function
-    
+
     "Base parameters of the model (encapsulated in a `ParameterContainer`)."
     parameters::ParameterContainer
-    
+
     "Names of the parameters predicted by the neural network(s)."
     neural_param_names::Vector{Symbol}
-    
+
     "Names of the globally optimized (constant) parameters."
     global_param_names::Vector{Symbol}
-    
+
     "Names of the fixed (non-optimized) parameters."
     fixed_param_names::Vector{Symbol}
-    
+
     "Whether to scale neural network outputs to the parameter bounds."
     scale_nn_outputs::Bool
-    
+
     "Whether to initialize global parameters from their default values."
     start_from_default::Bool
-    
+
     "Configuration named tuple capturing the hyperparameters used for initialization."
     config::NamedTuple
 end
@@ -408,3 +412,11 @@ function (m::HybridModel)(df::DataFrame, ps, st)
     end
     return dfnew
 end
+
+"""
+    constructHybridModel(args...; kwargs...)
+
+Alias for `HybridModel`. Provided for backward compatibility with earlier versions of EasyHybrid.jl. 
+Users are encouraged to use `HybridModel` directly.
+"""
+const constructHybridModel = HybridModel

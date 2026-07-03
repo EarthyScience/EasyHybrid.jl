@@ -35,7 +35,6 @@ test_parameters = (
     end
 
 
-
     @testset "ParameterContainer construction" begin
         params = (a = (1.0f0, 0.0f0, 2.0f0), b = (2.0f0, 1.0f0, 3.0f0))
         pc = ParameterContainer(params)

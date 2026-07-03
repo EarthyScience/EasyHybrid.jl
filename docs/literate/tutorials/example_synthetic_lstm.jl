@@ -87,7 +87,7 @@ neural_param_names = [:rb]
 # ## 7. Construct LSTM Hybrid Model
 
 # Create LSTM hybrid model using the unified constructor
-hlstm = HybridModel(
+hlstm = constructHybridModel(
     predictors,
     forcing,
     target,
@@ -216,7 +216,7 @@ first(out_lstm.val_obs_pred, 5)
 # ## 10. Train Single NN Hybrid Model (Optional)
 
 # For comparison, we can also train a hybrid model with a standard feed-forward neural network
-hm = HybridModel(
+hm = constructHybridModel(
     predictors,
     forcing,
     target,
