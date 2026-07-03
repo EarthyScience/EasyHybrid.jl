@@ -6,15 +6,10 @@
 
 ## v0.2.0 - 2026-06-16
 - Integrated Optimization.jl to support advanced solvers like L-BFGS, enabling both full-batch and minibatch training strategies. [#267](https://github.com/EarthyScience/EasyHybrid.jl/pull/267)
-
 - Per-Branch Optimizers: Enabled per-parameter/per-branch optimizer configurations using Optimisers.jl, allowing for more granular control over training dynamics. [#267](https://github.com/EarthyScience/EasyHybrid.jl/pull/267)
-
 - Added L2 regularization support for model weights and introduced utility functions for weight extraction and norm calculation. [#267](https://github.com/EarthyScience/EasyHybrid.jl/pull/267)
-
 - Improved YAML configuration saving to include parameter bounds and the full source code of mechanistic models for better reproducibility. [#267](https://github.com/EarthyScience/EasyHybrid.jl/pull/267)
-
 - data processing for MultiNNHybridModel, including better sequence filtering and support for multi-branch neural network architectures. [#267](https://github.com/EarthyScience/EasyHybrid.jl/pull/267)
-
 - Sets fetch-depth 0 so that we can have access to the git history in the docs [#253](https://github.com/EarthyScience/EasyHybrid.jl/pull/253)
 - Adds an option to save the full history or not, and always saving the best snapshot [#251](https://github.com/EarthyScience/EasyHybrid.jl/pull/251)
 - Refactored the train function into smaller functions [#249](https://github.com/EarthyScience/EasyHybrid.jl/pull/249)
