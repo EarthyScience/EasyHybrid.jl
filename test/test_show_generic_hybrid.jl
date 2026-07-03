@@ -1,4 +1,4 @@
-using EasyHybrid: HybridParams, ParameterContainer, HybridModel
+using EasyHybrid: ParameterContainer, HybridModel
 using EasyHybrid: _print_field, _print_header, IndentedIO
 
 @testset "show_generic.jl" begin
@@ -22,19 +22,6 @@ using EasyHybrid: _print_field, _print_header, IndentedIO
         @test occursin("function", result) && occursin("sum", result)
     end
 
-    @testset "HybridParams show" begin
-        params = (a = (1.0, 0.0, 2.0), b = (2.0, 1.0, 3.0))
-        pc = ParameterContainer(params)
-        hp = HybridParams{typeof(sum)}(pc)
-
-        # Compact show
-        result_compact = sprint(show, hp, context = :color => false)
-        @test occursin("HybridParams", result_compact) && occursin("ParameterContainer", result_compact)
-
-        # Text/plain show
-        result_full = sprint(show, MIME"text/plain"(), hp, context = :color => false)
-        @test occursin("Hybrid Parameters", result_full) # only check for the header
-    end
 
     @testset "ParameterContainer compact show" begin
         params = (a = (1.0, 0.0, 2.0), b = (2.0, 1.0, 3.0))

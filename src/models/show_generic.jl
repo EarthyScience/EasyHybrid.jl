@@ -52,19 +52,6 @@ function _print_header(io::IO, text::String; color = :blue, bold = true)
     printstyled(io, text, color = color, bold = bold)
     return println(io)
 end
-function Base.show(io::IO, ::MIME"text/plain", hp::HybridParams)
-    _print_header(io, "Hybrid Parameters", color = :blue)
-
-    # Delegate to the contained ParameterContainer
-    io_full = IOContext(IndentedIO(io), :compact => false, :limit => false)
-    return show(io_full, MIME"text/plain"(), hp.hybrid)
-end
-
-function Base.show(io::IO, hp::HybridParams)
-    print(io, "HybridParams(")
-    show(io, hp.hybrid)
-    return print(io, ")")
-end
 
 function Base.show(io::IO, ::MIME"text/plain", pc::ParameterContainer)
     table = pc.table

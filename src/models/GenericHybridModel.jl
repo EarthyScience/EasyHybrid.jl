@@ -1,25 +1,10 @@
-export HybridModel, scale_single_param, AbstractHybridModel, build_hybrid, ParameterContainer, default, lower, upper, hard_sigmoid, inv_hard_sigmoid, inv_sigmoid
-export HybridParams
+export HybridModel, ParameterContainer
 
 # Import necessary components for neural networks
 using Lux: BatchNorm
 using Lux: sigmoid
 
-# Define the hard sigmoid activation function
-function hard_sigmoid(x)
-    return clamp.(0.2 .* x .+ 0.5, 0.0, 1.0)
-end
-
-# Inverse of `hard_sigmoid` on the linear region (0, 1).
-# Saturated inputs (y ≤ 0 or y ≥ 1) are extrapolated linearly since the
-# clamp makes the forward map non-invertible there.
-function inv_hard_sigmoid(y)
-    return (y .- 0.5) ./ 0.2
-end
-
-abstract type AbstractHybridModel end
-
-mutable struct ParameterContainer{NT <: NamedTuple, T} <: AbstractHybridModel
+mutable struct ParameterContainer{NT <: NamedTuple, T}
     values::NT
     table::T
 
@@ -30,33 +15,64 @@ mutable struct ParameterContainer{NT <: NamedTuple, T} <: AbstractHybridModel
 end
 
 """
-    HybridParams{M<:Function}
+    HybridModel{T, P} <: LuxCore.AbstractLuxContainerLayer{(:NNs,)}
 
-A little parametric stub for “the params of function `M`.”  
-All of your function‐based models become `HybridParams{typeof(f)}`.
+A unified hybrid model struct that handles both single and multi neural network architectures.
+It combines predictive neural networks (`NNs`) with a `mechanistic_model` to form a differentiable hybrid model.
 """
-struct HybridParams{M <: Function} <: AbstractHybridModel
-    hybrid::ParameterContainer
-end
-
-# ───────────────────────────────────────────────────────────────────────────
-# Unified Hybrid Model Structure (optimized for performance)
 struct HybridModel{T, P} <: LuxCore.AbstractLuxContainerLayer{(:NNs,)}
+    "Neural network(s) used to predict parameters. Can be a single `Chain` or a `NamedTuple` of `Chain`s."
     NNs::T
+    
+    "Predictor variables for the neural networks. Can be a `Vector{Symbol}` or a `NamedTuple`."
     predictors::P
+    
+    "Forcing variables passed directly to the mechanistic model."
     forcing::Vector{Symbol}
+    
+    "Target variables the model will output/be trained against."
     targets::Vector{Symbol}
+    
+    "The core process-based or mechanistic model function."
     mechanistic_model::Function
-    parameters::AbstractHybridModel
+    
+    "Base parameters of the model (encapsulated in a `ParameterContainer`)."
+    parameters::ParameterContainer
+    
+    "Names of the parameters predicted by the neural network(s)."
     neural_param_names::Vector{Symbol}
+    
+    "Names of the globally optimized (constant) parameters."
     global_param_names::Vector{Symbol}
+    
+    "Names of the fixed (non-optimized) parameters."
     fixed_param_names::Vector{Symbol}
+    
+    "Whether to scale neural network outputs to the parameter bounds."
     scale_nn_outputs::Bool
+    
+    "Whether to initialize global parameters from their default values."
     start_from_default::Bool
+    
+    "Configuration named tuple capturing the hyperparameters used for initialization."
     config::NamedTuple
 end
 
-# Unified constructor that dispatches based on predictors type
+"""
+    HybridModel(predictors::Vector{Symbol}, forcing, targets, mechanistic_model, parameters, neural_param_names, global_param_names; kwargs...)
+
+Construct a `HybridModel` with a single neural network architecture predicting all `neural_param_names` from the `predictors`.
+
+# Arguments:
+- `predictors::Vector{Symbol}`: Variables used as inputs to the neural network.
+- `forcing`: Variables passed directly to the mechanistic model.
+- `targets`: The target variables to predict.
+- `mechanistic_model`: A function implementing the process-based model.
+- `parameters`: A parameter container defining defaults, lowers, and uppers.
+- `neural_param_names`: Names of the parameters to be predicted by the neural network.
+- `global_param_names`: Names of the parameters to be globally optimized.
+- `kwargs`: Additional configuration like `hidden_layers`, `activation`, `scale_nn_outputs`, etc.
+"""
 function HybridModel(
         predictors::Vector{Symbol},
         forcing,
@@ -73,8 +89,8 @@ function HybridModel(
         kwargs...
     )
 
-    if !isa(parameters, AbstractHybridModel)
-        parameters = build_parameters(parameters, mechanistic_model)
+    if !isa(parameters, ParameterContainer)
+        parameters = ParameterContainer(parameters)
     end
 
     all_names = pnames(parameters)
@@ -110,6 +126,20 @@ function HybridModel(
     return HybridModel(NN, predictors, forcing, targets, mechanistic_model, parameters, neural_param_names, global_param_names, fixed_param_names, scale_nn_outputs, start_from_default, config)
 end
 
+"""
+    HybridModel(predictors::NamedTuple, forcing, targets, mechanistic_model, parameters, global_param_names; kwargs...)
+
+Construct a `HybridModel` with multiple neural network architectures. A separate neural network is built for each key in the `predictors` NamedTuple.
+
+# Arguments:
+- `predictors::NamedTuple`: A NamedTuple where keys are network names, and values are vectors of predictor variables for that network.
+- `forcing`: Variables passed directly to the mechanistic model.
+- `targets`: The target variables to predict.
+- `mechanistic_model`: A function implementing the process-based model.
+- `parameters`: A parameter container defining defaults, lowers, and uppers.
+- `global_param_names`: Names of the parameters to be globally optimized.
+- `kwargs`: Additional configuration. `hidden_layers` and `activation` can also be NamedTuples to configure each network independently.
+"""
 function HybridModel(
         predictors::NamedTuple,
         forcing,
@@ -125,8 +155,8 @@ function HybridModel(
         kwargs...
     )
 
-    if !isa(parameters, AbstractHybridModel)
-        parameters = build_parameters(parameters, mechanistic_model)
+    if !isa(parameters, ParameterContainer)
+        parameters = ParameterContainer(parameters)
     end
 
     all_names = pnames(parameters)
@@ -260,47 +290,6 @@ function LuxCore.initialstates(rng::AbstractRNG, m::HybridModel)
     return merge(nn_states_nt, (; fixed = nt))
 end
 
-function default(p::AbstractHybridModel)
-    return p.hybrid.table[:, :default]
-end
-
-function lower(p::AbstractHybridModel)
-    return p.hybrid.table[:, :lower]
-end
-
-function upper(p::AbstractHybridModel)
-    return p.hybrid.table[:, :upper]
-end
-
-pnames(p::AbstractHybridModel) = keys(p.hybrid.table.axes[1])
-
-"""
-    scale_single_param(name, raw_val, parameters)
-
-Scale a single parameter using the sigmoid scaling function.
-"""
-function scale_single_param(name, raw_val, hm::AbstractHybridModel)
-    ℓ = lower(hm)[name]
-    u = upper(hm)[name]
-    return ℓ .+ (u .- ℓ) .* sigmoid.(raw_val)
-end
-
-inv_sigmoid(y) = log.(y ./ (1 .- y))
-
-""" 
-    scale_single_param_minmax(name, hm::AbstractHybridModel)
-
-Scale a single parameter using the minmax scaling function.
-"""
-function scale_single_param_minmax(name, hm::AbstractHybridModel)
-    ℓ = lower(hm)[name]
-    u = upper(hm)[name]
-    return inv_sigmoid.((default(hm)[name] .- ℓ) ./ (u .- ℓ))
-end
-
-
-# ───────────────────────────────────────────────────────────────────────────
-# ───────────────────────────────────────────────────────────────────────────
 function _run_nn(m::HybridModel{<:Any, <:NamedTuple}, ds_k::Tuple, ps, st)
     nn_names = keys(m.NNs)
     applied = map(nn_names) do nn_name
@@ -343,7 +332,13 @@ function _run_nn(m::HybridModel{<:Any, <:Vector}, ds_k::Tuple, ps, st)
     return scaled_nn_params, (; st_nn = st_nn), (;)
 end
 
-# Forward pass for HybridModel (optimized, using multiple dispatch for NN run)
+"""
+    (m::HybridModel)(ds_k::Tuple, ps, st)
+
+Forward pass of the hybrid model.
+Evaluates the neural networks to predict parameters, merges them with scaled global parameters and fixed parameters, and executes the mechanistic model.
+Returns a tuple `(out, st_new)`.
+"""
 function (m::HybridModel)(ds_k::Tuple, ps, st)
     parameters = m.parameters
 

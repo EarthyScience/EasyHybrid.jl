@@ -34,11 +34,7 @@ test_parameters = (
         @test result[5] ≈ 1.0f0  # hard_sigmoid(5) = 1.0 (clamped)
     end
 
-    @testset "AbstractHybridModel types" begin
-        @test AbstractHybridModel <: Any
-        @test ParameterContainer <: AbstractHybridModel
-        @test HybridParams <: AbstractHybridModel
-    end
+
 
     @testset "ParameterContainer construction" begin
         params = (a = (1.0f0, 0.0f0, 2.0f0), b = (2.0f0, 1.0f0, 3.0f0))
@@ -69,59 +65,52 @@ test_parameters = (
         @test result == expected
     end
 
-    @testset "HybridParams construction" begin
-        params = (a = (1.0f0, 0.0f0, 2.0f0),)
-        pc = ParameterContainer(params)
-        hp = HybridParams{typeof(test_mechanistic_model)}(pc)
 
-        @test hp isa HybridParams
-        @test hp.hybrid == pc
-    end
 end
 
 @testset "GenericHybridModel - Parameter Functions" begin
     params = (a = (1.0f0, 0.0f0, 2.0f0), b = (2.0f0, 1.0f0, 3.0f0))
-    hp = HybridParams{typeof(test_mechanistic_model)}(ParameterContainer(params))
+    pc = ParameterContainer(params)
 
     @testset "default function" begin
-        defaults = default(hp)
+        defaults = default(pc)
         @test defaults.a == 1.0f0
         @test defaults.b == 2.0f0
     end
 
     @testset "lower function" begin
-        lowers = lower(hp)
+        lowers = lower(pc)
         @test lowers.a == 0.0f0
         @test lowers.b == 1.0f0
     end
 
     @testset "upper function" begin
-        uppers = upper(hp)
+        uppers = upper(pc)
         @test uppers.a == 2.0f0
         @test uppers.b == 3.0f0
     end
 
     @testset "pnames function" begin
-        names = EasyHybrid.pnames(hp)
+        names = EasyHybrid.pnames(pc)
         @test collect(names) == [:a, :b]
     end
 
     @testset "scale_single_param function" begin
         # Test sigmoid scaling
-        scaled_a = scale_single_param(:a, [0.0f0], hp)
+        scaled_a = scale_single_param(:a, [0.0f0], pc)
         @test length(scaled_a) == 1
         @test scaled_a[1] ≈ 1.0f0  # sigmoid(0) = 0.5, so 0 + 0.5*(2-0) = 1.0
 
-        scaled_b = scale_single_param(:b, [0.0f0], hp)
+        scaled_b = scale_single_param(:b, [0.0f0], pc)
         @test scaled_b[1] ≈ 2.0f0  # sigmoid(0) = 0.5, so 1 + 0.5*(3-1) = 2.0
     end
 
     @testset "scale_single_param_minmax function" begin
         # Test inverse sigmoid scaling
-        inv_scaled_a = EasyHybrid.scale_single_param_minmax(:a, hp)
+        inv_scaled_a = EasyHybrid.scale_single_param_minmax(:a, pc)
         @test inv_scaled_a ≈ 0.0f0  # inverse sigmoid of 0.5 is 0.0
 
-        inv_scaled_b = EasyHybrid.scale_single_param_minmax(:b, hp)
+        inv_scaled_b = EasyHybrid.scale_single_param_minmax(:b, pc)
         @test inv_scaled_b ≈ 0.0f0  # inverse sigmoid of 0.5 is 0.0
     end
 end
