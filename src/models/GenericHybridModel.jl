@@ -127,7 +127,20 @@ function HybridModel(
         kwargs...,
     )
 
-    return HybridModel(NN, predictors, forcing, targets, mechanistic_model, parameters, neural_param_names, global_param_names, fixed_param_names, scale_nn_outputs, start_from_default, config)
+    return HybridModel(
+        NN,
+        predictors,
+        forcing,
+        targets,
+        mechanistic_model,
+        parameters,
+        neural_param_names,
+        global_param_names,
+        fixed_param_names,
+        scale_nn_outputs,
+        start_from_default,
+        config
+    )
 end
 
 """
@@ -207,7 +220,20 @@ function HybridModel(
         kwargs...,
     )
 
-    return HybridModel(NNs, predictors, forcing, targets, mechanistic_model, parameters, neural_param_names, global_param_names, fixed_param_names, scale_nn_outputs, start_from_default, config)
+    return HybridModel(
+        NNs,
+        predictors,
+        forcing,
+        targets,
+        mechanistic_model,
+        parameters,
+        neural_param_names,
+        global_param_names,
+        fixed_param_names,
+        scale_nn_outputs,
+        start_from_default,
+        config
+    )
 end
 
 function HybridModel(
@@ -236,12 +262,22 @@ function HybridModel(
     end
 end
 
-# ───────────────────────────────────────────────────────────────────────────
-# Helper functions for NN initialization
+"""
+    _init_nn_params(rng, m::HybridModel{<:Any, <:NamedTuple})
+
+Initialize parameters for a multi-neural network architecture.
+Returns a `NamedTuple` containing the initialized parameters for each sub-network.
+"""
 function _init_nn_params(rng::AbstractRNG, m::HybridModel{<:Any, <:NamedTuple})
     return map(nn -> LuxCore.setup(rng, nn)[1], m.NNs)
 end
 
+"""
+    _init_nn_params(rng, m::HybridModel{<:Any, <:Vector})
+
+Initialize parameters for a single-neural network architecture.
+Returns a `NamedTuple` containing a single `ps` field with the network's parameters.
+"""
 function _init_nn_params(rng::AbstractRNG, m::HybridModel{<:Any, <:Vector})
     ps_nn, _ = LuxCore.setup(rng, m.NNs)
     return (; ps = ps_nn)
@@ -269,10 +305,22 @@ function LuxCore.initialparameters(rng::AbstractRNG, m::HybridModel)
     return nt
 end
 
+"""
+    _init_nn_states(rng, m::HybridModel{<:Any, <:NamedTuple})
+
+Initialize states for a multi-neural network architecture.
+Returns a `NamedTuple` containing the initialized states for each sub-network.
+"""
 function _init_nn_states(rng::AbstractRNG, m::HybridModel{<:Any, <:NamedTuple})
     return map(nn -> LuxCore.setup(rng, nn)[2], m.NNs)
 end
 
+"""
+    _init_nn_states(rng, m::HybridModel{<:Any, <:Vector})
+
+Initialize states for a single-neural network architecture.
+Returns a `NamedTuple` containing a single `st_nn` field with the network's states.
+"""
 function _init_nn_states(rng::AbstractRNG, m::HybridModel{<:Any, <:Vector})
     _, st_nn = LuxCore.setup(rng, m.NNs)
     return (; st_nn = st_nn)
@@ -294,6 +342,13 @@ function LuxCore.initialstates(rng::AbstractRNG, m::HybridModel)
     return merge(nn_states_nt, (; fixed = nt))
 end
 
+"""
+    _run_nn(m::HybridModel{<:Any, <:NamedTuple}, ds_k::Tuple, ps, st)
+
+Execute the forward pass for a multi-neural network architecture.
+Applies each sub-network to its specific predictors, and applies scaling to the outputs if required.
+Returns scaled parameter values, updated states, and raw network outputs.
+"""
 function _run_nn(m::HybridModel{<:Any, <:NamedTuple}, ds_k::Tuple, ps, st)
     nn_names = keys(m.NNs)
     applied = map(nn_names) do nn_name
@@ -314,6 +369,13 @@ function _run_nn(m::HybridModel{<:Any, <:NamedTuple}, ds_k::Tuple, ps, st)
     return scaled_nn_params, nn_states, (; nn_outputs = nn_outputs)
 end
 
+"""
+    _run_nn(m::HybridModel{<:Any, <:Vector}, ds_k::Tuple, ps, st)
+
+Execute the forward pass for a single-neural network architecture.
+Applies the neural network to the given predictors, slices the output for multiple predicted parameters, and scales them if required.
+Returns scaled parameter values, updated states, and raw network outputs.
+"""
 function _run_nn(m::HybridModel{<:Any, <:Vector}, ds_k::Tuple, ps, st)
     if !isempty(m.neural_param_names)
         nn_out, st_nn = LuxCore.apply(m.NNs, ds_k[1], ps.ps, st.st_nn)
