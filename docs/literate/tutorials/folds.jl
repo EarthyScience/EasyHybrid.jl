@@ -61,7 +61,7 @@ neural_param_names = [:rb]
 
 # ## 6. Construct the Hybrid Model
 
-hybrid_model = HybridModel(
+hybrid_model = constructHybridModel(
     predictors,
     forcing,
     target,

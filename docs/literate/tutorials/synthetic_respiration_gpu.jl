@@ -62,7 +62,7 @@ neural_param_names = [:rb]         # Neural network predicted parameters
 # ## Single NN Hybrid Model Training
 predictors_single_nn = [:sw_pot, :dsw_pot]   # Predictor variables (solar radiation, and its derivative)
 
-small_nn_hybrid_model = HybridModel(
+small_nn_hybrid_model = constructHybridModel(
     predictors_single_nn,              # Input features
     forcing,                 # Forcing variables
     target,                  # Target variables
@@ -76,7 +76,7 @@ small_nn_hybrid_model = HybridModel(
     input_batchnorm = true   # Apply batch normalization to inputs
 )
 
-large_nn_hybrid_model = HybridModel(
+large_nn_hybrid_model = constructHybridModel(
     predictors_single_nn,              # Input features
     forcing,                 # Forcing variables
     target,                  # Target variables

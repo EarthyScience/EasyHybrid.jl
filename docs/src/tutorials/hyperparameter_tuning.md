@@ -75,7 +75,7 @@ neural_param_names = [:rb]         # Neural network predicted parameters
 Construct hybrid model
 
 ```@example hyperparameter_tuning
-hybrid_model = HybridModel(
+hybrid_model = constructHybridModel(
     predictors,               # Input features
     forcing,                  # Forcing variables
     target,                   # Target variables
