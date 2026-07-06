@@ -562,7 +562,7 @@ end
         neural_param_names = [:invalid_param]  # Not in test_parameters
         global_param_names = [:b]
 
-        @test_throws AssertionError HybridModel(
+        @test_throws AssertionError constructHybridModel(
             predictors,
             forcing,
             targets,
