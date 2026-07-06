@@ -73,7 +73,7 @@ neural_param_names = [:rb]         # Neural network predicted parameters
 
 predictors_single_nn = [:sw_pot, :dsw_pot]   # Predictor variables (solar radiation, and its derivative)
 
-single_nn_hybrid_model = HybridModel(
+single_nn_hybrid_model = constructHybridModel(
     predictors_single_nn,              # Input features
     forcing,                 # Forcing variables
     target,                  # Target variables
@@ -150,7 +150,7 @@ mean(df.sw_pot)
 
 predictors_multi_nn = (rb = [:sw_pot, :dsw_pot],)
 
-multi_nn_hybrid_model = HybridModel(
+multi_nn_hybrid_model = constructHybridModel(
     predictors_multi_nn,              # Input features
     forcing,                 # Forcing variables
     target,                  # Target variables

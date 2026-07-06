@@ -57,7 +57,7 @@ const RbQ10_PARAMS = (
     neural_param_names = [:rb]
 
     @testset "test DataFrame and thereby KeyedArray" begin
-        model = HybridModel(
+        model = constructHybridModel(
             predictors, forcing, target, RbQ10,
             RbQ10_PARAMS, neural_param_names, global_param_names
         )
@@ -135,7 +135,7 @@ const RbQ10_PARAMS = (
     end
 
     @testset "test keep_history" begin
-        model = HybridModel(
+        model = constructHybridModel(
             predictors, forcing, target, RbQ10,
             RbQ10_PARAMS, neural_param_names, global_param_names
         )

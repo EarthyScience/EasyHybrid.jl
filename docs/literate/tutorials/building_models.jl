@@ -24,7 +24,7 @@ params_linear = (
 # ### HybridModel Construction
 # We use `x` as forcing data, predict `α` with a neural network based on some predictors `a` and `b`,
 # and leave `β` as a globally optimized constant parameter.
-lhm = HybridModel(
+lhm = constructHybridModel(
     [:a, :b],          # predictors for the NN (predicts α)
     [:x],              # forcing variable
     [:obs],            # targets
@@ -54,7 +54,7 @@ params_rbq10 = (
 )
 
 # ### HybridModel Construction
-m_rbq10 = HybridModel(
+m_rbq10 = constructHybridModel(
     [:SWC, :TA], # predictors for Rb
     [:Temp],     # forcing variable
     [:R_soil],   # targets
@@ -89,7 +89,7 @@ params_rs_comp = (
 )
 
 # ### HybridModel Construction
-m_rs_comp = HybridModel(
+m_rs_comp = constructHybridModel(
     [:SWC, :TA],  # predictors for all 3 Rb parameters
     [:Temp],
     [:R_soil],
@@ -127,7 +127,7 @@ predictors_multi = (
     Rb = [:SWC, :TA],
 )
 
-m_flux = HybridModel(
+m_flux = constructHybridModel(
     predictors_multi, # Triggers Multi-NN construction
     [:SW_IN, :TA],    # Forcing variables
     [:NEE],           # Targets
@@ -150,7 +150,7 @@ end
 
 # ### HybridModel Construction
 # Passing an empty `Symbol[]` array to `predictors` prevents any Neural Networks from being created.
-m_pbm = HybridModel(
+m_pbm = constructHybridModel(
     Symbol[],      # No predictors -> No Neural Network
     [:Temp],       # Forcing
     [:R_soil],     # Target

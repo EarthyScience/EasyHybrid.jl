@@ -63,7 +63,7 @@ struct HybridModel{T, P} <: LuxCore.AbstractLuxContainerLayer{(:NNs,)}
 end
 
 """
-    HybridModel(predictors::Vector{Symbol}, forcing, targets, mechanistic_model, parameters, neural_param_names, global_param_names; kwargs...)
+    constructHybridModel(predictors::Vector{Symbol}, forcing, targets, mechanistic_model, parameters, neural_param_names, global_param_names; kwargs...)
 
 Construct a `HybridModel` with a single neural network architecture predicting all `neural_param_names` from the `predictors`.
 
@@ -77,7 +77,7 @@ Construct a `HybridModel` with a single neural network architecture predicting a
 - `global_param_names`: Names of the parameters to be globally optimized.
 - `kwargs`: Additional configuration like `hidden_layers`, `activation`, `scale_nn_outputs`, etc.
 """
-function HybridModel(
+function constructHybridModel(
         predictors::Vector{Symbol},
         forcing,
         targets,
@@ -144,7 +144,7 @@ function HybridModel(
 end
 
 """
-    HybridModel(predictors::NamedTuple, forcing, targets, mechanistic_model, parameters, global_param_names; kwargs...)
+    constructHybridModel(predictors::NamedTuple, forcing, targets, mechanistic_model, parameters, global_param_names; kwargs...)
 
 Construct a `HybridModel` with multiple neural network architectures. A separate neural network is built for each key in the `predictors` NamedTuple.
 
@@ -157,7 +157,7 @@ Construct a `HybridModel` with multiple neural network architectures. A separate
 - `global_param_names`: Names of the parameters to be globally optimized.
 - `kwargs`: Additional configuration. `hidden_layers` and `activation` can also be NamedTuples to configure each network independently.
 """
-function HybridModel(
+function constructHybridModel(
         predictors::NamedTuple,
         forcing,
         targets,
@@ -236,7 +236,7 @@ function HybridModel(
     )
 end
 
-function HybridModel(
+function constructHybridModel(
         ; predictors,
         forcing,
         targets,
@@ -248,12 +248,12 @@ function HybridModel(
     )
     if predictors isa Vector{Symbol}
         @assert neural_param_names !== nothing "Provide neural_param_names for Vector predictors"
-        return HybridModel(
+        return constructHybridModel(
             predictors, forcing, targets, mechanistic_model, parameters,
             neural_param_names, global_param_names; kwargs...
         )
     elseif predictors isa NamedTuple
-        return HybridModel(
+        return constructHybridModel(
             predictors, forcing, targets, mechanistic_model, parameters,
             global_param_names; kwargs...
         )
@@ -474,11 +474,3 @@ function (m::HybridModel)(df::DataFrame, ps, st)
     end
     return dfnew
 end
-
-"""
-    constructHybridModel(args...; kwargs...)
-
-Alias for `HybridModel`. Provided for backward compatibility with earlier versions of EasyHybrid.jl. 
-Users are encouraged to use `HybridModel` directly.
-"""
-const constructHybridModel = HybridModel

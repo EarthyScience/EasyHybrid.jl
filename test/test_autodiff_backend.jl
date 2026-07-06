@@ -11,7 +11,7 @@ using ForwardDiff
     global_param_names = [:Q10]
     neural_param_names = [:rb]
 
-    model = HybridModel(
+    model = constructHybridModel(
         predictors, forcing, target, RbQ10,
         RbQ10_PARAMS, neural_param_names, global_param_names
     )

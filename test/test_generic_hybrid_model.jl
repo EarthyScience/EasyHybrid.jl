@@ -122,7 +122,7 @@ end
         neural_param_names = [:a]
         global_param_names = [:b]
 
-        model = HybridModel(
+        model = constructHybridModel(
             predictors,
             forcing,
             targets,
@@ -151,7 +151,7 @@ end
         neural_param_names = Symbol[]
         global_param_names = [:a, :b]
 
-        model = HybridModel(
+        model = constructHybridModel(
             predictors,
             forcing,
             targets,
@@ -174,7 +174,7 @@ end
         neural_param_names = [:a]
         global_param_names = [:b]
 
-        model = HybridModel(
+        model = constructHybridModel(
             predictors,
             forcing,
             targets,
@@ -200,7 +200,7 @@ end
         neural_param_names = [:a]
         global_param_names = [:b]
 
-        model = HybridModel(
+        model = constructHybridModel(
             predictors,
             forcing,
             targets,
@@ -230,7 +230,7 @@ end
         neural_param_names = [:a]
         global_param_names = [:b]
 
-        model = HybridModel(
+        model = constructHybridModel(
             predictors,
             forcing,
             targets,
@@ -264,7 +264,7 @@ end
         neural_param_names = [:a]
         global_param_names = [:b]
 
-        model = HybridModel(
+        model = constructHybridModel(
             predictors,
             forcing,
             targets,
@@ -296,7 +296,7 @@ end
         targets = [:obs]
         global_param_names = [:b]
 
-        model = HybridModel(
+        model = constructHybridModel(
             predictors,
             forcing,
             targets,
@@ -324,7 +324,7 @@ end
         targets = [:obs]
         global_param_names = [:b]
 
-        model = HybridModel(
+        model = constructHybridModel(
             predictors,
             forcing,
             targets,
@@ -346,7 +346,7 @@ end
         targets = [:obs]
         global_param_names = [:b]
 
-        model = HybridModel(
+        model = constructHybridModel(
             predictors,
             forcing,
             targets,
@@ -371,7 +371,7 @@ end
         targets = [:obs]
         global_param_names = [:b]
 
-        model = HybridModel(
+        model = constructHybridModel(
             predictors,
             forcing,
             targets,
@@ -397,7 +397,7 @@ end
         targets = [:obs]
         global_param_names = [:b]
 
-        model = HybridModel(
+        model = constructHybridModel(
             predictors,
             forcing,
             targets,
@@ -432,7 +432,7 @@ end
         targets = [:obs]
         global_param_names = [:b]
 
-        model = HybridModel(
+        model = constructHybridModel(
             predictors,
             forcing,
             targets,
@@ -469,7 +469,7 @@ end
         neural_param_names = Symbol[]
         global_param_names = Symbol[]
 
-        model = HybridModel(
+        model = constructHybridModel(
             predictors,
             forcing,
             targets,
@@ -505,7 +505,7 @@ end
         neural_param_names = [:a]
         global_param_names = [:b]
 
-        model = HybridModel(
+        model = constructHybridModel(
             predictors,
             forcing,
             targets,
@@ -536,7 +536,7 @@ end
 
         custom_chain = Chain(Dense(2, 16, tanh), Dense(16, 8, tanh))
 
-        model = HybridModel(
+        model = constructHybridModel(
             predictors,
             forcing,
             targets,
