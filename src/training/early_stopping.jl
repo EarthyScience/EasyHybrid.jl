@@ -9,12 +9,12 @@ mutable struct EarlyStopping
 end
 
 function EarlyStopping(init_loss, ps, st, cfg)
-    best_loss = extract_agg_loss(init_loss)
+    best_loss = extract_agg_loss(init_loss, cfg.agg)
     return EarlyStopping(best_loss, deepcopy(cfg.cdev(ps)), deepcopy(cfg.cdev(st)), 0, 0, cfg.patience, false)
 end
 
 function update!(es::EarlyStopping, history::TrainingHistory, snapshot::EpochSnapshot, ps, st, cfg::TrainConfig)
-    current_loss = extract_agg_loss(snapshot.l_val)
+    current_loss = extract_agg_loss(snapshot.l_val, cfg.agg)
     new_snapshot = EpochSnapshot(snapshot.l_train, snapshot.l_val, deepcopy(snapshot.ŷ_train), deepcopy(snapshot.ŷ_val), snapshot.epoch)
 
     if cfg.keep_history
