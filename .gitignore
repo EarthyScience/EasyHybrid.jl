@@ -25,6 +25,7 @@ Manifest.toml
 *.err
 *.out
 /docs/src/tutorials/folds.md
+/docs/src/tutorials/building_models.md
 *.jl.cov
 *.jl.*.cov
 coverage/lcov.info

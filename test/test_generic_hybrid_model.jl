@@ -34,11 +34,6 @@ test_parameters = (
         @test result[5] ≈ 1.0f0  # hard_sigmoid(5) = 1.0 (clamped)
     end
 
-    @testset "AbstractHybridModel types" begin
-        @test AbstractHybridModel <: Any
-        @test ParameterContainer <: AbstractHybridModel
-        @test HybridParams <: AbstractHybridModel
-    end
 
     @testset "ParameterContainer construction" begin
         params = (a = (1.0f0, 0.0f0, 2.0f0), b = (2.0f0, 1.0f0, 3.0f0))
@@ -69,65 +64,58 @@ test_parameters = (
         @test result == expected
     end
 
-    @testset "HybridParams construction" begin
-        params = (a = (1.0f0, 0.0f0, 2.0f0),)
-        pc = ParameterContainer(params)
-        hp = HybridParams{typeof(test_mechanistic_model)}(pc)
 
-        @test hp isa HybridParams
-        @test hp.hybrid == pc
-    end
 end
 
 @testset "GenericHybridModel - Parameter Functions" begin
     params = (a = (1.0f0, 0.0f0, 2.0f0), b = (2.0f0, 1.0f0, 3.0f0))
-    hp = HybridParams{typeof(test_mechanistic_model)}(ParameterContainer(params))
+    pc = ParameterContainer(params)
 
     @testset "default function" begin
-        defaults = default(hp)
+        defaults = default(pc)
         @test defaults.a == 1.0f0
         @test defaults.b == 2.0f0
     end
 
     @testset "lower function" begin
-        lowers = lower(hp)
+        lowers = lower(pc)
         @test lowers.a == 0.0f0
         @test lowers.b == 1.0f0
     end
 
     @testset "upper function" begin
-        uppers = upper(hp)
+        uppers = upper(pc)
         @test uppers.a == 2.0f0
         @test uppers.b == 3.0f0
     end
 
     @testset "pnames function" begin
-        names = EasyHybrid.pnames(hp)
+        names = EasyHybrid.pnames(pc)
         @test collect(names) == [:a, :b]
     end
 
     @testset "scale_single_param function" begin
         # Test sigmoid scaling
-        scaled_a = scale_single_param(:a, [0.0f0], hp)
+        scaled_a = scale_single_param(:a, [0.0f0], pc)
         @test length(scaled_a) == 1
         @test scaled_a[1] ≈ 1.0f0  # sigmoid(0) = 0.5, so 0 + 0.5*(2-0) = 1.0
 
-        scaled_b = scale_single_param(:b, [0.0f0], hp)
+        scaled_b = scale_single_param(:b, [0.0f0], pc)
         @test scaled_b[1] ≈ 2.0f0  # sigmoid(0) = 0.5, so 1 + 0.5*(3-1) = 2.0
     end
 
     @testset "scale_single_param_minmax function" begin
         # Test inverse sigmoid scaling
-        inv_scaled_a = EasyHybrid.scale_single_param_minmax(:a, hp)
+        inv_scaled_a = EasyHybrid.scale_single_param_minmax(:a, pc)
         @test inv_scaled_a ≈ 0.0f0  # inverse sigmoid of 0.5 is 0.0
 
-        inv_scaled_b = EasyHybrid.scale_single_param_minmax(:b, hp)
+        inv_scaled_b = EasyHybrid.scale_single_param_minmax(:b, pc)
         @test inv_scaled_b ≈ 0.0f0  # inverse sigmoid of 0.5 is 0.0
     end
 end
 
-@testset "GenericHybridModel - SingleNNHybridModel" begin
-    @testset "constructHybridModel with Vector predictors" begin
+@testset "GenericHybridModel - HybridModel" begin
+    @testset "HybridModel with Vector predictors" begin
         predictors = [:x2, :x3]
         forcing = [:x1]
         targets = [:obs]
@@ -144,7 +132,7 @@ end
             global_param_names
         )
 
-        @test model isa SingleNNHybridModel
+        @test model isa HybridModel
         @test model.predictors == predictors
         @test model.forcing == forcing
         @test model.targets == targets
@@ -153,10 +141,10 @@ end
         @test model.fixed_param_names == [:c, :d]
         @test model.scale_nn_outputs == false
         @test model.start_from_default == true
-        @test model.NN isa Chain
+        @test model.NNs isa Chain
     end
 
-    @testset "constructHybridModel with empty predictors" begin
+    @testset "HybridModel with empty predictors" begin
         predictors = Symbol[]
         forcing = [:x1]
         targets = [:obs]
@@ -173,13 +161,13 @@ end
             global_param_names
         )
 
-        @test model isa SingleNNHybridModel
+        @test model isa HybridModel
         @test model.predictors == predictors
-        @test model.NN isa Chain
+        @test model.NNs isa Chain
         # @test typeof(model.NN.layers[1]) == Lux.NoOpLayer  # Empty chain
     end
 
-    @testset "SingleNNHybridModel initialparameters" begin
+    @testset "HybridModel initialparameters" begin
         predictors = [:x2, :x3]
         forcing = [:x1]
         targets = [:obs]
@@ -205,7 +193,7 @@ end
         @test ps.b[1] isa Float32
     end
 
-    @testset "SingleNNHybridModel initialstates" begin
+    @testset "HybridModel initialstates" begin
         predictors = [:x2, :x3]
         forcing = [:x1]
         targets = [:obs]
@@ -235,7 +223,7 @@ end
         @test st.fixed.d[1] isa Float32
     end
 
-    @testset "SingleNNHybridModel forward pass" begin
+    @testset "HybridModel forward pass" begin
         predictors = [:x2, :x3]
         forcing = [:x1]
         targets = [:obs]
@@ -269,7 +257,7 @@ end
         @test haskey(new_st, :fixed)
     end
 
-    @testset "SingleNNHybridModel with scale_nn_outputs=true" begin
+    @testset "HybridModel with scale_nn_outputs=true" begin
         predictors = [:x2, :x3]
         forcing = [:x1]
         targets = [:obs]
@@ -301,8 +289,8 @@ end
     end
 end
 
-@testset "GenericHybridModel - MultiNNHybridModel" begin
-    @testset "constructHybridModel with NamedTuple predictors" begin
+@testset "GenericHybridModel - HybridModel" begin
+    @testset "HybridModel with NamedTuple predictors" begin
         predictors = (a = [:x2, :x3], d = [:x1])
         forcing = [:x1]
         targets = [:obs]
@@ -317,7 +305,7 @@ end
             global_param_names
         )
 
-        @test model isa MultiNNHybridModel
+        @test model isa HybridModel
         @test model.predictors == predictors
         @test model.forcing == forcing
         @test model.targets == targets
@@ -330,7 +318,7 @@ end
         @test haskey(model.NNs, :d)
     end
 
-    @testset "MultiNNHybridModel with NamedTuple hidden_layers and activation" begin
+    @testset "HybridModel with NamedTuple hidden_layers and activation" begin
         predictors = (a = [:x2, :x3], d = [:x1])
         forcing = [:x1]
         targets = [:obs]
@@ -347,12 +335,12 @@ end
             activation = (a = tanh, d = sigmoid)
         )
 
-        @test model isa MultiNNHybridModel
+        @test model isa HybridModel
         @test haskey(model.NNs, :a)
         @test haskey(model.NNs, :d)
     end
 
-    @testset "MultiNNHybridModel initialparameters" begin
+    @testset "HybridModel initialparameters" begin
         predictors = (a = [:x2, :x3], d = [:x1])
         forcing = [:x1]
         targets = [:obs]
@@ -377,7 +365,7 @@ end
         @test ps.b[1] isa Float32
     end
 
-    @testset "MultiNNHybridModel initialstates" begin
+    @testset "HybridModel initialstates" begin
         predictors = (a = [:x2, :x3], d = [:x1])
         forcing = [:x1]
         targets = [:obs]
@@ -403,7 +391,7 @@ end
         @test st.fixed.c[1] isa Float32
     end
 
-    @testset "MultiNNHybridModel forward pass" begin
+    @testset "HybridModel forward pass" begin
         predictors = (a = [:x2, :x3], d = [:x1])
         forcing = [:x1]
         targets = [:obs]
@@ -438,7 +426,7 @@ end
         @test haskey(new_st, :fixed)
     end
 
-    @testset "MultiNNHybridModel with scale_nn_outputs=true" begin
+    @testset "HybridModel with scale_nn_outputs=true" begin
         predictors = (a = [:x2, :x3], d = [:x1])
         forcing = [:x1]
         targets = [:obs]
@@ -491,7 +479,7 @@ end
             global_param_names
         )
 
-        @test model isa SingleNNHybridModel
+        @test model isa HybridModel
         @test isempty(model.neural_param_names)
         @test isempty(model.global_param_names)
         @test model.fixed_param_names == [:a, :b, :c, :d]
@@ -559,10 +547,10 @@ end
             hidden_layers = custom_chain
         )
 
-        @test model isa SingleNNHybridModel
-        @test model.NN isa Chain
+        @test model isa HybridModel
+        @test model.NNs isa Chain
         # The chain should have the custom layers plus input and output layers
-        @test length(model.NN.layers) > length(custom_chain.layers)
+        @test length(model.NNs.layers) > length(custom_chain.layers)
     end
 end
 

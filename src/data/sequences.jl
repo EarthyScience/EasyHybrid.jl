@@ -34,7 +34,7 @@ end
 _subset_y(y, valid) = y[:, :, valid]
 _subset_y(y::NamedTuple, valid) = map(v -> v[:, valid], y)
 
-# NamedTuple predictors (MultiNNHybridModel): every branch is a 3D
+# NamedTuple predictors (HybridModel): every branch is a 3D
 # `(feature, time, batch)` array sharing the batch axis with forcings/targets.
 # Drop a sequence if any branch has a NaN predictor or all targets are NaN.
 function filter_sequences(x_tuple::Tuple{<:NamedTuple, <:Any}, y)
@@ -99,9 +99,9 @@ function split_into_sequences(x::Tuple, y; kwargs...)
     return (X_seq, forcings_seq), Y_seq
 end
 
-# MultiNNHybridModel support.
+# HybridModel support.
 #
-# For `MultiNNHybridModel`, `prepare_data` returns the predictors as a
+# For `HybridModel` with NamedTuple predictors, `prepare_data` returns the predictors as a
 # NamedTuple of per-branch `(feature, time)` arrays (one per neural network),
 # while forcings and targets stay shared across branches. Window every branch on
 # the common time axis and keep the NamedTuple structure so the model's forward
@@ -123,7 +123,7 @@ function split_into_sequences(x::Tuple{<:NamedTuple, <:Any}, y::NamedTuple; kwar
     return (X_seq, forcings_seq), _array_to_nt(Y_seq, targetkeys)
 end
 
-# Predictor branches built for `MultiNNHybridModel` are plain matrices (their
+# Predictor branches built for `HybridModel` with NamedTuple predictors are plain matrices (their
 # axis keys are stripped in `prepare_data`). Wrap them with synthetic keys so
 # they flow through the keyed windowing path and produce keyed 3D outputs that
 # `collect_end_dim`/`view_end_dim` understand. Keyed/Dim inputs pass through.

@@ -61,7 +61,7 @@ const RbQ10_PARAMS = (
             predictors, forcing, target, RbQ10,
             RbQ10_PARAMS, neural_param_names, global_param_names
         )
-        @test model isa SingleNNHybridModel
+        @test model isa HybridModel
         # prepare_data should produce something consumable by split_data
         ka = to_keyedArray(df)
         @test !isnothing(ka)
@@ -139,7 +139,7 @@ const RbQ10_PARAMS = (
             predictors, forcing, target, RbQ10,
             RbQ10_PARAMS, neural_param_names, global_param_names
         )
-        @test model isa SingleNNHybridModel
+        @test model isa HybridModel
         # prepare_data should produce something consumable by split_data
         ka = prepare_data(model, df)
         @test !isnothing(ka)

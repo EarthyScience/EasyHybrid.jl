@@ -18,20 +18,19 @@ function get_hybrid_config(hm::LuxCore.AbstractLuxContainerLayer)
 end
 
 _yaml_field_value(x) = x
-_yaml_field_value(p::AbstractHybridModel) = get_parameters_config(p)
+_yaml_field_value(p::ParameterContainer) = get_parameters_config(p)
 _yaml_field_value(f::Function) = get_mechanistic_model_config(f)
 
 """
-    get_parameters_config(p::AbstractHybridModel)
+    get_parameters_config(pc::ParameterContainer)
 
 Serialize the parameter table (`default`, `lower`, `upper` per parameter) of a
-`HybridParams`/`ParameterContainer` into a nested `OrderedDict` suitable for
+`ParameterContainer` into a nested `OrderedDict` suitable for
 YAML output. Without this, only the compact `show` of the struct
-(e.g. `HybridParams(ParameterContainer(RUE, Rb, Q10))`) would be written, which
+(e.g. `ParameterContainer(RUE, Rb, Q10)`) would be written, which
 drops all of the actual default and bound values.
 """
-function get_parameters_config(p::AbstractHybridModel)
-    pc = hasfield(typeof(p), :hybrid) ? p.hybrid : p
+function get_parameters_config(pc::ParameterContainer)
     out = OrderedDict{String, Any}()
     for name in keys(pc.values)
         d, l, u = pc.values[name]

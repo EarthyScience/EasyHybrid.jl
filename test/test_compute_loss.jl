@@ -1,6 +1,6 @@
 using EasyHybrid: _compute_loss, PerTarget, _apply_loss, loss_fn
 using EasyHybrid: _get_target_nan, _get_target_y, _loss_name, compute_loss, LoggingLoss
-using EasyHybrid: constructHybridModel, to_keyedArray
+using EasyHybrid: HybridModel, constructHybridModel, to_keyedArray
 using Statistics
 using DimensionalData
 using Random
