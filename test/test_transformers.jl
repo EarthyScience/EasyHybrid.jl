@@ -215,4 +215,51 @@ using EasyHybrid.Transformers
         @test size(y) == (out_features, dec_seq_len, batch_size)
         @info "VisionEncoderDecoderModel Forward Pass OK. Output Shape: $(size(y))"
     end
+
+    @testset "Direct Multi-Step Forecasting (Climate Scenario)" begin
+        # Goal: Predict Net Ecosystem Exchange (NEE) for the next 7 days, 
+        # using the past 14 days of Temperature and Precipitation.
+        # We also know the future Time of Day and Solar Radiation for the 7 forecast days.
+
+        past_horizon = 14
+        future_horizon = 7
+        batch_size = 8
+
+        # Encoder sees past: Temp, Precip (2 features)
+        enc_features = 2
+        
+        # Decoder sees known future: TimeOfDay, Radiation (2 features)
+        dec_features = 2
+
+        # Output predicts: NEE (1 feature)
+        out_features = 1
+        d_model = 32
+
+        model = EncoderDecoderModel(
+            in_features = enc_features,
+            dec_features = dec_features,
+            d_model = d_model,
+            enc_layers = 2,
+            dec_layers = 2,
+            n_heads = 2,
+            out_features = out_features
+        )
+
+        ps, st = Lux.setup(rng, model)
+        st = Lux.testmode(st)
+
+        # Create dummy data
+        past_covariates = randn(Float32, enc_features, past_horizon, batch_size)
+        future_known_covariates = randn(Float32, dec_features, future_horizon, batch_size)
+
+        # Forward pass: 
+        # Encoder processes the past covariates.
+        # Decoder takes the known future covariates and the encoder's memory, 
+        # and directly predicts the target over the entire future horizon in one shot.
+        # Since it's direct multi-step, the decoder does NOT need to be causal!
+        # It can look at the entire sequence of future known covariates to predict the targets.
+        predicted_nee, st_out = model(past_covariates, future_known_covariates, ps, st; enc_causal = false, dec_causal = false)
+        @test size(predicted_nee) == (out_features, future_horizon, batch_size)
+        @info "Direct Multi-Step Forecasting (Climate Scenario) OK. Predicted NEE Shape: $(size(predicted_nee))"
+    end
 end
