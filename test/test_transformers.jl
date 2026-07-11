@@ -347,4 +347,75 @@ using EasyHybrid.Transformers
         @test size(y) == (32, 32, out_channels, batch_size)
         @info "VisionToVisionEncoderDecoderModel Forward Pass OK. Output Shape: $(size(y))"
     end
+
+    @testset "LSTM-Style Regression (Encoder-Only)" begin
+        # Goal: Predict a single target at the final time step using ONLY historical covariates.
+        # This mirrors a classic LSTM where you feed a sequence and take the final hidden state output.
+
+        in_features = 3
+        out_features = 1
+        d_model = 16
+        batch_size = 4
+        past_window = 10
+
+        model = TransformerModel(
+            in_features = in_features,
+            out_features = out_features,
+            d_model = d_model,
+            n_layers = 2,
+            n_heads = 2
+        )
+
+        ps, st = Lux.setup(rng, model)
+        st = Lux.testmode(st)
+
+        # x represents the past history (length 10)
+        x = randn(Float32, in_features, past_window, batch_size)
+
+        y, st_out = model(x, ps, st; causal = true)
+
+        # The model outputs a prediction for EVERY step.
+        # For LSTM-style regression, we simply slice out the final timestep prediction!
+        y_final_step = y[:, end:end, :]
+
+        @test size(y_final_step) == (out_features, 1, batch_size)
+        @info "LSTM-Style Regression (Encoder-Only) OK. Output Shape: $(size(y_final_step))"
+    end
+
+    @testset "LSTM-Style Regression (Encoder-Decoder)" begin
+        # Goal: Predict a single concurrent target at the final time step,
+        # utilizing a history of past covariates AND known covariates EXACTLY at the target step.
+
+        in_features = 3
+        dec_features = 2 # Covariates known concurrently at the target step (e.g., Time of Day)
+        out_features = 1
+        d_model = 16
+        batch_size = 4
+        past_window = 10
+
+        model = EncoderDecoderModel(
+            in_features = in_features,
+            dec_features = dec_features,
+            out_features = out_features,
+            d_model = d_model,
+            enc_layers = 1,
+            dec_layers = 1,
+            n_heads = 2
+        )
+
+        ps, st = Lux.setup(rng, model)
+        st = Lux.testmode(st)
+
+        # enc_x represents the past history (length 10)
+        enc_x = randn(Float32, in_features, past_window, batch_size)
+
+        # dec_x represents the concurrent features exactly at the target step (length 1)
+        dec_x = randn(Float32, dec_features, 1, batch_size)
+
+        y, st_out = model(enc_x, dec_x, ps, st)
+
+        # The decoder naturally outputs length 1 because dec_x has length 1!
+        @test size(y) == (out_features, 1, batch_size)
+        @info "LSTM-Style Regression (Encoder-Decoder) OK. Output Shape: $(size(y))"
+    end
 end
