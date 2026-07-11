@@ -1,13 +1,3 @@
-struct VisionTransformer{ST, E, PE, S, N, O} <: LuxCore.AbstractLuxContainerLayer{(:stem, :patch_embedding, :pos_embedding, :blocks, :norm, :output)}
-    stem::ST
-    patch_embedding::E
-    pos_embedding::PE
-    blocks::S
-    norm::N
-    output::O
-    use_rope::Bool
-end
-
 """
     VisionTransformer(; patch_size, in_channels, d_model, n_layers, n_heads, n_kv_heads=n_heads, max_positions, num_classes, ndims=2, use_rope=false, dropout_rate=0.0f0, stem=nothing, norm_eps=1.0f-5)
 
@@ -31,6 +21,16 @@ Creates a Vision Transformer. If `stem` is provided, it acts as a Hybrid feature
 # Returns
 - A `VisionTransformer` container layer
 """
+struct VisionTransformer{ST, E, PE, S, N, O} <: LuxCore.AbstractLuxContainerLayer{(:stem, :patch_embedding, :pos_embedding, :blocks, :norm, :output)}
+    stem::ST
+    patch_embedding::E
+    pos_embedding::PE
+    blocks::S
+    norm::N
+    output::O
+    use_rope::Bool
+end
+
 function VisionTransformer(;
         patch_size, in_channels, d_model, n_layers, n_heads, n_kv_heads = n_heads,
         max_positions, num_classes, ndims = 2, use_rope = false,

@@ -1,11 +1,3 @@
-struct TransformerModel{ST, E, S, N, O} <: LuxCore.AbstractLuxContainerLayer{(:stem, :embedding, :blocks, :norm, :output)}
-    stem::ST
-    embedding::E
-    blocks::S
-    norm::N
-    output::O
-end
-
 """
     TransformerModel(; in_features, d_model, n_layers, n_heads, n_kv_heads=n_heads, out_features, dropout_rate=0.0f0, stem=nothing, max_positions=nothing, norm_eps=1.0f-5)
 
@@ -27,6 +19,14 @@ Optionally accepts a `stem` (e.g. a CNN or LSTM) to act as a feature extractor b
 # Returns
 - A `TransformerModel` container layer
 """
+struct TransformerModel{ST, E, S, N, O} <: LuxCore.AbstractLuxContainerLayer{(:stem, :embedding, :blocks, :norm, :output)}
+    stem::ST
+    embedding::E
+    blocks::S
+    norm::N
+    output::O
+end
+
 function TransformerModel(;
         in_features, d_model, n_layers, n_heads, n_kv_heads = n_heads,
         max_positions = nothing, out_features, norm_eps = 1.0f-5,

@@ -1,7 +1,3 @@
-struct FeatureEmbedding{D} <: LuxCore.AbstractLuxContainerLayer{(:dense,)}
-    dense::D
-end
-
 """
     FeatureEmbedding(in_features::Int, d_model::Int)
 
@@ -16,6 +12,10 @@ this projects continuous features into the hidden `d_model` dimension via a Dens
 # Returns
 - A `FeatureEmbedding` container layer
 """
+struct FeatureEmbedding{D} <: LuxCore.AbstractLuxContainerLayer{(:dense,)}
+    dense::D
+end
+
 function FeatureEmbedding(in_features::Int, d_model::Int)
     return FeatureEmbedding(Dense(in_features => d_model))
 end
@@ -39,11 +39,6 @@ function (m::FeatureEmbedding)(x, ps, st)
     return y, (dense = st_dense,)
 end
 
-struct PositionEmbedding{E} <: LuxCore.AbstractLuxContainerLayer{(:embedding,)}
-    embedding::E
-    dim::Int
-end
-
 """
     PositionEmbedding(max_positions::Integer, d_model::Integer; dim::Int=2)
 
@@ -58,6 +53,11 @@ Typically used when RoPE is disabled.
 # Returns
 - A `PositionEmbedding` layer
 """
+struct PositionEmbedding{E} <: LuxCore.AbstractLuxContainerLayer{(:embedding,)}
+    embedding::E
+    dim::Int
+end
+
 function PositionEmbedding(max_positions::Integer, d_model::Integer; dim::Int = 2)
     emb = Embedding(max_positions => d_model)
     return PositionEmbedding(emb, dim)
@@ -83,10 +83,6 @@ function (m::PositionEmbedding)(x, ps, st)
     return x .+ reshape(emb, size(emb, 1), size(emb, 2), 1), (embedding = st_emb,)
 end
 
-struct PatchEmbedding{C} <: LuxCore.AbstractLuxContainerLayer{(:conv,)}
-    conv::C
-end
-
 """
     PatchEmbedding(patch_size::Tuple, in_channels::Int, d_model::Int; ndims::Int=2)
 
@@ -101,6 +97,10 @@ Creates a PatchEmbedding for Vision Transformers using a Convolutional layer.
 # Returns
 - A `PatchEmbedding` container layer
 """
+struct PatchEmbedding{C} <: LuxCore.AbstractLuxContainerLayer{(:conv,)}
+    conv::C
+end
+
 function PatchEmbedding(patch_size::Tuple, in_channels::Int, d_model::Int; ndims::Int = 2)
     # Stride is equal to patch size for non-overlapping patches
     conv = Conv(patch_size, in_channels => d_model, stride = patch_size)

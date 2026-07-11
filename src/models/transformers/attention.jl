@@ -184,15 +184,6 @@ function (m::GroupedQueryAttention)(x, ps, st; context = nothing, mask = nothing
     return out, (wq = st_q, wk = st_k, wv = st_v, wo = st_o, drop = st_d)
 end
 
-struct MultiHeadSelfAttention{Q, K, V, O, D} <: LuxCore.AbstractLuxContainerLayer{(:query, :key, :value, :out, :drop)}
-    query::Q
-    key::K
-    value::V
-    out::O
-    drop::D
-    n_heads::Int
-end
-
 """
     MultiHeadSelfAttention(d_model, n_heads; dropout_rate=0.0f0)
 
@@ -206,6 +197,15 @@ Standard Multi-Head Self Attention, primarily used for Cross-Attention in Encode
 # Returns
 - A `MultiHeadSelfAttention` container layer
 """
+struct MultiHeadSelfAttention{Q, K, V, O, D} <: LuxCore.AbstractLuxContainerLayer{(:query, :key, :value, :out, :drop)}
+    query::Q
+    key::K
+    value::V
+    out::O
+    drop::D
+    n_heads::Int
+end
+
 function MultiHeadSelfAttention(d_model, n_heads; dropout_rate::Float32 = 0.0f0)
     return MultiHeadSelfAttention(
         Dense(d_model => d_model),

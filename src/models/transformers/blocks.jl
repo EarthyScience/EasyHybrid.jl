@@ -14,20 +14,6 @@ function (m::RMSNorm)(x, ps, st)
 end
 
 """
-    FeedForward(dim::Int; multiple_of::Int=256, ffn_dim_multiplier::Union{Float64, Nothing}=nothing)
-
-Implements a SwiGLU FeedForward network.
-This block projects the input to a higher dimension, applies a Swish (SiLU) gating mechanism, 
-and projects it back to the original dimension, offering better gradient flow than standard GELU MLPs.
-"""
-struct FeedForward{W1, W2, W3, D} <: LuxCore.AbstractLuxContainerLayer{(:w1, :w2, :w3, :drop)}
-    w1::W1   # gate
-    w2::W2   # down
-    w3::W3   # up
-    drop::D
-end
-
-"""
     FeedForward(dim::Int; multiple_of::Int=256, ffn_dim_multiplier::Union{Float64, Nothing}=nothing, dropout_rate::Float32=0.0f0)
 
 Implements a SwiGLU FeedForward network.
@@ -43,6 +29,13 @@ and projects it back to the original dimension, offering better gradient flow th
 # Returns
 - A `FeedForward` container layer
 """
+struct FeedForward{W1, W2, W3, D} <: LuxCore.AbstractLuxContainerLayer{(:w1, :w2, :w3, :drop)}
+    w1::W1   # gate
+    w2::W2   # down
+    w3::W3   # up
+    drop::D
+end
+
 function FeedForward(dim::Int; multiple_of::Int = 256, ffn_dim_multiplier::Union{Float64, Nothing} = nothing, dropout_rate::Float32 = 0.0f0)
     hidden = 2 * (4 * dim) ÷ 3
     hidden = ffn_dim_multiplier === nothing ? hidden : floor(Int, hidden * ffn_dim_multiplier)
@@ -78,10 +71,6 @@ function (m::FeedForward)(x, ps, st)
     return y, (w1 = st_w1, w2 = st_w2, w3 = st_w3, drop = st_drop)
 end
 
-struct TransformerStack{L} <: LuxCore.AbstractLuxContainerLayer{(:layers,)}
-    layers::L
-end
-
 """
     TransformerStack(layers::Union{Vector, Tuple})
 
@@ -97,6 +86,9 @@ which is required for advanced attention mechanisms.
 # Returns
 - A `TransformerStack` container layer
 """
+struct TransformerStack{L} <: LuxCore.AbstractLuxContainerLayer{(:layers,)}
+    layers::L
+end
 
 function TransformerStack(layers::Union{Vector, Tuple})
     names = Tuple(Symbol(:layer_, i) for i in 1:length(layers))
@@ -130,15 +122,6 @@ function (m::TransformerStack)(x, ps, st; kwargs...)
     return x, (layers = st_new,)
 end
 
-struct TransformerBlock{A, N1, CA, CN, F, N2} <: LuxCore.AbstractLuxContainerLayer{(:attention, :attn_norm, :cross_attention, :norm_cross, :feed_forward, :ffn_norm)}
-    attention::A
-    attn_norm::N1
-    cross_attention::CA
-    norm_cross::CN
-    feed_forward::F
-    ffn_norm::N2
-end
-
 """
     TransformerBlock(dim, n_heads, n_kv_heads; norm_eps=1.0f-5, cross_attention=false, dropout_rate=0.0f0)
 
@@ -156,6 +139,15 @@ If `cross_attention` is true, an additional MultiHeadSelfAttention block is adde
 # Returns
 - A `TransformerBlock` container layer
 """
+struct TransformerBlock{A, N1, CA, CN, F, N2} <: LuxCore.AbstractLuxContainerLayer{(:attention, :attn_norm, :cross_attention, :norm_cross, :feed_forward, :ffn_norm)}
+    attention::A
+    attn_norm::N1
+    cross_attention::CA
+    norm_cross::CN
+    feed_forward::F
+    ffn_norm::N2
+end
+
 function TransformerBlock(dim, n_heads, n_kv_heads; norm_eps = 1.0f-5, cross_attention = false, dropout_rate::Float32 = 0.0f0)
     return TransformerBlock(
         GroupedQueryAttention(dim, n_heads, n_kv_heads; dropout_rate = dropout_rate),

@@ -1,14 +1,3 @@
-struct EncoderDecoderModel{ST, EE, ES, EN, DE, DS, DN, O} <: LuxCore.AbstractLuxContainerLayer{(:stem, :enc_embedding, :enc_blocks, :enc_norm, :dec_embedding, :dec_blocks, :dec_norm, :output)}
-    stem::ST
-    enc_embedding::EE
-    enc_blocks::ES
-    enc_norm::EN
-    dec_embedding::DE
-    dec_blocks::DS
-    dec_norm::DN
-    output::O
-end
-
 """
     EncoderDecoderModel(; in_features, dec_features, d_model, enc_layers, dec_layers, n_heads, n_kv_heads=n_heads, out_features, norm_eps=1.0f-5, dropout_rate=0.0f0, stem=nothing)
 
@@ -31,6 +20,17 @@ and MultiHeadSelfAttention for cross-attention.
 # Returns
 - An `EncoderDecoderModel` container layer
 """
+struct EncoderDecoderModel{ST, EE, ES, EN, DE, DS, DN, O} <: LuxCore.AbstractLuxContainerLayer{(:stem, :enc_embedding, :enc_blocks, :enc_norm, :dec_embedding, :dec_blocks, :dec_norm, :output)}
+    stem::ST
+    enc_embedding::EE
+    enc_blocks::ES
+    enc_norm::EN
+    dec_embedding::DE
+    dec_blocks::DS
+    dec_norm::DN
+    output::O
+end
+
 function EncoderDecoderModel(;
         in_features, dec_features, d_model,
         enc_layers, dec_layers, n_heads, n_kv_heads = n_heads,
