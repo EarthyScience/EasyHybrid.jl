@@ -20,13 +20,14 @@ Implements a SwiGLU FeedForward network.
 This block projects the input to a higher dimension, applies a Swish (SiLU) gating mechanism, 
 and projects it back to the original dimension, offering better gradient flow than standard GELU MLPs.
 """
-struct FeedForward{W1, W2, W3} <: LuxCore.AbstractLuxContainerLayer{(:w1, :w2, :w3)}
+struct FeedForward{W1, W2, W3, D} <: LuxCore.AbstractLuxContainerLayer{(:w1, :w2, :w3, :drop)}
     w1::W1   # gate
     w2::W2   # down
     w3::W3   # up
+    drop::D
 end
 
-function FeedForward(dim::Int; multiple_of::Int = 256, ffn_dim_multiplier::Union{Float64, Nothing} = nothing)
+function FeedForward(dim::Int; multiple_of::Int = 256, ffn_dim_multiplier::Union{Float64, Nothing} = nothing, dropout_rate::Float32 = 0.0f0)
     hidden = 2 * (4 * dim) ÷ 3
     hidden = ffn_dim_multiplier === nothing ? hidden : floor(Int, hidden * ffn_dim_multiplier)
     hidden = multiple_of * cld(hidden, multiple_of)
@@ -34,6 +35,7 @@ function FeedForward(dim::Int; multiple_of::Int = 256, ffn_dim_multiplier::Union
         Dense(dim => hidden; use_bias = false),
         Dense(hidden => dim; use_bias = false),
         Dense(dim => hidden; use_bias = false),
+        Dropout(dropout_rate)
     )
 end
 
@@ -42,7 +44,8 @@ function (m::FeedForward)(x, ps, st)
     u, st_w3 = m.w3(x, ps.w3, st.w3)
     h = NNlib.swish.(g) .* u
     y, st_w2 = m.w2(h, ps.w2, st.w2)
-    return y, (w1 = st_w1, w2 = st_w2, w3 = st_w3)
+    y, st_drop = m.drop(y, ps.drop, st.drop)
+    return y, (w1 = st_w1, w2 = st_w2, w3 = st_w3, drop = st_drop)
 end
 
 """
@@ -87,13 +90,13 @@ end
 Creates a State-of-the-Art Transformer Block using RMSNorm, SwiGLU FeedForward, and GroupedQueryAttention.
 If `cross_attention` is true, an additional MultiHeadSelfAttention block is added for Encoder-Decoder architectures.
 """
-function TransformerBlock(dim, n_heads, n_kv_heads; norm_eps = 1.0f-5, cross_attention = false)
+function TransformerBlock(dim, n_heads, n_kv_heads; norm_eps = 1.0f-5, cross_attention = false, dropout_rate::Float32 = 0.0f0)
     return TransformerBlock(
-        GroupedQueryAttention(dim, n_heads, n_kv_heads),
+        GroupedQueryAttention(dim, n_heads, n_kv_heads; dropout_rate = dropout_rate),
         RMSNorm(dim; eps = norm_eps),
-        cross_attention ? MultiHeadSelfAttention(dim, n_heads) : NoOpLayer(),
+        cross_attention ? MultiHeadSelfAttention(dim, n_heads; dropout_rate = dropout_rate) : NoOpLayer(),
         cross_attention ? RMSNorm(dim; eps = norm_eps) : NoOpLayer(),
-        FeedForward(dim),
+        FeedForward(dim; dropout_rate = dropout_rate),
         RMSNorm(dim; eps = norm_eps),
     )
 end

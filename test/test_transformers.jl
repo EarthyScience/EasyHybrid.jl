@@ -16,29 +16,35 @@ using EasyHybrid.Transformers
         seq_len = 24      # e.g., 24 hours of covariates
         batch_size = 32
 
-        # 2. Initialize Model
+        # 2. Initialize Model with a mock Hybrid stem (e.g. an initial feature transformation) and dropout
         model = TransformerModel(
             in_features = in_features,
             d_model = d_model,
             n_layers = 2,
             n_heads = 4,
-            max_positions = 128,
-            out_features = out_features
+            max_positions = 512,
+            out_features = out_features,
+            dropout_rate = 0.1f0,
+            stem = Dense(in_features => in_features, relu)
         )
 
         ps, st = Lux.setup(rng, model)
 
-        # 3. Create dummy time series data: (features, seq_len, batch)
-        # Note: Lux Dense layers expect the feature dimension to be first.
+        # 3. Create dummy data
         x = randn(Float32, in_features, seq_len, batch_size)
 
-        # 4a. Forward pass (causal=false, predicting current step observations)
+        # 4. Forward pass
+        # Test training mode (dropout active)
         y, st_out = model(x, ps, st; causal = false)
 
-        # 5a. Verify shapes
-        # Output should be (out_features, seq_len, batch_size)
+        # Test inference mode (dropout inactive)
+        st_test = Lux.testmode(st)
+        y_test, _ = model(x, ps, st_test; causal = false)
+
+        # 5. Verify shapes
         @test size(y) == (out_features, seq_len, batch_size)
-        println("TransformerModel Forward Pass (Bidirectional) OK. Output Shape: ", size(y))
+        @test size(y_test) == (out_features, seq_len, batch_size)
+        println("TransformerModel (Bidirectional + Dropout + Stem) Forward Pass OK. Output Shape: ", size(y))
 
         # 4b. Forward pass (causal=true, strict forecasting)
         y_causal, st_causal = model(x, ps, st; causal = true)

@@ -1,4 +1,5 @@
-struct EncoderDecoderModel{EE, ES, EN, DE, DS, DN, O} <: LuxCore.AbstractLuxContainerLayer{(:enc_embedding, :enc_blocks, :enc_norm, :dec_embedding, :dec_blocks, :dec_norm, :output)}
+struct EncoderDecoderModel{ST, EE, ES, EN, DE, DS, DN, O} <: LuxCore.AbstractLuxContainerLayer{(:stem, :enc_embedding, :enc_blocks, :enc_norm, :dec_embedding, :dec_blocks, :dec_norm, :output)}
+    stem::ST
     enc_embedding::EE
     enc_blocks::ES
     enc_norm::EN
@@ -17,13 +18,14 @@ and MultiHeadSelfAttention for cross-attention.
 function EncoderDecoderModel(;
         in_features, dec_features, d_model,
         enc_layers, dec_layers, n_heads, n_kv_heads = n_heads,
-        out_features, norm_eps = 1.0f-5
+        out_features, norm_eps = 1.0f-5, dropout_rate::Float32 = 0.0f0, stem = nothing
     )
 
-    enc_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, cross_attention = false) for _ in 1:enc_layers)
-    dec_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, cross_attention = true) for _ in 1:dec_layers)
+    enc_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, cross_attention = false, dropout_rate) for _ in 1:enc_layers)
+    dec_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, cross_attention = true, dropout_rate) for _ in 1:dec_layers)
 
     return EncoderDecoderModel(
+        stem === nothing ? NoOpLayer() : stem,
         FeatureEmbedding(in_features, d_model),
         TransformerStack(enc_blocks),
         RMSNorm(d_model; eps = norm_eps),
@@ -35,6 +37,8 @@ function EncoderDecoderModel(;
 end
 
 function (m::EncoderDecoderModel)(enc_x, dec_x, ps, st; enc_causal = false, dec_causal = true)
+    enc_x, st_stem = m.stem(enc_x, ps.stem, st.stem)
+
     enc_seq_len = size(enc_x, 2)
     dec_seq_len = size(dec_x, 2)
 
@@ -56,7 +60,7 @@ function (m::EncoderDecoderModel)(enc_x, dec_x, ps, st; enc_causal = false, dec_
     out, st_out = m.output(dec_y, ps.output, st.output)
 
     new_st = (
-        enc_embedding = st_ee, enc_blocks = st_eb, enc_norm = st_en,
+        stem = st_stem, enc_embedding = st_ee, enc_blocks = st_eb, enc_norm = st_en,
         dec_embedding = st_de, dec_blocks = st_db, dec_norm = st_dn, output = st_out,
     )
     return out, new_st
@@ -72,13 +76,14 @@ continuous sequential covariates (via FeatureEmbedding).
 function VisionEncoderDecoderModel(;
         patch_size, in_channels, dec_features, d_model,
         enc_layers, dec_layers, n_heads, n_kv_heads = n_heads,
-        out_features, ndims = 2, norm_eps = 1.0f-5
+        out_features, ndims = 2, norm_eps = 1.0f-5, dropout_rate::Float32 = 0.0f0, stem = nothing
     )
 
-    enc_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, cross_attention = false) for _ in 1:enc_layers)
-    dec_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, cross_attention = true) for _ in 1:dec_layers)
+    enc_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, cross_attention = false, dropout_rate) for _ in 1:enc_layers)
+    dec_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, cross_attention = true, dropout_rate) for _ in 1:dec_layers)
 
     return EncoderDecoderModel(
+        stem === nothing ? NoOpLayer() : stem,
         PatchEmbedding(patch_size, in_channels, d_model; ndims = ndims),
         TransformerStack(enc_blocks),
         RMSNorm(d_model; eps = norm_eps),

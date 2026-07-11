@@ -1,58 +1,56 @@
-struct VisionTransformer{P, E, L, N, O} <: LuxCore.AbstractLuxContainerLayer{(:patch_embedding, :position_embedding, :blocks, :norm, :head)}
-    patch_embedding::P
-    position_embedding::E
-    blocks::L
+struct VisionTransformer{ST, E, PE, S, N, O} <: LuxCore.AbstractLuxContainerLayer{(:stem, :patch_embedding, :pos_embedding, :blocks, :norm, :output)}
+    stem::ST
+    patch_embedding::E
+    pos_embedding::PE
+    blocks::S
     norm::N
-    head::O
+    output::O
+    use_rope::Bool
 end
 
 """
-    VisionTransformer(; patch_size, in_channels, d_model, n_layers, n_heads, n_kv_heads, max_positions, num_classes, use_rope=false, ndims=2)
+    VisionTransformer(; patch_size, in_channels, d_model, n_layers, n_heads, n_kv_heads=n_heads, max_positions, num_classes, ndims=2, use_rope=false, dropout_rate=0.0f0, stem=nothing)
 
-Creates a Vision Transformer (ViT) that supports spatial-temporal training if `ndims=3`.
-Uses State-of-the-Art components like GroupedQueryAttention and RMSNorm.
+Creates a Vision Transformer. 
+If `stem` is provided, it acts as a Hybrid feature extractor before the `PatchEmbedding`.
 """
 function VisionTransformer(;
         patch_size, in_channels, d_model, n_layers, n_heads, n_kv_heads = n_heads,
-        max_positions, num_classes, use_rope = false, ndims = 2, norm_eps = 1.0f-5
+        max_positions, num_classes, ndims = 2, use_rope = false,
+        dropout_rate::Float32 = 0.0f0, stem = nothing, norm_eps = 1.0f-5
     )
 
-    patch_embed = PatchEmbedding(patch_size, in_channels, d_model; ndims = ndims)
-    pos_embed = use_rope ? NoOpLayer() : PositionEmbedding(max_positions, d_model; dim = 2)
+    decoder_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, dropout_rate) for _ in 1:n_layers)
 
-    blocks = TransformerStack(Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps) for _ in 1:n_layers))
-
-    norm = RMSNorm(d_model; eps = norm_eps)
-    head = Dense(d_model => num_classes)
-
-    return VisionTransformer(patch_embed, pos_embed, blocks, norm, head)
+    return VisionTransformer(
+        stem === nothing ? NoOpLayer() : stem,
+        PatchEmbedding(patch_size, in_channels, d_model; ndims = ndims),
+        PositionEmbedding(d_model, max_positions),
+        TransformerStack(decoder_blocks),
+        RMSNorm(d_model; eps = norm_eps),
+        Dense(d_model => num_classes; use_bias = false),
+        use_rope
+    )
 end
 
 function (m::VisionTransformer)(x, ps, st)
-    y, st_pe = m.patch_embedding(x, ps.patch_embedding, st.patch_embedding)
+    x, st_stem = m.stem(x, ps.stem, st.stem)
 
-    if !(m.position_embedding isa NoOpLayer)
-        y, st_pos = m.position_embedding(y, ps.position_embedding, st.position_embedding)
+    y, st_emb = m.patch_embedding(x, ps.patch_embedding, st.patch_embedding)
+
+    if !m.use_rope
+        y, st_pos = m.pos_embedding(y, ps.pos_embedding, st.pos_embedding)
     else
-        st_pos = st.position_embedding
+        st_pos = st.pos_embedding
     end
 
-    # y shape is (d_model, seq_len, batch)
-    # Forward through transformer blocks
     y, st_blocks = m.blocks(y, ps.blocks, st.blocks)
 
+    # Global Average Pooling (GAP) instead of [CLS] token
+    y = dropdims(mean(y; dims = 2); dims = 2)
+
     y, st_n = m.norm(y, ps.norm, st.norm)
+    y, st_out = m.output(y, ps.output, st.output)
 
-    # Global average pooling over sequence length for classification
-    y_pool = dropdims(mean(y, dims = 2), dims = 2)
-
-    logits, st_h = m.head(y_pool, ps.head, st.head)
-
-    return logits, (
-            patch_embedding = st_pe,
-            position_embedding = st_pos,
-            blocks = st_blocks,
-            norm = st_n,
-            head = st_h,
-        )
+    return y, (stem = st_stem, patch_embedding = st_emb, pos_embedding = st_pos, blocks = st_blocks, norm = st_n, output = st_out)
 end
