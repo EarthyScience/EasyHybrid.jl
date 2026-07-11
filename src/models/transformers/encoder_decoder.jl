@@ -10,10 +10,26 @@ struct EncoderDecoderModel{ST, EE, ES, EN, DE, DS, DN, O} <: LuxCore.AbstractLux
 end
 
 """
-    EncoderDecoderModel(; in_features, dec_features, d_model, enc_layers, dec_layers, n_heads, n_kv_heads=n_heads, out_features)
+    EncoderDecoderModel(; in_features, dec_features, d_model, enc_layers, dec_layers, n_heads, n_kv_heads=n_heads, out_features, norm_eps=1.0f-5, dropout_rate=0.0f0, stem=nothing)
 
 Creates a sequence-to-sequence Encoder-Decoder Transformer using GroupedQueryAttention for self-attention
 and MultiHeadSelfAttention for cross-attention.
+
+# Arguments
+- `in_features`: Number of input features for the encoder
+- `dec_features`: Number of input features for the decoder (shifted targets or covariates)
+- `d_model`: Dimensionality of the model's hidden states
+- `enc_layers`: Number of Transformer blocks in the encoder
+- `dec_layers`: Number of Transformer blocks in the decoder
+- `n_heads`: Number of query attention heads
+- `n_kv_heads`: Number of key/value attention heads (defaults to `n_heads`)
+- `out_features`: Dimensionality of the final output projection
+- `norm_eps`: Epsilon value for RMSNorm stability
+- `dropout_rate`: Dropout probability applied to attention and feedforward layers
+- `stem`: Optional Lux layer to apply as a feature extractor before encoder embedding
+
+# Returns
+- An `EncoderDecoderModel` container layer
 """
 function EncoderDecoderModel(;
         in_features, dec_features, d_model,
@@ -36,6 +52,23 @@ function EncoderDecoderModel(;
     )
 end
 
+"""
+    (m::EncoderDecoderModel)(enc_x, dec_x, ps, st; enc_causal=false, dec_causal=true)
+
+Forward pass for the sequence-to-sequence EncoderDecoderModel.
+
+# Arguments
+- `m`: The `EncoderDecoderModel`
+- `enc_x`: Encoder input sequence data
+- `dec_x`: Decoder input sequence data (e.g. shifted targets)
+- `ps`: Model parameters
+- `st`: Model state
+- `enc_causal`: Boolean kwarg (default `false`). If `true`, applies causal masking to the encoder.
+- `dec_causal`: Boolean kwarg (default `true`). If `true`, applies causal masking to the decoder self-attention.
+
+# Returns
+- `(out, new_st)`: A tuple containing the model predictions and updated state
+"""
 function (m::EncoderDecoderModel)(enc_x, dec_x, ps, st; enc_causal = false, dec_causal = true)
     enc_x, st_stem = m.stem(enc_x, ps.stem, st.stem)
 
@@ -67,11 +100,29 @@ function (m::EncoderDecoderModel)(enc_x, dec_x, ps, st; enc_causal = false, dec_
 end
 
 """
-    VisionEncoderDecoderModel(; patch_size, in_channels, dec_features, d_model, enc_layers, dec_layers, n_heads, n_kv_heads=n_heads, out_features, ndims=2)
+    VisionEncoderDecoderModel(; patch_size, in_channels, dec_features, d_model, enc_layers, dec_layers, n_heads, n_kv_heads=n_heads, out_features, ndims=2, norm_eps=1.0f-5, dropout_rate=0.0f0, stem=nothing)
 
 Creates a sequence-to-sequence Encoder-Decoder Transformer where the Encoder processes
 spatial or spatio-temporal data (via PatchEmbedding) and the Decoder processes 
 continuous sequential covariates (via FeatureEmbedding).
+
+# Arguments
+- `patch_size`: Tuple defining the spatial/spatio-temporal dimensions of each encoder patch
+- `in_channels`: Number of input channels for the encoder grid
+- `dec_features`: Number of input features for the decoder (shifted targets or covariates)
+- `d_model`: Dimensionality of the model's hidden states
+- `enc_layers`: Number of Transformer blocks in the encoder
+- `dec_layers`: Number of Transformer blocks in the decoder
+- `n_heads`: Number of query attention heads
+- `n_kv_heads`: Number of key/value attention heads (defaults to `n_heads`)
+- `out_features`: Dimensionality of the final output projection
+- `ndims`: Number of spatial/spatio-temporal dimensions for the encoder (2 or 3)
+- `norm_eps`: Epsilon value for RMSNorm stability
+- `dropout_rate`: Dropout probability applied to attention and feedforward layers
+- `stem`: Optional Lux layer to apply as a feature extractor before patch embedding
+
+# Returns
+- A `EncoderDecoderModel` configured for vision-to-sequence tasks
 """
 function VisionEncoderDecoderModel(;
         patch_size, in_channels, dec_features, d_model,

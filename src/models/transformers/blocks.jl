@@ -27,6 +27,22 @@ struct FeedForward{W1, W2, W3, D} <: LuxCore.AbstractLuxContainerLayer{(:w1, :w2
     drop::D
 end
 
+"""
+    FeedForward(dim::Int; multiple_of::Int=256, ffn_dim_multiplier::Union{Float64, Nothing}=nothing, dropout_rate::Float32=0.0f0)
+
+Implements a SwiGLU FeedForward network.
+This block projects the input to a higher dimension, applies a Swish (SiLU) gating mechanism, 
+and projects it back to the original dimension, offering better gradient flow than standard GELU MLPs.
+
+# Arguments
+- `dim`: Dimensionality of the model's hidden states (`d_model`)
+- `multiple_of`: Ensures the hidden dimension is a multiple of this value for hardware efficiency
+- `ffn_dim_multiplier`: Optional multiplier to explicitly scale the hidden dimension
+- `dropout_rate`: Dropout probability applied to the final projection
+
+# Returns
+- A `FeedForward` container layer
+"""
 function FeedForward(dim::Int; multiple_of::Int = 256, ffn_dim_multiplier::Union{Float64, Nothing} = nothing, dropout_rate::Float32 = 0.0f0)
     hidden = 2 * (4 * dim) ÷ 3
     hidden = ffn_dim_multiplier === nothing ? hidden : floor(Int, hidden * ffn_dim_multiplier)
@@ -39,6 +55,20 @@ function FeedForward(dim::Int; multiple_of::Int = 256, ffn_dim_multiplier::Union
     )
 end
 
+"""
+    (m::FeedForward)(x, ps, st)
+
+Forward pass for the SwiGLU FeedForward network.
+
+# Arguments
+- `m`: The `FeedForward` layer
+- `x`: Input sequence data of shape `(d_model, seq_len, batch)`
+- `ps`: Model parameters
+- `st`: Model state
+
+# Returns
+- `(y, st_out)`: Projected sequence and updated state
+"""
 function (m::FeedForward)(x, ps, st)
     g, st_w1 = m.w1(x, ps.w1, st.w1)
     u, st_w3 = m.w3(x, ps.w3, st.w3)
@@ -46,6 +76,10 @@ function (m::FeedForward)(x, ps, st)
     y, st_w2 = m.w2(h, ps.w2, st.w2)
     y, st_drop = m.drop(y, ps.drop, st.drop)
     return y, (w1 = st_w1, w2 = st_w2, w3 = st_w3, drop = st_drop)
+end
+
+struct TransformerStack{L} <: LuxCore.AbstractLuxContainerLayer{(:layers,)}
+    layers::L
 end
 
 """
@@ -56,16 +90,37 @@ While `Lux.Chain` passes inputs through a sequence of layers, `TransformerStack`
 is specifically designed to correctly propagate arbitrary keyword arguments 
 (such as `mask`, `cache`, and RoPE frequencies) down to each individual block, 
 which is required for advanced attention mechanisms.
+
+# Arguments
+- `layers`: A Tuple or Vector of `TransformerBlock` layers
+
+# Returns
+- A `TransformerStack` container layer
 """
-struct TransformerStack{L} <: LuxCore.AbstractLuxContainerLayer{(:layers,)}
-    layers::L
-end
 
 function TransformerStack(layers::Union{Vector, Tuple})
     names = Tuple(Symbol(:layer_, i) for i in 1:length(layers))
     return TransformerStack(NamedTuple{names}(Tuple(layers)))
 end
 
+"""
+    (m::TransformerStack)(x, ps, st; kwargs...)
+
+Forward pass for the TransformerStack.
+Passes `x` sequentially through each `TransformerBlock` in the stack.
+Arbitrary keyword arguments (like `mask`, `cache`, `start_pos`, `cosf`, `sinf`, `context`) 
+are correctly propagated to every block.
+
+# Arguments
+- `m`: The `TransformerStack` container
+- `x`: Input sequence data
+- `ps`: Model parameters
+- `st`: Model state
+- `kwargs...`: Optional arguments passed down to the blocks
+
+# Returns
+- `(y, st_new)`: Processed sequence and updated state
+"""
 function (m::TransformerStack)(x, ps, st; kwargs...)
     st_new = st.layers
     for name in keys(m.layers)
@@ -85,10 +140,21 @@ struct TransformerBlock{A, N1, CA, CN, F, N2} <: LuxCore.AbstractLuxContainerLay
 end
 
 """
-    TransformerBlock(dim, n_heads, n_kv_heads; norm_eps=1.0f-5, cross_attention=false)
+    TransformerBlock(dim, n_heads, n_kv_heads; norm_eps=1.0f-5, cross_attention=false, dropout_rate=0.0f0)
 
 Creates a State-of-the-Art Transformer Block using RMSNorm, SwiGLU FeedForward, and GroupedQueryAttention.
 If `cross_attention` is true, an additional MultiHeadSelfAttention block is added for Encoder-Decoder architectures.
+
+# Arguments
+- `dim`: Dimensionality of the model's hidden states (`d_model`)
+- `n_heads`: Number of query attention heads
+- `n_kv_heads`: Number of key/value attention heads
+- `norm_eps`: Epsilon value for RMSNorm stability
+- `cross_attention`: If `true`, adds a cross-attention layer (e.g. for decoders)
+- `dropout_rate`: Dropout probability applied to attention and feedforward layers
+
+# Returns
+- A `TransformerBlock` container layer
 """
 function TransformerBlock(dim, n_heads, n_kv_heads; norm_eps = 1.0f-5, cross_attention = false, dropout_rate::Float32 = 0.0f0)
     return TransformerBlock(
@@ -111,6 +177,26 @@ function _cross_attn(m::TransformerBlock{A, N, NoOpLayer, NoOpLayer}, x, ps, st,
     return x, st.cross_attention, st.norm_cross
 end
 
+"""
+    (m::TransformerBlock)(x, ps, st; cache=nothing, start_pos=nothing, cosf=nothing, sinf=nothing, context=nothing, mask=nothing)
+
+Forward pass for a single TransformerBlock.
+
+# Arguments
+- `m`: The `TransformerBlock` layer
+- `x`: Input sequence data
+- `ps`: Model parameters
+- `st`: Model state
+- `cache`: Optional `KVCache` for autoregressive generation
+- `start_pos`: Optional starting position for cache writes
+- `cosf`: Optional precomputed cosine frequencies for RoPE
+- `sinf`: Optional precomputed sine frequencies for RoPE
+- `context`: Optional context sequence for cross-attention
+- `mask`: Optional attention mask
+
+# Returns
+- `(y, st_out)`: Processed sequence and updated state
+"""
 function (m::TransformerBlock)(x, ps, st; cache = nothing, start_pos = nothing, cosf = nothing, sinf = nothing, context = nothing, mask = nothing)
     y, st_n1 = m.attn_norm(x, ps.attn_norm, st.attn_norm)
 

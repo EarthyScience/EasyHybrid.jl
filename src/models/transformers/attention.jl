@@ -28,6 +28,22 @@ struct GroupedQueryAttention{Q, K, V, O, D} <: LuxCore.AbstractLuxContainerLayer
     head_dim::Int
 end
 
+"""
+    GroupedQueryAttention(dim::Int, n_heads::Int, n_kv_heads::Int; dropout_rate=0.0f0)
+
+Implements Grouped Query Attention (GQA).
+GQA reduces memory and computational overhead during autoregressive generation 
+by sharing key and value projections across multiple query heads.
+
+# Arguments
+- `dim`: Dimensionality of the model's hidden states (`d_model`)
+- `n_heads`: Number of query attention heads
+- `n_kv_heads`: Number of key/value attention heads
+- `dropout_rate`: Dropout probability applied to the final attention projection
+
+# Returns
+- A `GroupedQueryAttention` container layer
+"""
 function GroupedQueryAttention(dim::Int, n_heads::Int, n_kv_heads::Int; dropout_rate::Float32 = 0.0f0)
     head_dim = dim ÷ n_heads
     return GroupedQueryAttention(
@@ -57,6 +73,25 @@ function causal_mask_offset(seq_len::Int, kv_len::Int)
     return mask
 end
 
+"""
+    (m::GroupedQueryAttention)(x, cache::KVCache, start_pos::Int, cosf, sinf, ps, st)
+
+Autoregressive forward pass for Grouped Query Attention using a Key-Value cache.
+Used during inference/generation.
+
+# Arguments
+- `m`: The `GroupedQueryAttention` layer
+- `x`: Input sequence data of shape `(dim, seq_len, batch)`
+- `cache`: The `KVCache` object to store and retrieve past keys/values
+- `start_pos`: The starting position in the cache for the current sequence
+- `cosf`: Precomputed cosine frequencies for RoPE
+- `sinf`: Precomputed sine frequencies for RoPE
+- `ps`: Model parameters
+- `st`: Model state
+
+# Returns
+- `(out, st_out)`: Attended sequence and updated state
+"""
 function (m::GroupedQueryAttention)(x, cache::KVCache, start_pos::Int, cosf, sinf, ps, st)
     dim, seq_len, batch = size(x)
     n_rep = m.n_heads ÷ m.n_kv_heads
@@ -100,6 +135,22 @@ function (m::GroupedQueryAttention)(x, cache::KVCache, start_pos::Int, cosf, sin
     return out, (wq = st_q, wk = st_k, wv = st_v, wo = st_o, drop = st_d)
 end
 
+"""
+    (m::GroupedQueryAttention)(x, ps, st; context=nothing, mask=nothing)
+
+Standard forward pass for Grouped Query Attention without KVCache (e.g. for ViT or standard training).
+
+# Arguments
+- `m`: The `GroupedQueryAttention` layer
+- `x`: Input sequence data of shape `(dim, seq_len, batch)`
+- `ps`: Model parameters
+- `st`: Model state
+- `context`: Optional context sequence for cross-attention
+- `mask`: Optional attention mask
+
+# Returns
+- `(out, st_out)`: Attended sequence and updated state
+"""
 function (m::GroupedQueryAttention)(x, ps, st; context = nothing, mask = nothing)
     # Forward pass without KVCache (standard training / ViT)
     # x: (dim, seq_len, batch)
@@ -133,9 +184,6 @@ function (m::GroupedQueryAttention)(x, ps, st; context = nothing, mask = nothing
     return out, (wq = st_q, wk = st_k, wv = st_v, wo = st_o, drop = st_d)
 end
 
-# ---------------------------------------------------------
-# Multi-Head Self Attention
-# ---------------------------------------------------------
 struct MultiHeadSelfAttention{Q, K, V, O, D} <: LuxCore.AbstractLuxContainerLayer{(:query, :key, :value, :out, :drop)}
     query::Q
     key::K
@@ -145,6 +193,19 @@ struct MultiHeadSelfAttention{Q, K, V, O, D} <: LuxCore.AbstractLuxContainerLaye
     n_heads::Int
 end
 
+"""
+    MultiHeadSelfAttention(d_model, n_heads; dropout_rate=0.0f0)
+
+Standard Multi-Head Self Attention, primarily used for Cross-Attention in Encoder-Decoder architectures.
+
+# Arguments
+- `d_model`: Dimensionality of the model's hidden states
+- `n_heads`: Number of attention heads
+- `dropout_rate`: Dropout probability applied to the final attention projection
+
+# Returns
+- A `MultiHeadSelfAttention` container layer
+"""
 function MultiHeadSelfAttention(d_model, n_heads; dropout_rate::Float32 = 0.0f0)
     return MultiHeadSelfAttention(
         Dense(d_model => d_model),
@@ -156,6 +217,22 @@ function MultiHeadSelfAttention(d_model, n_heads; dropout_rate::Float32 = 0.0f0)
     )
 end
 
+"""
+    (m::MultiHeadSelfAttention)(x, ps, st; context=nothing, mask=nothing)
+
+Forward pass for standard Multi-Head Self Attention.
+
+# Arguments
+- `m`: The `MultiHeadSelfAttention` layer
+- `x`: Input sequence data of shape `(d_model, seq_len, batch)` (used for Queries, and Keys/Values if `context` is `nothing`)
+- `ps`: Model parameters
+- `st`: Model state
+- `context`: Optional context sequence of shape `(d_model, context_len, batch)` for cross-attention (Keys/Values)
+- `mask`: Optional attention mask
+
+# Returns
+- `(out, st_out)`: Attended sequence and updated state
+"""
 function (m::MultiHeadSelfAttention)(x, ps, st; context = nothing, mask = nothing)
     src = isnothing(context) ? x : context
 
