@@ -42,7 +42,7 @@ function VisionTransformer(;
     return VisionTransformer(
         stem === nothing ? NoOpLayer() : stem,
         PatchEmbedding(patch_size, in_channels, d_model; ndims = ndims),
-        PositionEmbedding(d_model, max_positions),
+        PositionEmbedding(max_positions, d_model),
         TransformerStack(decoder_blocks),
         RMSNorm(d_model; eps = norm_eps),
         Dense(d_model => num_classes; use_bias = false),

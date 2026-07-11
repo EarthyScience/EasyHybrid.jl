@@ -2,11 +2,11 @@ using Test
 using Random
 using Lux
 using NNlib
+using Logging
 using EasyHybrid.Transformers
 
 @testset "Transformers Forward Pass Tests" begin
-    rng = Random.default_rng()
-    Random.seed!(rng, 42)
+    rng = Random.Xoshiro(42)
 
     @testset "TransformerModel (1D Time Series)" begin
         # 1. Setup hyperparameters
@@ -33,25 +33,29 @@ using EasyHybrid.Transformers
         # 3. Create dummy data
         x = randn(Float32, in_features, seq_len, batch_size)
 
-        # 4. Forward pass
-        # Test training mode (dropout active)
+        # 4. Test Training Mode (dropout active)
+        # We use NullLogger to suppress Lux's warning about running training mode outside of autodiff
+        with_logger(NullLogger()) do
+            y_train, _ = model(x, ps, st; causal = false)
+            @test size(y_train) == (out_features, seq_len, batch_size)
+        end
+
+        # 5. Switch to Inference Mode for the remaining tests
+        st = Lux.testmode(st)
+
+        # 6. Forward pass
         y, st_out = model(x, ps, st; causal = false)
 
-        # Test inference mode (dropout inactive)
-        st_test = Lux.testmode(st)
-        y_test, _ = model(x, ps, st_test; causal = false)
-
-        # 5. Verify shapes
+        # 7. Verify shapes
         @test size(y) == (out_features, seq_len, batch_size)
-        @test size(y_test) == (out_features, seq_len, batch_size)
-        println("TransformerModel (Bidirectional + Dropout + Stem) Forward Pass OK. Output Shape: ", size(y))
+        @info "TransformerModel (Bidirectional + Dropout + Stem) Forward Pass OK. Output Shape: $(size(y))"
 
-        # 4b. Forward pass (causal=true, strict forecasting)
+        # 6b. Forward pass (causal=true, strict forecasting)
         y_causal, st_causal = model(x, ps, st; causal = true)
 
-        # 5b. Verify shapes
+        # 7b. Verify shapes
         @test size(y_causal) == (out_features, seq_len, batch_size)
-        println("TransformerModel Forward Pass (Causal Masked) OK. Output Shape: ", size(y_causal))
+        @info "TransformerModel Forward Pass (Causal Masked) OK. Output Shape: $(size(y_causal))"
     end
 
     @testset "VisionTransformer (Spatial 2D -> Classification/Regression)" begin
@@ -77,6 +81,7 @@ using EasyHybrid.Transformers
         )
 
         ps_vit, st_vit = Lux.setup(rng, vit2d)
+        st_vit = Lux.testmode(st_vit)
 
         # 3. Create dummy image grid data: (W, H, C, B)
         x_2d = randn(Float32, image_size[1], image_size[2], in_channels, batch_size)
@@ -87,7 +92,7 @@ using EasyHybrid.Transformers
         # 5. Verify shapes
         # Output should be (out_features, batch_size)
         @test size(y_2d) == (out_features, batch_size)
-        println("VisionTransformer (2D) Forward Pass OK. Output Shape: ", size(y_2d))
+        @info "VisionTransformer (2D) Forward Pass OK. Output Shape: $(size(y_2d))"
     end
 
     @testset "VisionTransformer (Spatial-Temporal 3D)" begin
@@ -113,6 +118,7 @@ using EasyHybrid.Transformers
         )
 
         ps_vit3d, st_vit3d = Lux.setup(rng, vit3d)
+        st_vit3d = Lux.testmode(st_vit3d)
 
         # 3. Create dummy 3D grid data: (W, H, T, C, B)
         x_3d = randn(Float32, grid_size[1], grid_size[2], grid_size[3], in_channels, batch_size)
@@ -122,7 +128,7 @@ using EasyHybrid.Transformers
 
         # 5. Verify shapes
         @test size(y_3d) == (out_features, batch_size)
-        println("VisionTransformer (3D Spatial-Temporal) Forward Pass OK. Output Shape: ", size(y_3d))
+        @info "VisionTransformer (3D Spatial-Temporal) Forward Pass OK. Output Shape: $(size(y_3d))"
     end
 
     @testset "EncoderDecoderModel (Sequence-to-Sequence)" begin
@@ -147,6 +153,7 @@ using EasyHybrid.Transformers
         )
 
         ps, st = Lux.setup(rng, model)
+        st = Lux.testmode(st)
 
         # 3. Create dummy data
         enc_x = randn(Float32, in_features, enc_seq_len, batch_size)
@@ -160,7 +167,7 @@ using EasyHybrid.Transformers
         # 5. Verify shapes
         # Output should be (out_features, dec_seq_len, batch_size)
         @test size(y) == (out_features, dec_seq_len, batch_size)
-        println("EncoderDecoderModel Forward Pass OK. Output Shape: ", size(y))
+        @info "EncoderDecoderModel Forward Pass OK. Output Shape: $(size(y))"
     end
 
     @testset "VisionEncoderDecoderModel (Spatio-Temporal to Sequence)" begin
@@ -188,6 +195,7 @@ using EasyHybrid.Transformers
         )
 
         ps, st = Lux.setup(rng, model)
+        st = Lux.testmode(st)
 
         # 3. Create dummy data
         enc_x = randn(Float32, grid_size[1], grid_size[2], grid_size[3], in_channels, batch_size)
@@ -198,6 +206,6 @@ using EasyHybrid.Transformers
 
         # 5. Verify shapes
         @test size(y) == (out_features, dec_seq_len, batch_size)
-        println("VisionEncoderDecoderModel Forward Pass OK. Output Shape: ", size(y))
+        @info "VisionEncoderDecoderModel Forward Pass OK. Output Shape: $(size(y))"
     end
 end

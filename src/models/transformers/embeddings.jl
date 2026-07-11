@@ -58,7 +58,7 @@ struct PositionEmbedding{E} <: LuxCore.AbstractLuxContainerLayer{(:embedding,)}
     dim::Int
 end
 
-function PositionEmbedding(max_positions::Integer, d_model::Integer; dim::Int = 2)
+function PositionEmbedding(max_positions::Int, d_model::Int; dim::Int = 2)
     emb = Embedding(max_positions => d_model)
     return PositionEmbedding(emb, dim)
 end

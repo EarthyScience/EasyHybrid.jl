@@ -2,6 +2,7 @@ module Transformers
 
 using Lux
 using LuxCore
+using LinearAlgebra: triu
 using Random
 using NNlib
 using Statistics

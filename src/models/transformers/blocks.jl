@@ -10,7 +10,8 @@ Lux.initialstates(rng::AbstractRNG, m::RMSNorm) = NamedTuple()
 function (m::RMSNorm)(x, ps, st)
     ms = mean(abs2, x; dims = 1)
     x_normed = x ./ sqrt.(ms .+ m.eps)
-    return reshape(ps.weight, m.dim, 1, 1) .* x_normed, st
+    w = reshape(ps.weight, m.dim, ntuple(_ -> 1, ndims(x) - 1)...)
+    return w .* x_normed, st
 end
 
 """
