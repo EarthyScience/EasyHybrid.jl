@@ -135,3 +135,60 @@ function (m::PatchEmbedding)(x, ps, st)
 
     return y, (conv = st_conv,)
 end
+
+"""
+    PatchUnEmbedding(patch_size::Tuple, d_model::Int, out_channels::Int, grid_size::Tuple; ndims::Int=2)
+
+Creates a PatchUnEmbedding layer to reconstruct spatial or spatio-temporal grids 
+from a sequence of patches. This is the reverse of `PatchEmbedding`.
+
+# Arguments
+- `patch_size`: Tuple defining the patch dimensions
+- `d_model`: Dimensionality of the model's hidden states
+- `out_channels`: Number of output channels for the reconstructed grid
+- `grid_size`: The number of patches in each spatial/temporal dimension (e.g., `(W', H')` for 2D).
+- `ndims`: 2 for spatial grids (images), 3 for spatio-temporal grids (video/climate)
+
+# Returns
+- A `PatchUnEmbedding` container layer
+"""
+struct PatchUnEmbedding{C} <: LuxCore.AbstractLuxContainerLayer{(:conv_transpose,)}
+    conv_transpose::C
+    grid_size::Tuple
+end
+
+function PatchUnEmbedding(patch_size::Tuple, d_model::Int, out_channels::Int, grid_size::Tuple; ndims::Int = 2)
+    # We use cross_correlation=true to match PyTorch's ConvTranspose behavior.
+    conv_t = ConvTranspose(patch_size, d_model => out_channels, stride = patch_size, cross_correlation = true)
+    return PatchUnEmbedding(conv_t, grid_size)
+end
+
+"""
+    (m::PatchUnEmbedding)(x, ps, st)
+
+Forward pass for PatchUnEmbedding.
+
+# Arguments
+- `m`: The `PatchUnEmbedding` layer
+- `x`: Input sequence of patches of shape `(d_model, seq_len, batch)`
+- `ps`: Model parameters
+- `st`: Model state
+
+# Returns
+- `(out, st_out)`: Reconstructed grid of shape `(W, H, C, B)` for 2D or `(W, H, T, C, B)` for 3D and updated state
+"""
+function (m::PatchUnEmbedding)(x, ps, st)
+    batch = size(x, 3)
+    d_model = size(x, 1)
+
+    # 1. Permute back to (seq_len, d_model, batch)
+    y = permutedims(x, (2, 1, 3))
+
+    # 2. Reshape to spatial grid of patches: (W', H', d_model, batch)
+    y = reshape(y, m.grid_size..., d_model, batch)
+
+    # 3. Apply Transposed Convolution to upsample patches to pixels
+    out, st_conv = m.conv_transpose(y, ps.conv_transpose, st.conv_transpose)
+
+    return out, (conv_transpose = st_conv,)
+end

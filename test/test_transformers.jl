@@ -217,7 +217,7 @@ using EasyHybrid.Transformers
     end
 
     @testset "Direct Multi-Step Forecasting (Climate Scenario)" begin
-        # Goal: Predict Net Ecosystem Exchange (NEE) for the next 7 days, 
+        # Goal: Predict Net Ecosystem Exchange (NEE) for the next 7 days,
         # using the past 14 days of Temperature and Precipitation.
         # We also know the future Time of Day and Solar Radiation for the 7 forecast days.
 
@@ -227,7 +227,7 @@ using EasyHybrid.Transformers
 
         # Encoder sees past: Temp, Precip (2 features)
         enc_features = 2
-        
+
         # Decoder sees known future: TimeOfDay, Radiation (2 features)
         dec_features = 2
 
@@ -252,14 +252,99 @@ using EasyHybrid.Transformers
         past_covariates = randn(Float32, enc_features, past_horizon, batch_size)
         future_known_covariates = randn(Float32, dec_features, future_horizon, batch_size)
 
-        # Forward pass: 
+        # Forward pass:
         # Encoder processes the past covariates.
-        # Decoder takes the known future covariates and the encoder's memory, 
+        # Decoder takes the known future covariates and the encoder's memory,
         # and directly predicts the target over the entire future horizon in one shot.
         # Since it's direct multi-step, the decoder does NOT need to be causal!
         # It can look at the entire sequence of future known covariates to predict the targets.
         predicted_nee, st_out = model(past_covariates, future_known_covariates, ps, st; enc_causal = false, dec_causal = false)
         @test size(predicted_nee) == (out_features, future_horizon, batch_size)
         @info "Direct Multi-Step Forecasting (Climate Scenario) OK. Predicted NEE Shape: $(size(predicted_nee))"
+    end
+
+    @testset "VisionToVisionModel (Image-to-Image Regression)" begin
+        # This test demonstrates the exact macroscopic architecture used by models like Pangu-Weather.
+        # It treats weather forecasting as a pure Image-to-Image (or Grid-to-Grid) translation task.
+        # For full 3D Earth mapping (Longitude, Latitude, Pressure/Time), simply set ndims=3.
+
+        patch_size = (16, 16)
+        grid_size = (2, 2) # e.g. input is 32x32, 32/16 = 2 patches per dim
+
+        # in_channels could represent (Temp, Humidity, etc.) for the current time step
+        in_channels = 3
+
+        # out_channels could represent (Temp, Humidity, etc.) for the next hour/day
+        out_channels = 1
+        d_model = 32
+        batch_size = 4
+
+        model = VisionToVisionModel(
+            patch_size = patch_size,
+            grid_size = grid_size,
+            in_channels = in_channels,
+            out_channels = out_channels,
+            d_model = d_model,
+            n_layers = 2,
+            n_heads = 2,
+            max_positions = 10,
+            ndims = 2
+        )
+
+        ps, st = Lux.setup(rng, model)
+        st = Lux.testmode(st)
+
+        # 32x32 image with 3 channels
+        x = randn(Float32, 32, 32, in_channels, batch_size)
+        y, st_out = model(x, ps, st)
+
+        # Output should be 32x32 image with 1 channel
+        @test size(y) == (32, 32, out_channels, batch_size)
+        @info "VisionToVisionModel Forward Pass OK. Output Shape: $(size(y))"
+    end
+
+    @testset "VisionToVisionEncoderDecoderModel (Grid-to-Grid Forecasting)" begin
+        # This test demonstrates how to forecast future target maps based on a history of covariate maps.
+        # Encoder input: Historical covariates (e.g. Past 14 days of grids).
+        # Decoder input: Known future covariates (e.g. Next 7 days of solar radiation grids).
+        # Output: Predicted future targets (e.g. Next 7 days of NEE grids).
+        #
+        # Note on 3D (Spatio-Temporal):
+        # If you set ndims=3, both the input and output become (W, H, Time, Channels) volumes, seamlessly handling multi-step sequences.
+
+        patch_size = (16, 16)
+        grid_size = (2, 2)
+        in_channels = 2  # e.g., Temp, Precip (Past grid)
+        dec_channels = 1 # e.g., Radiation (Future known covariate grid)
+        out_channels = 1 # e.g., predicted NEE map
+        d_model = 32
+        batch_size = 4
+
+        model = VisionToVisionEncoderDecoderModel(
+            patch_size = patch_size,
+            grid_size = grid_size,
+            in_channels = in_channels,
+            dec_channels = dec_channels,
+            out_channels = out_channels,
+            d_model = d_model,
+            enc_layers = 2,
+            dec_layers = 2,
+            n_heads = 2,
+            ndims = 2
+        )
+
+        ps, st = Lux.setup(rng, model)
+        st = Lux.testmode(st)
+
+        # Past grid
+        enc_x = randn(Float32, 32, 32, in_channels, batch_size)
+        # Future covariate grid
+        dec_x = randn(Float32, 32, 32, dec_channels, batch_size)
+
+        # Forward pass predicting future target grid
+        y, st_out = model(enc_x, dec_x, ps, st; enc_causal = false, dec_causal = false)
+
+        @test size(y) == (32, 32, out_channels, batch_size)
+        @info "VisionToVisionEncoderDecoderModel Forward Pass OK. Output Shape: $(size(y))"
     end
 end

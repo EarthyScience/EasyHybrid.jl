@@ -2,7 +2,7 @@
 #     k::K   # (head_dim, n_kv_heads, max_seq_len, max_batch)
 #     v::V
 # end
-# 
+#
 # function KVCache(head_dim::Int, n_kv_heads::Int, max_seq_len::Int, max_batch::Int)
 #     return KVCache(
 #         zeros(Float32, head_dim, n_kv_heads, max_seq_len, max_batch),
@@ -72,10 +72,10 @@ end
 
 # """
 #     (m::GroupedQueryAttention)(x, cache::KVCache, start_pos::Int, cosf, sinf, ps, st)
-# 
+#
 # Autoregressive forward pass for Grouped Query Attention using a Key-Value cache.
 # Used during inference/generation.
-# 
+#
 # # Arguments
 # - `m`: The `GroupedQueryAttention` layer
 # - `x`: Input sequence data of shape `(dim, seq_len, batch)`
@@ -85,51 +85,51 @@ end
 # - `sinf`: Precomputed sine frequencies for RoPE
 # - `ps`: Model parameters
 # - `st`: Model state
-# 
+#
 # # Returns
 # - `(out, st_out)`: Attended sequence and updated state
 # """
 # function (m::GroupedQueryAttention)(x, cache::KVCache, start_pos::Int, cosf, sinf, ps, st)
 #     dim, seq_len, batch = size(x)
 #     n_rep = m.n_heads ÷ m.n_kv_heads
-# 
+#
 #     q, st_q = m.wq(x, ps.wq, st.wq)
 #     k, st_k = m.wk(x, ps.wk, st.wk)
 #     v, st_v = m.wv(x, ps.wv, st.wv)
-# 
+#
 #     q = reshape(q, m.head_dim, m.n_heads, seq_len, batch)
 #     k = reshape(k, m.head_dim, m.n_kv_heads, seq_len, batch)
 #     v = reshape(v, m.head_dim, m.n_kv_heads, seq_len, batch)
-# 
+#
 #     _cosf = @view cosf[:, start_pos:(start_pos + seq_len - 1)]
 #     _sinf = @view sinf[:, start_pos:(start_pos + seq_len - 1)]
-# 
+#
 #     q = apply_rotary_embeddings(q, _cosf, _sinf)
 #     k = apply_rotary_embeddings(k, _cosf, _sinf)
-# 
+#
 #     # Write into cache at [start_pos, start_pos+seq_len-1]
 #     cache.k[:, :, start_pos:(start_pos + seq_len - 1), 1:batch] .= k
 #     cache.v[:, :, start_pos:(start_pos + seq_len - 1), 1:batch] .= v
-# 
+#
 #     kv_len = start_pos + seq_len - 1
 #     k_full = @view cache.k[:, :, 1:kv_len, 1:batch]
 #     v_full = @view cache.v[:, :, 1:kv_len, 1:batch]
-# 
+#
 #     k_rep = repeat_kv(k_full, n_rep)
 #     v_rep = repeat_kv(v_full, n_rep)
-# 
+#
 #     q2 = reshape(permutedims(q, (1, 3, 2, 4)), m.head_dim, seq_len, :)
 #     k2 = reshape(permutedims(k_rep, (1, 3, 2, 4)), m.head_dim, kv_len, :)
 #     v2 = reshape(permutedims(v_rep, (1, 3, 2, 4)), m.head_dim, kv_len, :)
-# 
+#
 #     mask = seq_len > 1 ? causal_mask_offset(q2, seq_len, kv_len) : nothing
-# 
+#
 #     y, _ = dot_product_attention(q2, k2, v2; mask, nheads = 1)
-# 
+#
 #     y = reshape(y, m.head_dim, seq_len, m.n_heads, batch)
 #     y = permutedims(y, (1, 3, 2, 4))
 #     y = reshape(y, m.n_heads * m.head_dim, seq_len, batch)
-# 
+#
 #     out, st_o = m.wo(y, ps.wo, st.wo)
 #     out, st_d = m.drop(out, ps.drop, st.drop)
 #     return out, (wq = st_q, wk = st_k, wv = st_v, wo = st_o, drop = st_d)

@@ -69,10 +69,9 @@ function (m::TransformerModel)(x, ps, st; causal = false)
     # x: (in_features, seq_len, batch) or (spatial..., batch) if stem is used
     x, st_stem = m.stem(x, ps.stem, st.stem)
 
-    seq_len = size(x, 2)
-
     y, st_emb = m.embedding(x, ps.embedding, st.embedding)
 
+    seq_len = size(y, 2)
     mask = causal ? make_causal_mask(y, seq_len) : nothing
 
     y, st_blocks = m.blocks(y, ps.blocks, st.blocks; mask = mask)

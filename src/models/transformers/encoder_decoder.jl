@@ -72,17 +72,16 @@ Forward pass for the sequence-to-sequence EncoderDecoderModel.
 function (m::EncoderDecoderModel)(enc_x, dec_x, ps, st; enc_causal = false, dec_causal = true)
     enc_x, st_stem = m.stem(enc_x, ps.stem, st.stem)
 
-    enc_seq_len = size(enc_x, 2)
-    dec_seq_len = size(dec_x, 2)
-
     # 1. Encoder Forward
     enc_y, st_ee = m.enc_embedding(enc_x, ps.enc_embedding, st.enc_embedding)
+    enc_seq_len = size(enc_y, 2)
     enc_mask = enc_causal ? make_causal_mask(enc_y, enc_seq_len) : nothing
     memory, st_eb = m.enc_blocks(enc_y, ps.enc_blocks, st.enc_blocks; mask = enc_mask)
     memory, st_en = m.enc_norm(memory, ps.enc_norm, st.enc_norm)
 
     # 2. Decoder Forward
     dec_y, st_de = m.dec_embedding(dec_x, ps.dec_embedding, st.dec_embedding)
+    dec_seq_len = size(dec_y, 2)
     dec_mask = dec_causal ? make_causal_mask(dec_y, dec_seq_len) : nothing
 
     # Pass `context=memory` for cross-attention
@@ -142,5 +141,51 @@ function VisionEncoderDecoderModel(;
         TransformerStack(dec_blocks),
         RMSNorm(d_model; eps = norm_eps),
         Dense(d_model => out_features; use_bias = false)
+    )
+end
+
+"""
+    VisionToVisionEncoderDecoderModel(; patch_size, grid_size, in_channels, dec_channels, out_channels, d_model, enc_layers, dec_layers, n_heads, n_kv_heads=n_heads, ndims=2, norm_eps=1.0f-5, dropout_rate=0.0f0, stem=nothing)
+
+Creates a sequence-to-sequence Encoder-Decoder Transformer where BOTH inputs and outputs are spatial or spatio-temporal grids.
+The Encoder processes the historical maps, the Decoder processes known future covariate maps, and the Output predicts target future maps.
+
+# Arguments
+- `patch_size`: Tuple defining the spatial/spatio-temporal dimensions of each patch
+- `grid_size`: Tuple defining the number of patches in each dimension (e.g., `(W', H')`)
+- `in_channels`: Number of input channels for the encoder grid
+- `dec_channels`: Number of input channels for the decoder grid (covariates)
+- `out_channels`: Number of output channels for the reconstructed prediction grid
+- `d_model`: Dimensionality of the model's hidden states
+- `enc_layers`: Number of Transformer blocks in the encoder
+- `dec_layers`: Number of Transformer blocks in the decoder
+- `n_heads`: Number of query attention heads
+- `n_kv_heads`: Number of key/value attention heads
+- `ndims`: Number of spatial/spatio-temporal dimensions (2 or 3)
+- `norm_eps`: Epsilon value for RMSNorm stability
+- `dropout_rate`: Dropout probability
+- `stem`: Optional Lux layer to apply as a feature extractor before patch embedding
+
+# Returns
+- A `EncoderDecoderModel` configured for grid-to-grid forecasting tasks
+"""
+function VisionToVisionEncoderDecoderModel(;
+        patch_size, grid_size, in_channels, dec_channels, out_channels, d_model,
+        enc_layers, dec_layers, n_heads, n_kv_heads = n_heads,
+        ndims = 2, norm_eps = 1.0f-5, dropout_rate = 0.0f0, stem = nothing
+    )
+
+    enc_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, cross_attention = false, dropout_rate) for _ in 1:enc_layers)
+    dec_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, cross_attention = true, dropout_rate) for _ in 1:dec_layers)
+
+    return EncoderDecoderModel(
+        stem === nothing ? NoOpLayer() : stem,
+        PatchEmbedding(patch_size, in_channels, d_model; ndims = ndims),
+        TransformerStack(enc_blocks),
+        RMSNorm(d_model; eps = norm_eps),
+        PatchEmbedding(patch_size, dec_channels, d_model; ndims = ndims),
+        TransformerStack(dec_blocks),
+        RMSNorm(d_model; eps = norm_eps),
+        PatchUnEmbedding(patch_size, d_model, out_channels, grid_size; ndims = ndims)
     )
 end
