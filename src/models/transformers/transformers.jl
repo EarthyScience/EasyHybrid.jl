@@ -7,7 +7,7 @@ using Random
 using NNlib
 using Statistics
 
-export GroupedQueryAttention, MultiHeadSelfAttention, KVCache
+export GroupedQueryAttention, MultiHeadSelfAttention
 export precompute_rope_freqs, apply_rotary_embeddings
 export FeatureEmbedding, PositionEmbedding, PatchEmbedding
 export RMSNorm, FeedForward, TransformerBlock, TransformerStack

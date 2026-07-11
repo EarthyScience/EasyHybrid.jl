@@ -171,7 +171,7 @@ function _cross_attn(m::TransformerBlock{A, N, NoOpLayer, NoOpLayer}, x, ps, st,
 end
 
 """
-    (m::TransformerBlock)(x, ps, st; cache=nothing, start_pos=nothing, cosf=nothing, sinf=nothing, context=nothing, mask=nothing)
+    (m::TransformerBlock)(x, ps, st; cosf=nothing, sinf=nothing, context=nothing, mask=nothing)
 
 Forward pass for a single TransformerBlock.
 
@@ -180,8 +180,6 @@ Forward pass for a single TransformerBlock.
 - `x`: Input sequence data
 - `ps`: Model parameters
 - `st`: Model state
-- `cache`: Optional `KVCache` for autoregressive generation
-- `start_pos`: Optional starting position for cache writes
 - `cosf`: Optional precomputed cosine frequencies for RoPE
 - `sinf`: Optional precomputed sine frequencies for RoPE
 - `context`: Optional context sequence for cross-attention
@@ -190,15 +188,11 @@ Forward pass for a single TransformerBlock.
 # Returns
 - `(y, st_out)`: Processed sequence and updated state
 """
-function (m::TransformerBlock)(x, ps, st; cache = nothing, start_pos = nothing, cosf = nothing, sinf = nothing, context = nothing, mask = nothing)
+function (m::TransformerBlock)(x, ps, st; cosf = nothing, sinf = nothing, context = nothing, mask = nothing)
     y, st_n1 = m.attn_norm(x, ps.attn_norm, st.attn_norm)
 
-    if m.attention isa GroupedQueryAttention && !isnothing(cache) && !isnothing(start_pos) && !isnothing(cosf) && !isnothing(sinf)
-        y, st_attn = m.attention(y, cache, start_pos, cosf, sinf, ps.attention, st.attention)
-    else
-        # Fallback if cache is not provided (e.g. standard training without autoregressive generation)
-        y, st_attn = m.attention(y, ps.attention, st.attention; context = nothing, mask = mask, cosf = cosf, sinf = sinf)
-    end
+    # Standard forward pass without autoregressive cache
+    y, st_attn = m.attention(y, ps.attention, st.attention; context = nothing, mask = mask, cosf = cosf, sinf = sinf)
 
     x = x .+ y
 
