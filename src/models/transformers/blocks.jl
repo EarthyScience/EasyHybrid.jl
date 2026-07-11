@@ -108,16 +108,16 @@ function _cross_attn(m::TransformerBlock{A, N, NoOpLayer, NoOpLayer}, x, ps, st,
     return x, st.cross_attention, st.norm_cross
 end
 
-function (m::TransformerBlock)(x, ps, st; cache=nothing, start_pos=nothing, cosf=nothing, sinf=nothing, context=nothing, mask=nothing)
+function (m::TransformerBlock)(x, ps, st; cache = nothing, start_pos = nothing, cosf = nothing, sinf = nothing, context = nothing, mask = nothing)
     y, st_n1 = m.attn_norm(x, ps.attn_norm, st.attn_norm)
-    
+
     if m.attention isa GroupedQueryAttention && !isnothing(cache) && !isnothing(start_pos) && !isnothing(cosf) && !isnothing(sinf)
         y, st_attn = m.attention(y, cache, start_pos, cosf, sinf, ps.attention, st.attention)
     else
         # Fallback if cache is not provided (e.g. standard training without autoregressive generation)
-        y, st_attn = m.attention(y, ps.attention, st.attention; context=nothing, mask=mask)
+        y, st_attn = m.attention(y, ps.attention, st.attention; context = nothing, mask = mask)
     end
-    
+
     x = x .+ y
 
     x, st_ca, st_cn = _cross_attn(m, x, ps, st, context)

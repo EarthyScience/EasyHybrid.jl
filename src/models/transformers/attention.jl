@@ -97,7 +97,7 @@ function (m::GroupedQueryAttention)(x, cache::KVCache, start_pos::Int, cosf, sin
     return out, (wq = st_q, wk = st_k, wv = st_v, wo = st_o)
 end
 
-function (m::GroupedQueryAttention)(x, ps, st; context=nothing, mask=nothing)
+function (m::GroupedQueryAttention)(x, ps, st; context = nothing, mask = nothing)
     # Forward pass without KVCache (standard training / ViT)
     # x: (dim, seq_len, batch)
     dim, seq_len, batch = size(x)

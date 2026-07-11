@@ -44,22 +44,22 @@ end
 Creates a PatchEmbedding for Vision Transformers using a Convolutional layer.
 `ndims` allows choosing 2D spatial patches or 3D spatial-temporal patches.
 """
-function PatchEmbedding(patch_size::Tuple, in_channels::Int, d_model::Int; ndims::Int=2)
+function PatchEmbedding(patch_size::Tuple, in_channels::Int, d_model::Int; ndims::Int = 2)
     # Stride is equal to patch size for non-overlapping patches
-    conv = Conv(patch_size, in_channels => d_model, stride=patch_size)
+    conv = Conv(patch_size, in_channels => d_model, stride = patch_size)
     return PatchEmbedding(conv)
 end
 
 function (m::PatchEmbedding)(x, ps, st)
     # x: (W, H, C, B) for 2D or (W, H, T, C, B) for 3D
     y, st_conv = m.conv(x, ps.conv, st.conv)
-    
+
     # Flatten spatial/temporal dimensions into sequence dimension
-    d_model = size(y)[end-1]
+    d_model = size(y)[end - 1]
     batch = size(y)[end]
-    
+
     y = reshape(y, :, d_model, batch)
     y = permutedims(y, (2, 1, 3)) # (d_model, seq_len, batch)
-    
+
     return y, (conv = st_conv,)
 end
