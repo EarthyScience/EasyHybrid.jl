@@ -102,8 +102,9 @@ struct PatchEmbedding{C} <: LuxCore.AbstractLuxContainerLayer{(:conv,)}
 end
 
 function PatchEmbedding(patch_size::Tuple, in_channels::Int, d_model::Int; ndims::Int = 2)
-    # Stride is equal to patch size for non-overlapping patches
-    conv = Conv(patch_size, in_channels => d_model, stride = patch_size)
+    # Stride is equal to patch size for non-overlapping patches.
+    # We use cross_correlation=true to match PyTorch's Conv behavior (useful if loading PyTorch weights).
+    conv = Conv(patch_size, in_channels => d_model, stride = patch_size, cross_correlation = true)
     return PatchEmbedding(conv)
 end
 

@@ -8,6 +8,13 @@ using EasyHybrid.Transformers
 @testset "Transformers Forward Pass Tests" begin
     rng = Random.Xoshiro(42)
 
+    @testset "PatchEmbedding Configuration" begin
+        pe = PatchEmbedding((16, 16), 3, 64; ndims = 2)
+        # Lux Conv layers use Static.True() or standard boolean for cross_correlation
+        has_cross_corr = pe.conv.cross_correlation == true || string(pe.conv.cross_correlation) == "True()"
+        @test has_cross_corr
+    end
+
     @testset "TransformerModel (1D Time Series)" begin
         # 1. Setup hyperparameters
         in_features = 5   # e.g., Covariates: Elevation, Land Cover, Time of Day, etc.
