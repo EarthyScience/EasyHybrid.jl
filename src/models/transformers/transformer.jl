@@ -30,7 +30,7 @@ end
 function TransformerModel(;
         in_features, d_model, n_layers, n_heads, n_kv_heads = n_heads,
         max_positions = nothing, out_features, norm_eps = 1.0f-5,
-        dropout_rate::Float32 = 0.0f0, stem = nothing
+        dropout_rate = 0.0f0, stem = nothing
     )
 
     decoder_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, dropout_rate) for _ in 1:n_layers)
@@ -44,9 +44,10 @@ function TransformerModel(;
     )
 end
 
-function make_causal_mask(seq_len::Int)
+function make_causal_mask(x, seq_len::Int)
     # k_idx <= q_idx -> upper triangular matrix
-    return triu(ones(Bool, seq_len, seq_len))
+    mask_cpu = triu(ones(Bool, seq_len, seq_len))
+    return copyto!(similar(x, Bool, seq_len, seq_len), mask_cpu)
 end
 
 """
@@ -72,7 +73,7 @@ function (m::TransformerModel)(x, ps, st; causal = false)
 
     y, st_emb = m.embedding(x, ps.embedding, st.embedding)
 
-    mask = causal ? make_causal_mask(seq_len) : nothing
+    mask = causal ? make_causal_mask(y, seq_len) : nothing
 
     y, st_blocks = m.blocks(y, ps.blocks, st.blocks; mask = mask)
 

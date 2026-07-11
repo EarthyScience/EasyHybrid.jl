@@ -44,7 +44,7 @@ by sharing key and value projections across multiple query heads.
 # Returns
 - A `GroupedQueryAttention` container layer
 """
-function GroupedQueryAttention(dim::Int, n_heads::Int, n_kv_heads::Int; dropout_rate::Float32 = 0.0f0)
+function GroupedQueryAttention(dim::Int, n_heads::Int, n_kv_heads::Int; dropout_rate = 0.0f0)
     head_dim = dim ÷ n_heads
     return GroupedQueryAttention(
         Dense(dim => n_heads * head_dim; use_bias = false),
@@ -64,13 +64,10 @@ function repeat_kv(x::AbstractArray{T, 4}, n_rep::Int) where {T}
     return reshape(x, head_dim, n_rep * n_kv, seq_len, batch)
 end
 
-function causal_mask_offset(seq_len::Int, kv_len::Int)
+function causal_mask_offset(x, seq_len::Int, kv_len::Int)
     offset = kv_len - seq_len
-    mask = falses(kv_len, seq_len)
-    for q in 1:seq_len, k in 1:kv_len
-        mask[k, q] = k <= offset + q
-    end
-    return mask
+    mask_cpu = [k <= offset + q for k in 1:kv_len, q in 1:seq_len]
+    return copyto!(similar(x, Bool, kv_len, seq_len), mask_cpu)
 end
 
 """
@@ -104,8 +101,11 @@ function (m::GroupedQueryAttention)(x, cache::KVCache, start_pos::Int, cosf, sin
     k = reshape(k, m.head_dim, m.n_kv_heads, seq_len, batch)
     v = reshape(v, m.head_dim, m.n_kv_heads, seq_len, batch)
 
-    q = apply_rotary_embeddings(q, cosf, sinf)
-    k = apply_rotary_embeddings(k, cosf, sinf)
+    _cosf = @view cosf[:, start_pos:(start_pos + seq_len - 1)]
+    _sinf = @view sinf[:, start_pos:(start_pos + seq_len - 1)]
+
+    q = apply_rotary_embeddings(q, _cosf, _sinf)
+    k = apply_rotary_embeddings(k, _cosf, _sinf)
 
     # Write into cache at [start_pos, start_pos+seq_len-1]
     cache.k[:, :, start_pos:(start_pos + seq_len - 1), 1:batch] .= k
@@ -122,7 +122,7 @@ function (m::GroupedQueryAttention)(x, cache::KVCache, start_pos::Int, cosf, sin
     k2 = reshape(permutedims(k_rep, (1, 3, 2, 4)), m.head_dim, kv_len, :)
     v2 = reshape(permutedims(v_rep, (1, 3, 2, 4)), m.head_dim, kv_len, :)
 
-    mask = seq_len > 1 ? causal_mask_offset(seq_len, kv_len) : nothing
+    mask = seq_len > 1 ? causal_mask_offset(q2, seq_len, kv_len) : nothing
 
     y, _ = dot_product_attention(q2, k2, v2; mask, nheads = 1)
 
@@ -151,7 +151,7 @@ Standard forward pass for Grouped Query Attention without KVCache (e.g. for ViT 
 # Returns
 - `(out, st_out)`: Attended sequence and updated state
 """
-function (m::GroupedQueryAttention)(x, ps, st; context = nothing, mask = nothing)
+function (m::GroupedQueryAttention)(x, ps, st; context = nothing, mask = nothing, cosf = nothing, sinf = nothing)
     # Forward pass without KVCache (standard training / ViT)
     # x: (dim, seq_len, batch)
     dim, seq_len, batch = size(x)
@@ -164,6 +164,11 @@ function (m::GroupedQueryAttention)(x, ps, st; context = nothing, mask = nothing
     q = reshape(q, m.head_dim, m.n_heads, seq_len, batch)
     k = reshape(k, m.head_dim, m.n_kv_heads, seq_len, batch)
     v = reshape(v, m.head_dim, m.n_kv_heads, seq_len, batch)
+
+    if !isnothing(cosf) && !isnothing(sinf)
+        q = apply_rotary_embeddings(q, cosf, sinf)
+        k = apply_rotary_embeddings(k, cosf, sinf)
+    end
 
     # In non-autoregressive setting without RoPE provided, we just do attention
     k_rep = repeat_kv(k, n_rep)
@@ -206,7 +211,7 @@ struct MultiHeadSelfAttention{Q, K, V, O, D} <: LuxCore.AbstractLuxContainerLaye
     n_heads::Int
 end
 
-function MultiHeadSelfAttention(d_model, n_heads; dropout_rate::Float32 = 0.0f0)
+function MultiHeadSelfAttention(d_model, n_heads; dropout_rate = 0.0f0)
     return MultiHeadSelfAttention(
         Dense(d_model => d_model),
         Dense(d_model => d_model; use_bias = false),

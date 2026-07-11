@@ -34,7 +34,7 @@ end
 function VisionTransformer(;
         patch_size, in_channels, d_model, n_layers, n_heads, n_kv_heads = n_heads,
         max_positions, num_classes, ndims = 2, use_rope = false,
-        dropout_rate::Float32 = 0.0f0, stem = nothing, norm_eps = 1.0f-5
+        dropout_rate = 0.0f0, stem = nothing, norm_eps = 1.0f-5
     )
 
     decoder_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, dropout_rate) for _ in 1:n_layers)
@@ -42,7 +42,7 @@ function VisionTransformer(;
     return VisionTransformer(
         stem === nothing ? NoOpLayer() : stem,
         PatchEmbedding(patch_size, in_channels, d_model; ndims = ndims),
-        PositionEmbedding(max_positions, d_model),
+        use_rope ? NoOpLayer() : PositionEmbedding(max_positions, d_model),
         TransformerStack(decoder_blocks),
         RMSNorm(d_model; eps = norm_eps),
         Dense(d_model => num_classes; use_bias = false),

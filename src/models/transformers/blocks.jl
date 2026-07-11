@@ -1,8 +1,8 @@
-struct RMSNorm{W} <: Lux.AbstractLuxLayer
+struct RMSNorm <: Lux.AbstractLuxLayer
     dim::Int
     eps::Float32
 end
-RMSNorm(dim::Int; eps::Float32 = 1.0f-5) = RMSNorm{Nothing}(dim, eps)
+RMSNorm(dim::Int; eps::Float32 = 1.0f-5) = RMSNorm(dim, eps)
 
 Lux.initialparameters(rng::AbstractRNG, m::RMSNorm) = (weight = ones(Float32, m.dim),)
 Lux.initialstates(rng::AbstractRNG, m::RMSNorm) = NamedTuple()
@@ -15,7 +15,7 @@ function (m::RMSNorm)(x, ps, st)
 end
 
 """
-    FeedForward(dim::Int; multiple_of::Int=256, ffn_dim_multiplier::Union{Float64, Nothing}=nothing, dropout_rate::Float32=0.0f0)
+    FeedForward(dim::Int; multiple_of::Int=256, ffn_dim_multiplier::Union{Float64, Nothing}=nothing, dropout_rate=0.0f0)
 
 Implements a SwiGLU FeedForward network.
 This block projects the input to a higher dimension, applies a Swish (SiLU) gating mechanism, 
@@ -37,7 +37,7 @@ struct FeedForward{W1, W2, W3, D} <: LuxCore.AbstractLuxContainerLayer{(:w1, :w2
     drop::D
 end
 
-function FeedForward(dim::Int; multiple_of::Int = 256, ffn_dim_multiplier::Union{Float64, Nothing} = nothing, dropout_rate::Float32 = 0.0f0)
+function FeedForward(dim::Int; multiple_of::Int = 256, ffn_dim_multiplier::Union{Float64, Nothing} = nothing, dropout_rate = 0.0f0)
     hidden = 2 * (4 * dim) ÷ 3
     hidden = ffn_dim_multiplier === nothing ? hidden : floor(Int, hidden * ffn_dim_multiplier)
     hidden = multiple_of * cld(hidden, multiple_of)
@@ -149,7 +149,7 @@ struct TransformerBlock{A, N1, CA, CN, F, N2} <: LuxCore.AbstractLuxContainerLay
     ffn_norm::N2
 end
 
-function TransformerBlock(dim, n_heads, n_kv_heads; norm_eps = 1.0f-5, cross_attention = false, dropout_rate::Float32 = 0.0f0)
+function TransformerBlock(dim, n_heads, n_kv_heads; norm_eps = 1.0f-5, cross_attention = false, dropout_rate = 0.0f0)
     return TransformerBlock(
         GroupedQueryAttention(dim, n_heads, n_kv_heads; dropout_rate = dropout_rate),
         RMSNorm(dim; eps = norm_eps),
@@ -197,7 +197,7 @@ function (m::TransformerBlock)(x, ps, st; cache = nothing, start_pos = nothing, 
         y, st_attn = m.attention(y, cache, start_pos, cosf, sinf, ps.attention, st.attention)
     else
         # Fallback if cache is not provided (e.g. standard training without autoregressive generation)
-        y, st_attn = m.attention(y, ps.attention, st.attention; context = nothing, mask = mask)
+        y, st_attn = m.attention(y, ps.attention, st.attention; context = nothing, mask = mask, cosf = cosf, sinf = sinf)
     end
 
     x = x .+ y

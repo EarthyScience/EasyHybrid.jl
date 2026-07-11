@@ -34,7 +34,7 @@ end
 function EncoderDecoderModel(;
         in_features, dec_features, d_model,
         enc_layers, dec_layers, n_heads, n_kv_heads = n_heads,
-        out_features, norm_eps = 1.0f-5, dropout_rate::Float32 = 0.0f0, stem = nothing
+        out_features, norm_eps = 1.0f-5, dropout_rate = 0.0f0, stem = nothing
     )
 
     enc_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, cross_attention = false, dropout_rate) for _ in 1:enc_layers)
@@ -77,13 +77,13 @@ function (m::EncoderDecoderModel)(enc_x, dec_x, ps, st; enc_causal = false, dec_
 
     # 1. Encoder Forward
     enc_y, st_ee = m.enc_embedding(enc_x, ps.enc_embedding, st.enc_embedding)
-    enc_mask = enc_causal ? make_causal_mask(enc_seq_len) : nothing
+    enc_mask = enc_causal ? make_causal_mask(enc_y, enc_seq_len) : nothing
     memory, st_eb = m.enc_blocks(enc_y, ps.enc_blocks, st.enc_blocks; mask = enc_mask)
     memory, st_en = m.enc_norm(memory, ps.enc_norm, st.enc_norm)
 
     # 2. Decoder Forward
     dec_y, st_de = m.dec_embedding(dec_x, ps.dec_embedding, st.dec_embedding)
-    dec_mask = dec_causal ? make_causal_mask(dec_seq_len) : nothing
+    dec_mask = dec_causal ? make_causal_mask(dec_y, dec_seq_len) : nothing
 
     # Pass `context=memory` for cross-attention
     dec_y, st_db = m.dec_blocks(dec_y, ps.dec_blocks, st.dec_blocks; mask = dec_mask, context = memory)
@@ -127,7 +127,7 @@ continuous sequential covariates (via FeatureEmbedding).
 function VisionEncoderDecoderModel(;
         patch_size, in_channels, dec_features, d_model,
         enc_layers, dec_layers, n_heads, n_kv_heads = n_heads,
-        out_features, ndims = 2, norm_eps = 1.0f-5, dropout_rate::Float32 = 0.0f0, stem = nothing
+        out_features, ndims = 2, norm_eps = 1.0f-5, dropout_rate = 0.0f0, stem = nothing
     )
 
     enc_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, cross_attention = false, dropout_rate) for _ in 1:enc_layers)
