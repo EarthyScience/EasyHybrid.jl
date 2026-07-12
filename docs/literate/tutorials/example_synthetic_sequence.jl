@@ -196,7 +196,7 @@ out_lstm = train(
     opt = RMSProp(0.01),   # Optimizer and learning rate
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
     yscale = identity,       # Scaling for outputs
-    shuffleobs = false,
+    shuffleobs = true,
     training_loss = :nseLoss,
     loss_types = [:nse, :nseLoss],
     sequence_kwargs = (; input_window = input_window, output_window = output_window, output_shift = output_shift, lead_time = 0),
@@ -239,7 +239,7 @@ single_nn_out = train(
     opt = RMSProp(0.01),   # Optimizer and learning rate
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
     yscale = identity,       # Scaling for outputs
-    shuffleobs = false,
+    shuffleobs = true,
     training_loss = :nseLoss,
     loss_types = [:nse, :nseLoss],
     array_type = :DimArray,
@@ -271,6 +271,7 @@ NN_Transformer = Chain(
         n_heads = 2,
         out_features = length(neural_param_names),
         dropout_rate = 0.1f0,
+        # layer_scale_init = 0.00001f0,
     )
 )
 
@@ -297,7 +298,7 @@ transformer_out = train(
     opt = RMSProp(0.005),    # Optimizer and learning rate
     monitor_names = [:rb, :Q10],
     yscale = identity,
-    shuffleobs = false,
+    shuffleobs = true,
     training_loss = :nseLoss,
     loss_types = [:nse, :nseLoss],
     sequence_kwargs = (; input_window = input_window, output_window = output_window, output_shift = output_shift, lead_time = 0),
