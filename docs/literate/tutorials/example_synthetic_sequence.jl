@@ -271,7 +271,7 @@ NN_Transformer = Chain(
         n_heads = 2,
         out_features = length(neural_param_names),
         dropout_rate = 0.1f0,
-        # layer_scale_init = 0.00001f0,
+        ## layer_scale_init = 0.00001f0,
     )
 )
 
