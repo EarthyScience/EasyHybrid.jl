@@ -87,7 +87,14 @@ function (m::VisionTransformer)(x, ps, st)
 
     y, st_pre = m.prefix_tokens(y, ps.prefix_tokens, st.prefix_tokens)
 
-    y, st_blocks = m.blocks(y, ps.blocks, st.blocks)
+    if m.use_rope
+        head_dim = m.blocks.layers.layer_1.attention.head_dim
+        seq_len = size(y, 2)
+        cosf, sinf = precompute_rope_freqs(y, head_dim, seq_len)
+        y, st_blocks = m.blocks(y, ps.blocks, st.blocks; cosf = cosf, sinf = sinf)
+    else
+        y, st_blocks = m.blocks(y, ps.blocks, st.blocks)
+    end
 
     if m.use_cls_token
         # Extract the [CLS] token (it's the first token in the sequence)
@@ -196,7 +203,14 @@ function (m::VisionToVisionModel)(x, ps, st)
 
     y, st_pre = m.prefix_tokens(y, ps.prefix_tokens, st.prefix_tokens)
 
-    y, st_blocks = m.blocks(y, ps.blocks, st.blocks)
+    if m.use_rope
+        head_dim = m.blocks.layers.layer_1.attention.head_dim
+        seq_len = size(y, 2)
+        cosf, sinf = precompute_rope_freqs(y, head_dim, seq_len)
+        y, st_blocks = m.blocks(y, ps.blocks, st.blocks; cosf = cosf, sinf = sinf)
+    else
+        y, st_blocks = m.blocks(y, ps.blocks, st.blocks)
+    end
 
     # Discard prefix tokens before un-embedding
     n_prefix = (m.use_cls_token ? 1 : 0) + m.n_register_tokens

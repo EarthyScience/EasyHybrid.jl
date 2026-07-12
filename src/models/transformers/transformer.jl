@@ -49,9 +49,11 @@ function TransformerModel(;
 end
 
 function make_causal_mask(x, seq_len::Int)
-    # k_idx <= q_idx -> upper triangular matrix
-    mask_cpu = triu(ones(Bool, seq_len, seq_len))
-    return copyto!(similar(x, Bool, seq_len, seq_len), mask_cpu)
+    return @ignore_derivatives begin
+        range_dev = similar(x, Int, seq_len)
+        range_dev .= 1:seq_len
+        reshape(range_dev, :, 1) .<= reshape(range_dev, 1, :)
+    end
 end
 
 """
@@ -80,7 +82,7 @@ function (m::TransformerModel)(x, ps, st; causal = false)
 
     if m.use_rope
         head_dim = m.blocks.layers.layer_1.attention.head_dim
-        cosf, sinf = precompute_rope_freqs(head_dim, seq_len)
+        cosf, sinf = precompute_rope_freqs(y, head_dim, seq_len)
         y, st_blocks = m.blocks(y, ps.blocks, st.blocks; mask = mask, cosf = cosf, sinf = sinf)
     else
         y, st_blocks = m.blocks(y, ps.blocks, st.blocks; mask = mask)

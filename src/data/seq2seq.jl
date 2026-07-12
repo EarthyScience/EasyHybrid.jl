@@ -42,9 +42,9 @@ function split_seq2seq(
     dec_x_size = (size(forcings)[1:(end - 1)]..., dec_window, num_samples)
     y_size = (size(y)[1:(end - 1)]..., dec_window, num_samples)
 
-    enc_x = zeros(Float32, enc_x_size)
-    dec_x = zeros(Float32, dec_x_size)
-    y_target = zeros(Float32, y_size)
+    enc_x = similar(x, Float32, enc_x_size)
+    dec_x = similar(forcings, Float32, dec_x_size)
+    y_target = similar(y, Float32, y_size)
 
     # 4. Fill sliding windows dynamically using `selectdim` for N-dimensional safety
     for (b, sx) in enumerate(start_idxs)
@@ -85,8 +85,8 @@ function split_seq2seq(
     enc_x_size = (size(x)[1:(end - 1)]..., enc_window, num_samples)
     y_size = (size(y)[1:(end - 1)]..., dec_window, num_samples)
 
-    enc_x = zeros(Float32, enc_x_size)
-    y_target = zeros(Float32, y_size)
+    enc_x = similar(x, Float32, enc_x_size)
+    y_target = similar(y, Float32, y_size)
 
     for (b, sx) in enumerate(start_idxs)
         ex = sx + enc_window - 1

@@ -133,7 +133,11 @@ Forward pass for the additive PositionEmbedding.
 - `(y, st)`: Hidden states with positional embeddings added, and updated state
 """
 function (m::PositionEmbedding)(x, ps, st)
-    pos = copyto!(similar(x, Int, size(x, m.dim)), 1:size(x, m.dim))
+    pos = @ignore_derivatives begin
+        p = similar(x, Int, size(x, m.dim))
+        p .= 1:size(x, m.dim)
+        p
+    end
     emb, st_emb = m.embedding(pos, ps.embedding, st.embedding)
     return x .+ reshape(emb, size(emb, 1), size(emb, 2), 1), (embedding = st_emb,)
 end

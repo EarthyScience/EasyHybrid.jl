@@ -1,5 +1,5 @@
 """
-    precompute_rope_freqs(head_dim::Int, max_seq_len::Int; theta::Float32 = 10_000f0)
+    precompute_rope_freqs(x::AbstractArray, head_dim::Int, max_seq_len::Int; theta::Float32 = 10_000f0)
 
 Precomputes the trigonometric frequencies (cosine and sine) needed for Rotary Positional Embeddings (RoPE). 
 
@@ -19,12 +19,17 @@ using complex rotations. This allows the model to:
 # Returns
 - `(cosf, sinf)`: A tuple of cosine and sine frequency matrices, each of shape `(head_dim/2, max_seq_len)`
 """
-function precompute_rope_freqs(head_dim::Int, max_seq_len::Int; theta::Float32 = 10_000f0)
+function precompute_rope_freqs(x::AbstractArray, head_dim::Int, max_seq_len::Int; theta::Float32 = 10_000f0)
     @assert iseven(head_dim) "head_dim must be even"
-    inv_freq = 1.0f0 ./ (theta .^ (Float32.(0:2:(head_dim - 1)) ./ head_dim))  # (head_dim/2,)
-    pos = Float32.(0:(max_seq_len - 1))                                     # (max_seq_len,)
-    freqs = inv_freq * pos'                                                 # (head_dim/2, max_seq_len)
-    return cos.(freqs), sin.(freqs)   # each (head_dim/2, max_seq_len)
+    cosf, sinf = @ignore_derivatives begin
+        inv_freq = similar(x, Float32, head_dim ÷ 2)
+        inv_freq .= 1.0f0 ./ (theta .^ (Float32.(0:2:(head_dim - 1)) ./ head_dim))
+        pos = similar(x, Float32, max_seq_len)
+        pos .= 0:(max_seq_len - 1)
+        freqs = inv_freq * pos'
+        cos.(freqs), sin.(freqs)
+    end
+    return cosf, sinf
 end
 
 """

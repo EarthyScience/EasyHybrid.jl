@@ -6,6 +6,7 @@ using LinearAlgebra: triu
 using Random
 using NNlib
 using Statistics
+using ChainRulesCore: @ignore_derivatives
 
 export GroupedQueryAttention, MultiHeadSelfAttention
 export precompute_rope_freqs, apply_rotary_embeddings

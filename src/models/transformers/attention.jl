@@ -66,8 +66,13 @@ end
 
 function causal_mask_offset(x, seq_len::Int, kv_len::Int)
     offset = kv_len - seq_len
-    mask_cpu = [k <= offset + q for k in 1:kv_len, q in 1:seq_len]
-    return copyto!(similar(x, Bool, kv_len, seq_len), mask_cpu)
+    return @ignore_derivatives begin
+        k = similar(x, Int, kv_len)
+        k .= 1:kv_len
+        q = similar(x, Int, seq_len)
+        q .= 1:seq_len
+        reshape(k, :, 1) .<= (offset .+ reshape(q, 1, :))
+    end
 end
 
 # """
