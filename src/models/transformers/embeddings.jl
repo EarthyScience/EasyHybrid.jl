@@ -40,6 +40,61 @@ function (m::FeatureEmbedding)(x, ps, st)
 end
 
 """
+    PrefixTokens(embed_dim::Int; use_cls_token::Bool=true, n_register_tokens::Int=0)
+
+Creates a layer that maintains learned [CLS] and [REGISTER] tokens.
+During the forward pass, these tokens are repeated for the batch size and prepended to the sequence.
+
+# Arguments
+- `embed_dim`: Dimensionality of the model's hidden states
+- `use_cls_token`: If true, includes a single [CLS] token
+- `n_register_tokens`: Number of [REGISTER] (storage) tokens to include
+
+# Returns
+- A `PrefixTokens` layer
+"""
+struct PrefixTokens <: Lux.AbstractLuxLayer
+    embed_dim::Int
+    use_cls_token::Bool
+    n_register_tokens::Int
+end
+
+function PrefixTokens(embed_dim::Int; use_cls_token::Bool = true, n_register_tokens::Int = 0)
+    return PrefixTokens(embed_dim, use_cls_token, n_register_tokens)
+end
+
+function Lux.initialparameters(rng::AbstractRNG, m::PrefixTokens)
+    ps = NamedTuple()
+    if m.use_cls_token
+        ps = merge(ps, (cls_token = randn(rng, Float32, m.embed_dim, 1, 1) .* 0.02f0,))
+    end
+    if m.n_register_tokens > 0
+        ps = merge(ps, (register_tokens = randn(rng, Float32, m.embed_dim, m.n_register_tokens, 1) .* 0.02f0,))
+    end
+    return ps
+end
+
+Lux.initialstates(rng::AbstractRNG, m::PrefixTokens) = NamedTuple()
+
+function (m::PrefixTokens)(x, ps, st)
+    batch_size = size(x)[end]
+    if m.use_cls_token && m.n_register_tokens > 0
+        cls = repeat(ps.cls_token, 1, 1, batch_size)
+        reg = repeat(ps.register_tokens, 1, 1, batch_size)
+        prefix = cat(cls, reg; dims = 2)
+        return cat(prefix, x; dims = 2), st
+    elseif m.use_cls_token
+        cls = repeat(ps.cls_token, 1, 1, batch_size)
+        return cat(cls, x; dims = 2), st
+    elseif m.n_register_tokens > 0
+        reg = repeat(ps.register_tokens, 1, 1, batch_size)
+        return cat(reg, x; dims = 2), st
+    else
+        return x, st
+    end
+end
+
+"""
     PositionEmbedding(max_positions::Integer, d_model::Integer; dim::Int=2)
 
 Creates a learned additive Positional Embedding layer.

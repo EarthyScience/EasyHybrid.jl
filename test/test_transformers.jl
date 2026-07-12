@@ -418,4 +418,53 @@ using EasyHybrid.Transformers
         @test size(y) == (out_features, 1, batch_size)
         @info "LSTM-Style Regression (Encoder-Decoder) OK. Output Shape: $(size(y))"
     end
+    @testset "Advanced VisionTransformer Features (LayerScale, CLS, Register, extract_features)" begin
+        patch_size = (16, 16)
+        in_channels = 3
+        d_model = 64
+        image_size = (32, 32)
+        batch_size = 4
+        out_features = 10
+
+        vit = VisionTransformer(
+            patch_size = patch_size,
+            in_channels = in_channels,
+            d_model = d_model,
+            n_layers = 3,
+            n_heads = 4,
+            max_positions = 256,
+            num_classes = out_features,
+            use_rope = true,
+            use_cls_token = true,
+            n_register_tokens = 4,
+            layer_scale_init = 1.0e-5
+        )
+
+        ps, st = Lux.setup(rng, vit)
+        st = Lux.testmode(st)
+
+        x = randn(Float32, image_size[1], image_size[2], in_channels, batch_size)
+
+        # 1. Forward pass testing CLS token extraction and LayerScale
+        y, st_out = vit(x, ps, st)
+        @test size(y) == (out_features, batch_size)
+        @info "Advanced ViT Features Forward Pass OK. Output Shape: $(size(y))"
+
+        # 2. Test extract_features with n_blocks
+        # Expected grid size: (32/16, 32/16) = (2, 2)
+        # Expected output per block: (2, 2, d_model, batch_size) = (2, 2, 64, 4)
+        features = extract_features(vit, x, ps, st; n_blocks = 2)
+
+        @test length(features) == 2
+        @test size(features[1]) == (2, 2, d_model, batch_size)
+        @test size(features[2]) == (2, 2, d_model, batch_size)
+        @info "extract_features (n_blocks) OK. Extracted $(length(features)) blocks of shape $(size(features[1]))."
+
+        # 3. Test extract_features with specific blocks
+        features_specific = extract_features(vit, x, ps, st; blocks = [1, 3])
+        @test length(features_specific) == 2
+        @test size(features_specific[1]) == (2, 2, d_model, batch_size)
+        @test size(features_specific[2]) == (2, 2, d_model, batch_size)
+        @info "extract_features (specific blocks) OK. Extracted blocks 1 and 3."
+    end
 end

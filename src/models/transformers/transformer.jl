@@ -15,6 +15,7 @@ Optionally accepts a `stem` (e.g. a CNN or LSTM) to act as a feature extractor b
 - `stem`: Optional Lux layer to apply as a feature extractor before embedding
 - `max_positions`: Unused placeholder for additive embeddings if needed later
 - `norm_eps`: Epsilon value for RMSNorm stability
+- `layer_scale_init`: Initial value for LayerScale (e.g., 1e-5). If nothing, LayerScale is not used.
 
 # Returns
 - A `TransformerModel` container layer
@@ -25,22 +26,25 @@ struct TransformerModel{ST, E, S, N, O} <: LuxCore.AbstractLuxContainerLayer{(:s
     blocks::S
     norm::N
     output::O
+    use_rope::Bool
 end
 
 function TransformerModel(;
         in_features, d_model, n_layers, n_heads, n_kv_heads = n_heads,
         max_positions = nothing, out_features, norm_eps = 1.0f-5,
-        dropout_rate = 0.0f0, stem = nothing
+        dropout_rate = 0.0f0, stem = nothing, layer_scale_init = nothing,
+        use_rope = true
     )
 
-    decoder_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, dropout_rate) for _ in 1:n_layers)
+    decoder_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, dropout_rate, layer_scale_init) for _ in 1:n_layers)
 
     return TransformerModel(
         stem === nothing ? NoOpLayer() : stem,
         FeatureEmbedding(in_features, d_model),
         TransformerStack(decoder_blocks),
         RMSNorm(d_model; eps = norm_eps),
-        Dense(d_model => out_features; use_bias = false)
+        Dense(d_model => out_features; use_bias = false),
+        use_rope
     )
 end
 
@@ -74,7 +78,13 @@ function (m::TransformerModel)(x, ps, st; causal = false)
     seq_len = size(y, 2)
     mask = causal ? make_causal_mask(y, seq_len) : nothing
 
-    y, st_blocks = m.blocks(y, ps.blocks, st.blocks; mask = mask)
+    if m.use_rope
+        head_dim = m.blocks.layers.layer_1.attention.head_dim
+        cosf, sinf = precompute_rope_freqs(head_dim, seq_len)
+        y, st_blocks = m.blocks(y, ps.blocks, st.blocks; mask = mask, cosf = cosf, sinf = sinf)
+    else
+        y, st_blocks = m.blocks(y, ps.blocks, st.blocks; mask = mask)
+    end
 
     y, st_n = m.norm(y, ps.norm, st.norm)
     y, st_out = m.output(y, ps.output, st.output)

@@ -14,6 +14,19 @@ function (m::RMSNorm)(x, ps, st)
     return w .* x_normed, st
 end
 
+struct LayerScale <: Lux.AbstractLuxLayer
+    dim::Int
+    init_value::Float32
+end
+
+Lux.initialparameters(rng::AbstractRNG, m::LayerScale) = (gamma = fill(m.init_value, m.dim),)
+Lux.initialstates(rng::AbstractRNG, m::LayerScale) = NamedTuple()
+
+function (m::LayerScale)(x, ps, st)
+    gamma = reshape(ps.gamma, m.dim, ntuple(_ -> 1, ndims(x) - 1)...)
+    return x .* gamma, st
+end
+
 """
     FeedForward(dim::Int; multiple_of::Int=256, ffn_dim_multiplier::Union{Float64, Nothing}=nothing, dropout_rate=0.0f0)
 
@@ -136,38 +149,46 @@ If `cross_attention` is true, an additional MultiHeadSelfAttention block is adde
 - `norm_eps`: Epsilon value for RMSNorm stability
 - `cross_attention`: If `true`, adds a cross-attention layer (e.g. for decoders)
 - `dropout_rate`: Dropout probability applied to attention and feedforward layers
+- `layer_scale_init`: Initial value for LayerScale (e.g., 1e-5). If nothing, LayerScale is not used.
 
 # Returns
 - A `TransformerBlock` container layer
 """
-struct TransformerBlock{A, N1, CA, CN, F, N2} <: LuxCore.AbstractLuxContainerLayer{(:attention, :attn_norm, :cross_attention, :norm_cross, :feed_forward, :ffn_norm)}
+struct TransformerBlock{A, N1, L1, CA, CN, LC, F, N2, L2} <: LuxCore.AbstractLuxContainerLayer{(:attention, :attn_norm, :ls1, :cross_attention, :norm_cross, :ls_cross, :feed_forward, :ffn_norm, :ls2)}
     attention::A
     attn_norm::N1
+    ls1::L1
     cross_attention::CA
     norm_cross::CN
+    ls_cross::LC
     feed_forward::F
     ffn_norm::N2
+    ls2::L2
 end
 
-function TransformerBlock(dim, n_heads, n_kv_heads; norm_eps = 1.0f-5, cross_attention = false, dropout_rate = 0.0f0)
+function TransformerBlock(dim, n_heads, n_kv_heads; norm_eps = 1.0f-5, cross_attention = false, dropout_rate = 0.0f0, layer_scale_init = nothing)
     return TransformerBlock(
         GroupedQueryAttention(dim, n_heads, n_kv_heads; dropout_rate = dropout_rate),
         RMSNorm(dim; eps = norm_eps),
+        layer_scale_init !== nothing ? LayerScale(dim, Float32(layer_scale_init)) : NoOpLayer(),
         cross_attention ? MultiHeadSelfAttention(dim, n_heads; dropout_rate = dropout_rate) : NoOpLayer(),
         cross_attention ? RMSNorm(dim; eps = norm_eps) : NoOpLayer(),
+        cross_attention && layer_scale_init !== nothing ? LayerScale(dim, Float32(layer_scale_init)) : NoOpLayer(),
         FeedForward(dim; dropout_rate = dropout_rate),
         RMSNorm(dim; eps = norm_eps),
+        layer_scale_init !== nothing ? LayerScale(dim, Float32(layer_scale_init)) : NoOpLayer(),
     )
 end
 
 function _cross_attn(m::TransformerBlock, x, ps, st, context)
     y, st_cn = m.norm_cross(x, ps.norm_cross, st.norm_cross)
     y, st_ca = m.cross_attention(y, ps.cross_attention, st.cross_attention; context)
-    return x .+ y, st_ca, st_cn
+    y, st_lc = m.ls_cross(y, ps.ls_cross, st.ls_cross)
+    return x .+ y, st_ca, st_cn, st_lc
 end
 
-function _cross_attn(m::TransformerBlock{A, N, NoOpLayer, NoOpLayer}, x, ps, st, context) where {A, N}
-    return x, st.cross_attention, st.norm_cross
+function _cross_attn(m::TransformerBlock{A, N1, L1, NoOpLayer, NoOpLayer, NoOpLayer}, x, ps, st, context) where {A, N1, L1}
+    return x, st.cross_attention, st.norm_cross, st.ls_cross
 end
 
 """
@@ -193,21 +214,27 @@ function (m::TransformerBlock)(x, ps, st; cosf = nothing, sinf = nothing, contex
 
     # Standard forward pass without autoregressive cache
     y, st_attn = m.attention(y, ps.attention, st.attention; context = nothing, mask = mask, cosf = cosf, sinf = sinf)
+    y, st_l1 = m.ls1(y, ps.ls1, st.ls1)
 
     x = x .+ y
 
-    x, st_ca, st_cn = _cross_attn(m, x, ps, st, context)
+    x, st_ca, st_cn, st_lc = _cross_attn(m, x, ps, st, context)
 
     y, st_n2 = m.ffn_norm(x, ps.ffn_norm, st.ffn_norm)
     y, st_ff = m.feed_forward(y, ps.feed_forward, st.feed_forward)
+    y, st_l2 = m.ls2(y, ps.ls2, st.ls2)
+
     x = x .+ y
 
     return x, (
             attention = st_attn,
             attn_norm = st_n1,
+            ls1 = st_l1,
             cross_attention = st_ca,
             norm_cross = st_cn,
+            ls_cross = st_lc,
             feed_forward = st_ff,
             ffn_norm = st_n2,
+            ls2 = st_l2,
         )
 end

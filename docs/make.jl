@@ -67,7 +67,7 @@ makedocs(;
             "Synthetic Respiration on GPU" => "tutorials/synthetic_respiration_gpu.md",
             "Slurm" => "tutorials/slurm.md",
             "Cross-validation" => "tutorials/folds.md",
-            "LSTM Hybrid Model" => "tutorials/example_synthetic_lstm.md",
+            "Sequence Hybrid Models (LSTM & Transformer)" => "tutorials/example_synthetic_sequence.md",
             "Loss Functions" => "tutorials/losses.md",
         ],
         "Research" => [

@@ -49,17 +49,35 @@ adding any learned parameters to the network.
 """
 function apply_rotary_embeddings(x::AbstractArray{T, 4}, cosf, sinf) where {T}
     head_dim, n_heads, seq_len, batch = size(x)
+    rope_len = size(cosf, 2)
+
+    if rope_len < seq_len
+        # We have prefix tokens (like [CLS] or [REGISTER] tokens)
+        prefix_len = seq_len - rope_len
+        x_prefix = @view x[:, :, 1:prefix_len, :]
+        x_rope = @view x[:, :, (prefix_len + 1):end, :]
+    else
+        x_prefix = nothing
+        x_rope = x
+    end
+
     half = head_dim ÷ 2
 
-    x1 = @view x[1:half, :, :, :]
-    x2 = @view x[(half + 1):end, :, :, :]
+    x1 = @view x_rope[1:half, :, :, :]
+    x2 = @view x_rope[(half + 1):end, :, :, :]
 
     # Expand cosf and sinf to match dimensions for broadcasting
-    c = reshape(cosf, half, 1, seq_len, 1)
-    s = reshape(sinf, half, 1, seq_len, 1)
+    c = reshape(cosf, half, 1, rope_len, 1)
+    s = reshape(sinf, half, 1, rope_len, 1)
 
     rotated1 = x1 .* c .- x2 .* s
     rotated2 = x2 .* c .+ x1 .* s
 
-    return vcat(rotated1, rotated2)
+    x_rope_out = vcat(rotated1, rotated2)
+
+    if x_prefix !== nothing
+        return cat(x_prefix, x_rope_out; dims = 3)
+    else
+        return x_rope_out
+    end
 end

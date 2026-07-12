@@ -156,11 +156,53 @@ function prepare_hidden_chain(
         function get_layer_dim(l, type)
             if type == :input
                 hasproperty(l, :in_dims) && return l.in_dims
+                hasproperty(l, :in_features) && return l.in_features
+                hasproperty(l, :in_chs) && return l.in_chs
+
+                # Container descent
+                if hasproperty(l, :stem)
+                    d = get_layer_dim(l.stem, :input)
+                    !isnothing(d) && return d
+                end
+                if hasproperty(l, :embedding)
+                    d = get_layer_dim(l.embedding, :input)
+                    !isnothing(d) && return d
+                end
+                if hasproperty(l, :patch_embedding)
+                    d = get_layer_dim(l.patch_embedding, :input)
+                    !isnothing(d) && return d
+                end
+                if hasproperty(l, :dense)
+                    d = get_layer_dim(l.dense, :input)
+                    !isnothing(d) && return d
+                end
+                if hasproperty(l, :conv)
+                    d = get_layer_dim(l.conv, :input)
+                    !isnothing(d) && return d
+                end
+
                 (l isa BatchNorm && hasproperty(l, :dims)) && return l.dims
                 (l isa Recurrence && hasproperty(l.cell, :in_dims)) && return l.cell.in_dims
                 (l isa CompactLuxLayer && hasproperty(l.layers, :in_dims)) && return l.layers.in_dims
             elseif type == :output
                 hasproperty(l, :out_dims) && return l.out_dims
+                hasproperty(l, :out_features) && return l.out_features
+                hasproperty(l, :out_chs) && return l.out_chs
+
+                # Container descent
+                if hasproperty(l, :output)
+                    d = get_layer_dim(l.output, :output)
+                    !isnothing(d) && return d
+                end
+                if hasproperty(l, :dense)
+                    d = get_layer_dim(l.dense, :output)
+                    !isnothing(d) && return d
+                end
+                if hasproperty(l, :conv)
+                    d = get_layer_dim(l.conv, :output)
+                    !isnothing(d) && return d
+                end
+
                 (l isa BatchNorm && hasproperty(l, :dims)) && return l.dims
                 (l isa Recurrence && hasproperty(l.cell, :out_dims)) && return l.cell.out_dims
                 (l isa CompactLuxLayer && hasproperty(l.layers, :out_dims)) && return l.layers.out_dims

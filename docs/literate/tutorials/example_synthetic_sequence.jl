@@ -1,8 +1,8 @@
-# # LSTM Hybrid Model with EasyHybrid.jl
+# # Sequence Hybrid Models (LSTM & Transformer)
 #
-# This tutorial demonstrates how to use EasyHybrid to train a hybrid model with LSTM
-# neural networks on synthetic data for respiration modeling with Q10 temperature sensitivity.
-# The code for this tutorial can be found in [docs/src/literate/tutorials](https://github.com/EarthyScience/EasyHybrid.jl/tree/main/docs/src/literate/tutorials/) => example_synthetic_lstm.jl.
+# This tutorial demonstrates how to use EasyHybrid to train a hybrid model with sequence
+# neural networks (LSTMs and Transformers) on synthetic data for respiration modeling with Q10 temperature sensitivity.
+# The code for this tutorial can be found in [docs/src/literate/tutorials](https://github.com/EarthyScience/EasyHybrid.jl/tree/main/docs/src/literate/tutorials/) => example_synthetic_sequence.jl.
 #
 # ## 1. Load Packages
 
@@ -254,3 +254,62 @@ single_nn_out = train(
 
 # Close enough
 out_lstm.best_loss, single_nn_out.best_loss
+
+# ## 11. Train Transformer Hybrid Model
+
+using EasyHybrid.Transformers
+
+# We can also use the state-of-the-art Transformer models for time-series regression.
+# By wrapping it in a `Chain`, we bypass the default MLP construction.
+# EasyHybrid's `TransformerModel` naturally handles `(features, seq_len, batch)` sequences.
+
+NN_Transformer = Chain(
+    TransformerModel(
+        in_features = length(predictors),
+        d_model = 16,
+        n_layers = 1,
+        n_heads = 2,
+        out_features = length(neural_param_names),
+        dropout_rate = 0.1f0,
+    )
+)
+
+hm_transformer = constructHybridModel(
+    predictors,
+    forcing,
+    target,
+    RbQ10,
+    parameters,
+    neural_param_names,
+    global_param_names,
+    hidden_layers = NN_Transformer, # Pass the Transformer Chain
+    scale_nn_outputs = true,
+    input_batchnorm = false,
+);
+
+# Train the Transformer hybrid model
+transformer_out = train(
+    hm_transformer,
+    df,
+    ();
+    nepochs = 100,           # Number of training epochs
+    batchsize = 128,         # Batch size for training
+    opt = RMSProp(0.005),    # Optimizer and learning rate
+    monitor_names = [:rb, :Q10],
+    yscale = identity,
+    shuffleobs = false,
+    training_loss = :nseLoss,
+    loss_types = [:nse, :nseLoss],
+    sequence_kwargs = (; input_window = input_window, output_window = output_window, output_shift = output_shift, lead_time = 0),
+    array_type = :DimArray,
+    plotting = true,
+    show_progress = false,
+    model_name = "RbQ10_synthetic_transformer"
+);
+
+# ```@raw html
+# <video src="../training_history_RbQ10_synthetic_transformer.mp4" controls="controls" autoplay="autoplay"></video>
+# ```
+
+# Compare the best validation losses!
+out_lstm.best_loss, single_nn_out.best_loss, transformer_out.best_loss

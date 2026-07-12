@@ -13,7 +13,7 @@ export FeatureEmbedding, PositionEmbedding, PatchEmbedding, PatchUnEmbedding
 export RMSNorm, FeedForward, TransformerBlock, TransformerStack
 export TransformerModel, EncoderDecoderModel, VisionEncoderDecoderModel, VisionTransformer
 export VisionToVisionModel, VisionToVisionEncoderDecoderModel
-
+export extract_features
 include("rope.jl")
 include("attention.jl")
 include("embeddings.jl")

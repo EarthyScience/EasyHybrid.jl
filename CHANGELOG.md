@@ -1,7 +1,7 @@
 # Changelog
 
 ## Unreleased
-- Added a comprehensive `EasyHybrid.Transformers` module featuring state-of-the-art architectures: `TransformerModel` (1D Time Series), `VisionTransformer` (2D Spatial / 3D Spatio-Temporal), `EncoderDecoderModel` (Seq2Seq), and `VisionEncoderDecoderModel`. Includes modern building blocks like Grouped Query Attention (GQA), SwiGLU FeedForward, RMSNorm, and Rotary Positional Embeddings (RoPE).
+- Added a comprehensive `EasyHybrid.Transformers` module featuring state-of-the-art architectures: `TransformerModel` (1D Time Series), `VisionTransformer` (2D Spatial / 3D Spatio-Temporal), `EncoderDecoderModel` (Seq2Seq), and `VisionEncoderDecoderModel`. Includes modern building blocks like Grouped Query Attention (GQA), SwiGLU FeedForward, RMSNorm, Rotary Positional Embeddings (RoPE), LayerScale, PrefixTokens ([CLS]/[REGISTER]), and `extract_features` functionality for intermediate grid extractions. [#279](https://github.com/EarthyScience/EasyHybrid.jl/pull/279)
 - Refactored the training dashboard into modular, "Lego-like" components (`dashboard_components`, `split_dashboard`, `save_animations`), allowing for customizable rendering and individual animation saves via `TrainConfig` or `train` keyword arguments, while preserving the old default behavior [#273](https://github.com/EarthyScience/EasyHybrid.jl/pull/273)
 - Added a GitHub Actions workflow for posting a PR preview comment with a link to the documentation preview [#272](https://github.com/EarthyScience/EasyHybrid.jl/pull/272)
 

@@ -34,11 +34,11 @@ end
 function EncoderDecoderModel(;
         in_features, dec_features, d_model,
         enc_layers, dec_layers, n_heads, n_kv_heads = n_heads,
-        out_features, norm_eps = 1.0f-5, dropout_rate = 0.0f0, stem = nothing
+        out_features, norm_eps = 1.0f-5, dropout_rate = 0.0f0, stem = nothing, layer_scale_init = nothing
     )
 
-    enc_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, cross_attention = false, dropout_rate) for _ in 1:enc_layers)
-    dec_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, cross_attention = true, dropout_rate) for _ in 1:dec_layers)
+    enc_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, cross_attention = false, dropout_rate, layer_scale_init) for _ in 1:enc_layers)
+    dec_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, cross_attention = true, dropout_rate, layer_scale_init) for _ in 1:dec_layers)
 
     return EncoderDecoderModel(
         stem === nothing ? NoOpLayer() : stem,
@@ -126,11 +126,11 @@ continuous sequential covariates (via FeatureEmbedding).
 function VisionEncoderDecoderModel(;
         patch_size, in_channels, dec_features, d_model,
         enc_layers, dec_layers, n_heads, n_kv_heads = n_heads,
-        out_features, ndims = 2, norm_eps = 1.0f-5, dropout_rate = 0.0f0, stem = nothing
+        out_features, ndims = 2, norm_eps = 1.0f-5, dropout_rate = 0.0f0, stem = nothing, layer_scale_init = nothing
     )
 
-    enc_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, cross_attention = false, dropout_rate) for _ in 1:enc_layers)
-    dec_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, cross_attention = true, dropout_rate) for _ in 1:dec_layers)
+    enc_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, cross_attention = false, dropout_rate, layer_scale_init) for _ in 1:enc_layers)
+    dec_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, cross_attention = true, dropout_rate, layer_scale_init) for _ in 1:dec_layers)
 
     return EncoderDecoderModel(
         stem === nothing ? NoOpLayer() : stem,
@@ -172,11 +172,11 @@ The Encoder processes the historical maps, the Decoder processes known future co
 function VisionToVisionEncoderDecoderModel(;
         patch_size, grid_size, in_channels, dec_channels, out_channels, d_model,
         enc_layers, dec_layers, n_heads, n_kv_heads = n_heads,
-        ndims = 2, norm_eps = 1.0f-5, dropout_rate = 0.0f0, stem = nothing
+        ndims = 2, norm_eps = 1.0f-5, dropout_rate = 0.0f0, stem = nothing, layer_scale_init = nothing
     )
 
-    enc_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, cross_attention = false, dropout_rate) for _ in 1:enc_layers)
-    dec_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, cross_attention = true, dropout_rate) for _ in 1:dec_layers)
+    enc_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, cross_attention = false, dropout_rate, layer_scale_init) for _ in 1:enc_layers)
+    dec_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, cross_attention = true, dropout_rate, layer_scale_init) for _ in 1:dec_layers)
 
     return EncoderDecoderModel(
         stem === nothing ? NoOpLayer() : stem,
