@@ -75,6 +75,41 @@ function causal_mask_offset(x, seq_len::Int, kv_len::Int)
     end
 end
 
+"""
+    local_grouped_query_attention(q, k, v; mask=nothing)
+
+Computes Grouped Query Attention (GQA).
+It broadcasts key and value heads to match the number of query heads, and performs 
+the attention computation across the sequence and batch dimensions.
+
+# Arguments
+- `q`: Query tensor of shape `(head_dim, n_heads, seq_len, batch)`.
+- `k`: Key tensor of shape `(head_dim, n_kv_heads, kv_len, batch)`.
+- `v`: Value tensor of shape `(head_dim, n_kv_heads, kv_len, batch)`.
+- `mask`: Optional boolean mask to apply to the attention scores.
+
+# Returns
+- The attended sequence tensor of shape `(head_dim * n_heads, seq_len, batch)`.
+"""
+function local_grouped_query_attention(q, k, v; mask = nothing)
+    head_dim, n_heads, seq_len, batch = size(q)
+    _, n_kv_heads, kv_len, _ = size(k)
+    n_rep = n_heads ÷ n_kv_heads
+
+    k_rep = repeat_kv(k, n_rep)
+    v_rep = repeat_kv(v, n_rep)
+
+    q2 = reshape(permutedims(q, (1, 3, 2, 4)), head_dim, seq_len, :)
+    k2 = reshape(permutedims(k_rep, (1, 3, 2, 4)), head_dim, kv_len, :)
+    v2 = reshape(permutedims(v_rep, (1, 3, 2, 4)), head_dim, kv_len, :)
+
+    y, _ = dot_product_attention(q2, k2, v2; mask, nheads = 1)
+
+    y = reshape(y, head_dim, seq_len, n_heads, batch)
+    y = permutedims(y, (1, 3, 2, 4))
+    return reshape(y, n_heads * head_dim, seq_len, batch)
+end
+
 # """
 #     (m::GroupedQueryAttention)(x, cache::KVCache, start_pos::Int, cosf, sinf, ps, st)
 #
@@ -120,20 +155,9 @@ end
 #     k_full = @view cache.k[:, :, 1:kv_len, 1:batch]
 #     v_full = @view cache.v[:, :, 1:kv_len, 1:batch]
 #
-#     k_rep = repeat_kv(k_full, n_rep)
-#     v_rep = repeat_kv(v_full, n_rep)
+#     mask = seq_len > 1 ? causal_mask_offset(q, seq_len, kv_len) : nothing
 #
-#     q2 = reshape(permutedims(q, (1, 3, 2, 4)), m.head_dim, seq_len, :)
-#     k2 = reshape(permutedims(k_rep, (1, 3, 2, 4)), m.head_dim, kv_len, :)
-#     v2 = reshape(permutedims(v_rep, (1, 3, 2, 4)), m.head_dim, kv_len, :)
-#
-#     mask = seq_len > 1 ? causal_mask_offset(q2, seq_len, kv_len) : nothing
-#
-#     y, _ = dot_product_attention(q2, k2, v2; mask, nheads = 1)
-#
-#     y = reshape(y, m.head_dim, seq_len, m.n_heads, batch)
-#     y = permutedims(y, (1, 3, 2, 4))
-#     y = reshape(y, m.n_heads * m.head_dim, seq_len, batch)
+#     y = local_grouped_query_attention(q, k_full, v_full; mask=mask)
 #
 #     out, st_o = m.wo(y, ps.wo, st.wo)
 #     out, st_d = m.drop(out, ps.drop, st.drop)
@@ -175,19 +199,7 @@ function (m::GroupedQueryAttention)(x, ps, st; context = nothing, mask = nothing
         k = apply_rotary_embeddings(k, cosf, sinf)
     end
 
-    # In non-autoregressive setting without RoPE provided, we just do attention
-    k_rep = repeat_kv(k, n_rep)
-    v_rep = repeat_kv(v, n_rep)
-
-    q2 = reshape(permutedims(q, (1, 3, 2, 4)), m.head_dim, seq_len, :)
-    k2 = reshape(permutedims(k_rep, (1, 3, 2, 4)), m.head_dim, seq_len, :)
-    v2 = reshape(permutedims(v_rep, (1, 3, 2, 4)), m.head_dim, seq_len, :)
-
-    y, _ = dot_product_attention(q2, k2, v2; mask, nheads = 1)
-
-    y = reshape(y, m.head_dim, seq_len, m.n_heads, batch)
-    y = permutedims(y, (1, 3, 2, 4))
-    y = reshape(y, m.n_heads * m.head_dim, seq_len, batch)
+    y = local_grouped_query_attention(q, k, v; mask = mask)
 
     out, st_o = m.wo(y, ps.wo, st.wo)
     out, st_d = m.drop(out, ps.drop, st.drop)
