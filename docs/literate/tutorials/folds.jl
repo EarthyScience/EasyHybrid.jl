@@ -87,8 +87,7 @@ results = Vector{Any}(undef, k)
     sdata = split_data(df, hybrid_model; val_fold = val_fold, folds = folds)
     out = train(
         hybrid_model,
-        sdata,
-        ();
+        sdata;
         nepochs = 10,
         patience = 10,
         batchsize = 512,         # Batch size for training

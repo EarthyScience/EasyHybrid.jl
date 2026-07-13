@@ -189,8 +189,7 @@ EasyHybrid.compute_loss(hlstm, ps, st, ((x_train, f_train), (y_train, y_train_na
 
 out_lstm = train(
     hlstm,
-    df,
-    ();
+    df;
     nepochs = 100,           # Number of training epochs
     batchsize = 128,         # Batch size of training windows/samples
     opt = RMSProp(0.01),   # Optimizer and learning rate
@@ -232,8 +231,7 @@ hm = constructHybridModel(
 # Train the hybrid model
 single_nn_out = train(
     hm,
-    df,
-    ();
+    df;
     nepochs = 100,           # Number of training epochs
     batchsize = 128,         # Batch size for training
     opt = RMSProp(0.01),   # Optimizer and learning rate
@@ -291,8 +289,7 @@ hm_transformer = constructHybridModel(
 # Train the Transformer hybrid model
 transformer_out = train(
     hm_transformer,
-    df,
-    ();
+    df;
     nepochs = 100,           # Number of training epochs
     batchsize = 128,         # Batch size for training
     opt = RMSProp(0.005),    # Optimizer and learning rate
