@@ -220,6 +220,8 @@ function train(
         data_cfg::DataConfig = DataConfig(),
         kwargs...,
     )
+    # Default `target_names` to the model's targets unless the caller overrides it.
+    kwargs = haskey(kwargs, :target_names) ? kwargs : (; kwargs..., target_names = model.targets)
     train_cfg, data_cfg, solve_kwargs = override_configs(train_cfg, data_cfg, kwargs)
     return _train(model, data, train_cfg, data_cfg, solve_kwargs)
 end
