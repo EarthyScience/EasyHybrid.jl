@@ -1,0 +1,240 @@
+struct RMSNorm <: Lux.AbstractLuxLayer
+    dim::Int
+    eps::Float32
+end
+RMSNorm(dim::Int; eps::Float32 = 1.0f-5) = RMSNorm(dim, eps)
+
+Lux.initialparameters(rng::AbstractRNG, m::RMSNorm) = (weight = ones(Float32, m.dim),)
+Lux.initialstates(rng::AbstractRNG, m::RMSNorm) = NamedTuple()
+
+function (m::RMSNorm)(x, ps, st)
+    ms = mean(abs2, x; dims = 1)
+    x_normed = x ./ sqrt.(ms .+ m.eps)
+    w = reshape(ps.weight, m.dim, ntuple(_ -> 1, ndims(x) - 1)...)
+    return w .* x_normed, st
+end
+
+struct LayerScale <: Lux.AbstractLuxLayer
+    dim::Int
+    init_value::Float32
+end
+
+Lux.initialparameters(rng::AbstractRNG, m::LayerScale) = (gamma = fill(m.init_value, m.dim),)
+Lux.initialstates(rng::AbstractRNG, m::LayerScale) = NamedTuple()
+
+function (m::LayerScale)(x, ps, st)
+    gamma = reshape(ps.gamma, m.dim, ntuple(_ -> 1, ndims(x) - 1)...)
+    return x .* gamma, st
+end
+
+"""
+    FeedForward(dim::Int; multiple_of::Int=256, ffn_dim_multiplier::Union{Float64, Nothing}=nothing, dropout_rate=0.0f0)
+
+Implements a SwiGLU FeedForward network.
+This block projects the input to a higher dimension, applies a Swish (SiLU) gating mechanism, 
+and projects it back to the original dimension, offering better gradient flow than standard GELU MLPs.
+
+# Arguments
+- `dim`: Dimensionality of the model's hidden states (`d_model`)
+- `multiple_of`: Ensures the hidden dimension is a multiple of this value for hardware efficiency
+- `ffn_dim_multiplier`: Optional multiplier to explicitly scale the hidden dimension
+- `dropout_rate`: Dropout probability applied to the final projection
+
+# Returns
+- A `FeedForward` container layer
+"""
+struct FeedForward{W1, W2, W3, D} <: LuxCore.AbstractLuxContainerLayer{(:w1, :w2, :w3, :drop)}
+    w1::W1   # gate
+    w2::W2   # down
+    w3::W3   # up
+    drop::D
+end
+
+function FeedForward(dim::Int; multiple_of::Int = 256, ffn_dim_multiplier::Union{Float64, Nothing} = nothing, dropout_rate = 0.0f0)
+    hidden = 2 * (4 * dim) ÷ 3
+    hidden = ffn_dim_multiplier === nothing ? hidden : floor(Int, hidden * ffn_dim_multiplier)
+    hidden = multiple_of * cld(hidden, multiple_of)
+    return FeedForward(
+        Dense(dim => hidden; use_bias = false),
+        Dense(hidden => dim; use_bias = false),
+        Dense(dim => hidden; use_bias = false),
+        Dropout(dropout_rate)
+    )
+end
+
+"""
+    (m::FeedForward)(x, ps, st)
+
+Forward pass for the SwiGLU FeedForward network.
+
+# Arguments
+- `m`: The `FeedForward` layer
+- `x`: Input sequence data of shape `(d_model, seq_len, batch)`
+- `ps`: Model parameters
+- `st`: Model state
+
+# Returns
+- `(y, st_out)`: Projected sequence and updated state
+"""
+function (m::FeedForward)(x, ps, st)
+    g, st_w1 = m.w1(x, ps.w1, st.w1)
+    u, st_w3 = m.w3(x, ps.w3, st.w3)
+    h = NNlib.swish.(g) .* u
+    y, st_w2 = m.w2(h, ps.w2, st.w2)
+    y, st_drop = m.drop(y, ps.drop, st.drop)
+    return y, (w1 = st_w1, w2 = st_w2, w3 = st_w3, drop = st_drop)
+end
+
+"""
+    TransformerStack(layers::Union{Vector, Tuple})
+
+A sequential container for Transformer blocks. 
+While `Lux.Chain` passes inputs through a sequence of layers, `TransformerStack` 
+is specifically designed to correctly propagate arbitrary keyword arguments 
+(such as `mask`, `cache`, and RoPE frequencies) down to each individual block, 
+which is required for advanced attention mechanisms.
+
+# Arguments
+- `layers`: A Tuple or Vector of `TransformerBlock` layers
+
+# Returns
+- A `TransformerStack` container layer
+"""
+struct TransformerStack{L} <: LuxCore.AbstractLuxContainerLayer{(:layers,)}
+    layers::L
+end
+
+function TransformerStack(layers::Union{Vector, Tuple})
+    names = Tuple(Symbol(:layer_, i) for i in 1:length(layers))
+    return TransformerStack(NamedTuple{names}(Tuple(layers)))
+end
+
+"""
+    (m::TransformerStack)(x, ps, st; kwargs...)
+
+Forward pass for the TransformerStack.
+Passes `x` sequentially through each `TransformerBlock` in the stack.
+Arbitrary keyword arguments (like `mask`, `cache`, `start_pos`, `cosf`, `sinf`, `context`) 
+are correctly propagated to every block.
+
+# Arguments
+- `m`: The `TransformerStack` container
+- `x`: Input sequence data
+- `ps`: Model parameters
+- `st`: Model state
+- `kwargs...`: Optional arguments passed down to the blocks
+
+# Returns
+- `(y, st_new)`: Processed sequence and updated state
+"""
+function (m::TransformerStack)(x, ps, st; kwargs...)
+    st_new = st.layers
+    for name in keys(m.layers)
+        x, st_i = m.layers[name](x, ps.layers[name], st.layers[name]; kwargs...)
+        st_new = merge(st_new, (; name => st_i))
+    end
+    return x, (layers = st_new,)
+end
+
+"""
+    TransformerBlock(dim, n_heads, n_kv_heads; norm_eps=1.0f-5, cross_attention=false, dropout_rate=0.0f0)
+
+Creates a State-of-the-Art Transformer Block using RMSNorm, SwiGLU FeedForward, and GroupedQueryAttention.
+If `cross_attention` is true, an additional MultiHeadSelfAttention block is added for Encoder-Decoder architectures.
+
+# Arguments
+- `dim`: Dimensionality of the model's hidden states (`d_model`)
+- `n_heads`: Number of query attention heads
+- `n_kv_heads`: Number of key/value attention heads
+- `norm_eps`: Epsilon value for RMSNorm stability
+- `cross_attention`: If `true`, adds a cross-attention layer (e.g. for decoders)
+- `dropout_rate`: Dropout probability applied to attention and feedforward layers
+- `layer_scale_init`: Initial value for LayerScale (e.g., 1e-5). If nothing, LayerScale is not used.
+
+# Returns
+- A `TransformerBlock` container layer
+"""
+struct TransformerBlock{A, N1, L1, CA, CN, LC, F, N2, L2} <: LuxCore.AbstractLuxContainerLayer{(:attention, :attn_norm, :ls1, :cross_attention, :norm_cross, :ls_cross, :feed_forward, :ffn_norm, :ls2)}
+    attention::A
+    attn_norm::N1
+    ls1::L1
+    cross_attention::CA
+    norm_cross::CN
+    ls_cross::LC
+    feed_forward::F
+    ffn_norm::N2
+    ls2::L2
+end
+
+function TransformerBlock(dim, n_heads, n_kv_heads; norm_eps = 1.0f-5, cross_attention = false, dropout_rate = 0.0f0, layer_scale_init = nothing)
+    return TransformerBlock(
+        GroupedQueryAttention(dim, n_heads, n_kv_heads; dropout_rate = dropout_rate),
+        RMSNorm(dim; eps = norm_eps),
+        layer_scale_init !== nothing ? LayerScale(dim, Float32(layer_scale_init)) : NoOpLayer(),
+        cross_attention ? MultiHeadSelfAttention(dim, n_heads; dropout_rate = dropout_rate) : NoOpLayer(),
+        cross_attention ? RMSNorm(dim; eps = norm_eps) : NoOpLayer(),
+        cross_attention && layer_scale_init !== nothing ? LayerScale(dim, Float32(layer_scale_init)) : NoOpLayer(),
+        FeedForward(dim; dropout_rate = dropout_rate),
+        RMSNorm(dim; eps = norm_eps),
+        layer_scale_init !== nothing ? LayerScale(dim, Float32(layer_scale_init)) : NoOpLayer(),
+    )
+end
+
+function _cross_attn(m::TransformerBlock, x, ps, st, context)
+    y, st_cn = m.norm_cross(x, ps.norm_cross, st.norm_cross)
+    y, st_ca = m.cross_attention(y, ps.cross_attention, st.cross_attention; context)
+    y, st_lc = m.ls_cross(y, ps.ls_cross, st.ls_cross)
+    return x .+ y, st_ca, st_cn, st_lc
+end
+
+function _cross_attn(m::TransformerBlock{A, N1, L1, NoOpLayer, NoOpLayer, NoOpLayer}, x, ps, st, context) where {A, N1, L1}
+    return x, st.cross_attention, st.norm_cross, st.ls_cross
+end
+
+"""
+    (m::TransformerBlock)(x, ps, st; cosf=nothing, sinf=nothing, context=nothing, mask=nothing)
+
+Forward pass for a single TransformerBlock.
+
+# Arguments
+- `m`: The `TransformerBlock` layer
+- `x`: Input sequence data
+- `ps`: Model parameters
+- `st`: Model state
+- `cosf`: Optional precomputed cosine frequencies for RoPE
+- `sinf`: Optional precomputed sine frequencies for RoPE
+- `context`: Optional context sequence for cross-attention
+- `mask`: Optional attention mask
+
+# Returns
+- `(y, st_out)`: Processed sequence and updated state
+"""
+function (m::TransformerBlock)(x, ps, st; cosf = nothing, sinf = nothing, context = nothing, mask = nothing)
+    y, st_n1 = m.attn_norm(x, ps.attn_norm, st.attn_norm)
+
+    # Standard forward pass without autoregressive cache
+    y, st_attn = m.attention(y, ps.attention, st.attention; context = nothing, mask = mask, cosf = cosf, sinf = sinf)
+    y, st_l1 = m.ls1(y, ps.ls1, st.ls1)
+
+    x = x .+ y
+
+    x, st_ca, st_cn, st_lc = _cross_attn(m, x, ps, st, context)
+
+    y, st_n2 = m.ffn_norm(x, ps.ffn_norm, st.ffn_norm)
+    y, st_ff = m.feed_forward(y, ps.feed_forward, st.feed_forward)
+    y, st_l2 = m.ls2(y, ps.ls2, st.ls2)
+
+    x = x .+ y
+
+    return x, (
+            attention = st_attn,
+            attn_norm = st_n1,
+            ls1 = st_l1,
+            cross_attention = st_ca,
+            norm_cross = st_cn,
+            ls_cross = st_lc,
+            feed_forward = st_ff,
+            ffn_norm = st_n2,
+            ls2 = st_l2,
+        )
+end

@@ -1,0 +1,95 @@
+"""
+    TransformerModel(; in_features, d_model, n_layers, n_heads, n_kv_heads=n_heads, out_features, dropout_rate=0.0f0, stem=nothing, max_positions=nothing, norm_eps=1.0f-5)
+
+Creates a continuous sequence TransformerModel using GroupedQueryAttention and RMSNorm.
+Optionally accepts a `stem` (e.g. a CNN or LSTM) to act as a feature extractor before embedding.
+
+# Arguments
+- `in_features`: Number of input features/covariates per timestep
+- `d_model`: Dimensionality of the model's hidden states
+- `n_layers`: Number of Transformer blocks
+- `n_heads`: Number of query attention heads
+- `n_kv_heads`: Number of key/value attention heads (defaults to `n_heads`)
+- `out_features`: Dimensionality of the final output projection
+- `dropout_rate`: Dropout probability applied to attention and feedforward layers
+- `stem`: Optional Lux layer to apply as a feature extractor before embedding
+- `max_positions`: Unused placeholder for additive embeddings if needed later
+- `norm_eps`: Epsilon value for RMSNorm stability
+- `layer_scale_init`: Initial value for LayerScale (e.g., 1e-5). If nothing, LayerScale is not used.
+
+# Returns
+- A `TransformerModel` container layer
+"""
+struct TransformerModel{ST, E, S, N, O} <: LuxCore.AbstractLuxContainerLayer{(:stem, :embedding, :blocks, :norm, :output)}
+    stem::ST
+    embedding::E
+    blocks::S
+    norm::N
+    output::O
+    use_rope::Bool
+end
+
+function TransformerModel(;
+        in_features, d_model, n_layers, n_heads, n_kv_heads = n_heads,
+        max_positions = nothing, out_features, norm_eps = 1.0f-5,
+        dropout_rate = 0.0f0, stem = nothing, layer_scale_init = nothing,
+        use_rope = true
+    )
+
+    decoder_blocks = Tuple(TransformerBlock(d_model, n_heads, n_kv_heads; norm_eps, dropout_rate, layer_scale_init) for _ in 1:n_layers)
+
+    return TransformerModel(
+        stem === nothing ? NoOpLayer() : stem,
+        FeatureEmbedding(in_features, d_model),
+        TransformerStack(decoder_blocks),
+        RMSNorm(d_model; eps = norm_eps),
+        Dense(d_model => out_features; use_bias = false),
+        use_rope
+    )
+end
+
+function make_causal_mask(x, seq_len::Int)
+    return @ignore_derivatives begin
+        range_dev = similar(x, Int, seq_len)
+        range_dev .= 1:seq_len
+        reshape(range_dev, :, 1) .<= reshape(range_dev, 1, :)
+    end
+end
+
+"""
+    (m::TransformerModel)(x, ps, st; causal=false)
+
+Forward pass for the continuous sequence TransformerModel.
+
+# Arguments
+- `m`: The `TransformerModel` model
+- `x`: Input sequence data of shape `(in_features, seq_len, batch)` or `(spatial..., batch)` if stem is used
+- `ps`: Model parameters
+- `st`: Model state
+- `causal`: Boolean kwarg (default `false`). If `true`, applies a causal upper-triangular mask to prevent peeking into the future.
+
+# Returns
+- `(y, st_out)`: A tuple containing the model predictions and updated state
+"""
+function (m::TransformerModel)(x, ps, st; causal = false)
+    # x: (in_features, seq_len, batch) or (spatial..., batch) if stem is used
+    x, st_stem = m.stem(x, ps.stem, st.stem)
+
+    y, st_emb = m.embedding(x, ps.embedding, st.embedding)
+
+    seq_len = size(y, 2)
+    mask = causal ? make_causal_mask(y, seq_len) : nothing
+
+    if m.use_rope
+        head_dim = m.blocks.layers.layer_1.attention.head_dim
+        cosf, sinf = precompute_rope_freqs(y, head_dim, seq_len)
+        y, st_blocks = m.blocks(y, ps.blocks, st.blocks; mask = mask, cosf = cosf, sinf = sinf)
+    else
+        y, st_blocks = m.blocks(y, ps.blocks, st.blocks; mask = mask)
+    end
+
+    y, st_n = m.norm(y, ps.norm, st.norm)
+    y, st_out = m.output(y, ps.output, st.output)
+
+    return y, (stem = st_stem, embedding = st_emb, blocks = st_blocks, norm = st_n, output = st_out)
+end

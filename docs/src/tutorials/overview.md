@@ -19,7 +19,7 @@ Learn to build a hybrid model for soil respiration using an exponential temperat
 
 **Best for**: Understanding the fundamentals of hybrid modeling with a simple, well-documented example.
 
-#### [LSTM Hybrid Model](example_synthetic_lstm.md)
+#### [Sequence Hybrid Models (LSTM & Transformer)](example_synthetic_sequence.md)
 Explore advanced neural network architectures by building a hybrid model with LSTM (Long Short-Term Memory) networks. This tutorial covers:
 - Using LSTM networks for sequence modeling
 - Configuring feedforward vs. recurrent architectures
@@ -72,7 +72,7 @@ Run EasyHybrid.jl models on HPC clusters using Slurm job scheduling. This tutori
 ## Choosing the Right Tutorial
 
 - **New to EasyHybrid?** → Start with [Exponential Respiration Model](exponential_res.md)
-- **Working with time series?** → Check out [LSTM Hybrid Model](example_synthetic_lstm.md)
+- **Working with time series?** → Check out [Sequence Hybrid Models (LSTM & Transformer)](example_synthetic_sequence.md)
 - **Need robust evaluation?** → See [Cross-Validation](folds.md)
 - **Want to optimize performance?** → Try [Hyperparameter Tuning](hyperparameter_tuning.md)
 - **Customizing training?** → Read [Losses and LoggingLoss](losses.md)

@@ -105,6 +105,36 @@ function (m::InputBatchNorm)(x::AbstractArray, ps, st)
 end
 
 """
+    get_layer_dim(layer, type::Symbol)
+
+Helper function to extract the input or output dimensions of a Lux layer.
+This function uses multiple dispatch to safely pull dimensions from various container types.
+"""
+get_layer_dim(l, type::Symbol) = get_layer_dim(l, Val(type))
+
+function get_layer_dim(l, ::Val{:input})
+    hasproperty(l, :in_dims) && return l.in_dims
+    hasproperty(l, :in_features) && return l.in_features
+    hasproperty(l, :in_chs) && return l.in_chs
+    (l isa BatchNorm && hasproperty(l, :dims)) && return l.dims
+    (l isa Recurrence && hasproperty(l.cell, :in_dims)) && return l.cell.in_dims
+    (l isa CompactLuxLayer && hasproperty(l.layers, :in_dims)) && return l.layers.in_dims
+    return nothing
+end
+
+function get_layer_dim(l, ::Val{:output})
+    hasproperty(l, :out_dims) && return l.out_dims
+    hasproperty(l, :out_features) && return l.out_features
+    hasproperty(l, :out_chs) && return l.out_chs
+    (l isa BatchNorm && hasproperty(l, :dims)) && return l.dims
+    (l isa Recurrence && hasproperty(l.cell, :out_dims)) && return l.cell.out_dims
+    (l isa CompactLuxLayer && hasproperty(l.layers, :out_dims)) && return l.layers.out_dims
+    return nothing
+end
+
+get_layer_dim(l, ::Val{T}) where {T} = throw(ArgumentError("`get_layer_dim` expected `:input` or `:output`, got `$(repr(T))`"))
+
+"""
     prepare_hidden_chain(hidden_layers, in_dim, out_dim; activation, input_batchnorm=false)
 
 Construct a neural network `Chain` for use in NN models.
@@ -142,6 +172,7 @@ NN_Memory = Chain(
 model = constructHybridModel(..., hidden_layers = NN_Memory, ...)
 ```
 """
+
 function prepare_hidden_chain(
         hidden_layers::Union{Vector{Int}, Chain},
         in_dim::Int,
@@ -151,22 +182,6 @@ function prepare_hidden_chain(
     )
     if hidden_layers isa Chain
         # user gave a chain of hidden layers only
-
-        # Helper to safely extract dimensions from layers
-        function get_layer_dim(l, type)
-            if type == :input
-                hasproperty(l, :in_dims) && return l.in_dims
-                (l isa BatchNorm && hasproperty(l, :dims)) && return l.dims
-                (l isa Recurrence && hasproperty(l.cell, :in_dims)) && return l.cell.in_dims
-                (l isa CompactLuxLayer && hasproperty(l.layers, :in_dims)) && return l.layers.in_dims
-            elseif type == :output
-                hasproperty(l, :out_dims) && return l.out_dims
-                (l isa BatchNorm && hasproperty(l, :dims)) && return l.dims
-                (l isa Recurrence && hasproperty(l.cell, :out_dims)) && return l.cell.out_dims
-                (l isa CompactLuxLayer && hasproperty(l.layers, :out_dims)) && return l.layers.out_dims
-            end
-            return nothing
-        end
 
         # Check if last layer is a Recurrence layer (needs special handling for sequence output)
         # In this framework, we ALWAYS assume return_sequence=true for Recurrence layers

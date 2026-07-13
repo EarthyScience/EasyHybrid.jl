@@ -64,6 +64,7 @@ abstract type EasyHybridModels end
 
 include("utils/utils.jl")
 include("models/models.jl")
+include("models/transformers/transformers.jl")
 include("config/config.jl")
 include("data/data.jl")
 include("losses/losses.jl")

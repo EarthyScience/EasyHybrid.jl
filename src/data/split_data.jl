@@ -74,6 +74,10 @@ function split_data(
         # --- Fallback: simple random/chronological split of prepared data ---
         n = _num_samples(x_all)
         train_idx, val_idx = splitobs(1:n; at = split_data_at, shuffle = shuffleobs)
+        if shuffleobs
+            train_idx = sort(train_idx)
+            val_idx = sort(val_idx)
+        end
         return _split_and_pack(x_all, forcings_all, y_all, train_idx, val_idx)
     end
 end
