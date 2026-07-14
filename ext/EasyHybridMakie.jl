@@ -359,8 +359,8 @@ end
 
 function _build_component!(comp, fig, layout, history, cfg, y_train, y_val, n_epochs, axes_dict, plots_dict)
     return if comp == :loss
-        vals_train = get_loss_value_t(history, cfg.training_loss, Symbol("$(cfg.agg)"))
-        vals_val = get_loss_value_v(history, cfg.training_loss, Symbol("$(cfg.agg)"))
+        vals_train = get_loss_value_t(history, cfg.loss_types[1], Symbol("$(cfg.agg)"))
+        vals_val = get_loss_value_v(history, cfg.loss_types[1], Symbol("$(cfg.agg)"))
 
         ax, plt = lossplot(
             layout,
@@ -604,8 +604,8 @@ function EasyHybrid.update_step_dashboards!(dashboard, history, cfg)
 
     if haskey(dashboard.plots, :loss)
         zoom_epochs = 50
-        vals_train = get_loss_value_t(history, cfg.training_loss, Symbol("$(cfg.agg)"))
-        vals_val = get_loss_value_v(history, cfg.training_loss, Symbol("$(cfg.agg)"))
+        vals_train = get_loss_value_t(history, cfg.loss_types[1], Symbol("$(cfg.agg)"))
+        vals_val = get_loss_value_v(history, cfg.loss_types[1], Symbol("$(cfg.agg)"))
 
         update!(dashboard.plots[:loss].plt, n_epochs, vals_train, vals_val)
         autolimits!(dashboard.axes[:loss].ax)

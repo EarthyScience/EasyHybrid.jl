@@ -189,8 +189,7 @@ EasyHybrid.compute_loss(hlstm, ps, st, ((x_train, f_train), (y_train, y_train_na
 
 out_lstm = train(
     hlstm,
-    df,
-    ();
+    df;
     nepochs = 100,           # Number of training epochs
     batchsize = 128,         # Batch size of training windows/samples
     opt = RMSProp(0.01),   # Optimizer and learning rate
@@ -198,7 +197,7 @@ out_lstm = train(
     yscale = identity,       # Scaling for outputs
     shuffleobs = true,
     training_loss = :nseLoss,
-    loss_types = [:nse, :nseLoss],
+    loss_types = [:nseLoss, :nse],
     sequence_kwargs = (; input_window = input_window, output_window = output_window, output_shift = output_shift, lead_time = 0),
     plotting = true,
     show_progress = false,
@@ -232,8 +231,7 @@ hm = constructHybridModel(
 # Train the hybrid model
 single_nn_out = train(
     hm,
-    df,
-    ();
+    df;
     nepochs = 100,           # Number of training epochs
     batchsize = 128,         # Batch size for training
     opt = RMSProp(0.01),   # Optimizer and learning rate
@@ -241,7 +239,7 @@ single_nn_out = train(
     yscale = identity,       # Scaling for outputs
     shuffleobs = true,
     training_loss = :nseLoss,
-    loss_types = [:nse, :nseLoss],
+    loss_types = [:nseLoss, :nse],
     array_type = :DimArray,
     plotting = true,
     show_progress = false,
@@ -291,8 +289,7 @@ hm_transformer = constructHybridModel(
 # Train the Transformer hybrid model
 transformer_out = train(
     hm_transformer,
-    df,
-    ();
+    df;
     nepochs = 100,           # Number of training epochs
     batchsize = 128,         # Batch size for training
     opt = RMSProp(0.005),    # Optimizer and learning rate
@@ -300,7 +297,7 @@ transformer_out = train(
     yscale = identity,
     shuffleobs = true,
     training_loss = :nseLoss,
-    loss_types = [:nse, :nseLoss],
+    loss_types = [:nseLoss, :nse],
     sequence_kwargs = (; input_window = input_window, output_window = output_window, output_shift = output_shift, lead_time = 0),
     array_type = :DimArray,
     plotting = true,
