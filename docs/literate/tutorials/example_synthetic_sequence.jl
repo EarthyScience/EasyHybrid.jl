@@ -197,7 +197,7 @@ out_lstm = train(
     yscale = identity,       # Scaling for outputs
     shuffleobs = true,
     training_loss = :nseLoss,
-    loss_types = [:nse, :nseLoss],
+    loss_types = [:nseLoss, :nse],
     sequence_kwargs = (; input_window = input_window, output_window = output_window, output_shift = output_shift, lead_time = 0),
     plotting = true,
     show_progress = false,
@@ -239,7 +239,7 @@ single_nn_out = train(
     yscale = identity,       # Scaling for outputs
     shuffleobs = true,
     training_loss = :nseLoss,
-    loss_types = [:nse, :nseLoss],
+    loss_types = [:nseLoss, :nse],
     array_type = :DimArray,
     plotting = true,
     show_progress = false,
@@ -297,7 +297,7 @@ transformer_out = train(
     yscale = identity,
     shuffleobs = true,
     training_loss = :nseLoss,
-    loss_types = [:nse, :nseLoss],
+    loss_types = [:nseLoss, :nse],
     sequence_kwargs = (; input_window = input_window, output_window = output_window, output_shift = output_shift, lead_time = 0),
     array_type = :DimArray,
     plotting = true,
