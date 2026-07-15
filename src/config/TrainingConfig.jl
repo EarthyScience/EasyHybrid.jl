@@ -60,8 +60,13 @@ loss computation, data handling, output, and visualization.
     "Set the `cpu_device`, useful for sending back to the cpu model parameters"
     cdev = cpu_device()
 
-    "Loss type to use during training. Default: `:mse`."
-    training_loss::Symbol = :mse
+    """
+    Loss to use during training. Default: `:mse`. Accepts a predefined metric
+    (`Symbol`), a custom loss (`Function`) `f(ŷ_masked, y_masked)`, a
+    `(f, args[, kwargs])` tuple, or a full-context loss `f(ŷ, y, y_nan, ps, targets)`
+    (auto-detected) that additionally receives the model parameters `ps`.
+    """
+    training_loss = :mse
 
     """
     Vector of loss types to compute during training. Default: `[:mse, :r2]`.
@@ -190,10 +195,14 @@ function validate_config(cfg::TrainConfig)
     cfg.inner_maxiters > 0 ||
         throw(ArgumentError("inner_maxiters must be positive, got $(cfg.inner_maxiters)"))
 
-    check_training_loss(cfg.training_loss) # TODO: revisit implementation
-
-    return cfg.training_loss in cfg.loss_types ||
-        @warn "training_loss :$(cfg.training_loss) is not in loss_types $(cfg.loss_types), it won't appear in plots"
+    # Direction/plotting checks only make sense for predefined (Symbol) metrics.
+    # Function / tuple / full-context losses are validated at call time instead.
+    if cfg.training_loss isa Symbol
+        check_training_loss(cfg.training_loss) # TODO: revisit implementation
+        cfg.training_loss in cfg.loss_types ||
+            @warn "training_loss :$(cfg.training_loss) is not in loss_types $(cfg.loss_types), it won't appear in plots"
+    end
+    return nothing
 end
 
 """
