@@ -36,7 +36,7 @@ Wrapper for a *full-context* training loss with signature
 return a scalar loss.
 
 Users normally do not construct this directly: passing a function with this
-6-argument signature to `training_loss` auto-detects it (see [`_to_loss_spec`](@ref)).
+6-argument signature to `training_loss` auto-detects it (see [`_accepts_params`](@ref)).
 It is the natural choice when the loss needs a learned quantity such as a noise
 scale `parameters.sigma`, e.g. a Gaussian negative log-likelihood.
 """

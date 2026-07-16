@@ -496,7 +496,7 @@ function _accepted_kwarg_names(f, available::Tuple)
     names = Symbol[]
     for mth in methods(f)
         for d in Base.kwarg_decl(mth)
-            endswith(String(d), "...") && return nothing  # slurps kwargs → keep all
+            endswith(string(d), "...") && return nothing  # slurps kwargs → keep all
             push!(names, d)
         end
     end
