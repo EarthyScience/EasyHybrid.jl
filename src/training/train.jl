@@ -126,17 +126,17 @@ function _train(model, data, train_cfg::TrainConfig, data_cfg::DataConfig)
             snapshot = evaluate_epoch(model, x_train, forcings_train, y_train, mask_train, x_val, forcings_val, y_val, mask_val, ps, st, epoch, init, train_cfg)
 
             update!(stopper, history, snapshot, ps, st, train_cfg)
-            # save_epoch!(paths, model, ps, st, snapshot, train_cfg)
+            save_epoch!(paths, model, ps, st, snapshot, epoch, train_cfg)
             update_dashboard!(dashboard, ext, history, streams, train_cfg)
-            # log_progress!(prog, init, snapshot, train_cfg)
+            log_progress!(prog, init, snapshot, epoch, train_cfg)
 
             is_done(stopper) && break
         end
     end
 
-    # save_dashboard_img!(dashboard, ext, paths, train_cfg, stopper.best_epoch)
+    save_dashboard_img!(dashboard, ext, paths, train_cfg, stopper.best_epoch)
     ps, st = best_or_final(stopper, ps, st, train_cfg)
-    # save_final!(paths, model, ps, st, x_train, forcings_train, y_train, x_val, forcings_val, y_val, stopper, train_cfg)
+    save_final!(paths, model, ps, st, x_train, forcings_train, y_train, x_val, forcings_val, y_val, stopper, train_cfg)
 
     return build_results(model, history, stopper, ps, st, x_train, forcings_train, y_train, x_val, forcings_val, y_val, train_cfg)
 end
