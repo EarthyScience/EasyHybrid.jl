@@ -56,7 +56,7 @@ function split_data(
         # --- Option B: external K-fold assignment ---
         @assert val_fold !== nothing "Provide val_fold when using folds."
         @assert folds !== nothing "Provide folds when using val_fold."
-        @warn "shuffleobs is not supported when using folds and val_fold, this will be ignored and should be done during fold constructions"
+        shuffleobs && @warn "shuffleobs is not supported when using folds and val_fold, this will be ignored and should be done during fold constructions"
         f = isa(folds, Symbol) ? getbyname(data, folds) : folds
         n = _num_samples(x_all)
         @assert length(f) == n "length(folds) ($(length(f))) must equal number of samples/columns ($n)."
@@ -66,7 +66,7 @@ function split_data(
         @assert !isempty(val_idx) "No samples assigned to validation fold $val_fold."
         train_idx = setdiff(1:n, val_idx)
 
-        @info "K-fold via external assignments: val_fold=$val_fold → train=$(length(train_idx)) val=$(length(val_idx))"
+        @debug "K-fold via external assignments: val_fold=$val_fold → train=$(length(train_idx)) val=$(length(val_idx))"
 
         return _split_and_pack(x_all, forcings_all, y_all, train_idx, val_idx)
 

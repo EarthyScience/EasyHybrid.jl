@@ -25,7 +25,8 @@ AxisKeys.axiskeys(da::AbstractDimArray) = Tuple(lookup(da, d) for d in dims(da))
 AxisKeys.axiskeys(da::AbstractDimArray, i::Int) = lookup(da, dims(da)[i])
 AxisKeys.axiskeys(da::AbstractDimArray, name::Symbol) = lookup(da, name)
 using Downloads: Downloads
-using Hyperopt: Hyperopt, Hyperoptimizer
+using Logging: Logging, ConsoleLogger, with_logger
+using Hyperopt: Hyperopt, Hyperoptimizer, RandomSampler, LHSampler, CLHSampler, Hyperband, BOHB, Continuous, Categorical, UnorderedCategorical
 using JLD2: JLD2, jldopen
 using LuxCore: LuxCore
 using Lux: Lux, BatchNorm, sigmoid
@@ -36,7 +37,7 @@ using Optimization: Optimization, OptimizationFunction, OptimizationProblem, sol
 using OptimizationOptimisers: OptimizationOptimisers, AdamW, Adam, Optimisers
 using OrderedCollections: OrderedDict
 using PrettyTables: PrettyTables
-using Printf: Printf, @sprintf
+using Printf: Printf, @sprintf, @printf
 using ProgressMeter: ProgressMeter, Progress, next!
 using Random: Random, AbstractRNG, randperm, randstring
 using Reexport: @reexport
@@ -58,6 +59,7 @@ using Static: False, True
     using Optimization: Optimization, OptimizationFunction, OptimizationProblem, solve, remake
     using OptimizationOptimisers: OptimizationOptimisers, Optimisers, Adam, AdamW, RMSProp
     using ComponentArrays: ComponentArrays, ComponentArray
+    using Hyperopt: RandomSampler, LHSampler, CLHSampler, Continuous, Categorical
 end
 
 abstract type EasyHybridModels end
