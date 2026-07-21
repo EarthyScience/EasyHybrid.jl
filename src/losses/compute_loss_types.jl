@@ -26,6 +26,25 @@ struct ExtraLoss <: LossSpec
 end
 
 """
+    ParamLoss(f)
+
+Wrapper for a *full-context* training loss with signature
+`f(ŷ, y, y_nan, ps, targets, parameters)`. Unlike a classic custom loss
+`f(ŷ_masked, y_masked)`, it receives the full (unmasked) predictions `ŷ`, targets
+`y`, NaN masks `y_nan`, the raw parameters `ps`, the `targets` names, and the model
+`parameters` (i.e. `ŷ.parameters`: NN-predicted, global and fixed values), and must
+return a scalar loss.
+
+Users normally do not construct this directly: passing a function with this
+6-argument signature to `training_loss` auto-detects it (see [`_accepts_params`](@ref)).
+It is the natural choice when the loss needs a learned quantity such as a noise
+scale `parameters.sigma`, e.g. a Gaussian negative log-likelihood.
+"""
+struct ParamLoss <: LossSpec
+    f::Function
+end
+
+"""
     PerTarget(losses)
 
 A wrapper to indicate that a tuple of losses should be applied on a per-target basis.
@@ -111,8 +130,20 @@ end
 
 
 _to_loss_spec(s::Symbol) = SymbolicLoss(s)
-_to_loss_spec(f::Function) = FunctionLoss(f)
+_to_loss_spec(f::Function) = _accepts_params(f) ? ParamLoss(f) : FunctionLoss(f)
 _to_loss_spec(ls::LossSpec) = ls
+
+"""
+    _accepts_params(f) -> Bool
+
+Auto-detect whether a custom loss `f` uses the full-context signature
+`f(ŷ, y, y_nan, ps, targets, parameters)` (6 positional args) instead of the
+classic masked signature `f(ŷ_masked, y_masked)` (2 positional args). Returns
+`true` only when `f` has a 6-argument method and no 2-argument method, so existing
+2-arg losses keep their behavior. Functions that are ambiguous (e.g. varargs
+matching both arities) fall back to the classic 2-arg path.
+"""
+_accepts_params(f) = hasmethod(f, NTuple{6, Any}) && !hasmethod(f, NTuple{2, Any})
 
 _to_loss_spec(t::Tuple{<:Function, <:Tuple}) = ParameterizedLoss(t[1], t[2])
 _to_loss_spec(t::Tuple{<:Function, <:NamedTuple}) = ParameterizedLoss(t[1], (), t[2])
@@ -137,6 +168,7 @@ loss_spec(ls::ParameterizedLoss) =
     (ls.f, ls.args, ls.kwargs)
 
 loss_spec(el::ExtraLoss) = el.f
+loss_spec(pl::ParamLoss) = pl.f
 loss_spec(pt::PerTarget) = PerTarget(map(loss_spec, pt.losses))
 
 loss_types(logging::LoggingLoss) = map(loss_spec, logging.loss_types)

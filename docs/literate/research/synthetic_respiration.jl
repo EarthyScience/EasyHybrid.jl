@@ -110,6 +110,111 @@ single_nn_out = train(
     model_name = "RbQ10_synthetic1"
 )
 
+# ## Learning the observation noise σ (Gaussian NLL)
+#
+# To fit a Gaussian negative log-likelihood
+# ``\tfrac12 \sum_i (r_i/σ_i)^2 + \log σ_i`` we need a *learned* noise scale ``σ``.
+# The mechanistic model needs **no changes at all**: `σ` is just declared as a
+# parameter. The framework only forwards to the mechanistic model the kwargs it
+# declares, so `σ` (which `RbQ10` does not accept) is skipped there, yet it is
+# still optimized and exposed to the loss.
+#
+# Full-context training losses use the signature
+# `loss(ŷ, y, y_nan, ps, targets, parameters)` (auto-detected — just pass such a
+# function to `training_loss`). The last argument, `parameters`, is `ŷ.parameters`:
+# all model parameters (NN-predicted, global and fixed). We read `σ` from there.
+# Parameters the mechanistic model doesn't consume (like `σ`) are also surfaced as
+# top-level fields of `ŷ`, so they can be listed in `monitor_names` for plots.
+
+parameters_σ = (
+    rb = (3.0f0, 0.0f0, 13.0f0),   # Basal respiration [μmol/m²/s]
+    Q10 = (2.0f0, 1.0f0, 4.0f0),    # Temperature sensitivity factor [-]
+    sigma = (1.0f0, 0.01f0, 5.0f0), # Learned noise scale (bounds keep σ > 0)
+)
+
+# One loss for both cases: `σ` comes from `parameters.sigma` — a single value
+# (global parameter) or one value per observation (NN output). Min–max scaling of
+# global/NN outputs keeps it positive.
+function gaussian_nll(ŷ, y, y_nan, ps, targets, parameters)
+    total = zero(eltype(ŷ.reco))
+    for t in targets
+        m = y_nan[t]
+        r = ŷ[t][m] .- y[t][m]
+        σ = length(parameters.sigma) == 1 ? parameters.sigma[1] : parameters.sigma[m]
+        total += sum(@. 0.5f0 * (r / σ)^2 + log(σ))
+    end
+    return total
+end
+
+# ### Per-target σ: σ is a global parameter (one value, read from `parameters`)
+# We reuse the unchanged `RbQ10` model defined above.
+
+model_σ_global = constructHybridModel(
+    predictors_single_nn,
+    forcing,
+    target,
+    RbQ10,
+    parameters_σ,
+    [:rb],           # NN-predicted parameters
+    [:Q10, :sigma],  # σ is a global (per-target) learned parameter
+    hidden_layers = [16, 16],
+    activation = sigmoid,
+    scale_nn_outputs = true,
+    input_batchnorm = true
+)
+
+nll_global_out = train(
+    model_σ_global,
+    df;
+    nepochs = 100,
+    batchsize = 512,
+    opt = AdamW(0.1),
+    monitor_names = [:rb, :Q10, :sigma], # σ is surfaced top-level in `ŷ` (and in `ŷ.parameters`)
+    yscale = identity,
+    shuffleobs = true,
+    loss_types = [:mse, :nse],   # metrics for logging (still masked f(ŷ, y))
+    training_loss = gaussian_nll, # full-context loss, auto-detected
+    show_progress = false,
+    model_name = "RbQ10_nll_global"
+)
+
+# ### Per-observation σ: σ is predicted by the neural network (one value per obs)
+#
+# Only the construction changes — `sigma` moves from the global parameters to the
+# NN-predicted ones, so `parameters.sigma` becomes a heteroscedastic
+# per-observation vector aligned with the predictions. The model (`RbQ10`) and the
+# loss are exactly the same as above.
+
+model_σ_nn = constructHybridModel(
+    predictors_single_nn,
+    forcing,
+    target,
+    RbQ10,
+    parameters_σ,
+    [:rb, :sigma],   # NN predicts both rb and a per-observation σ
+    [:Q10],          # global parameters
+    hidden_layers = [16, 16],
+    activation = sigmoid,
+    scale_nn_outputs = true,
+    input_batchnorm = true
+)
+
+nll_nn_out = train(
+    model_σ_nn,
+    df,
+    ();
+    nepochs = 100,
+    batchsize = 512,
+    opt = AdamW(0.1),
+    monitor_names = [:rb, :Q10, :sigma], # σ is surfaced top-level in `ŷ` (and in `ŷ.parameters`)
+    yscale = identity,
+    shuffleobs = true,
+    loss_types = [:mse, :nse],
+    training_loss = gaussian_nll,
+    show_progress = false,
+    model_name = "RbQ10_nll_nn"
+)
+
 # ### train on KeyedArray
 
 single_nn_out = train(
