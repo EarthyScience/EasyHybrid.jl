@@ -8,12 +8,18 @@ export cv_test, CVTestResults, cv_fold_losses
     CVTestResults
 
 Output of [`cv_test`](@ref). `mode` is one of `:cv` (cross-validation only),
-`:test` (single held-out test fold) or `:rotate` (`test_fold=:all`).
+`:test` (single held-out test fold) or `:nested` (`test_fold=:all`: every fold
+is held out as test once, with its own inner search/CV).
 
 Fields are `nothing` when they do not apply to the current `mode`. Scores are in
 the *natural* orientation of the first `loss_types` metric (higher is better for
 `:nse`/`:kge`/`:r2`/`:pearson`, lower otherwise) and aggregated across targets
 with `agg`.
+
+For `:nested`, `pooled_test_loss` is the metric recomputed **once** on the
+concatenation of every fold's held-out test predictions (each observation
+predicted exactly once by a model that never saw it) — the honest out-of-sample
+score. `pooled_val_loss` is the same idea over the held-out folds' validation sets.
 """
 struct CVTestResults
     mode::Symbol
@@ -26,9 +32,13 @@ struct CVTestResults
     mean_cv_loss::Float64
     test_fold::Union{Int, Nothing}
     test_loss::Union{Float64, Nothing}
+    test_obs_pred::Union{DataFrame, Nothing}
     final_train::Union{TrainResults, Nothing}
     mean_test_loss::Union{Float64, Nothing}
-    rotations::Union{Vector{CVTestResults}, Nothing}
+    pooled_val_loss::Union{Float64, Nothing}
+    pooled_test_loss::Union{Float64, Nothing}
+    """One `CVTestResults` per held-out test fold when `mode=:nested`."""
+    held_outs::Union{Vector{CVTestResults}, Nothing}
 end
 
 """Best validation score per CV fold (derived from `cv_fold_results`)."""
@@ -50,6 +60,44 @@ function _best_index(scores::AbstractVector{<:Real}, loss_type::Symbol)
         isfinite(scores[i]) && isbetter(scores[i], scores[best], loss_type) && (best = i)
     end
     return best
+end
+
+# --- Pooled (concatenated) obs-vs-pred metrics -------------------------------
+
+"""Build an obs/pred `DataFrame` (`t`, `t_pred` per target) from raw arrays."""
+function _obs_pred_df(ŷ, y, targets)
+    cols = Pair{Symbol, Any}[]
+    for t in targets
+        y_t = _get_target_y(y, t)
+        ŷ_t = _get_target_ŷ(ŷ, y_t, t)
+        push!(cols, Symbol(t) => vec(collect(y_t)))
+        push!(cols, Symbol(string(t), "_pred") => vec(collect(ŷ_t)))
+    end
+    return DataFrame(cols...)
+end
+
+"""Target columns of an obs/pred frame (those `c` for which `c_pred` also exists)."""
+function _target_cols(df::DataFrame)
+    cols = propertynames(df)
+    return [c for c in cols if Symbol(string(c), "_pred") in cols]
+end
+
+"""
+Concatenate obs/pred frames and compute `metric` once over the pooled samples,
+aggregating across targets with `agg`. Returns `nothing` if nothing is poolable.
+"""
+function _pooled_metric(dfs, metric::Symbol, agg)
+    frames = [df for df in dfs if df !== nothing && size(df, 1) > 0]
+    isempty(frames) && return nothing
+    df = reduce((a, b) -> vcat(a, b; cols = :intersect), frames)
+    scores = Float64[]
+    for t in _target_cols(df)
+        obs = Float64.(df[!, t])
+        pred = Float64.(df[!, Symbol(string(t), "_pred")])
+        m = .!isnan.(obs) .& .!isnan.(pred)
+        any(m) && push!(scores, Float64(loss_fn(pred, obs, m, Val(metric))))
+    end
+    return isempty(scores) ? nothing : Float64(agg(scores))
 end
 
 """Aggregated train and val scores taken from the same (best-val) snapshot."""
@@ -79,40 +127,39 @@ function Base.show(io::IO, ::MIME"text/plain", r::CVTestResults)
     printstyled(io, "CVTestResults"; bold = true, color = :cyan)
     println(io, "  (mode=:$(r.mode), metric=:$(_metric(r.loss_types)), agg=$(nameof(r.agg)))")
 
-    if r.mode === :rotate
-        printstyled(io, "  per held-out test fold (nested search selects its own model):\n"; color = :light_black)
-        @printf(io, "  %4s  %10s  %10s  %10s  %10s\n", "test", "mean_cv", "train", "val", "test")
-        for rot in r.rotations
-            tr, vl = rot.final_train === nothing ? (nothing, nothing) : _train_val_at_best(rot.final_train, r.agg)
-            @printf(io, "  %4s  %10s  %10s  %10s  %10s\n",
-                string(rot.test_fold), _fmt(rot.mean_cv_loss), _fmt(tr), _fmt(vl), _fmt(rot.test_loss))
+    if r.mode === :nested
+        printstyled(io, "  per held-out test fold (each selects its own model):\n"; color = :light_black)
+        @printf(io, "  %4s  %10s  %10s  %10s\n", "fold", "train", "val", "test")
+        for ho in r.held_outs
+            tr, vl = ho.final_train === nothing ? (nothing, nothing) : _train_val_at_best(ho.final_train, r.agg)
+            @printf(io, "  %4s  %10s  %10s  %10s\n",
+                string(ho.test_fold), _fmt(tr), _fmt(vl), _fmt(ho.test_loss))
         end
-        printstyled(io, "  mean CV:   "; color = :yellow); println(io, _fmt(r.mean_cv_loss))
-        printstyled(io, "  mean test: "; color = :yellow); println(io, _fmt(r.mean_test_loss))
+        printstyled(io, "  pooled val:  "; color = :yellow); println(io, _fmt(r.pooled_val_loss))
+        printstyled(io, "  pooled test: "; color = :green); println(io, _fmt(r.pooled_test_loss))
         return
     end
 
     !isempty(r.best_hyperparams) &&
         (printstyled(io, "  best hyperparams: "; color = :yellow); println(io, _fmt_hyper(r.best_hyperparams)))
 
-    fl = cv_fold_losses(r)
-    isempty(fl) || (printstyled(io, "  CV fold scores:   "; color = :yellow); println(io, "[", join(_fmt.(fl), ", "), "]"))
-    printstyled(io, "  mean CV score:    "; color = :yellow); println(io, _fmt(r.mean_cv_loss))
-
     if r.final_train !== nothing
         tr, vl = _train_val_at_best(r.final_train, r.agg)
-        printstyled(io, "  selected model"; color = :yellow); println(io, " (best epoch ", r.final_train.best_epoch, "):")
-        println(io, "    train: ", _fmt(tr))
-        println(io, "    val:   ", _fmt(vl))
+        printstyled(io, "  best train: "; color = :yellow); println(io, _fmt(tr))
+        printstyled(io, "  best val:   "; color = :yellow); println(io, _fmt(vl))
+    elseif r.cv_fold_results !== nothing
+        tr, vl = _mean_train_val(r.cv_fold_results, r.agg)
+        printstyled(io, "  best train: "; color = :yellow); println(io, _fmt(tr))
+        printstyled(io, "  best val:   "; color = :yellow); println(io, _fmt(vl))
     end
     r.test_loss === nothing ||
-        (printstyled(io, "  test score:       "; color = :yellow); println(io, _fmt(r.test_loss)))
+        (printstyled(io, "  test:         "; color = :yellow); println(io, _fmt(r.test_loss)))
     return
 end
 
 function Base.show(io::IO, r::CVTestResults)
-    if r.mode === :rotate
-        print(io, "CVTestResults(:rotate, mean_cv=", _fmt(r.mean_cv_loss), ", mean_test=", _fmt(r.mean_test_loss), ")")
+    if r.mode === :nested
+        print(io, "CVTestResults(:nested, pooled_test=", _fmt(r.pooled_test_loss), ", pooled_val=", _fmt(r.pooled_val_loss), ")")
     elseif r.mode === :test
         print(io, "CVTestResults(:test, test_fold=", r.test_fold, ", mean_cv=", _fmt(r.mean_cv_loss), ", test=", _fmt(r.test_loss), ")")
     else
@@ -188,11 +235,19 @@ end
 
 _cv_name(kwargs, parts...) = string(get(Dict{Symbol, Any}(kwargs), :model_name, "cv_test"), parts...)
 
-"""cv_test always drives the split via `folds`; ignore any user `shuffleobs`/`show_progress`."""
+"""
+Resolve the kwargs forwarded to `train`/`tune`. `cv_test` prescribes defaults that
+differ from `train` (all overridable except `shuffleobs`, which is always forced
+because the split is driven by `folds`):
+
+- `shuffleobs = false` (forced),
+- `show_progress = false`, `plotting = false`, `save_training = false`,
+- `agg = mean`.
+"""
 function _train_kwargs(kwargs)
-    base = (; shuffleobs = false)
-    haskey(kwargs, :show_progress) || (base = merge(base, (; show_progress = false)))
-    return merge((; kwargs...), base)
+    defaults = (; show_progress = false, plotting = false, save_training = false, agg = mean)
+    forced = (; shuffleobs = false)
+    return merge(defaults, (; kwargs...), forced)
 end
 
 """Suppress Info/Warn from nested `train`/`split_data` (task-local; thread-safe)."""
@@ -200,32 +255,60 @@ _with_quiet(f, quiet::Bool) = quiet ?
     with_logger(() -> f(), ConsoleLogger(stderr, Logging.Error)) : f()
 
 # =============================================================================
-# Progress tracker
+# Progress tracker (running best only — no per-trial dump)
 # =============================================================================
 
-mutable struct _CVTracker
+mutable struct _BestTracker
     prog::Union{Progress, Nothing}
-    scores::Vector{Union{Float64, Nothing}}
+    n::Int
+    done::Int
     lock::ReentrantLock
     prefix::String
-    item::String
+    metric::Symbol
+    best_val::Union{Float64, Nothing}
+    best_train::Union{Float64, Nothing}
+    best_hp::NamedTuple
 end
 
-function _CVTracker(n::Int; desc::String, item::String, enabled::Bool)
+function _BestTracker(n::Int; desc::String, metric::Symbol, enabled::Bool)
     prog = enabled ? Progress(n; desc = desc, showspeed = true) : nothing
-    return _CVTracker(prog, fill!(Vector{Union{Float64, Nothing}}(undef, n), nothing), ReentrantLock(), desc, item)
+    return _BestTracker(prog, n, 0, ReentrantLock(), desc, metric, nothing, nothing, NamedTuple())
 end
 
-function _done!(t::Union{_CVTracker, Nothing}, i::Int, score::Real)
+function _best_status(t::_BestTracker)
+    return "$(t.prefix) [$(t.done)/$(t.n)] " *
+           "best_train=$(_fmt(t.best_train)) best_val=$(_fmt(t.best_val)) " *
+           "hp=$(_fmt_hyper(t.best_hp))"
+end
+
+"""Record a finished trial/fold; keep and display only the running best."""
+function _done!(t::Union{_BestTracker, Nothing}, val::Real, train, hp::NamedTuple = NamedTuple())
     t === nothing && return nothing
     lock(t.lock) do
-        t.scores[i] = Float64(score)
-        done = findall(!isnothing, t.scores)
-        status = "$(t.prefix) [$(length(done))/$(length(t.scores))] " *
-                 join(("$(t.item)$j=$(round(t.scores[j], digits = 4))" for j in done), ", ")
+        t.done += 1
+        v = Float64(val)
+        if isfinite(v) && (t.best_val === nothing || isbetter(v, t.best_val, t.metric))
+            t.best_val = v
+            t.best_train = train === nothing ? nothing : Float64(train)
+            t.best_hp = hp
+        end
+        status = _best_status(t)
         t.prog === nothing ? (@info status) : (next!(t.prog); t.prog.desc = status)
     end
     return nothing
+end
+
+"""Mean train / val across successful fold `TrainResults` (same snapshot)."""
+function _mean_train_val(fold_results, agg)
+    trains = Float64[]
+    vals = Float64[]
+    for out in fold_results
+        out === nothing && continue
+        tr, vl = _train_val_at_best(out, agg)
+        tr !== nothing && isfinite(tr) && push!(trains, Float64(tr))
+        isfinite(vl) && push!(vals, Float64(vl))
+    end
+    return (isempty(trains) ? nothing : mean(trains), isempty(vals) ? nothing : mean(vals))
 end
 
 # =============================================================================
@@ -249,10 +332,16 @@ function _run_cv(model, data, mspec, hp::NamedTuple;
         folds, k, parallel_folds::Bool, weighted::Bool,
         label = "", tracker = nothing, quiet = true, kwargs...)
     results = Vector{Union{TrainResults, Nothing}}(undef, k)
+    agg = get(Dict{Symbol, Any}(kwargs), :agg, mean)
     do_fold(v) = begin
         out = _train_fold(model, data, mspec, hp; folds, val_fold = v, label, quiet, kwargs...)
         results[v] = out
-        out === nothing ? (@warn "CV fold $v (label=$label) returned no result") : _done!(tracker, v, out.best_loss)
+        if out === nothing
+            @warn "CV fold $v (label=$label) returned no result"
+        else
+            tr, _ = _train_val_at_best(out, agg)
+            _done!(tracker, out.best_loss, tr, hp)
+        end
     end
     if parallel_folds
         Threads.@threads for v in 1:k
@@ -305,8 +394,9 @@ Returns `(best_hp, ho, fold_results, mean_score)`.
 function _select(model, data, mspec; hyper, nhyper, sampler, metric,
         parallel_hyper, parallel_folds, weighted, k, folds, label,
         show_cv_progress, quiet, kwargs...)
+    agg = get(Dict{Symbol, Any}(kwargs), :agg, mean)
     if hyper === nothing
-        tracker = _CVTracker(k; desc = "CV folds$label", item = "fold", enabled = show_cv_progress)
+        tracker = _BestTracker(k; desc = "CV folds$label", metric, enabled = show_cv_progress)
         fr, sc = _run_cv(model, data, mspec, NamedTuple();
             folds, k, parallel_folds, weighted, label, tracker, quiet, kwargs...)
         return NamedTuple(), nothing, fr, sc
@@ -315,13 +405,14 @@ function _select(model, data, mspec; hyper, nhyper, sampler, metric,
     ho, hps, drawn = _draw_samples(nhyper, hyper, sampler)
     scores = Vector{Float64}(undef, nhyper)
     fold_res = Vector{Any}(undef, nhyper)
-    tracker = _CVTracker(nhyper; desc = "Hyperopt$label", item = "trial", enabled = show_cv_progress)
+    tracker = _BestTracker(nhyper; desc = "Hyperopt$label", metric, enabled = show_cv_progress)
     eval_trial(i) = begin
         fr, sc = _run_cv(model, data, mspec, hps[i];
             folds, k, parallel_folds, weighted, label, tracker = nothing, quiet, kwargs...)
         scores[i] = sc
         fold_res[i] = fr
-        _done!(tracker, i, sc)
+        mean_train, _ = _mean_train_val(fr, agg)
+        _done!(tracker, sc, mean_train, hps[i])
     end
     if parallel_hyper
         Threads.@threads for i in 1:nhyper
@@ -345,7 +436,9 @@ function _cv_test_once(model, data, mspec; folds, k, test_fold::Int, metric, wei
         show_cv_progress, quiet = true, kwargs...)
     k ≥ 3 || throw(ArgumentError("cv_test with a held-out test fold needs k ≥ 3; got k=$k."))
     cv_data, cv_folds, k_cv = _partition_cv_test(data, folds, test_fold)
-    lbl = "$(label)_test$test_fold"
+    # Nested mode already tags the held-out fold via `label` (`_hold<i>`); only add
+    # a `_test<i>` tag for the single held-out case where there is no outer label.
+    lbl = isempty(label) ? "_test$test_fold" : label
 
     best_hp, ho, fold_results, mean_cv = _select(model, cv_data, mspec;
         hyper, nhyper, sampler, metric, parallel_hyper, parallel_folds, weighted,
@@ -354,13 +447,15 @@ function _cv_test_once(model, data, mspec; folds, k, test_fold::Int, metric, wei
     final = _with_quiet(quiet) do
         tune(model, cv_data, mspec; best_hp..., model_name = _cv_name(kwargs, lbl, "_final"), kwargs...)
     end
-    test_loss = final === nothing ? NaN :
+    test_loss, test_obs_pred = final === nothing ? (NaN, nothing) :
         _evaluate_on_test(model, data, mspec, best_hp, final; folds, test_fold, kwargs...)
 
-    return CVTestResults(:test, get(Dict{Symbol,Any}(kwargs), :agg, sum), _loss_types(kwargs), folds,
-        best_hp, ho, fold_results, mean_cv, test_fold, test_loss, final, nothing, nothing)
+    return CVTestResults(:test, get(Dict{Symbol,Any}(kwargs), :agg, mean), _loss_types(kwargs), folds,
+        best_hp, ho, fold_results, mean_cv, test_fold, test_loss, test_obs_pred, final,
+        nothing, nothing, nothing, nothing)
 end
 
+"""Predict the held-out `test_fold` with `final`; return `(scalar_loss, obs_pred_df)`."""
 function _evaluate_on_test(model, data, mspec, hp::NamedTuple, final::TrainResults; folds, test_fold::Int, kwargs...)
     kwargs_model = merge(
         Base.structdiff(to_namedtuple(model), NamedTuple{(:config,)}),
@@ -370,10 +465,10 @@ function _evaluate_on_test(model, data, mspec, hp::NamedTuple, final::TrainResul
     train_cfg, _ = EasyHybrid.kwargs_to_configs((), merge((; kwargs...), mspec.hyper_train, hp, (; target_names = hm.targets)))
     (_, _), ((x, forcings), y) = split_data(data, hm; folds, val_fold = test_fold)
     mask, empty_mask = valid_mask(y)
-    empty_mask && (@warn "Test fold $test_fold has no valid targets"; return NaN)
-    l, _, _ = evaluate_acc(hm, x, forcings, y, mask, final.ps, final.st,
+    empty_mask && (@warn "Test fold $test_fold has no valid targets"; return (NaN, nothing))
+    l, _, ŷ = evaluate_acc(hm, x, forcings, y, mask, final.ps, final.st,
         train_cfg.loss_types, train_cfg.training_loss, train_cfg.extra_loss, train_cfg.agg)
-    return Float64(extract_agg_loss(l, train_cfg.agg))
+    return Float64(extract_agg_loss(l, train_cfg.agg)), _obs_pred_df(ŷ, y, hm.targets)
 end
 
 _loss_types(kwargs) = Vector{Symbol}(get(Dict{Symbol, Any}(kwargs), :loss_types, [:mse, :r2]))
@@ -396,7 +491,9 @@ held-out testing. Extra `kwargs...` are forwarded to [`train`](@ref)/`tune`.
   random folds are built with [`make_folds`](@ref).
 - `test_fold=nothing`: CV only (`mode=:cv`).
 - `test_fold=:random` / `Int`: hold out one fold as test (`mode=:test`, needs `k ≥ 3`).
-- `test_fold=:all`: rotate so every fold is test once (`mode=:rotate`, nested CV).
+- `test_fold=:all`: nested CV — every fold is held out as test once (`mode=:nested`).
+  Reports `pooled_test_loss`: the metric recomputed once over all held-out test
+  predictions (each observation predicted exactly once), plus `pooled_val_loss`.
 
 # Hyperparameter search
 Pass candidate vectors in `hyper` (e.g. `hyper=(; opt=[...], input_batchnorm=[true,false])`).
@@ -405,12 +502,18 @@ Search minimises/maximises the first `loss_types` metric correctly (e.g. maximis
 Supported samplers: `RandomSampler()` (default), `LHSampler()`, `CLHSampler(dims=...)`.
 
 # Scoring
-Scores are the first-metric value aggregated across targets by `agg` (train's default),
-in natural orientation. `weighted_cv=true` weights the fold mean by validation-fold size.
+Scores are the first-metric value aggregated across targets by `agg` (defaults to
+`mean` in `cv_test`), in natural orientation. `weighted_cv=true` weights the fold
+mean by validation-fold size.
+
+# Prescribed `train` defaults (all overridable except `shuffleobs`)
+`cv_test` forwards `kwargs...` to `train`/`tune` but overrides some defaults:
+`shuffleobs=false` (forced; the split is driven by `folds`), and, unless you pass
+your own, `show_progress=false`, `plotting=false`, `save_training=false`, `agg=mean`.
 
 # Parallelism (one dimension only; nested threading oversubscribes)
 - `:auto` (default): choose `:hyper` or `:folds` by the larger job count.
-- `:none`, `:hyper` (thread trials), `:folds` (thread folds / rotations).
+- `:none`, `:hyper` (thread trials), `:folds` (thread folds / held-out runs).
 """
 function cv_test(model, data;
     mspec::ModelSpec = ModelSpec(),
@@ -428,7 +531,7 @@ function cv_test(model, data;
     kwargs...,
 )
     tkwargs = _train_kwargs(kwargs)
-    agg = get(Dict{Symbol, Any}(kwargs), :agg, sum)
+    agg = tkwargs.agg
     loss_types = _loss_types(kwargs)
     metric = _metric(loss_types)
 
@@ -450,23 +553,31 @@ function cv_test(model, data;
         label, show_cv_progress, quiet, tkwargs...)
 
     if resolved === :all
-        rot_tracker = _CVTracker(k; desc = "Test rotations", item = "rot", enabled = show_cv_progress)
-        rotations = Vector{CVTestResults}(undef, k)
-        do_rot(i) = (rotations[i] = once(i, "_rot$i"); _done!(rot_tracker, i, rotations[i].mean_cv_loss))
+        nest_tracker = _BestTracker(k; desc = "Nested CV", metric, enabled = show_cv_progress)
+        held_outs = Vector{CVTestResults}(undef, k)
+        do_hold(i) = begin
+            held_outs[i] = once(i, "_hold$i")
+            r = held_outs[i]
+            tr, _ = r.final_train === nothing ? (nothing, nothing) : _train_val_at_best(r.final_train, agg)
+            score = r.test_loss === nothing ? r.mean_cv_loss : r.test_loss
+            _done!(nest_tracker, score, tr, r.best_hyperparams)
+        end
         if parallel_folds
             Threads.@threads for i in 1:k
-                do_rot(i)
+                do_hold(i)
             end
         else
             for i in 1:k
-                do_rot(i)
+                do_hold(i)
             end
         end
-        cvs = [r.mean_cv_loss for r in rotations if isfinite(r.mean_cv_loss)]
-        tls = [r.test_loss for r in rotations if r.test_loss !== nothing && isfinite(r.test_loss)]
-        return CVTestResults(:rotate, agg, loss_types, folds, NamedTuple(), nothing, nothing,
-            isempty(cvs) ? NaN : mean(cvs), nothing, nothing, nothing,
-            isempty(tls) ? NaN : mean(tls), rotations)
+        cvs = [r.mean_cv_loss for r in held_outs if isfinite(r.mean_cv_loss)]
+        tls = [r.test_loss for r in held_outs if r.test_loss !== nothing && isfinite(r.test_loss)]
+        pooled_val = _pooled_metric((r.final_train === nothing ? nothing : r.final_train.val_obs_pred for r in held_outs), metric, agg)
+        pooled_test = _pooled_metric((r.test_obs_pred for r in held_outs), metric, agg)
+        return CVTestResults(:nested, agg, loss_types, folds, NamedTuple(), nothing, nothing,
+            isempty(cvs) ? NaN : mean(cvs), nothing, nothing, nothing, nothing,
+            isempty(tls) ? NaN : mean(tls), pooled_val, pooled_test, held_outs)
 
     elseif resolved isa Integer
         return once(resolved, "")
@@ -476,6 +587,6 @@ function cv_test(model, data;
             hyper, nhyper, sampler, metric, parallel_hyper, parallel_folds,
             weighted = weighted_cv, k, folds, label = "", show_cv_progress, quiet, tkwargs...)
         return CVTestResults(:cv, agg, loss_types, folds, best_hp, ho, fold_results,
-            mean_cv, nothing, nothing, nothing, nothing, nothing)
+            mean_cv, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing)
     end
 end

@@ -96,11 +96,19 @@ const RbQ10_PARAMS = (rb = (3.0f0, 0.0f0, 13.0f0), Q10 = (2.0f0, 1.0f0, 4.0f0))
         @test r.test_loss > 0
     end
 
-    @testset "rotate test folds" begin
+    @testset "nested test folds (:all)" begin
         r = cv_test(model, df; k = 3, test_fold = :all, opt = RMSProp(0.001), kw...)
-        @test length(r.rotations) == 3
-        @test [x.test_fold for x in r.rotations] == 1:3
+        @test r.mode === :nested
+        @test length(r.held_outs) == 3
+        @test [x.test_fold for x in r.held_outs] == 1:3
         @test r.mean_test_loss > 0
+        @test r.pooled_test_loss !== nothing && isfinite(r.pooled_test_loss)
+        @test r.pooled_val_loss !== nothing && isfinite(r.pooled_val_loss)
+        @test all(x -> x.test_obs_pred isa DataFrame, r.held_outs)
+        s = sprint(show, MIME"text/plain"(), r)
+        @test occursin("pooled test", s)
+        @test !occursin("mean_cv", s)
+        @test !occursin("rotate", s)
     end
 
     @testset "LHSampler + parallel hyper" begin
@@ -145,9 +153,10 @@ const RbQ10_PARAMS = (rb = (3.0f0, 0.0f0, 13.0f0), Q10 = (2.0f0, 1.0f0, 4.0f0))
         r = cv_test(model, df; k = 2, opt = RMSProp(0.001), kw...)
         s = sprint(show, MIME"text/plain"(), r)
         @test occursin("CVTestResults", s)
-        @test occursin("mean CV score", s)
+        @test occursin("best val", s)
         @test occursin("mode=:cv", s)
         @test !occursin("ŷ_train", s)
         @test !occursin("DataFrame", s)
+        @test !occursin("trial", s)
     end
 end
