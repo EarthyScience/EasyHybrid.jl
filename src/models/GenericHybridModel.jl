@@ -437,10 +437,17 @@ function (m::HybridModel)(ds_k::Tuple, ps, st)
     forcing_data = ds_k[2]
     all_kwargs = merge(forcing_data, all_params)
 
-    # 6) Apply mechanistic model
-    y_pred = m.mechanistic_model(; all_kwargs...)
+    # 6) Apply mechanistic model. Only forward the kwargs it actually declares, so
+    #    "loss-only" parameters (e.g. a learned noise scale used only in the loss)
+    #    can be defined without the mechanistic model having to accept them. They
+    #    still live in `all_params` and are exposed below under `parameters`.
+    y_pred = m.mechanistic_model(; _mechanistic_kwargs(m.mechanistic_model, all_kwargs)...)
 
-    out = (; y_pred..., parameters = all_params, out_extra...)
+    # Parameters the mechanistic model does not consume (e.g. loss-only ones such as
+    # a learned noise scale) are surfaced at the top level so they can be monitored
+    # and plotted, in addition to always being available under `parameters`.
+    extra_params = _extra_params(m.mechanistic_model, all_params)
+    out = (; y_pred..., extra_params..., parameters = all_params, out_extra...)
     st_new = (; st_new_nns..., fixed = st.fixed)
 
     return out, st_new
@@ -449,6 +456,52 @@ end
 function (m::HybridModel)(ds_k, ps, st)
     # Forward pass fallback when ds_k is not explicitly typed as Tuple
     return m(Tuple(ds_k), ps, st)
+end
+
+"""
+    _mechanistic_kwargs(f, all_kwargs::NamedTuple)
+
+Select from `all_kwargs` only the keyword arguments the mechanistic model `f`
+declares, so parameters used solely by the loss (e.g. a learned noise scale) do
+not need to be accepted by `f`. Falls back to passing everything when `f` slurps
+`kwargs...` or its keyword signature cannot be introspected.
+"""
+function _mechanistic_kwargs(f, all_kwargs::NamedTuple)
+    keep = ChainRulesCore.ignore_derivatives() do
+        _accepted_kwarg_names(f, keys(all_kwargs))
+    end
+    keep === nothing && return all_kwargs
+    return NamedTuple{keep}(map(k -> all_kwargs[k], keep))
+end
+
+"""
+    _extra_params(f, all_params::NamedTuple)
+
+The parameters not consumed by the mechanistic model `f` (e.g. loss-only ones such
+as a learned noise scale). They are surfaced at the top level of the model output
+so they can be monitored/plotted, in addition to always being available under
+`parameters`. Returns an empty `NamedTuple` when `f` consumes everything.
+"""
+function _extra_params(f, all_params::NamedTuple)
+    keep = ChainRulesCore.ignore_derivatives() do
+        acc = _accepted_kwarg_names(f, keys(all_params))
+        acc === nothing ? () : Tuple(k for k in keys(all_params) if !(k in acc))
+    end
+    return NamedTuple{keep}(map(k -> all_params[k], keep))
+end
+
+# Returns the tuple of `all_kwargs` names accepted by `f`, or `nothing` to signal
+# "pass everything" (the model slurps `kwargs...`, or has no introspectable kwargs).
+function _accepted_kwarg_names(f, available::Tuple)
+    names = Symbol[]
+    for mth in methods(f)
+        for d in Base.kwarg_decl(mth)
+            endswith(string(d), "...") && return nothing  # slurps kwargs → keep all
+            push!(names, d)
+        end
+    end
+    isempty(names) && return nothing
+    return Tuple(k for k in available if k in names)
 end
 
 function (m::HybridModel)(df::DataFrame, ps, st)

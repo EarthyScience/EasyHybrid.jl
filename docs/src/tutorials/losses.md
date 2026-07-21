@@ -158,3 +158,50 @@ train(...;
     loss_types = [(fn_args, (args...,), (kwargs...,)), :mae, :nse]
     )
 ```
+
+### full-context losses (access to the whole `ŷ`, masks, `ps` and `parameters`)
+
+A 'standard' custom loss `f(ŷ, y)` only receives *one target's masked* predictions
+and observations. When the loss needs more — the full prediction NamedTuple, the
+NaN masks, the raw parameters, or the model parameters — pass a function with the
+6-argument signature `f(ŷ, y, y_nan, ps, targets, parameters)`. It is
+**auto-detected** (no wrapper needed) and called with the *full, unmasked* `ŷ` and
+`y`, the masks `y_nan`, the raw parameters `ps`, the target names, and
+`parameters` (i.e. `ŷ.parameters`: every NN-predicted, global and fixed value).
+You do the masking and aggregation yourself and return a scalar.
+
+The typical use case is a Gaussian negative log-likelihood with a *learned* noise
+scale `σ`. You do **not** need the mechanistic model to know about `σ`: just
+declare it as a parameter and read `parameters.sigma` in the loss (the mechanistic
+model only receives the kwargs it declares, so a loss-only `σ` is skipped there):
+
+```julia
+function gaussian_nll(ŷ, y, y_nan, ps, targets, parameters)
+    total = zero(eltype(ŷ.reco))
+    for t in targets
+        m = y_nan[t]
+        r = ŷ[t][m] .- y[t][m]
+        σ = length(parameters.sigma) == 1 ? parameters.sigma[1] : parameters.sigma[m]
+        total += sum(@. 0.5f0 * (r / σ)^2 + log(σ))
+    end
+    return total
+end
+
+train(...; training_loss = gaussian_nll)
+```
+
+The same loss works whether `σ` is declared as a global parameter (one value per
+target) or an NN-predicted parameter (one value per observation) — only the
+model construction changes. See the synthetic respiration tutorial for both.
+
+::: warning
+
+- The 6-argument function is detected only when it has no 2-argument method;
+  classic `f(ŷ, y)` losses are unaffected.
+- Full-context losses are only used for `training_loss`. Entries in `loss_types`
+  (logging/metrics) still use the masked `f(ŷ_masked, y_masked)` form.
+- Because the loss needs the *full* `ŷ`/`parameters`, it cannot use the bare
+  2-argument `f(ŷ, y)` signature (that one is per-target and masked). Use the
+  6-argument form and simply ignore the arguments you don't need.
+
+:::

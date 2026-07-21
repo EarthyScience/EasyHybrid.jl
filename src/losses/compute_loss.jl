@@ -26,7 +26,13 @@ function compute_loss(
     ext_loss = extra_loss(logging)
     if logging.train_mode
         ŷ, st = HM((x, forcings), ps, st)
-        loss_value = _compute_loss(ŷ, y_t, y_nan, targets, training_loss(logging), logging.agg)
+        # Full-context losses (auto-detected `f(ŷ, y, y_nan, ps, targets, parameters)`)
+        # get the predictions, targets, masks, raw params `ps`, target names and the
+        # model parameters (`ŷ.parameters`), and do their own masking/aggregation;
+        # everything else uses the per-target machinery.
+        loss_value = logging.training_loss isa ParamLoss ?
+            logging.training_loss.f(ŷ, y_t, y_nan, ps, targets, get(ŷ, :parameters, (;))) :
+            _compute_loss(ŷ, y_t, y_nan, targets, training_loss(logging), logging.agg)
         # Add extra_loss if provided
         if ext_loss !== nothing
             extra_loss_value = ext_loss(ŷ, ps)
