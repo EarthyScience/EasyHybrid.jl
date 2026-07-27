@@ -105,6 +105,17 @@ const RbQ10_PARAMS = (rb = (3.0f0, 0.0f0, 13.0f0), Q10 = (2.0f0, 1.0f0, 4.0f0))
         @test r.pooled_test_loss !== nothing && isfinite(r.pooled_test_loss)
         @test r.pooled_val_loss !== nothing && isfinite(r.pooled_val_loss)
         @test all(x -> x.test_obs_pred isa DataFrame, r.held_outs)
+
+        pooled = pooled_obs_pred(r; which = :test)
+        @test pooled isa DataFrame && :fold in propertynames(pooled)
+        @test sort(unique(pooled.fold)) == 1:3
+
+        perf = cv_performance_table(r; which = :test, metric = :nse)
+        @test perf isa DataFrame
+        @test nrow(perf) == 4                       # one row per fold + pooled
+        @test :pooled in perf.fold
+        @test any(startswith("nse_"), string.(propertynames(perf)))
+
         s = sprint(show, MIME"text/plain"(), r)
         @test occursin("pooled test", s)
         @test !occursin("mean_cv", s)

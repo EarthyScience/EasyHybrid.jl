@@ -1,4 +1,4 @@
-export cv_test, CVTestResults, cv_fold_losses
+export cv_test, CVTestResults, cv_fold_losses, pooled_obs_pred, cv_performance_table
 
 # =============================================================================
 # Result type
@@ -109,6 +109,76 @@ function _train_val_at_best(tr::TrainResults, agg)
     idx = argmin(abs.(valscores .- Float64(tr.best_loss)))
     train = idx <= length(th) ? Float64(extract_agg_loss(th[idx], agg)) : nothing
     return (train, valscores[idx])
+end
+
+# =============================================================================
+# Pooled held-out predictions & per-datastream performance (public helpers)
+# =============================================================================
+
+"""
+    pooled_obs_pred(r::CVTestResults; which=:test)
+
+Concatenate the held-out obs/pred frames of a cross-validation result, tagging each
+row with the `fold` that produced it. For `mode=:nested` this pools every fold's
+held-out predictions (each observation predicted exactly once by a model that never
+saw it); for `mode=:test` it returns the single held-out fold.
+
+- `which=:test`: held-out **test** predictions.
+- `which=:val`: the held-out folds' **validation** predictions (`final_train.val_obs_pred`).
+
+Returns a `DataFrame` with the per-target `t`/`t_pred` columns plus a `:fold` column,
+or `nothing` when no matching frames are available (e.g. `mode=:cv`).
+"""
+function pooled_obs_pred(r::CVTestResults; which::Symbol = :test)
+    which in (:test, :val) ||
+        throw(ArgumentError("`which` must be :test or :val; got :$which."))
+    _frame(x) = which === :test ? x.test_obs_pred :
+        (x.final_train === nothing ? nothing : x.final_train.val_obs_pred)
+
+    results = r.mode === :nested ? r.held_outs : [r]
+    frames = DataFrame[]
+    for x in results
+        df = _frame(x)
+        df === nothing && continue
+        d = copy(df)
+        d[!, :fold] .= x.test_fold === nothing ? 1 : x.test_fold
+        push!(frames, d)
+    end
+    isempty(frames) && return nothing
+    return reduce((a, b) -> vcat(a, b; cols = :intersect), frames)
+end
+
+"""
+    cv_performance_table(r::CVTestResults; which=:test, metric=first(loss_types))
+
+Per-datastream performance from pooled held-out predictions (see [`pooled_obs_pred`](@ref)).
+Returns a `DataFrame` with one row per `fold` plus a final `:pooled` row, and one
+`metric` column per target named `<metric>_<target>`. Returns `nothing` when no
+pooled predictions are available.
+"""
+function cv_performance_table(r::CVTestResults; which::Symbol = :test,
+        metric::Symbol = _metric(r.loss_types))
+    pooled = pooled_obs_pred(r; which)
+    pooled === nothing && return nothing
+
+    targets = _target_cols(pooled)
+    colnames = [Symbol(metric, :_, t) for t in targets]
+    score(df, t) = begin
+        obs  = Float64.(df[!, t])
+        pred = Float64.(df[!, Symbol(string(t), "_pred")])
+        m = .!isnan.(obs) .& .!isnan.(pred)
+        any(m) ? Float64(loss_fn(pred, obs, m, Val(metric))) : NaN
+    end
+
+    rows = NamedTuple[]
+    for f in sort(unique(pooled.fold))
+        sub = filter(:fold => ==(f), pooled)
+        push!(rows, (; fold = f,
+            (colnames[i] => score(sub, targets[i]) for i in eachindex(targets))...))
+    end
+    push!(rows, (; fold = :pooled,
+        (colnames[i] => score(pooled, targets[i]) for i in eachindex(targets))...))
+    return DataFrame(rows)
 end
 
 # =============================================================================
@@ -255,7 +325,7 @@ _with_quiet(f, quiet::Bool) = quiet ?
     with_logger(() -> f(), ConsoleLogger(stderr, Logging.Error)) : f()
 
 # =============================================================================
-# Progress tracker (running best only — no per-trial dump)
+# Progress tracker (per-item score of the just-finished job, plus running best)
 # =============================================================================
 
 mutable struct _BestTracker
@@ -268,25 +338,36 @@ mutable struct _BestTracker
     best_val::Union{Float64, Nothing}
     best_train::Union{Float64, Nothing}
     best_hp::NamedTuple
+    cur_item::Union{Int, Nothing}
+    cur_val::Union{Float64, Nothing}
+    cur_train::Union{Float64, Nothing}
+    cur_hp::NamedTuple
 end
 
 function _BestTracker(n::Int; desc::String, metric::Symbol, enabled::Bool)
     prog = enabled ? Progress(n; desc = desc, showspeed = true) : nothing
-    return _BestTracker(prog, n, 0, ReentrantLock(), desc, metric, nothing, nothing, NamedTuple())
+    return _BestTracker(prog, n, 0, ReentrantLock(), desc, metric,
+        nothing, nothing, NamedTuple(), nothing, nothing, nothing, NamedTuple())
 end
 
 function _best_status(t::_BestTracker)
-    return "$(t.prefix) [$(t.done)/$(t.n)] " *
-           "best_train=$(_fmt(t.best_train)) best_val=$(_fmt(t.best_val)) " *
-           "hp=$(_fmt_hyper(t.best_hp))"
+    id = t.cur_item === nothing ? "" : " fold=$(t.cur_item)"
+    return "$(t.prefix) [$(t.done)/$(t.n)]$id " *
+           "train=$(_fmt(t.cur_train)) val=$(_fmt(t.cur_val)) " *
+           "(best_val=$(_fmt(t.best_val))) hp=$(_fmt_hyper(t.cur_hp))"
 end
 
-"""Record a finished trial/fold; keep and display only the running best."""
-function _done!(t::Union{_BestTracker, Nothing}, val::Real, train, hp::NamedTuple = NamedTuple())
+"""Record a finished trial/fold; display its own score and keep the running best."""
+function _done!(t::Union{_BestTracker, Nothing}, val::Real, train, hp::NamedTuple = NamedTuple();
+        item::Union{Int, Nothing} = nothing)
     t === nothing && return nothing
     lock(t.lock) do
         t.done += 1
         v = Float64(val)
+        t.cur_item = item
+        t.cur_val = isfinite(v) ? v : nothing
+        t.cur_train = train === nothing ? nothing : Float64(train)
+        t.cur_hp = hp
         if isfinite(v) && (t.best_val === nothing || isbetter(v, t.best_val, t.metric))
             t.best_val = v
             t.best_train = train === nothing ? nothing : Float64(train)
@@ -340,7 +421,7 @@ function _run_cv(model, data, mspec, hp::NamedTuple;
             @warn "CV fold $v (label=$label) returned no result"
         else
             tr, _ = _train_val_at_best(out, agg)
-            _done!(tracker, out.best_loss, tr, hp)
+            _done!(tracker, out.best_loss, tr, hp; item = v)
         end
     end
     if parallel_folds
@@ -412,7 +493,7 @@ function _select(model, data, mspec; hyper, nhyper, sampler, metric,
         scores[i] = sc
         fold_res[i] = fr
         mean_train, _ = _mean_train_val(fr, agg)
-        _done!(tracker, sc, mean_train, hps[i])
+        _done!(tracker, sc, mean_train, hps[i]; item = i)
     end
     if parallel_hyper
         Threads.@threads for i in 1:nhyper
@@ -560,7 +641,7 @@ function cv_test(model, data;
             r = held_outs[i]
             tr, _ = r.final_train === nothing ? (nothing, nothing) : _train_val_at_best(r.final_train, agg)
             score = r.test_loss === nothing ? r.mean_cv_loss : r.test_loss
-            _done!(nest_tracker, score, tr, r.best_hyperparams)
+            _done!(nest_tracker, score, tr, r.best_hyperparams; item = i)
         end
         if parallel_folds
             Threads.@threads for i in 1:k

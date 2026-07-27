@@ -1,22 +1,8 @@
 # Changelog
 
 ## Unreleased
+- Added post-hoc CV summaries: `pooled_obs_pred` and `cv_performance_table` pool a `CVTestResults`' held-out predictions (tagged by fold) and report per-datastream performance, and the Makie extension adds `cv_scatter` for a final pooled pred-vs-obs scatter colored by fold (one panel per target)
 - Added `cv_test` for cross-validated training with optional held-out testing (`test_fold=:random` / `Int` / `:all`), Hyperopt search via `hyper` / `nhyper` / `sampler`, and threaded parallelism via `parallel=:auto` (default; picks `:hyper` or `:folds` by larger job count), `:none`, `:hyper`, or `:folds`
-- Added a possibility to estimate homoscedastic and heteroscedastic aleatoric uncertainty (data uncertainty)
-Heteroscedastic noise - 
- $$
-\mathcal{L}_{\mathrm{NN}}(\theta)
-=
-\frac{1}{N}
-\sum_{i=1}^{N}
-\left(
-\frac{1}{2\sigma(x_i)^2}
-\left\lVert y_i - f(x_i) \right\rVert^2
-+
-\frac{1}{2}\log\left(\sigma(x_i)^2\right)
-\right)
-$$
-via equation 5 in 
 - Added a comprehensive `EasyHybrid.Transformers` module featuring state-of-the-art architectures: `TransformerModel` (1D Time Series), `VisionTransformer` (2D Spatial / 3D Spatio-Temporal), `EncoderDecoderModel` (Seq2Seq), and `VisionEncoderDecoderModel`. Includes modern building blocks like Grouped Query Attention (GQA), SwiGLU FeedForward, RMSNorm, Rotary Positional Embeddings (RoPE), LayerScale, PrefixTokens ([CLS]/[REGISTER]), and `extract_features` functionality for intermediate grid extractions. [#279](https://github.com/EarthyScience/EasyHybrid.jl/pull/279)
 - Refactored the training dashboard into modular, "Lego-like" components (`dashboard_components`, `split_dashboard`, `save_animations`), allowing for customizable rendering and individual animation saves via `TrainConfig` or `train` keyword arguments, while preserving the old default behavior [#273](https://github.com/EarthyScience/EasyHybrid.jl/pull/273)
 - Added a GitHub Actions workflow for posting a PR preview comment with a link to the documentation preview [#272](https://github.com/EarthyScience/EasyHybrid.jl/pull/272)
