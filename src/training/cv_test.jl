@@ -241,13 +241,31 @@ end
 # Fold / option resolution
 # =============================================================================
 
-function _resolve_folds(data, folds; k::Int, shuffle::Bool)
-    folds === nothing || return folds isa Symbol ?
-        (data isa DataFrame ? Vector{Int}(data[!, folds]) :
-         throw(ArgumentError("`folds` as a Symbol requires a DataFrame."))) :
-        Vector{Int}(collect(folds))
+"""Encode arbitrary fold labels (strings, non-contiguous ints, …) as `1:m`
+codes in ascending order of the distinct labels. Already-`1:m` integer labels
+map to themselves."""
+_encode_folds(labels) =
+    (remap = Dict(v => i for (i, v) in enumerate(sort(unique(labels))));
+     Int[remap[x] for x in labels])
+
+function _resolve_folds(data, folds; k::Union{Int, Nothing}, shuffle::Bool)
+    if folds !== nothing
+        labels = folds isa Symbol ?
+            (data isa DataFrame ? data[!, folds] :
+             throw(ArgumentError("`folds` as a Symbol requires a DataFrame."))) :
+            collect(folds)
+        return _encode_folds(labels)
+    end
     data isa DataFrame || throw(ArgumentError("Provide `folds` when `data` is not a DataFrame."))
-    return make_folds(data; k = k, shuffle = shuffle)
+    return make_folds(data; k = (k === nothing ? 5 : k), shuffle = shuffle)
+end
+
+"""Infer `k` from resolved folds when not given; otherwise check it matches."""
+function _infer_k(folds, k::Union{Int, Nothing})
+    m = length(unique(folds))
+    k === nothing && return m
+    k == m || throw(ArgumentError("k=$k but `folds` contain $m distinct labels."))
+    return k
 end
 
 function _validate_folds(folds, k::Int)
@@ -559,7 +577,7 @@ _loss_types(kwargs) = Vector{Symbol}(get(Dict{Symbol, Any}(kwargs), :loss_types,
 # =============================================================================
 
 """
-    cv_test(model, data; k=5, test_fold=nothing, hyper=nothing, nhyper=10,
+    cv_test(model, data; folds=nothing, k=nothing, test_fold=nothing, hyper=nothing, nhyper=10,
             sampler=RandomSampler(), parallel=:auto, weighted_cv=false,
             show_cv_progress=true, quiet=true, kwargs...)
 
@@ -567,9 +585,13 @@ Cross-validated training with optional hyperparameter search and optional
 held-out testing. Extra `kwargs...` are forwarded to [`train`](@ref)/`tune`.
 
 # Folds
-- `k`: number of folds; labels must be exactly `1:k`.
-- `folds`: a vector of labels or a DataFrame column name (`Symbol`); if omitted,
-  random folds are built with [`make_folds`](@ref).
+- `folds`: a vector of labels or a DataFrame column name (`Symbol`). Labels may
+  be of any type (ints, strings, …) and need not be `1:k`; they are encoded to
+  `1:k` codes in ascending order of the distinct labels. If omitted, random folds
+  are built with [`make_folds`](@ref).
+- `k`: number of folds. Optional when `folds` is supplied (inferred from the
+  distinct labels; an explicit `k` is checked to match). Defaults to `5` when
+  building random folds.
 - `test_fold=nothing`: CV only (`mode=:cv`).
 - `test_fold=:random` / `Int`: hold out one fold as test (`mode=:test`, needs `k ≥ 3`).
 - `test_fold=:all`: nested CV — every fold is held out as test once (`mode=:nested`).
@@ -598,7 +620,7 @@ your own, `show_progress=false`, `plotting=false`, `save_training=false`, `agg=m
 """
 function cv_test(model, data;
     mspec::ModelSpec = ModelSpec(),
-    k::Int = 5,
+    k::Union{Int, Nothing} = nothing,
     folds = nothing,
     shuffle::Bool = true,
     test_fold = nothing,
@@ -617,6 +639,7 @@ function cv_test(model, data;
     metric = _metric(loss_types)
 
     folds = _resolve_folds(data, folds; k, shuffle)
+    k = _infer_k(folds, k)
     _validate_folds(folds, k)
     resolved = _resolve_test_fold(test_fold, k)
 
