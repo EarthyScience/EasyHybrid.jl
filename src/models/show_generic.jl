@@ -87,6 +87,70 @@ function Base.show(io::IO, pc::ParameterContainer)
     return print(io, ")")
 end
 
+"""
+    _show_hybrid_parameters(io, hm::HybridModel)
+
+Print the parameter table for a `HybridModel`. Unlike the standalone
+`ParameterContainer` table, the `default` column is replaced by a `value` column
+that reflects how each parameter is actually resolved in the forward pass:
+
+- a numeric value for fixed parameters (the constant used),
+- `"NN"` for neural-network–predicted parameters,
+- `"Global"` for globally optimized parameters,
+- `"Forcing"` when the name is also a forcing (observed data overrides it).
+
+The forcing check comes first because forcing wins on a name collision.
+"""
+function _show_hybrid_parameters(io::IO, hm::HybridModel)
+    pc = hm.parameters
+    table = pc.table
+    scales = pc.scales
+    param_names = collect(keys(table.axes[1]))
+
+    forcing = Set(Symbol.(hm.forcing))
+    neural = Set(hm.neural_param_names)
+    globals = Set(hm.global_param_names)
+
+    n = length(param_names)
+    data = Matrix{Any}(undef, n, 4)
+    for (i, name) in enumerate(param_names)
+        value = if name in forcing
+            "Forcing"
+        elseif name in neural
+            "NN"
+        elseif name in globals
+            "Global"
+        else
+            table[name, :default]
+        end
+        data[i, 1] = value
+        data[i, 2] = table[name, :lower]
+        data[i, 3] = table[name, :upper]
+        data[i, 4] = scales[name]
+    end
+
+    col_labels = ["value", "lower", "upper", "scale"]
+    row_labels = string.(param_names)
+
+    @static if isdefined(PrettyTables, :PrintingSpec)
+        PrettyTables.pretty_table(
+            io, data;
+            column_labels = col_labels,
+            row_labels = row_labels,
+            alignment = :r,
+        )
+    else
+        PrettyTables.pretty_table(
+            io, data;
+            header = col_labels,
+            row_labels = row_labels,
+            alignment = :r,
+        )
+    end
+    printstyled(io, "value: number = fixed; NN/Global = estimated; Forcing = overridden by forcing data\n", color = :light_black)
+    return nothing
+end
+
 function Base.show(io::IO, ::MIME"text/plain", hm::HybridModel)
     if hm.predictors isa NamedTuple
         _print_header(io, "Hybrid Model (Multi NN)")
@@ -150,7 +214,7 @@ function Base.show(io::IO, ::MIME"text/plain", hm::HybridModel)
     println(io)
     _print_header(io, "Parameters:", color = :light_blue, bold = false)
     io_full = IOContext(IndentedIO(io), :compact => false, :limit => false)
-    return show(io_full, MIME"text/plain"(), hm.parameters)
+    return _show_hybrid_parameters(io_full, hm)
 end
 
 mutable struct IndentedIO{IOType <: IO} <: IO

@@ -68,6 +68,26 @@ struct HybridModel{T, P} <: LuxCore.AbstractLuxContainerLayer{(:NNs,)}
 end
 
 """
+    _warn_forcing_param_overlap(forcing, param_names)
+
+Warn when a variable is listed as both a `forcing` and a `parameter`. In the forward
+pass, forcing (observed data) takes precedence over parameters on a name collision, so
+the data value is used and the parameter is silently ignored. If the name is instead
+removed from `forcing`, it becomes a fixed parameter (a constant equal to its default).
+"""
+function _warn_forcing_param_overlap(forcing, param_names)
+    overlap = intersect(Symbol.(forcing), param_names)
+    if !isempty(overlap)
+        @warn string(
+            "Variable(s) ", collect(overlap), " are listed as both `forcing` and `parameters`. ",
+            "Forcing wins: the observed data value overrides the parameter for these names. ",
+            "If you remove them from `forcing`, they will become fixed parameters (a constant equal to the default)."
+        )
+    end
+    return nothing
+end
+
+"""
     constructHybridModel(predictors::Vector{Symbol}, forcing, targets, mechanistic_model, parameters, neural_param_names, global_param_names; kwargs...)
 
 Construct a `HybridModel` with a single neural network architecture predicting all `neural_param_names` from the `predictors`.
@@ -104,6 +124,7 @@ function constructHybridModel(
 
     all_names = pnames(parameters)
     @assert all(n in all_names for n in neural_param_names) "neural_param_names ⊆ param_names"
+    _warn_forcing_param_overlap(forcing, all_names)
 
     # if empty predictors do not construct NN
     if length(predictors) > 0 && length(neural_param_names) > 0
@@ -120,7 +141,10 @@ function constructHybridModel(
         NN = Chain()
     end
 
-    fixed_param_names = [ n for n in all_names if !(n in [neural_param_names..., global_param_names...]) ]
+    # Names also supplied as forcing are driven by data (forcing wins), so they are
+    # not treated as fixed parameters even though they carry a default/bounds.
+    forcing_names = Symbol.(forcing)
+    fixed_param_names = [ n for n in all_names if !(n in [neural_param_names..., global_param_names...]) && !(n in forcing_names) ]
 
     # capture the configuration used for construction
     config = (;
@@ -182,6 +206,7 @@ function constructHybridModel(
     end
 
     all_names = pnames(parameters)
+    _warn_forcing_param_overlap(forcing, all_names)
     neural_param_names = collect(keys(predictors))
     # Create neural networks based on predictors
     NNs = NamedTuple()
@@ -213,7 +238,10 @@ function constructHybridModel(
         NNs = merge(NNs, NamedTuple{(nn_name,), Tuple{typeof(nn)}}((nn,)))
     end
 
-    fixed_param_names = [ n for n in all_names if !(n in [neural_param_names..., global_param_names...]) ]
+    # Names also supplied as forcing are driven by data (forcing wins), so they are
+    # not treated as fixed parameters even though they carry a default/bounds.
+    forcing_names = Symbol.(forcing)
+    fixed_param_names = [ n for n in all_names if !(n in [neural_param_names..., global_param_names...]) && !(n in forcing_names) ]
 
     # capture the configuration used for construction
     config = (;
@@ -440,7 +468,10 @@ function (m::HybridModel)(ds_k::Tuple, ps, st)
 
     # 5) unpack forcing data
     forcing_data = ds_k[2]
-    all_kwargs = merge(forcing_data, all_params)
+    # Forcing (observed data) takes precedence over parameters: if a name appears
+    # both as a forcing and as a parameter, the forcing value wins. `merge` favors
+    # its later argument for duplicate keys, so `forcing_data` is passed last.
+    all_kwargs = merge(all_params, forcing_data)
 
     # 6) Apply mechanistic model. Only forward the kwargs it actually declares, so
     #    "loss-only" parameters (e.g. a learned noise scale used only in the loss)
