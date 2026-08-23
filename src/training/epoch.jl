@@ -37,17 +37,21 @@ function isemptybatch(mask)
 end
 
 # TODO: move out to losses.jl?
+# The `LoggingLoss` is built once here rather than inside the returned closure.
+# The `TrainConfig` fields it reads are untyped, so constructing it per call would
+# make the `compute_loss` invocation uninferable; Enzyme then falls back to its
+# generic runtime dispatch, which annotates every argument and dies on the model
+# with "Lux Layers only support `EnzymeCore.Const` annotation". Hoisting it also
+# avoids rebuilding the spec on every minibatch.
 function build_loss_fn(model, cfg::TrainConfig)
-    return (model, ps, st, (x, y)) -> compute_loss(
-        model, ps, st, (x, y);
-        logging = LoggingLoss(
-            train_mode = true,
-            loss_types = cfg.loss_types,
-            training_loss = cfg.training_loss,
-            extra_loss = cfg.extra_loss,
-            agg = cfg.agg
-        )
+    logging = LoggingLoss(
+        train_mode = true,
+        loss_types = cfg.loss_types,
+        training_loss = cfg.training_loss,
+        extra_loss = cfg.extra_loss,
+        agg = cfg.agg
     )
+    return (model, ps, st, (x, y)) -> compute_loss(model, ps, st, (x, y); logging = logging)
 end
 
 function evaluate_epoch(model, x_train, forcings_train, y_train, mask_train, x_val, forcings_val, y_val, mask_val, ps, st, epoch::Int, init::EpochSnapshot, cfg::TrainConfig)
