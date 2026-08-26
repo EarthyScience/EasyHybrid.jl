@@ -330,21 +330,43 @@ function EasyHybrid.build_dashboards(history, cfg, y_train, y_val)
     plots_dict = Dict{Symbol, Any}()
 
     n_epochs = get_epochs(history)
+    n_targets = max(1, length(cfg.target_names))
+    n_monitors = max(1, length(cfg.monitor_names))
 
     if split
         for comp in components
-            fig = Makie.Figure(size = (800, 600))
+            f_size = if comp == :prediction
+                (700, max(450, 240 * n_targets))
+            elseif comp == :timeseries
+                (850, max(400, 200 * n_targets))
+            elseif comp == :monitor
+                (max(600, 280 * n_monitors), 400)
+            else
+                (800, 550)
+            end
+            fig = Makie.Figure(size = f_size)
             figures[comp] = fig
             _build_component!(comp, fig, fig[1, 1], history, cfg, y_train, y_val, n_epochs, axes_dict, plots_dict)
             display(fig)
         end
     else
-        fig = Makie.Figure(size = (1200, 800))
-        figures[:dashboard] = fig
-
         n_comp = length(components)
         rows = n_comp > 2 ? 2 : 1
         cols = ceil(Int, n_comp / rows)
+
+        has_multi_target = (:prediction in components || :timeseries in components) && n_targets > 1
+        cell_w = 600
+        cell_h = has_multi_target ? max(380, 220 * n_targets) : 400
+
+        fig_w = cols * cell_w
+        fig_h = rows * cell_h
+
+        if :monitor in components && n_monitors > 2
+            fig_w += (n_monitors - 2) * 150
+        end
+
+        fig = Makie.Figure(size = (fig_w, fig_h))
+        figures[:dashboard] = fig
 
         for (i, comp) in enumerate(components)
             r = ceil(Int, i / cols)
@@ -366,7 +388,7 @@ function _build_component!(comp, fig, layout, history, cfg, y_train, y_val, n_ep
             layout,
             n_epochs, vals_train, vals_val;
             axis = (;
-                xlabel = "Epochs", ylabel = "Loss", yscale = log10,
+                xlabel = "Epochs", ylabel = "Loss", yscale = cfg.yscale,
                 xtrimspine = (true, false), ytrimspine = true,
             )
         )
@@ -380,6 +402,7 @@ function _build_component!(comp, fig, layout, history, cfg, y_train, y_val, n_ep
             width = Relative(0.35), height = Relative(0.35),
             halign = 0.95, valign = 1,
             xlabel = "", ylabel = "",
+            yscale = cfg.yscale,
             rightspinecolor = :dodgerblue, leftspinecolor = :dodgerblue,
             topspinecolor = :dodgerblue, bottomspinecolor = :dodgerblue,
             title = "Zoomed View"
@@ -391,74 +414,108 @@ function _build_component!(comp, fig, layout, history, cfg, y_train, y_val, n_ep
         plots_dict[:loss] = (; plt, plt_rect, plt_z)
 
     elseif comp == :prediction
-        y_pred_train = get_prediction_values(history, cfg.target_names[1], :train)
-        y_pred_val = get_prediction_values(history, cfg.target_names[1], :validation)
-        y_obs_train = getfield(y_train, cfg.target_names[1])
-        y_obs_val = getfield(y_val, cfg.target_names[1])
-
-        mn, mx = extrema(filter(!isnan, [vec(y_obs_train); vec(y_obs_val)]))
-        δd = 0.02 * (mx - mn)
-        lims = (mn - δd, mx + δd, mn - δd, mx + δd)
-
+        n_targets = length(cfg.target_names)
         gd_pred = GridLayout(layout)
-        ax_pred_train = Axis(
-            gd_pred[1, 1]; xlabel = "", ylabel = "Observed", title = "Training",
-            xtrimspine = true, ytrimspine = true, aspect = 1,
-            limits = lims
-        )
-        hidespines!(ax_pred_train, :r, :t)
-        plt_pred_train = predictionplot!(ax_pred_train, y_pred_train, y_obs_train)
+        axes_train = Vector{Axis}(undef, n_targets)
+        axes_val = Vector{Axis}(undef, n_targets)
+        plts_train = Vector{Any}(undef, n_targets)
+        plts_val = Vector{Any}(undef, n_targets)
 
-        ax_pred_val = Axis(
-            gd_pred[1, 2]; xlabel = "", ylabel = "", title = "Validation",
-            xtrimspine = true, ytrimspine = true, aspect = 1,
-            limits = lims
-        )
-        hidespines!(ax_pred_val, :l, :r, :t)
-        plt_pred_val = predictionplot!(ax_pred_val, y_pred_val, y_obs_val; color = :tomato)
-        hideydecorations!(ax_pred_val, grid = false, ticks = false)
-        linkyaxes!(ax_pred_train, ax_pred_val)
+        for (i, tname) in enumerate(cfg.target_names)
+            y_pred_train = get_prediction_values(history, tname, :train)
+            y_pred_val = get_prediction_values(history, tname, :validation)
+            y_obs_train = getfield(y_train, tname)
+            y_obs_val = getfield(y_val, tname)
 
-        Box(gd_pred[1, 1:2, Top()]; color = (:grey25, 0.1), strokevisible = false)
-        Label(gd_pred[1, 1:2, Top()], "$(cfg.target_names[1])")
+            mn, mx = extrema(filter(!isnan, [vec(y_obs_train); vec(y_obs_val)]))
+            δd = 0.02 * (mx - mn)
+            lims = (mn - δd, mx + δd, mn - δd, mx + δd)
 
-        Box(gd_pred[1, 1:2, Bottom()]; color = (:grey45, 0.1), strokevisible = false)
-        Label(gd_pred[1, 1:2, Bottom()], "Predicted")
+            ax_pred_train = Axis(
+                gd_pred[i, 1]; xlabel = "", ylabel = "Observed",
+                title = i == 1 ? "Training" : "",
+                xtrimspine = true, ytrimspine = true, aspect = 1,
+                limits = lims
+            )
+            hidespines!(ax_pred_train, :r, :t)
+            plt_pred_train = predictionplot!(ax_pred_train, y_pred_train, y_obs_train)
 
-        axes_dict[:prediction] = (; ax_pred_train, ax_pred_val)
-        plots_dict[:prediction] = (; plt_pred_train, plt_pred_val)
+            ax_pred_val = Axis(
+                gd_pred[i, 2]; xlabel = "", ylabel = "",
+                title = i == 1 ? "Validation" : "",
+                xtrimspine = true, ytrimspine = true, aspect = 1,
+                limits = lims
+            )
+            hidespines!(ax_pred_val, :l, :r, :t)
+            plt_pred_val = predictionplot!(ax_pred_val, y_pred_val, y_obs_val; color = :tomato)
+            hideydecorations!(ax_pred_val, grid = false, ticks = false)
+            linkyaxes!(ax_pred_train, ax_pred_val)
+
+            Box(gd_pred[i, 1:2, Top()]; color = (:grey25, 0.1), strokevisible = false)
+            Label(gd_pred[i, 1:2, Top()], "$tname")
+
+            if i == n_targets
+                Box(gd_pred[i, 1:2, Bottom()]; color = (:grey45, 0.1), strokevisible = false)
+                Label(gd_pred[i, 1:2, Bottom()], "Predicted")
+            end
+
+            axes_train[i] = ax_pred_train
+            axes_val[i] = ax_pred_val
+            plts_train[i] = plt_pred_train
+            plts_val[i] = plt_pred_val
+        end
+
+        axes_dict[:prediction] = (; axes_train, axes_val)
+        plots_dict[:prediction] = (; plts_train, plts_val)
 
     elseif comp == :timeseries
-        y_pred_train = get_prediction_values(history, cfg.target_names[1], :train)
-        y_pred_val = get_prediction_values(history, cfg.target_names[1], :validation)
-        y_obs_train = getfield(y_train, cfg.target_names[1])
-        y_obs_val = getfield(y_val, cfg.target_names[1])
-
-        mn, mx = extrema(filter(!isnan, [vec(y_obs_train); vec(y_obs_val)]))
-        δd = 0.02 * (mx - mn)
-        y_lims = (mn - δd, mx + δd)
-
+        n_targets = length(cfg.target_names)
         gd_ts = GridLayout(layout)
-        ax_ts_train = Axis(
-            gd_ts[1, 1]; xlabel = "Index", ylabel = "Value", title = "Training",
-            xtrimspine = true, ytrimspine = true,
-            limits = (1, length(y_obs_train), y_lims[1], y_lims[2])
-        )
-        hidespines!(ax_ts_train, :r, :t)
-        plt_ts_train = timeseriesplot!(ax_ts_train, y_pred_train, y_obs_train)
+        axes_train = Vector{Axis}(undef, n_targets)
+        axes_val = Vector{Axis}(undef, n_targets)
+        plts_train = Vector{Any}(undef, n_targets)
+        plts_val = Vector{Any}(undef, n_targets)
 
-        ax_ts_val = Axis(
-            gd_ts[1, 2]; xlabel = "Index", ylabel = "", title = "Validation",
-            xtrimspine = true, ytrimspine = true,
-            limits = (1, length(y_obs_val), y_lims[1], y_lims[2])
-        )
-        hidespines!(ax_ts_val, :l, :r, :t)
-        plt_ts_val = timeseriesplot!(ax_ts_val, y_pred_val, y_obs_val)
-        hideydecorations!(ax_ts_val, grid = false, ticks = false)
-        linkyaxes!(ax_ts_train, ax_ts_val)
+        for (i, tname) in enumerate(cfg.target_names)
+            y_pred_train = get_prediction_values(history, tname, :train)
+            y_pred_val = get_prediction_values(history, tname, :validation)
+            y_obs_train = getfield(y_train, tname)
+            y_obs_val = getfield(y_val, tname)
 
-        axes_dict[:timeseries] = (; ax_ts_train, ax_ts_val)
-        plots_dict[:timeseries] = (; plt_ts_train, plt_ts_val)
+            mn, mx = extrema(filter(!isnan, [vec(y_obs_train); vec(y_obs_val)]))
+            δd = 0.02 * (mx - mn)
+            y_lims = (mn - δd, mx + δd)
+
+            ax_ts_train = Axis(
+                gd_ts[i, 1]; xlabel = i == n_targets ? "Index" : "",
+                ylabel = "$tname",
+                title = i == 1 ? "Training" : "",
+                xtrimspine = true, ytrimspine = true,
+                limits = (1, length(y_obs_train), y_lims[1], y_lims[2])
+            )
+            hidespines!(ax_ts_train, :r, :t)
+            plt_ts_train = timeseriesplot!(ax_ts_train, y_pred_train, y_obs_train)
+
+            ax_ts_val = Axis(
+                gd_ts[i, 2]; xlabel = i == n_targets ? "Index" : "",
+                ylabel = "",
+                title = i == 1 ? "Validation" : "",
+                xtrimspine = true, ytrimspine = true,
+                limits = (1, length(y_obs_val), y_lims[1], y_lims[2])
+            )
+            hidespines!(ax_ts_val, :l, :r, :t)
+            plt_ts_val = timeseriesplot!(ax_ts_val, y_pred_val, y_obs_val)
+            hideydecorations!(ax_ts_val, grid = false, ticks = false)
+            linkyaxes!(ax_ts_train, ax_ts_val)
+
+            axes_train[i] = ax_ts_train
+            axes_val[i] = ax_ts_val
+            plts_train[i] = plt_ts_train
+            plts_val[i] = plt_ts_val
+        end
+
+        axes_dict[:timeseries] = (; axes_train, axes_val)
+        plots_dict[:timeseries] = (; plts_train, plts_val)
 
     elseif comp == :monitor
         if !isempty(cfg.monitor_names)
@@ -618,26 +675,26 @@ function EasyHybrid.update_step_dashboards!(dashboard, history, cfg)
         updatedRect2 = z_Rect2(z_n_epochs, train_zoom, val_zoom)
         update!(dashboard.plots[:loss].plt_rect, arg1 = updatedRect2)
 
-        update!(dashboard.plots[:loss].plt_z, z_n_epochs, val_zoom, train_zoom)
+        update!(dashboard.plots[:loss].plt_z, z_n_epochs, train_zoom, val_zoom)
         autolimits!(dashboard.axes[:loss].ax_z)
     end
 
     if haskey(dashboard.plots, :prediction)
-        y_pred_train = get_prediction_values(history, cfg.target_names[1], :train)
-        y_pred_val = get_prediction_values(history, cfg.target_names[1], :validation)
-        update!(dashboard.plots[:prediction].plt_pred_train, y_pred_train)
-        update!(dashboard.plots[:prediction].plt_pred_val, y_pred_val)
-        # autolimits!(dashboard.axes[:prediction].ax_pred_train)
-        # autolimits!(dashboard.axes[:prediction].ax_pred_val)
+        for (i, tname) in enumerate(cfg.target_names)
+            y_pred_train = get_prediction_values(history, tname, :train)
+            y_pred_val = get_prediction_values(history, tname, :validation)
+            update!(dashboard.plots[:prediction].plts_train[i], y_pred_train)
+            update!(dashboard.plots[:prediction].plts_val[i], y_pred_val)
+        end
     end
 
     if haskey(dashboard.plots, :timeseries)
-        y_pred_train = get_prediction_values(history, cfg.target_names[1], :train)
-        y_pred_val = get_prediction_values(history, cfg.target_names[1], :validation)
-        update!(dashboard.plots[:timeseries].plt_ts_train, y_pred_train)
-        update!(dashboard.plots[:timeseries].plt_ts_val, y_pred_val)
-        # autolimits!(dashboard.axes[:timeseries].ax_ts_train)
-        # autolimits!(dashboard.axes[:timeseries].ax_ts_val)
+        for (i, tname) in enumerate(cfg.target_names)
+            y_pred_train = get_prediction_values(history, tname, :train)
+            y_pred_val = get_prediction_values(history, tname, :validation)
+            update!(dashboard.plots[:timeseries].plts_train[i], y_pred_train)
+            update!(dashboard.plots[:timeseries].plts_val[i], y_pred_val)
+        end
     end
 
     if haskey(dashboard.plots, :monitor) && !isempty(cfg.monitor_names)
