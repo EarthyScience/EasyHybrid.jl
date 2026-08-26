@@ -24,6 +24,7 @@ using DimensionalData: DimensionalData, AbstractDimArray, Dim, DimArray, dims, g
 AxisKeys.axiskeys(da::AbstractDimArray) = Tuple(lookup(da, d) for d in dims(da))
 AxisKeys.axiskeys(da::AbstractDimArray, i::Int) = lookup(da, dims(da)[i])
 AxisKeys.axiskeys(da::AbstractDimArray, name::Symbol) = lookup(da, name)
+using DocStringExtensions: TYPEDFIELDS
 using Downloads: Downloads
 using Hyperopt: Hyperopt, Hyperoptimizer
 using JLD2: JLD2, jldopen

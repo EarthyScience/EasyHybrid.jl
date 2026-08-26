@@ -5,6 +5,8 @@ Configuration for training a hybrid model.
 
 Controls all aspects of the training process including optimization,
 loss computation, data handling, output, and visualization.
+
+$(TYPEDFIELDS)
 """
 @kwdef struct TrainConfig
     "Number of training epochs. Default: 200."
@@ -207,6 +209,8 @@ end
 
 """
 Output of [`train`](@ref), containing the full training history, model state, and diagnostics.
+
+$(TYPEDFIELDS)
 """
 struct TrainResults
     "Per-epoch training losses, wrapped as a `WrappedTuples` collection."

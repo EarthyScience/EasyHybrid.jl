@@ -4,6 +4,8 @@ export HybridModel, ParameterContainer, constructHybridModel
     ParameterContainer{NT <: NamedTuple, T}
 
 A container for holding the parameter definitions of a model, including their default values, lower bounds, and upper bounds.
+
+$(TYPEDFIELDS)
 """
 mutable struct ParameterContainer{NT <: NamedTuple, T}
     "The raw parameter definitions. A `NamedTuple` where each entry is a tuple of `(default, lower, upper)` bounds for a parameter."
@@ -23,6 +25,8 @@ end
 
 A unified hybrid model struct that handles both single and multi neural network architectures.
 It combines predictive neural networks (`NNs`) with a `mechanistic_model` to form a differentiable hybrid model.
+
+$(TYPEDFIELDS)
 """
 struct HybridModel{T, P} <: LuxCore.AbstractLuxContainerLayer{(:NNs,)}
     "Neural network(s) used to predict parameters. Can be a single `Chain` or a `NamedTuple` of `Chain`s."
