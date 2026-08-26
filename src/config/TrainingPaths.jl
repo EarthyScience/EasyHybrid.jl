@@ -1,5 +1,7 @@
 """
 Paths to all output files produced during a training run.
+
+$(TYPEDFIELDS)
 """
 struct TrainingPaths
     "Main `.jld2` checkpoint file, updated every epoch."

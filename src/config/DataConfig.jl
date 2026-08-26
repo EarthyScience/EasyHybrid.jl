@@ -3,6 +3,8 @@ Configuration for data preparation and loading.
 
 Controls array types, observation shuffling, data splitting,
 cross-validation, and sequence construction for time-series training.
+
+$(TYPEDFIELDS)
 """
 @kwdef struct DataConfig
     """
