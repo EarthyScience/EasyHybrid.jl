@@ -9,24 +9,20 @@
 
 using EasyHybrid
 using CairoMakie
-using Random
-using Lux
-using ComponentArrays
-using DataFrames
 
 println("=== 1. Generating Multi-Output Synthetic Data ===")
 dk = gen_linear_data_2outputs(seed = 42)
 
 # Mechanistic model producing 2 targets (:obs_dyn1, :obs_dyn2) and intermediate variable :a_dyn
-function multi_output_mechanistic(; x1, x2, a, b, a_dyn)
+function multi_output_mechanistic(; x1, x2, a_dyn, b)
     obs_dyn1 = a_dyn .* x1 .+ b
     obs_dyn2 = 0.5f0 .* a_dyn .* x2
-    return (; obs_dyn1, obs_dyn2, a_dyn)
+    return (; obs_dyn1, obs_dyn2, a_dyn, b)
 end
 
 # Define parameters
 params = (
-    a = (1.0f0, 0.0f0, 5.0f0),
+    a_dyn = (1.0f0, 0.0f0, 5.0f0),
     b = (2.0f0, 0.0f0, 10.0f0),
 )
 
@@ -35,13 +31,14 @@ nn = Chain(Dense(2 => 8, relu), Dense(8 => 1))
 
 # Construct HybridModel
 hm = constructHybridModel(
+    predictors = [:x2, :x3],
     mechanistic_model = multi_output_mechanistic,
     parameters = params,
-    nn = nn,
-    input_names = (:x2, :x3),
-    forcing_names = (:x1, :x2),
-    target_names = (:obs_dyn1, :obs_dyn2),
-    fixed = (),
+    neural_param_names = [:a_dyn],
+    global_param_names = [:b],
+    hidden_layers = nn,
+    forcing = [:x1, :x2],
+    targets = [:obs_dyn1, :obs_dyn2],
 )
 
 println("=== 2. Testing Training with Dashboard, yscale=identity, and NSE loss ===")
@@ -52,12 +49,12 @@ results = train(
     nepochs = 15,
     batchsize = 64,
     opt = Adam(0.01f0),
-    loss_types = [:nse, :mse],
-    training_loss = :nse,
+    loss_types = [:nseLoss, :mse],
+    training_loss = :nseLoss,
     yscale = identity,                     # Test identity yscale with NSE
-    monitor_names = [:a, :b],             # Track parameters in monitor panel
+    monitor_names = [:b],                  # Track parameters in monitor panel
     dashboard_components = [:loss, :prediction, :timeseries, :monitor],
-    save_training = false,                 # Test live dashboard without saving
+    save_training = true,                 # Test live dashboard without saving
     plotting = true,
 )
 
