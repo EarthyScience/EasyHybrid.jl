@@ -12,8 +12,7 @@ function init_dashboard(ext, history::TrainingHistory, cfg::TrainConfig, y_train
 end
 
 function update_dashboard!(dashboard, ext, history::TrainingHistory, streams, cfg::TrainConfig)
-    isnothing(ext) && !cfg.save_training && return
-    isnothing(dashboard) && return
+    (isnothing(ext) || isnothing(dashboard)) && return
 
     update_step_dashboards!(dashboard, history, cfg)
 
