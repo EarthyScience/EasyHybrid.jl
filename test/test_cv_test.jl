@@ -51,7 +51,8 @@ const RbQ10_PARAMS = (rb = (3.0f0, 0.0f0, 13.0f0), Q10 = (2.0f0, 1.0f0, 4.0f0))
     @testset "maximize metric selects best (not worst)" begin
         # With an :nse-first metric, higher is better; the chosen model must be the argmax.
         Random.seed!(11)
-        r = cv_test(model, df;
+        r = cv_test(
+            model, df;
             k = 2, nhyper = 3,
             loss_types = [:nse], training_loss = :nseLoss, agg = mean,
             hyper = (; opt = [RMSProp(0.001), AdamW(0.01)]),
@@ -59,11 +60,12 @@ const RbQ10_PARAMS = (rb = (3.0f0, 0.0f0, 13.0f0), Q10 = (2.0f0, 1.0f0, 4.0f0))
         )
         @test r.ho !== nothing
         scores = Float64.(r.ho.results)
-        @test isapprox(r.mean_cv_loss, maximum(scores); atol = 1e-8)  # :nse ⇒ maximize
+        @test isapprox(r.mean_cv_loss, maximum(scores); atol = 1.0e-8)  # :nse ⇒ maximize
     end
 
     @testset "hyper under the hood" begin
-        r = cv_test(model, df;
+        r = cv_test(
+            model, df;
             k = 2,
             nhyper = 2,
             hyper = (; opt = [RMSProp(0.001), AdamW(0.01)], input_batchnorm = [true, false]),
@@ -84,7 +86,8 @@ const RbQ10_PARAMS = (rb = (3.0f0, 0.0f0, 13.0f0), Q10 = (2.0f0, 1.0f0, 4.0f0))
 
     @testset "hyper + random test fold" begin
         Random.seed!(7)
-        r = cv_test(model, df;
+        r = cv_test(
+            model, df;
             k = 3,
             test_fold = :random,
             nhyper = 2,
@@ -123,7 +126,8 @@ const RbQ10_PARAMS = (rb = (3.0f0, 0.0f0, 13.0f0), Q10 = (2.0f0, 1.0f0, 4.0f0))
     end
 
     @testset "LHSampler + parallel hyper" begin
-        r = cv_test(model, df;
+        r = cv_test(
+            model, df;
             k = 2,
             nhyper = 2,
             sampler = LHSampler(),
@@ -149,7 +153,8 @@ const RbQ10_PARAMS = (rb = (3.0f0, 0.0f0, 13.0f0), Q10 = (2.0f0, 1.0f0, 4.0f0))
     end
 
     @testset "parallel auto chooses hyper when nhyper larger" begin
-        r = cv_test(model, df;
+        r = cv_test(
+            model, df;
             k = 2,
             nhyper = 4,
             parallel = :auto,

@@ -184,9 +184,9 @@ decomp(; Corg, k, CUE, σ = nothing) = (; flux = k .* Corg .* (1.0f0 .- CUE))
 # default `:linear` (already logit-space for the optimizer over an interior
 # range), `k` and `σ` use `:log`.
 params_scaled = (
-    k   = (0.01f0, 1.0f-4, 1.0f0, :log),    # rate over ~4 orders of magnitude
+    k = (0.01f0, 1.0f-4, 1.0f0, :log),    # rate over ~4 orders of magnitude
     CUE = (0.5f0, 0.05f0, 0.65f0),          # interior fraction -> :linear
-    σ   = (1.0f0, 0.01f0, 100.0f0, :log),   # obs-noise scale, stays > 0
+    σ = (1.0f0, 0.01f0, 100.0f0, :log),   # obs-noise scale, stays > 0
 )
 
 # ### HybridModel Construction

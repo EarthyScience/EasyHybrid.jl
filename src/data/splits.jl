@@ -3,8 +3,8 @@ export prepare_splits, maybe_build_sequences
 function prepare_splits(data, model, cfg::DataConfig)
     # Already-split train/val tuple from split_data — skip re-splitting (e.g. cv_test folds).
     if data isa Tuple && length(data) == 2 &&
-       data[1] isa Tuple && length(data[1]) == 2 &&
-       data[2] isa Tuple && length(data[2]) == 2
+            data[1] isa Tuple && length(data[1]) == 2 &&
+            data[2] isa Tuple && length(data[2]) == 2
         return data
     end
 

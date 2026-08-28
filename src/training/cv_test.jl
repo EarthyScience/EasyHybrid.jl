@@ -156,15 +156,17 @@ Returns a `DataFrame` with one row per `fold` plus a final `:pooled` row, and on
 `metric` column per target named `<metric>_<target>`. Returns `nothing` when no
 pooled predictions are available.
 """
-function cv_performance_table(r::CVTestResults; which::Symbol = :test,
-        metric::Symbol = _metric(r.loss_types))
+function cv_performance_table(
+        r::CVTestResults; which::Symbol = :test,
+        metric::Symbol = _metric(r.loss_types)
+    )
     pooled = pooled_obs_pred(r; which)
     pooled === nothing && return nothing
 
     targets = _target_cols(pooled)
     colnames = [Symbol(metric, :_, t) for t in targets]
     score(df, t) = begin
-        obs  = Float64.(df[!, t])
+        obs = Float64.(df[!, t])
         pred = Float64.(df[!, Symbol(string(t), "_pred")])
         m = .!isnan.(obs) .& .!isnan.(pred)
         any(m) ? Float64(loss_fn(pred, obs, m, Val(metric))) : NaN
@@ -173,11 +175,19 @@ function cv_performance_table(r::CVTestResults; which::Symbol = :test,
     rows = NamedTuple[]
     for f in sort(unique(pooled.fold))
         sub = filter(:fold => ==(f), pooled)
-        push!(rows, (; fold = f,
-            (colnames[i] => score(sub, targets[i]) for i in eachindex(targets))...))
+        push!(
+            rows, (;
+                fold = f,
+                (colnames[i] => score(sub, targets[i]) for i in eachindex(targets))...,
+            )
+        )
     end
-    push!(rows, (; fold = :pooled,
-        (colnames[i] => score(pooled, targets[i]) for i in eachindex(targets))...))
+    push!(
+        rows, (;
+            fold = :pooled,
+            (colnames[i] => score(pooled, targets[i]) for i in eachindex(targets))...,
+        )
+    )
     return DataFrame(rows)
 end
 
@@ -202,8 +212,10 @@ function Base.show(io::IO, ::MIME"text/plain", r::CVTestResults)
         @printf(io, "  %4s  %10s  %10s  %10s\n", "fold", "train", "val", "test")
         for ho in r.held_outs
             tr, vl = ho.final_train === nothing ? (nothing, nothing) : _train_val_at_best(ho.final_train, r.agg)
-            @printf(io, "  %4s  %10s  %10s  %10s\n",
-                string(ho.test_fold), _fmt(tr), _fmt(vl), _fmt(ho.test_loss))
+            @printf(
+                io, "  %4s  %10s  %10s  %10s\n",
+                string(ho.test_fold), _fmt(tr), _fmt(vl), _fmt(ho.test_loss)
+            )
         end
         printstyled(io, "  pooled val:  "; color = :yellow); println(io, _fmt(r.pooled_val_loss))
         printstyled(io, "  pooled test: "; color = :green); println(io, _fmt(r.pooled_test_loss))
@@ -228,7 +240,7 @@ function Base.show(io::IO, ::MIME"text/plain", r::CVTestResults)
 end
 
 function Base.show(io::IO, r::CVTestResults)
-    if r.mode === :nested
+    return if r.mode === :nested
         print(io, "CVTestResults(:nested, pooled_test=", _fmt(r.pooled_test_loss), ", pooled_val=", _fmt(r.pooled_val_loss), ")")
     elseif r.mode === :test
         print(io, "CVTestResults(:test, test_fold=", r.test_fold, ", mean_cv=", _fmt(r.mean_cv_loss), ", test=", _fmt(r.test_loss), ")")
@@ -245,14 +257,18 @@ end
 codes in ascending order of the distinct labels. Already-`1:m` integer labels
 map to themselves."""
 _encode_folds(labels) =
-    (remap = Dict(v => i for (i, v) in enumerate(sort(unique(labels))));
-     Int[remap[x] for x in labels])
+    (
+    remap = Dict(v => i for (i, v) in enumerate(sort(unique(labels))));
+    Int[remap[x] for x in labels]
+)
 
 function _resolve_folds(data, folds; k::Union{Int, Nothing}, shuffle::Bool)
     if folds !== nothing
         labels = folds isa Symbol ?
-            (data isa DataFrame ? data[!, folds] :
-             throw(ArgumentError("`folds` as a Symbol requires a DataFrame."))) :
+            (
+                data isa DataFrame ? data[!, folds] :
+                throw(ArgumentError("`folds` as a Symbol requires a DataFrame."))
+            ) :
             collect(folds)
         return _encode_folds(labels)
     end
@@ -269,9 +285,11 @@ function _infer_k(folds, k::Union{Int, Nothing})
 end
 
 function _validate_folds(folds, k::Int)
-    sort(unique(folds)) == collect(1:k) || throw(ArgumentError(
-        "Fold labels must be exactly 1:$k (got $(sort(unique(folds))))."
-    ))
+    return sort(unique(folds)) == collect(1:k) || throw(
+        ArgumentError(
+            "Fold labels must be exactly 1:$k (got $(sort(unique(folds))))."
+        )
+    )
 end
 
 _resolve_test_fold(::Nothing, ::Int) = nothing
@@ -364,20 +382,24 @@ end
 
 function _BestTracker(n::Int; desc::String, metric::Symbol, enabled::Bool)
     prog = enabled ? Progress(n; desc = desc, showspeed = true) : nothing
-    return _BestTracker(prog, n, 0, ReentrantLock(), desc, metric,
-        nothing, nothing, NamedTuple(), nothing, nothing, nothing, NamedTuple())
+    return _BestTracker(
+        prog, n, 0, ReentrantLock(), desc, metric,
+        nothing, nothing, NamedTuple(), nothing, nothing, nothing, NamedTuple()
+    )
 end
 
 function _best_status(t::_BestTracker)
     id = t.cur_item === nothing ? "" : " fold=$(t.cur_item)"
     return "$(t.prefix) [$(t.done)/$(t.n)]$id " *
-           "train=$(_fmt(t.cur_train)) val=$(_fmt(t.cur_val)) " *
-           "(best_val=$(_fmt(t.best_val))) hp=$(_fmt_hyper(t.cur_hp))"
+        "train=$(_fmt(t.cur_train)) val=$(_fmt(t.cur_val)) " *
+        "(best_val=$(_fmt(t.best_val))) hp=$(_fmt_hyper(t.cur_hp))"
 end
 
 """Record a finished trial/fold; display its own score and keep the running best."""
-function _done!(t::Union{_BestTracker, Nothing}, val::Real, train, hp::NamedTuple = NamedTuple();
-        item::Union{Int, Nothing} = nothing)
+function _done!(
+        t::Union{_BestTracker, Nothing}, val::Real, train, hp::NamedTuple = NamedTuple();
+        item::Union{Int, Nothing} = nothing
+    )
     t === nothing && return nothing
     lock(t.lock) do
         t.done += 1
@@ -427,9 +449,11 @@ Run k-fold CV for fixed hyperparameters. Returns `(fold_results, mean_score)`
 where `mean_score` uses the natural orientation of the first metric and is
 optionally weighted by validation-fold size.
 """
-function _run_cv(model, data, mspec, hp::NamedTuple;
+function _run_cv(
+        model, data, mspec, hp::NamedTuple;
         folds, k, parallel_folds::Bool, weighted::Bool,
-        label = "", tracker = nothing, quiet = true, kwargs...)
+        label = "", tracker = nothing, quiet = true, kwargs...
+    )
     results = Vector{Union{TrainResults, Nothing}}(undef, k)
     agg = get(Dict{Symbol, Any}(kwargs), :agg, mean)
     do_fold(v) = begin
@@ -463,9 +487,12 @@ function _run_cv(model, data, mspec, hp::NamedTuple;
     return results, mean_score
 end
 
-_check_sampler(s) = s isa Hyperband && throw(ArgumentError(
-    "Hyperband/BOHB need a resource/state API and are not supported in cv_test; " *
-    "use RandomSampler(), LHSampler(), or CLHSampler(...)."))
+_check_sampler(s) = s isa Hyperband && throw(
+    ArgumentError(
+        "Hyperband/BOHB need a resource/state API and are not supported in cv_test; " *
+            "use RandomSampler(), LHSampler(), or CLHSampler(...)."
+    )
+)
 
 """Draw all hyperparameter samples up front (mirrors `@thyperopt`)."""
 function _draw_samples(nhyper::Int, hyper::NamedTuple, sampler)
@@ -490,14 +517,18 @@ results without re-running CV. Direction-aware: works for maximize metrics too.
 
 Returns `(best_hp, ho, fold_results, mean_score)`.
 """
-function _select(model, data, mspec; hyper, nhyper, sampler, metric,
+function _select(
+        model, data, mspec; hyper, nhyper, sampler, metric,
         parallel_hyper, parallel_folds, weighted, k, folds, label,
-        show_cv_progress, quiet, kwargs...)
+        show_cv_progress, quiet, kwargs...
+    )
     agg = get(Dict{Symbol, Any}(kwargs), :agg, mean)
     if hyper === nothing
         tracker = _BestTracker(k; desc = "CV folds$label", metric, enabled = show_cv_progress)
-        fr, sc = _run_cv(model, data, mspec, NamedTuple();
-            folds, k, parallel_folds, weighted, label, tracker, quiet, kwargs...)
+        fr, sc = _run_cv(
+            model, data, mspec, NamedTuple();
+            folds, k, parallel_folds, weighted, label, tracker, quiet, kwargs...
+        )
         return NamedTuple(), nothing, fr, sc
     end
 
@@ -506,8 +537,10 @@ function _select(model, data, mspec; hyper, nhyper, sampler, metric,
     fold_res = Vector{Any}(undef, nhyper)
     tracker = _BestTracker(nhyper; desc = "Hyperopt$label", metric, enabled = show_cv_progress)
     eval_trial(i) = begin
-        fr, sc = _run_cv(model, data, mspec, hps[i];
-            folds, k, parallel_folds, weighted, label, tracker = nothing, quiet, kwargs...)
+        fr, sc = _run_cv(
+            model, data, mspec, hps[i];
+            folds, k, parallel_folds, weighted, label, tracker = nothing, quiet, kwargs...
+        )
         scores[i] = sc
         fold_res[i] = fr
         mean_train, _ = _mean_train_val(fr, agg)
@@ -530,18 +563,22 @@ function _select(model, data, mspec; hyper, nhyper, sampler, metric,
 end
 
 """One held-out test evaluation: search + CV on the remaining folds, then test."""
-function _cv_test_once(model, data, mspec; folds, k, test_fold::Int, metric, weighted,
+function _cv_test_once(
+        model, data, mspec; folds, k, test_fold::Int, metric, weighted,
         hyper, nhyper, sampler, parallel_hyper, parallel_folds, label = "",
-        show_cv_progress, quiet = true, kwargs...)
+        show_cv_progress, quiet = true, kwargs...
+    )
     k ≥ 3 || throw(ArgumentError("cv_test with a held-out test fold needs k ≥ 3; got k=$k."))
     cv_data, cv_folds, k_cv = _partition_cv_test(data, folds, test_fold)
     # Nested mode already tags the held-out fold via `label` (`_hold<i>`); only add
     # a `_test<i>` tag for the single held-out case where there is no outer label.
     lbl = isempty(label) ? "_test$test_fold" : label
 
-    best_hp, ho, fold_results, mean_cv = _select(model, cv_data, mspec;
+    best_hp, ho, fold_results, mean_cv = _select(
+        model, cv_data, mspec;
         hyper, nhyper, sampler, metric, parallel_hyper, parallel_folds, weighted,
-        k = k_cv, folds = cv_folds, label = lbl, show_cv_progress, quiet, kwargs...)
+        k = k_cv, folds = cv_folds, label = lbl, show_cv_progress, quiet, kwargs...
+    )
 
     final = _with_quiet(quiet) do
         tune(model, cv_data, mspec; best_hp..., model_name = _cv_name(kwargs, lbl, "_final"), kwargs...)
@@ -549,9 +586,11 @@ function _cv_test_once(model, data, mspec; folds, k, test_fold::Int, metric, wei
     test_loss, test_obs_pred = final === nothing ? (NaN, nothing) :
         _evaluate_on_test(model, data, mspec, best_hp, final; folds, test_fold, kwargs...)
 
-    return CVTestResults(:test, get(Dict{Symbol,Any}(kwargs), :agg, mean), _loss_types(kwargs), folds,
+    return CVTestResults(
+        :test, get(Dict{Symbol, Any}(kwargs), :agg, mean), _loss_types(kwargs), folds,
         best_hp, ho, fold_results, mean_cv, test_fold, test_loss, test_obs_pred, final,
-        nothing, nothing, nothing, nothing)
+        nothing, nothing, nothing, nothing
+    )
 end
 
 """Predict the held-out `test_fold` with `final`; return `(scalar_loss, obs_pred_df)`."""
@@ -565,8 +604,10 @@ function _evaluate_on_test(model, data, mspec, hp::NamedTuple, final::TrainResul
     (_, _), ((x, forcings), y) = split_data(data, hm; folds, val_fold = test_fold)
     mask, empty_mask = valid_mask(y)
     empty_mask && (@warn "Test fold $test_fold has no valid targets"; return (NaN, nothing))
-    l, _, ŷ = evaluate_acc(hm, x, forcings, y, mask, final.ps, final.st,
-        train_cfg.loss_types, train_cfg.training_loss, train_cfg.extra_loss, train_cfg.agg)
+    l, _, ŷ = evaluate_acc(
+        hm, x, forcings, y, mask, final.ps, final.st,
+        train_cfg.loss_types, train_cfg.training_loss, train_cfg.extra_loss, train_cfg.agg
+    )
     return Float64(extract_agg_loss(l, train_cfg.agg)), _obs_pred_df(ŷ, y, hm.targets)
 end
 
@@ -618,21 +659,22 @@ your own, `show_progress=false`, `plotting=false`, `save_training=false`, `agg=m
 - `:auto` (default): choose `:hyper` or `:folds` by the larger job count.
 - `:none`, `:hyper` (thread trials), `:folds` (thread folds / held-out runs).
 """
-function cv_test(model, data;
-    mspec::ModelSpec = ModelSpec(),
-    k::Union{Int, Nothing} = nothing,
-    folds = nothing,
-    shuffle::Bool = true,
-    test_fold = nothing,
-    hyper = nothing,
-    nhyper::Int = 10,
-    sampler = RandomSampler(),
-    parallel::Symbol = :auto,
-    weighted_cv::Bool = false,
-    show_cv_progress::Bool = true,
-    quiet::Bool = true,
-    kwargs...,
-)
+function cv_test(
+        model, data;
+        mspec::ModelSpec = ModelSpec(),
+        k::Union{Int, Nothing} = nothing,
+        folds = nothing,
+        shuffle::Bool = true,
+        test_fold = nothing,
+        hyper = nothing,
+        nhyper::Int = 10,
+        sampler = RandomSampler(),
+        parallel::Symbol = :auto,
+        weighted_cv::Bool = false,
+        show_cv_progress::Bool = true,
+        quiet::Bool = true,
+        kwargs...,
+    )
     tkwargs = _train_kwargs(kwargs)
     agg = tkwargs.agg
     loss_types = _loss_types(kwargs)
@@ -651,10 +693,12 @@ function cv_test(model, data;
     parallel_hyper && hyper === nothing && @warn "`parallel=:hyper` has no effect without `hyper`"
     @info "cv_test: k=$k, $(hyper === nothing ? "no search" : "nhyper=$nhyper"), metric=:$metric, parallel=:$parallel"
 
-    once(test_fold_i, label) = _cv_test_once(model, data, mspec;
+    once(test_fold_i, label) = _cv_test_once(
+        model, data, mspec;
         folds, k, test_fold = test_fold_i, metric, weighted = weighted_cv,
         hyper, nhyper, sampler, parallel_hyper, parallel_folds,
-        label, show_cv_progress, quiet, tkwargs...)
+        label, show_cv_progress, quiet, tkwargs...
+    )
 
     if resolved === :all
         nest_tracker = _BestTracker(k; desc = "Nested CV", metric, enabled = show_cv_progress)
@@ -679,18 +723,24 @@ function cv_test(model, data;
         tls = [r.test_loss for r in held_outs if r.test_loss !== nothing && isfinite(r.test_loss)]
         pooled_val = _pooled_metric((r.final_train === nothing ? nothing : r.final_train.val_obs_pred for r in held_outs), metric, agg)
         pooled_test = _pooled_metric((r.test_obs_pred for r in held_outs), metric, agg)
-        return CVTestResults(:nested, agg, loss_types, folds, NamedTuple(), nothing, nothing,
+        return CVTestResults(
+            :nested, agg, loss_types, folds, NamedTuple(), nothing, nothing,
             isempty(cvs) ? NaN : mean(cvs), nothing, nothing, nothing, nothing,
-            isempty(tls) ? NaN : mean(tls), pooled_val, pooled_test, held_outs)
+            isempty(tls) ? NaN : mean(tls), pooled_val, pooled_test, held_outs
+        )
 
     elseif resolved isa Integer
         return once(resolved, "")
 
     else
-        best_hp, ho, fold_results, mean_cv = _select(model, data, mspec;
+        best_hp, ho, fold_results, mean_cv = _select(
+            model, data, mspec;
             hyper, nhyper, sampler, metric, parallel_hyper, parallel_folds,
-            weighted = weighted_cv, k, folds, label = "", show_cv_progress, quiet, tkwargs...)
-        return CVTestResults(:cv, agg, loss_types, folds, best_hp, ho, fold_results,
-            mean_cv, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing)
+            weighted = weighted_cv, k, folds, label = "", show_cv_progress, quiet, tkwargs...
+        )
+        return CVTestResults(
+            :cv, agg, loss_types, folds, best_hp, ho, fold_results,
+            mean_cv, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing
+        )
     end
 end

@@ -139,8 +139,10 @@ produced them, with a 1:1 line and the pooled `metric` in each panel title.
 
 Returns the `Figure`.
 """
-function EasyHybrid.cv_scatter(r::EasyHybrid.CVTestResults; which::Symbol = :test,
-        metric::Symbol = :nse, markersize = 9)
+function EasyHybrid.cv_scatter(
+        r::EasyHybrid.CVTestResults; which::Symbol = :test,
+        metric::Symbol = :nse, markersize = 9
+    )
     pooled = EasyHybrid.pooled_obs_pred(r; which)
     pooled === nothing &&
         error("No pooled :$(which) predictions available for a `mode=:$(r.mode)` result.")
@@ -153,27 +155,33 @@ function EasyHybrid.cv_scatter(r::EasyHybrid.CVTestResults; which::Symbol = :tes
 
     fig = Makie.Figure(size = (460 * length(targets) + 160, 460))
     for (j, t) in enumerate(targets)
-        obs  = Float64.(pooled[!, t])
+        obs = Float64.(pooled[!, t])
         pred = Float64.(pooled[!, Symbol(string(t), "_pred")])
         finite = isfinite.(obs) .& isfinite.(pred)
         lo, hi = extrema(vcat(obs[finite], pred[finite]))
         score = EasyHybrid.loss_fn(pred, obs, finite, Val(metric))
 
-        ax = Makie.Axis(fig[1, j];
+        ax = Makie.Axis(
+            fig[1, j];
             xlabel = "Predicted $(t)", ylabel = "Observed $(t)", aspect = 1,
-            title = "$(t)  ($(metric) = $(round(score, digits = 3)))")
+            title = "$(t)  ($(metric) = $(round(score, digits = 3)))"
+        )
         Makie.lines!(ax, [lo, hi], [lo, hi]; color = :gray40, linestyle = :dash)
         for (ci, f) in enumerate(folds)
             idx = (pooled.fold .== f) .& finite
-            Makie.scatter!(ax, pred[idx], obs[idx];
-                color = fold_color(ci), markersize = markersize)
+            Makie.scatter!(
+                ax, pred[idx], obs[idx];
+                color = fold_color(ci), markersize = markersize
+            )
         end
         Makie.limits!(ax, lo, hi, lo, hi)
     end
 
-    Makie.Legend(fig[1, length(targets) + 1],
+    Makie.Legend(
+        fig[1, length(targets) + 1],
         [Makie.MarkerElement(color = fold_color(ci), marker = :circle) for ci in eachindex(folds)],
-        ["fold $(f)" for f in folds], "Fold")
+        ["fold $(f)" for f in folds], "Fold"
+    )
 
     return fig
 end
