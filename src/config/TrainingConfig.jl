@@ -111,6 +111,16 @@ loss computation, data handling, output, and visualization.
     """
     save_training::Bool = true
 
+    """
+    How often to write a full `(ps, st)` snapshot to the `trained_model` checkpoint
+    during training. `0` (default) writes none: only the initial state, the
+    per-epoch losses and `tracked_params`, and the best/final model (in
+    `best_model*.jld2`) are stored. A positive `n` additionally writes `(ps, st)`
+    every `n`-th epoch, which is what makes checkpoint files grow linearly with
+    `nepochs`. Only relevant when `save_training = true`.
+    """
+    save_every::Int = 0
+
     "Vector of monitor names to track during training. Default: `[]`."
     monitor_names::Vector = []
 
@@ -191,6 +201,9 @@ function validate_config(cfg::TrainConfig)
 
     cfg.eval_every > 0 ||
         throw(ArgumentError("eval_every must be positive, got $(cfg.eval_every)"))
+
+    cfg.save_every >= 0 ||
+        throw(ArgumentError("save_every must be non-negative, got $(cfg.save_every)"))
 
     cfg.inner_maxiters > 0 ||
         throw(ArgumentError("inner_maxiters must be positive, got $(cfg.inner_maxiters)"))

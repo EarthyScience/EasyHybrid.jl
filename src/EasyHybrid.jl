@@ -34,7 +34,7 @@ using MLJ: partition
 using MLUtils: MLUtils, DataLoader, kfolds, numobs, rpad, splitobs
 using NCDatasets: NCDatasets, NCDataset, close, name
 using Optimization: Optimization, OptimizationFunction, OptimizationProblem, solve, remake
-using OptimizationOptimisers: OptimizationOptimisers, AdamW, Adam, Optimisers
+using OptimizationOptimisers: OptimizationOptimisers, AdamW, Adam, RMSProp, Optimisers
 using OrderedCollections: OrderedDict
 using PrettyTables: PrettyTables
 using Printf: Printf, @sprintf, @printf

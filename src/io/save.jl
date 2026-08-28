@@ -1,17 +1,20 @@
 export get_all_groups
 export load_group
+# split physical parameters
+function tracked_params(ps, save_ps)
+    isempty(save_ps) && return nothing
+    ps_values = [copy(getproperty(ps, e)[1]) for e in save_ps]
+    return NamedTuple{save_ps}(ps_values)
+end
+
 function save_ps_st(file_name, hm, ps, st, save_ps, epoch = 0)
     hm_name = string(nameof(typeof(hm)))
-    # split physical parameters
-    tmp_e = if !isempty(save_ps)
-        ps_values = [copy(getproperty(ps, e)[1]) for e in save_ps]
-        NamedTuple{save_ps}(ps_values)
-    end
+    tmp_e = tracked_params(ps, save_ps)
 
     isfile(file_name) && rm(file_name)
     return jldopen(file_name, "w") do file
         file["HybridModel_$hm_name/epoch_$epoch"] = (ps, st)
-        if !isempty(save_ps)
+        if !isnothing(tmp_e)
             file["physical_params/epoch_$epoch"] = tmp_e
         end
     end
@@ -19,17 +22,27 @@ end
 
 function save_ps_st!(file_name, hm, ps, st, save_ps, epoch)
     hm_name = string(nameof(typeof(hm)))
-    # split physical parameters
-    tmp_e = if !isempty(save_ps)
-        ps_values = [copy(getproperty(ps, e)[1]) for e in save_ps]
-        NamedTuple{save_ps}(ps_values)
-    end
+    tmp_e = tracked_params(ps, save_ps)
 
     return jldopen(file_name, "a+") do file
         file["HybridModel_$hm_name/epoch_$epoch"] = (ps, st)
-        if !isempty(save_ps)
+        if !isnothing(tmp_e)
             file["physical_params/epoch_$epoch"] = tmp_e
         end
+    end
+end
+
+"""
+    save_tracked_params!(file_name, ps, save_ps, epoch)
+
+Append only the `physical_params` entry for `epoch`, skipping the full
+`(ps, st)` snapshot written by [`save_ps_st!`](@ref).
+"""
+function save_tracked_params!(file_name, ps, save_ps, epoch)
+    tmp_e = tracked_params(ps, save_ps)
+    isnothing(tmp_e) && return nothing
+    return jldopen(file_name, "a+") do file
+        file["physical_params/epoch_$epoch"] = tmp_e
     end
 end
 

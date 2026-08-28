@@ -376,6 +376,28 @@ function LuxCore.initialstates(rng::AbstractRNG, m::HybridModel)
 end
 
 """
+    _apply_nns(nns::NamedTuple, xs, ps, st)
+
+Apply every sub-network to its own predictors, states and parameters, returning a
+tuple of `(output, state)` pairs in the order of `keys(nns)`.
+
+The per-network lookups are unrolled with *literal* names instead of iterating over
+`keys(nns)`, because a lookup by runtime `Symbol` is not inferable when `ps` is a
+`ComponentArray` (which is how `ps` is stored for a single-rule optimizer, see
+`init_model_state`). An uninferable lookup makes `LuxCore.apply` a generic call for
+Enzyme, which then annotates the *layer* as `Active` whenever the layer type
+happens to hold floating-point fields (e.g. `Dropout`'s `p`/`q`) and errors with
+"Lux Layers only support `EnzymeCore.Const` annotation".
+"""
+@generated function _apply_nns(nns::NamedTuple, xs, ps, st)
+    calls = [:(LuxCore.apply(nns.$n, xs.$n, ps.$n, st.$n)) for n in fieldnames(nns)]
+    return quote
+        Base.@_inline_meta
+        ($(calls...),)
+    end
+end
+
+"""
     _run_nn(m::HybridModel{<:Any, <:NamedTuple}, ds_k::Tuple, ps, st)
 
 Execute the forward pass for a multi-neural network architecture.
@@ -384,9 +406,7 @@ Returns scaled parameter values, updated states, and raw network outputs.
 """
 function _run_nn(m::HybridModel{<:Any, <:NamedTuple}, ds_k::Tuple, ps, st)
     nn_names = keys(m.NNs)
-    applied = map(nn_names) do nn_name
-        LuxCore.apply(m.NNs[nn_name], ds_k[1][nn_name], ps[nn_name], st[nn_name])
-    end
+    applied = _apply_nns(m.NNs, ds_k[1], ps, st)
     nn_outputs = NamedTuple{nn_names}(map(first, applied))
     nn_states = NamedTuple{nn_names}(map(last, applied))
 
