@@ -7,6 +7,12 @@ function tracked_params(ps, save_ps)
     return NamedTuple{save_ps}(ps_values)
 end
 
+"""
+    save_ps_st(file_name, hm, ps, st, save_ps[, epoch=0])
+
+Create (or overwrite) a JLD2 checkpoint with a full `(ps, st)` snapshot for
+`epoch`, plus optional tracked physical parameters under `physical_params/`.
+"""
 function save_ps_st(file_name, hm, ps, st, save_ps, epoch = 0)
     hm_name = string(nameof(typeof(hm)))
     tmp_e = tracked_params(ps, save_ps)
@@ -20,6 +26,12 @@ function save_ps_st(file_name, hm, ps, st, save_ps, epoch = 0)
     end
 end
 
+"""
+    save_ps_st!(file_name, hm, ps, st, save_ps, epoch)
+
+Append a full `(ps, st)` snapshot for `epoch` to an existing JLD2 checkpoint,
+plus optional tracked physical parameters under `physical_params/`.
+"""
 function save_ps_st!(file_name, hm, ps, st, save_ps, epoch)
     hm_name = string(nameof(typeof(hm)))
     tmp_e = tracked_params(ps, save_ps)
