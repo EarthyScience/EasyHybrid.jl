@@ -5,8 +5,14 @@ export timeseriesplot, timeseriesplot!
 export train_dashboard, update_step_dashboard!
 export build_dashboards, update_step_dashboards!
 
+export cv_scatter
+
 function poplot()
     return @error("Please load `Makie.jl` and then call this function. If Makie is loaded, then you can't call `poplot` with no arguments!")
+end
+
+function cv_scatter(args...; kwargs...)
+    return @error("Please load `Makie.jl` (e.g. `using CairoMakie`) before calling `cv_scatter`.")
 end
 
 function poplot!()

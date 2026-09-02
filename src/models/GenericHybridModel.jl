@@ -7,16 +7,21 @@ A container for holding the parameter definitions of a model, including their de
 
 $(TYPEDFIELDS)
 """
-mutable struct ParameterContainer{NT <: NamedTuple, T}
-    "The raw parameter definitions. A `NamedTuple` where each entry is a tuple of `(default, lower, upper)` bounds for a parameter."
+mutable struct ParameterContainer{NT <: NamedTuple, T, S <: NamedTuple}
+    "The raw parameter definitions. A `NamedTuple` where each entry is a tuple of `(default, lower, upper)` bounds for a parameter, with an optional 4th element selecting the scaling warp (`:linear`, `:log`, or `:logit`)."
     values::NT
 
     "A `ComponentArray` matrix representation of the parameter bounds, organized for efficient access by name and bound type."
     table::T
 
+    "Per-parameter scaling warp (`:linear`, `:log`, or `:logit`) keyed by parameter name."
+    scales::S
+
     function ParameterContainer(values::NT) where {NT <: NamedTuple}
         table = build_parameter_matrix(values)
-        return new{NT, typeof(table)}(values, table)
+        scales = build_parameter_scales(values)
+        _validate_parameter_scales(values, scales)
+        return new{NT, typeof(table), typeof(scales)}(values, table, scales)
     end
 end
 
@@ -67,6 +72,26 @@ struct HybridModel{T, P} <: LuxCore.AbstractLuxContainerLayer{(:NNs,)}
 end
 
 """
+    _warn_forcing_param_overlap(forcing, param_names)
+
+Warn when a variable is listed as both a `forcing` and a `parameter`. In the forward
+pass, forcing (observed data) takes precedence over parameters on a name collision, so
+the data value is used and the parameter is silently ignored. If the name is instead
+removed from `forcing`, it becomes a fixed parameter (a constant equal to its default).
+"""
+function _warn_forcing_param_overlap(forcing, param_names)
+    overlap = intersect(Symbol.(forcing), param_names)
+    if !isempty(overlap)
+        @warn string(
+            "Variable(s) ", collect(overlap), " are listed as both `forcing` and `parameters`. ",
+            "Forcing wins: the observed data value overrides the parameter for these names. ",
+            "If you remove them from `forcing`, they will become fixed parameters (a constant equal to the default)."
+        )
+    end
+    return nothing
+end
+
+"""
     constructHybridModel(predictors::Vector{Symbol}, forcing, targets, mechanistic_model, parameters, neural_param_names, global_param_names; kwargs...)
 
 Construct a `HybridModel` with a single neural network architecture predicting all `neural_param_names` from the `predictors`.
@@ -103,6 +128,7 @@ function constructHybridModel(
 
     all_names = pnames(parameters)
     @assert all(n in all_names for n in neural_param_names) "neural_param_names ⊆ param_names"
+    _warn_forcing_param_overlap(forcing, all_names)
 
     # if empty predictors do not construct NN
     if length(predictors) > 0 && length(neural_param_names) > 0
@@ -119,7 +145,10 @@ function constructHybridModel(
         NN = Chain()
     end
 
-    fixed_param_names = [ n for n in all_names if !(n in [neural_param_names..., global_param_names...]) ]
+    # Names also supplied as forcing are driven by data (forcing wins), so they are
+    # not treated as fixed parameters even though they carry a default/bounds.
+    forcing_names = Symbol.(forcing)
+    fixed_param_names = [ n for n in all_names if !(n in [neural_param_names..., global_param_names...]) && !(n in forcing_names) ]
 
     # capture the configuration used for construction
     config = (;
@@ -181,6 +210,7 @@ function constructHybridModel(
     end
 
     all_names = pnames(parameters)
+    _warn_forcing_param_overlap(forcing, all_names)
     neural_param_names = collect(keys(predictors))
     # Create neural networks based on predictors
     NNs = NamedTuple()
@@ -212,7 +242,10 @@ function constructHybridModel(
         NNs = merge(NNs, NamedTuple{(nn_name,), Tuple{typeof(nn)}}((nn,)))
     end
 
-    fixed_param_names = [ n for n in all_names if !(n in [neural_param_names..., global_param_names...]) ]
+    # Names also supplied as forcing are driven by data (forcing wins), so they are
+    # not treated as fixed parameters even though they carry a default/bounds.
+    forcing_names = Symbol.(forcing)
+    fixed_param_names = [ n for n in all_names if !(n in [neural_param_names..., global_param_names...]) && !(n in forcing_names) ]
 
     # capture the configuration used for construction
     config = (;
@@ -347,6 +380,28 @@ function LuxCore.initialstates(rng::AbstractRNG, m::HybridModel)
 end
 
 """
+    _apply_nns(nns::NamedTuple, xs, ps, st)
+
+Apply every sub-network to its own predictors, states and parameters, returning a
+tuple of `(output, state)` pairs in the order of `keys(nns)`.
+
+The per-network lookups are unrolled with *literal* names instead of iterating over
+`keys(nns)`, because a lookup by runtime `Symbol` is not inferable when `ps` is a
+`ComponentArray` (which is how `ps` is stored for a single-rule optimizer, see
+`init_model_state`). An uninferable lookup makes `LuxCore.apply` a generic call for
+Enzyme, which then annotates the *layer* as `Active` whenever the layer type
+happens to hold floating-point fields (e.g. `Dropout`'s `p`/`q`) and errors with
+"Lux Layers only support `EnzymeCore.Const` annotation".
+"""
+@generated function _apply_nns(nns::NamedTuple, xs, ps, st)
+    calls = [:(LuxCore.apply(nns.$n, xs.$n, ps.$n, st.$n)) for n in fieldnames(nns)]
+    return quote
+        Base.@_inline_meta
+        ($(calls...),)
+    end
+end
+
+"""
     _run_nn(m::HybridModel{<:Any, <:NamedTuple}, ds_k::Tuple, ps, st)
 
 Execute the forward pass for a multi-neural network architecture.
@@ -355,9 +410,7 @@ Returns scaled parameter values, updated states, and raw network outputs.
 """
 function _run_nn(m::HybridModel{<:Any, <:NamedTuple}, ds_k::Tuple, ps, st)
     nn_names = keys(m.NNs)
-    applied = map(nn_names) do nn_name
-        LuxCore.apply(m.NNs[nn_name], ds_k[1][nn_name], ps[nn_name], st[nn_name])
-    end
+    applied = _apply_nns(m.NNs, ds_k[1], ps, st)
     nn_outputs = NamedTuple{nn_names}(map(first, applied))
     nn_states = NamedTuple{nn_names}(map(last, applied))
 
@@ -439,7 +492,10 @@ function (m::HybridModel)(ds_k::Tuple, ps, st)
 
     # 5) unpack forcing data
     forcing_data = ds_k[2]
-    all_kwargs = merge(forcing_data, all_params)
+    # Forcing (observed data) takes precedence over parameters: if a name appears
+    # both as a forcing and as a parameter, the forcing value wins. `merge` favors
+    # its later argument for duplicate keys, so `forcing_data` is passed last.
+    all_kwargs = merge(all_params, forcing_data)
 
     # 6) Apply mechanistic model. Only forward the kwargs it actually declares, so
     #    "loss-only" parameters (e.g. a learned noise scale used only in the loss)
