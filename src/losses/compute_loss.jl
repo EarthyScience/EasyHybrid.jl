@@ -61,10 +61,10 @@ end
 function _compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
     out_loss_types = [
         begin
-                losses = assemble_loss(ŷ, y, y_nan, targets, loss_type)
-                agg_loss = agg(losses)
-                NamedTuple{(targets..., Symbol(agg))}([losses..., agg_loss])
-            end
+            losses = assemble_loss(ŷ, y, y_nan, targets, loss_type)
+            agg_loss = agg(losses)
+            NamedTuple{(targets..., Symbol(agg))}([losses..., agg_loss])
+        end
             for loss_type in loss_types
     ]
     _names = [_loss_name(lt) for lt in loss_types]
@@ -121,12 +121,12 @@ _get_target_ŷ(ŷ, y_t, target) =
 function assemble_loss(ŷ, y, y_nan, targets, loss_spec)
     return [
         begin
-                y_t = _get_target_y(y, target)
-                ŷ_t = _get_target_ŷ(ŷ, y_t, target)
-                y_nan_t = _get_target_y(y_nan, target)
-                _apply_loss(ŷ_t, y_t, y_nan_t, loss_spec)
-                # _apply_loss(ŷ_t, y_t, _get_target_nan(y_nan, target), loss_spec)
-            end
+            y_t = _get_target_y(y, target)
+            ŷ_t = _get_target_ŷ(ŷ, y_t, target)
+            y_nan_t = _get_target_y(y_nan, target)
+            _apply_loss(ŷ_t, y_t, y_nan_t, loss_spec)
+            # _apply_loss(ŷ_t, y_t, _get_target_nan(y_nan, target), loss_spec)
+        end
             for target in targets
     ]
 end
@@ -135,16 +135,16 @@ function assemble_loss(ŷ, y, y_nan, targets, loss_spec::PerTarget)
     @assert length(targets) == length(loss_spec.losses) "Length of targets and PerTarget losses tuple must match"
     losses = [
         begin
-                y_t = _get_target_y(y, target)
-                ŷ_t = _get_target_ŷ(ŷ, y_t, target)
-                y_nan_t = _get_target_nan(y_nan, target)
-                _apply_loss(
-                    ŷ_t,
-                    y_t,
-                    y_nan_t,
-                    loss_t
-                )
-            end
+            y_t = _get_target_y(y, target)
+            ŷ_t = _get_target_ŷ(ŷ, y_t, target)
+            y_nan_t = _get_target_nan(y_nan, target)
+            _apply_loss(
+                ŷ_t,
+                y_t,
+                y_nan_t,
+                loss_t
+            )
+        end
             for (target, loss_t) in zip(targets, loss_spec.losses)
     ]
     return losses
