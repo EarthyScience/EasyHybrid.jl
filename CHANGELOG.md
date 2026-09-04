@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+
+## v0.2.1 - 2026-09-04
 - Set Runic version to 1 in tools in order to match the one in CI. This should take care of the regular updates for patches, locally as well as remote. Older Manifest files in formatter should be updated always accordingly [#299](https://github.com/EarthyScience/EasyHybrid.jl/pull/299).
 - Stopped writing a full `(ps, st)` snapshot to the `trained_model` checkpoint on every epoch; the new `save_every` option (default `0`, i.e. never) makes those snapshots opt-in, while the initial state, per-epoch losses and `tracked_params`, and the best/final model in `best_model*.jld2` are still saved as before. This keeps checkpoint size roughly constant in `nepochs` instead of growing linearly
 - Added optional per-parameter scaling warps selectable via a 4th element in each parameter tuple (`(default, lower, upper, :scale)`): `:linear` (default), `:log` (uniform resolution in `log(value)`, for positive quantities spanning orders of magnitude such as rates, turnover times, and observation-noise scales; requires `lower > 0`), and `:logit`. Scales are stored on `ParameterContainer`, validated at construction, applied to both initialization and the forward pass, and recorded in the saved YAML config; fully backward compatible with existing 3-element `(default, lower, upper)` tuples
