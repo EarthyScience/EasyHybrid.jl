@@ -2,43 +2,36 @@
 using EasyHybrid
 using Documenter, DocumenterVitepress
 literate_root = joinpath(@__DIR__, "literate")
+notebook_root = joinpath(@__DIR__, "notebooks")
 
-# collect all .jl files recursively under docs/literate
 jl_files = isdir(literate_root) ?
     [joinpath(root, f) for (root, _, files) in walkdir(literate_root) for f in files if endswith(f, ".jl")] :
     String[]
 
 if !isempty(jl_files)
-    @info "Running Literate.jl on $(length(jl_files)) files..."
-    using Literate
+    using Literate, Base64
     src_root = joinpath(@__DIR__, "src")
+    notebook_preprocess(str) =
+        "using Base64\ninclude_string(Main, String(base64decode($(repr(base64encode(read(joinpath(notebook_root, "setup.jl"), String)))))))\n\n" * str
 
-    function render_tree(indir::String, outdir::String)
+    function render_tree(indir::String, md_outdir::String, nb_outdir::String)
         isdir(indir) || return
         for (root, _, files) in walkdir(indir)
             rel = relpath(root, indir)
-            target = rel == "." ? outdir : joinpath(outdir, rel)
-            mkpath(target)
+            md_target = rel == "." ? md_outdir : joinpath(md_outdir, rel)
+            nb_target = rel == "." ? nb_outdir : joinpath(nb_outdir, rel)
+            mkpath(md_target)
+            mkpath(nb_target)
             for f in files
                 endswith(f, ".jl") || continue
                 inpath = joinpath(root, f)
-                @info "Literate -> " * relpath(inpath, literate_root)
-                Literate.markdown(
-                    inpath, target;
-                    documenter = true,
-                    execute = false,
-                    credit = false,
-                )
+                Literate.markdown(inpath, md_target; documenter = true, execute = false, credit = false)
+                Literate.notebook(inpath, nb_target; execute = false, documenter = false, credit = false, preprocess = notebook_preprocess)
             end
         end
-        return
     end
-
-    # Typical folders you might want; add/remove as you wish
-    render_tree(joinpath(literate_root, "tutorials"), joinpath(src_root, "tutorials"))
-    render_tree(joinpath(literate_root, "research"), joinpath(src_root, "research"))
-else
-    @info "No Literate sources found — skipping Literate.jl step."
+    render_tree(joinpath(literate_root, "tutorials"), joinpath(src_root, "tutorials"), joinpath(notebook_root, "tutorials"))
+    render_tree(joinpath(literate_root, "research"), joinpath(src_root, "research"), joinpath(notebook_root, "research"))
 end
 
 # -----------------------------------------------------------------------------
