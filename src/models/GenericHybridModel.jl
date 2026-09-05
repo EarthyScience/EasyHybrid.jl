@@ -79,6 +79,8 @@ pass, forcing (observed data) takes precedence over parameters on a name collisi
 the data value is used and the parameter is silently ignored. If the name is instead
 removed from `forcing`, it becomes a fixed parameter (a constant equal to its default).
 """
+_symbol_vec(xs) = Symbol[Symbol(x) for x in xs]
+
 function _warn_forcing_param_overlap(forcing, param_names)
     overlap = intersect(Symbol.(forcing), param_names)
     if !isempty(overlap)
@@ -126,6 +128,11 @@ function constructHybridModel(
         parameters = ParameterContainer(parameters)
     end
 
+    forcing = _symbol_vec(forcing)
+    targets = _symbol_vec(targets)
+    neural_param_names = _symbol_vec(neural_param_names)
+    global_param_names = _symbol_vec(global_param_names)
+
     all_names = pnames(parameters)
     @assert all(n in all_names for n in neural_param_names) "neural_param_names ⊆ param_names"
     _warn_forcing_param_overlap(forcing, all_names)
@@ -147,8 +154,8 @@ function constructHybridModel(
 
     # Names also supplied as forcing are driven by data (forcing wins), so they are
     # not treated as fixed parameters even though they carry a default/bounds.
-    forcing_names = Symbol.(forcing)
-    fixed_param_names = [ n for n in all_names if !(n in [neural_param_names..., global_param_names...]) && !(n in forcing_names) ]
+    forcing_names = forcing
+    fixed_param_names = Symbol[n for n in all_names if !(n in neural_param_names) && !(n in global_param_names) && !(n in forcing_names)]
 
     # capture the configuration used for construction
     config = (;
@@ -209,9 +216,13 @@ function constructHybridModel(
         parameters = ParameterContainer(parameters)
     end
 
+    forcing = _symbol_vec(forcing)
+    targets = _symbol_vec(targets)
+    global_param_names = _symbol_vec(global_param_names)
+
     all_names = pnames(parameters)
     _warn_forcing_param_overlap(forcing, all_names)
-    neural_param_names = collect(keys(predictors))
+    neural_param_names = _symbol_vec(keys(predictors))
     # Create neural networks based on predictors
     NNs = NamedTuple()
     for (nn_name, preds) in pairs(predictors)
@@ -244,8 +255,8 @@ function constructHybridModel(
 
     # Names also supplied as forcing are driven by data (forcing wins), so they are
     # not treated as fixed parameters even though they carry a default/bounds.
-    forcing_names = Symbol.(forcing)
-    fixed_param_names = [ n for n in all_names if !(n in [neural_param_names..., global_param_names...]) && !(n in forcing_names) ]
+    forcing_names = forcing
+    fixed_param_names = Symbol[n for n in all_names if !(n in neural_param_names) && !(n in global_param_names) && !(n in forcing_names)]
 
     # capture the configuration used for construction
     config = (;

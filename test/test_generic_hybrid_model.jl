@@ -167,6 +167,22 @@ end
         # @test typeof(model.NN.layers[1]) == Lux.NoOpLayer  # Empty chain
     end
 
+    @testset "HybridModel with Vector{Any} name lists" begin
+        model = constructHybridModel(
+            [:x2, :x3],
+            [:x1],
+            [:obs],
+            test_mechanistic_model,
+            test_parameters,
+            Any[],
+            Any[:a, :b]
+        )
+        @test model isa HybridModel
+        @test model.neural_param_names isa Vector{Symbol}
+        @test model.global_param_names == [:a, :b]
+        @test model.neural_param_names == Symbol[]
+    end
+
     @testset "HybridModel initialparameters" begin
         predictors = [:x2, :x3]
         forcing = [:x1]
