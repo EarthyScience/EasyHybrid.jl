@@ -61,6 +61,7 @@ using Static: False, True
     using OptimizationOptimisers: OptimizationOptimisers, Optimisers, Adam, AdamW, RMSProp
     using ComponentArrays: ComponentArrays, ComponentArray
     using Hyperopt: RandomSampler, LHSampler, CLHSampler, Continuous, Categorical
+    using LuxZarr: LuxZarr, save_model, load_model, LazyParameters, LazyState, LazyLuxModel, materialize
 end
 
 abstract type EasyHybridModels end
