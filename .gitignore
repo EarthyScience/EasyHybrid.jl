@@ -26,6 +26,7 @@ Manifest.toml
 *.out
 /docs/src/tutorials/folds.md
 /docs/src/tutorials/building_models.md
+/docs/notebooks/**/*.ipynb
 *.jl.cov
 *.jl.*.cov
 coverage/lcov.info
