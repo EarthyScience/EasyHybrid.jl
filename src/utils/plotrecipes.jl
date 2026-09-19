@@ -130,18 +130,18 @@ function monitor_to_obs(ŷ, monitor_names; cuts = (0.25, 0.5, 0.75))
     return (;
         (
             m => begin
-                    v = vec(getfield(ŷ, m))
-                    if length(v) > 1
-                        (;
-                            (
-                                qx_ = Symbol("q$(Int(q * 100))") => to_obs([to_point2f(0, quantile(v, q))])
+                v = vec(getfield(ŷ, m))
+                if length(v) > 1
+                    (;
+                        (
+                            qx_ = Symbol("q$(Int(q * 100))") => to_obs([to_point2f(0, quantile(v, q))])
                                 for q in cuts
-                            )...,
-                        )
+                        )...,
+                    )
                 else
-                        (; :scalar => to_obs([to_point2f(0, v[1])]))
+                    (; :scalar => to_obs([to_point2f(0, v[1])]))
                 end
-                end for m in monitor_names
+            end for m in monitor_names
         )...,
     )
 end

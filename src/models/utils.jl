@@ -31,11 +31,15 @@ pnames(p::ParameterContainer) = keys(p.table.axes[1])
 
 Scale a single parameter using the sigmoid scaling function.
 """
-function scale_single_param(name, raw_val, hm::ParameterContainer)
-    ℓ = lower(hm)[name]
-    u = upper(hm)[name]
+function scale_single_param(::Val{N}, raw_val, hm::ParameterContainer) where {N}
+    bounds = getfield(hm.values, N)
+    ℓ = bounds[2]
+    u = bounds[3]
     return ℓ .+ (u .- ℓ) .* sigmoid.(raw_val)
 end
+
+scale_single_param(name::Symbol, raw_val, hm::ParameterContainer) =
+    scale_single_param(Val(name), raw_val, hm)
 
 inv_sigmoid(y) = log.(y ./ (1 .- y))
 

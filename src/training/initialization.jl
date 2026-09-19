@@ -44,7 +44,7 @@ function init_model_state(model, cfg::TrainConfig)
             model, ps, st, cfg.opt, opt_state, 0,
         )
     elseif is_optimisers_rule(cfg.opt)
-        ps = ps |> ComponentArray
+        cfg.autodiff_backend isa Lux.AutoForwardDiff && (ps = ps |> ComponentArray)
         Lux.Training.TrainState(model, ps, st, cfg.opt)
     else
         ps = ps |> ComponentArray

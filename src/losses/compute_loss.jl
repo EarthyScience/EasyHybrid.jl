@@ -17,11 +17,23 @@ Main loss function for hybrid models that handles both training and evaluation m
 - In evaluation mode (`logging.train_mode = false`):
   - `(loss_values, st, ŷ)`: NamedTuple of losses, state and predictions
 """
+function compute_loss(HM::LuxCore.AbstractLuxContainerLayer, ps, st, data; logging::LoggingLoss)
+    return compute_loss(HM, ps, st, data, logging)
+end
+
 function compute_loss(
-        HM::LuxCore.AbstractLuxContainerLayer, ps, st, ((x, forcings), (y_t, y_nan));
+        HM::HybridModel{<:Any, <:Vector}, ps, st,
+        ((x, forcings), (y_t, y_nan)),
+        logging::LoggingLoss{SymbolicLoss{S}, ExtraLoss{Nothing}, A, true}
+    ) where {S, A}
+    loss, st_nn = _hybrid_loss(HM, (x, forcings), ps, st, y_t, y_nan, Val(S), logging.agg)
+    return loss, ChainRulesCore.ignore_derivatives((; st_nn, fixed = st.fixed)), NamedTuple()
+end
+
+function compute_loss(
+        HM::LuxCore.AbstractLuxContainerLayer, ps, st, ((x, forcings), (y_t, y_nan)),
         logging::LoggingLoss
     )
-
     targets = HM.targets
     ext_loss = extra_loss(logging)
     if logging.train_mode
@@ -61,10 +73,10 @@ end
 function _compute_loss(ŷ, y, y_nan, targets, loss_types::Vector, agg::Function)
     out_loss_types = [
         begin
-                losses = assemble_loss(ŷ, y, y_nan, targets, loss_type)
-                agg_loss = agg(losses)
-                NamedTuple{(targets..., Symbol(agg))}([losses..., agg_loss])
-            end
+            losses = assemble_loss(ŷ, y, y_nan, targets, loss_type)
+            agg_loss = agg(losses)
+            NamedTuple{(targets..., Symbol(agg))}([losses..., agg_loss])
+        end
             for loss_type in loss_types
     ]
     _names = [_loss_name(lt) for lt in loss_types]
@@ -121,12 +133,12 @@ _get_target_ŷ(ŷ, y_t, target) =
 function assemble_loss(ŷ, y, y_nan, targets, loss_spec)
     return [
         begin
-                y_t = _get_target_y(y, target)
-                ŷ_t = _get_target_ŷ(ŷ, y_t, target)
-                y_nan_t = _get_target_y(y_nan, target)
-                _apply_loss(ŷ_t, y_t, y_nan_t, loss_spec)
-                # _apply_loss(ŷ_t, y_t, _get_target_nan(y_nan, target), loss_spec)
-            end
+            y_t = _get_target_y(y, target)
+            ŷ_t = _get_target_ŷ(ŷ, y_t, target)
+            y_nan_t = _get_target_y(y_nan, target)
+            _apply_loss(ŷ_t, y_t, y_nan_t, loss_spec)
+            # _apply_loss(ŷ_t, y_t, _get_target_nan(y_nan, target), loss_spec)
+        end
             for target in targets
     ]
 end
@@ -135,16 +147,16 @@ function assemble_loss(ŷ, y, y_nan, targets, loss_spec::PerTarget)
     @assert length(targets) == length(loss_spec.losses) "Length of targets and PerTarget losses tuple must match"
     losses = [
         begin
-                y_t = _get_target_y(y, target)
-                ŷ_t = _get_target_ŷ(ŷ, y_t, target)
-                y_nan_t = _get_target_nan(y_nan, target)
-                _apply_loss(
-                    ŷ_t,
-                    y_t,
-                    y_nan_t,
-                    loss_t
-                )
-            end
+            y_t = _get_target_y(y, target)
+            ŷ_t = _get_target_ŷ(ŷ, y_t, target)
+            y_nan_t = _get_target_nan(y_nan, target)
+            _apply_loss(
+                ŷ_t,
+                y_t,
+                y_nan_t,
+                loss_t
+            )
+        end
             for (target, loss_t) in zip(targets, loss_spec.losses)
     ]
     return losses

@@ -22,8 +22,8 @@ $(TYPEDFIELDS)
     `Optimisers.jl`) three forms are accepted:
 
     1. A single `Optimisers.AbstractRule` (default), applied to the whole
-       parameter tree, e.g. `Adam(0.01)`. `ps` is wrapped in a
-       `ComponentArray`.
+       parameter tree, e.g. `Adam(0.01)`. `ps` is a `NamedTuple` unless
+       `autodiff_backend` is `AutoForwardDiff`.
     2. A `NamedTuple` of rules — one per top-level branch of the parameter
        tree — e.g. for an `RbQ10` hybrid model:
 

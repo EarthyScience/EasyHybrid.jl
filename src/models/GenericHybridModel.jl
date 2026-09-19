@@ -28,7 +28,7 @@ It combines predictive neural networks (`NNs`) with a `mechanistic_model` to for
 
 $(TYPEDFIELDS)
 """
-struct HybridModel{T, P} <: LuxCore.AbstractLuxContainerLayer{(:NNs,)}
+struct HybridModel{T, P, MM, NP, GP, FP, KW, SN, TG} <: LuxCore.AbstractLuxContainerLayer{(:NNs,)}
     "Neural network(s) used to predict parameters. Can be a single `Chain` or a `NamedTuple` of `Chain`s."
     NNs::T
 
@@ -42,7 +42,7 @@ struct HybridModel{T, P} <: LuxCore.AbstractLuxContainerLayer{(:NNs,)}
     targets::Vector{Symbol}
 
     "The core process-based or mechanistic model function."
-    mechanistic_model::Function
+    mechanistic_model::MM
 
     "Base parameters of the model (encapsulated in a `ParameterContainer`)."
     parameters::ParameterContainer
@@ -64,6 +64,26 @@ struct HybridModel{T, P} <: LuxCore.AbstractLuxContainerLayer{(:NNs,)}
 
     "Configuration named tuple capturing the hyperparameters used for initialization."
     config::NamedTuple
+end
+
+function HybridModel(
+        NNs, predictors, forcing, targets, mechanistic_model, parameters,
+        neural_param_names, global_param_names, fixed_param_names,
+        scale_nn_outputs, start_from_default, config,
+    )
+    NP, GP, FP = Tuple(neural_param_names), Tuple(global_param_names), Tuple(fixed_param_names)
+    KW = _accepted_kwarg_names(
+        mechanistic_model,
+        Tuple(unique([forcing; neural_param_names; global_param_names; fixed_param_names])),
+    )
+    return HybridModel{
+        typeof(NNs), typeof(predictors), typeof(mechanistic_model),
+        NP, GP, FP, KW, scale_nn_outputs, Tuple(targets),
+    }(
+        NNs, predictors, forcing, targets, mechanistic_model, parameters,
+        neural_param_names, global_param_names, fixed_param_names,
+        scale_nn_outputs, start_from_default, config,
+    )
 end
 
 """
@@ -363,9 +383,9 @@ function _run_nn(m::HybridModel{<:Any, <:NamedTuple}, ds_k::Tuple, ps, st)
 
     scaled_vals = Tuple(
         begin
-                val = eachslice(nn_outputs[nn_name]; dims = 1)[1]
-                m.scale_nn_outputs ? scale_single_param(param_name, val, m.parameters) : val
-            end
+            val = eachslice(nn_outputs[nn_name]; dims = 1)[1]
+            m.scale_nn_outputs ? scale_single_param(param_name, val, m.parameters) : val
+        end
             for (nn_name, param_name) in zip(keys(m.NNs), m.neural_param_names)
     )
     scaled_nn_params = NamedTuple{Tuple(m.neural_param_names)}(scaled_vals)
@@ -400,6 +420,75 @@ function _run_nn(m::HybridModel{<:Any, <:Vector}, ds_k::Tuple, ps, st)
         st_nn = st.st_nn
     end
     return scaled_nn_params, (; st_nn = st_nn), (;)
+end
+
+@generated function _hybrid_loss(
+        m::HybridModel{<:Any, <:Vector, MM, NP, GP, FP, KW, SN, TG},
+        ds_k::Tuple, ps, st, y, y_nan, ::Val{S}, agg
+    ) where {MM, NP, GP, FP, KW, SN, TG, S}
+    stmts = Expr[]
+    names = (NP..., GP..., FP...)
+    if NP === ()
+        push!(stmts, :(st_nn = st.st_nn))
+    else
+        push!(stmts, :((nn_out, st_nn) = LuxCore.apply(m.NNs, ds_k[1], ps.ps, st.st_nn)))
+        push!(stmts, :(slices = eachslice(nn_out, dims = 1)))
+    end
+    for (i, n) in enumerate(NP)
+        rhs = SN ?
+            :(scale_single_param(Val($(QuoteNode(n))), slices[$i], m.parameters)) :
+            :(slices[$i])
+        push!(stmts, Expr(:(=), n, rhs))
+    end
+    for n in GP
+        push!(stmts, Expr(:(=), n, :(scale_single_param(Val($(QuoteNode(n))), getproperty(ps, $(QuoteNode(n))), m.parameters))))
+    end
+    for n in FP
+        push!(stmts, Expr(:(=), n, :(getproperty(st.fixed, $(QuoteNode(n))))))
+    end
+    NP === () && GP === () && push!(stmts, :(ChainRulesCore.ignore_derivatives(ps)))
+    NP === () && KW === () && push!(stmts, :(ChainRulesCore.ignore_derivatives(ds_k)))
+    !SN && GP === () && push!(stmts, :(ChainRulesCore.ignore_derivatives(m.parameters)))
+    if KW === nothing
+        push!(stmts, :(all_params = (; $(names...))))
+        push!(stmts, :(y_pred = m.mechanistic_model(; merge(ds_k[2], all_params)...)))
+    else
+        args = Expr[]
+        for n in KW
+            if n in names
+                push!(args, Expr(:kw, n, n))
+            else
+                push!(args, Expr(:kw, n, :(getfield(ds_k[2], $(QuoteNode(n))))))
+            end
+        end
+        push!(stmts, :(y_pred = m.mechanistic_model(; $(args...))))
+    end
+    if TG === ()
+        push!(stmts, :(ChainRulesCore.ignore_derivatives((y, y_nan, agg))))
+        push!(stmts, :(return agg(()), st_nn))
+    else
+        terms = Expr[]
+        for t in TG
+            qt = QuoteNode(t)
+            yi = y <: NamedTuple ? :(getfield(y, $qt)) : :(_get_target_y(y, $qt))
+            nani = y_nan <: NamedTuple ? :(getfield(y_nan, $qt)) : :(_get_target_y(y_nan, $qt))
+            loss = S === :mse ?
+                :(mean(abs2, ŷ_i[nan_i] .- y_i[nan_i])) :
+                :(_apply_loss(ŷ_i, y_i, nan_i, $(QuoteNode(S))))
+            push!(
+                terms, :(
+                    let
+                        y_i = $yi
+                        ŷ_i = _get_target_ŷ(y_pred, y_i, $qt)
+                        nan_i = $nani
+                        $loss
+                    end
+                )
+            )
+        end
+        push!(stmts, :(return agg(($(terms...),)), st_nn))
+    end
+    return Expr(:block, stmts...)
 end
 
 """
@@ -454,7 +543,7 @@ function (m::HybridModel)(ds_k::Tuple, ps, st)
     out = (; y_pred..., extra_params..., parameters = all_params, out_extra...)
     st_new = (; st_new_nns..., fixed = st.fixed)
 
-    return out, st_new
+    return out, ChainRulesCore.ignore_derivatives(st_new)
 end
 
 function (m::HybridModel)(ds_k, ps, st)

@@ -127,7 +127,7 @@ function _build_optim_loss(model, st, cfg::TrainConfig)
         agg = cfg.agg,
     )
     return function (p, data)
-        loss_val, _, _ = compute_loss(model, p, st, data; logging)
+        loss_val, _, _ = compute_loss(model, p, st, data, logging)
         return loss_val
     end
 end
