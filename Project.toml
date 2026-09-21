@@ -1,6 +1,6 @@
 name = "EasyHybrid"
 uuid = "61bb816a-e6af-4913-ab9e-91bff2e122e3"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Lazaro Alonso", "Bernhard Ahrens", "Markus Reichstein"]
 
 [deps]
@@ -20,8 +20,10 @@ GPUArraysCore = "46192b85-c4d5-4398-a991-12ede77f4527"
 Hyperopt = "93e5fe13-2215-51db-baaf-2e9a34fb2712"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 Lux = "b2108857-7c20-44ae-9111-449ecde12c47"
 LuxCore = "bb33d45b-7691-41d6-9220-0943567d0623"
+LuxZarr = "8da8d8e8-4d76-4e80-818b-a3b53cc9b4a2"
 MLJ = "add582a8-e3ab-11e8-2d5e-e98b27df1bc7"
 MLUtils = "f1d291b0-491e-4a28-83b9-f70985020b54"
 NCDatasets = "85f8d34a-cbdd-5861-8df4-14fed0d494ab"
@@ -44,6 +46,9 @@ Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 [weakdeps]
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 
+[sources]
+LuxZarr = {rev = "main", url = "https://github.com/LuxDL/LuxZarr.jl.git"}
+
 [extensions]
 EasyHybridMakie = "Makie"
 
@@ -64,6 +69,7 @@ GPUArraysCore = "0.2.0"
 Hyperopt = "0.5.6"
 JLD2 = "0.5.13, 0.6"
 LinearAlgebra = "1.10.11, 1.12.0"
+Logging = "1"
 Lux = "1.21.1"
 LuxCore = "1.2.4"
 MLJ = "0.20, 0.21, 0.22, 0.23"

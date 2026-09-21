@@ -33,11 +33,13 @@ drops all of the actual default and bound values.
 function get_parameters_config(pc::ParameterContainer)
     out = OrderedDict{String, Any}()
     for name in keys(pc.values)
-        d, l, u = pc.values[name]
+        spec = pc.values[name]
+        d, l, u = spec[1], spec[2], spec[3]
         out[string(name)] = OrderedDict{String, Any}(
             "default" => d,
             "lower" => l,
             "upper" => u,
+            "scale" => string(pc.scales[name]),
         )
     end
     return out

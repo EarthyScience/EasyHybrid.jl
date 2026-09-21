@@ -124,6 +124,69 @@ function EasyHybrid.plot_pred_vs_obs!(ax, pred, obs, title_prefix; xlabel = "Pre
 end
 
 # =============================================================================
+# Cross-validation summary: pooled held-out predictions, colored by fold
+# =============================================================================
+
+"""
+    cv_scatter(r::CVTestResults; which=:test, metric=:nse, markersize=9)
+
+Final summary plot for a cross-validation result: pooled held-out predictions vs
+observations, one panel per datastream (target), points colored by the fold that
+produced them, with a 1:1 line and the pooled `metric` in each panel title.
+
+- `which=:test`: held-out test predictions (each observation predicted once).
+- `which=:val`: held-out validation predictions.
+
+Returns the `Figure`.
+"""
+function EasyHybrid.cv_scatter(
+        r::EasyHybrid.CVTestResults; which::Symbol = :test,
+        metric::Symbol = :nse, markersize = 9
+    )
+    pooled = EasyHybrid.pooled_obs_pred(r; which)
+    pooled === nothing &&
+        error("No pooled :$(which) predictions available for a `mode=:$(r.mode)` result.")
+
+    cols = propertynames(pooled)
+    targets = [c for c in cols if c !== :fold && Symbol(string(c), "_pred") in cols]
+    folds = sort(unique(pooled.fold))
+    colors = Makie.wong_colors()
+    fold_color(i) = colors[Base.mod1(i, length(colors))]
+
+    fig = Makie.Figure(size = (460 * length(targets) + 160, 460))
+    for (j, t) in enumerate(targets)
+        obs = Float64.(pooled[!, t])
+        pred = Float64.(pooled[!, Symbol(string(t), "_pred")])
+        finite = isfinite.(obs) .& isfinite.(pred)
+        lo, hi = extrema(vcat(obs[finite], pred[finite]))
+        score = EasyHybrid.loss_fn(pred, obs, finite, Val(metric))
+
+        ax = Makie.Axis(
+            fig[1, j];
+            xlabel = "Predicted $(t)", ylabel = "Observed $(t)", aspect = 1,
+            title = "$(t)  ($(metric) = $(round(score, digits = 3)))"
+        )
+        Makie.lines!(ax, [lo, hi], [lo, hi]; color = :gray40, linestyle = :dash)
+        for (ci, f) in enumerate(folds)
+            idx = (pooled.fold .== f) .& finite
+            Makie.scatter!(
+                ax, pred[idx], obs[idx];
+                color = fold_color(ci), markersize = markersize
+            )
+        end
+        Makie.limits!(ax, lo, hi, lo, hi)
+    end
+
+    Makie.Legend(
+        fig[1, length(targets) + 1],
+        [Makie.MarkerElement(color = fold_color(ci), marker = :circle) for ci in eachindex(folds)],
+        ["fold $(f)" for f in folds], "Fold"
+    )
+
+    return fig
+end
+
+# =============================================================================
 # Generic Dispatch Methods for TrainResults
 # =============================================================================
 

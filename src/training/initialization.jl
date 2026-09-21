@@ -2,12 +2,12 @@ function load_makie_extension(cfg::TrainConfig)
     ext = Base.get_extension(@__MODULE__, :EasyHybridMakie)
 
     if isnothing(ext)
-        @warn "Makie extension not loaded, no plots will be generated."
+        cfg.plotting && @warn "Makie extension not loaded, no plots will be generated."
         return nothing
     end
 
     if !cfg.plotting
-        @info "Plotting disabled."
+        @debug "Plotting disabled."
         return nothing
     end
     if !cfg.keep_history

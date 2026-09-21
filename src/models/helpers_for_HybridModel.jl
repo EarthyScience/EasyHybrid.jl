@@ -1,4 +1,4 @@
-export display_parameter_bounds, construct_dispatch_functions, build_parameter_matrix
+export display_parameter_bounds, construct_dispatch_functions, build_parameter_matrix, build_parameter_scales
 
 function construct_dispatch_functions(f)
     function new_f end  # Create a new generic function
@@ -74,4 +74,51 @@ function build_parameter_matrix(parameter_defaults_and_bounds::NamedTuple)
     row_ax = ComponentArrays.Axis(param_names)
     col_ax = ComponentArrays.Axis(bound_names)
     return ComponentArray(data, row_ax, col_ax)
+end
+
+"The scaling warps supported by [`scale_single_param`](@ref)."
+const SUPPORTED_PARAMETER_SCALES = (:linear, :log, :logit)
+
+"""
+    build_parameter_scales(parameter_defaults_and_bounds::NamedTuple)
+
+Extract the per-parameter scaling warp from a parameter definition `NamedTuple`.
+
+Each entry may carry an optional 4th element (`:linear`, `:log`, or `:logit`)
+after `(default, lower, upper)`. Entries with only three elements default to
+`:linear`. Returns a `NamedTuple` mapping each parameter name to its warp.
+"""
+function build_parameter_scales(parameter_defaults_and_bounds::NamedTuple)
+    param_names = collect(keys(parameter_defaults_and_bounds))
+    scales = map(param_names) do p
+        spec = parameter_defaults_and_bounds[p]
+        length(spec) >= 4 ? Symbol(spec[4]) : :linear
+    end
+    return NamedTuple{Tuple(param_names)}(Tuple(scales))
+end
+
+"""
+    _validate_parameter_scales(values::NamedTuple, scales::NamedTuple)
+
+Check that every parameter uses a supported warp with a domain-compatible
+`(lower, upper)`: `:log` needs `lower > 0`, `:logit` needs `0 < lower < upper < 1`.
+Throws an informative error otherwise.
+"""
+function _validate_parameter_scales(values::NamedTuple, scales::NamedTuple)
+    for name in keys(values)
+        spec = values[name]
+        d, l, u = spec[1], spec[2], spec[3]
+        s = scales[name]
+        s in SUPPORTED_PARAMETER_SCALES ||
+            error("Unknown scale `$s` for parameter `$name`; supported scales are $(SUPPORTED_PARAMETER_SCALES).")
+        l <= u || error("Parameter `$name` has lower bound $l greater than upper bound $u.")
+        (l <= d <= u) || error("Parameter `$name` default $d is outside its bounds [$l, $u].")
+        if s === :log
+            l > 0 || error("`:log`-scaled parameter `$name` requires a lower bound > 0 (got $l).")
+        elseif s === :logit
+            (0 < l && u < 1) ||
+                error("`:logit`-scaled parameter `$name` requires 0 < lower < upper < 1 (got ($l, $u)).")
+        end
+    end
+    return nothing
 end

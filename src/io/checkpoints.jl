@@ -9,7 +9,13 @@ end
 
 function save_epoch!(paths::TrainingPaths, model, ps, st, snapshot::EpochSnapshot, epoch::Int, cfg::TrainConfig)
     if cfg.save_training
-        save_ps_st!(paths.checkpoint, model, cfg.cdev(ps), cfg.cdev(st), cfg.tracked_params, epoch)
+        # Full `(ps, st)` snapshots dominate the checkpoint size, so they are opt-in
+        # via `save_every`; the cheap per-epoch entries are always kept.
+        if cfg.save_every > 0 && epoch % cfg.save_every == 0
+            save_ps_st!(paths.checkpoint, model, cfg.cdev(ps), cfg.cdev(st), cfg.tracked_params, epoch)
+        else
+            save_tracked_params!(paths.checkpoint, cfg.cdev(ps), cfg.tracked_params, epoch)
+        end
         save_train_val_loss!(paths.checkpoint, snapshot.l_train, "training_loss", epoch)
         save_train_val_loss!(paths.checkpoint, snapshot.l_val, "validation_loss", epoch)
     end

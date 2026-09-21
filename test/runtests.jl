@@ -5,6 +5,7 @@ using Test
 include("test_generic_hybrid_model.jl")
 # Include SplitData tests
 include("test_split_data_train.jl")
+include("test_cv_test.jl")
 include("test_autodiff_backend.jl")
 include("test_loss_types.jl")
 include("test_show_loss_types.jl")
@@ -17,3 +18,4 @@ include("test_extract_weights.jl")
 include("test_transformers.jl")
 include("test_seq2seq.jl")
 include("test_synth_performance.jl")
+include("test_zarr_io.jl")
