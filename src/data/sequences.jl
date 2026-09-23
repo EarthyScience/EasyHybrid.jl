@@ -85,9 +85,10 @@ Slide a (input_window + lead_time) window over 2D `(feature, time)` arrays to pr
 function split_into_sequences(x::Tuple, y::NamedTuple; kwargs...)
     x_arr, forcings = x
     targetkeys = keys(y)
-    y_arr = _nt_to_array(y, x_arr)
-    X_seq, Y_seq = split_into_sequences(x_arr, y_arr; kwargs...)
-    forcings_seq = _window_forcings(forcings, x_arr; kwargs...)
+    ref = _as_keyed_time(x_arr)
+    y_arr = _nt_to_array(y, ref)
+    X_seq, Y_seq = split_into_sequences(ref, y_arr; kwargs...)
+    forcings_seq = _window_forcings(forcings, ref; kwargs...)
     Y_nt = _array_to_nt(Y_seq, targetkeys)
     return (X_seq, forcings_seq), Y_nt
 end
@@ -139,8 +140,9 @@ end
 
 function split_into_sequences(x, y::NamedTuple; kwargs...)
     targetkeys = keys(y)
-    y_arr = _nt_to_array(y, x)
-    X_seq, Y_seq = split_into_sequences(x, y_arr; kwargs...)
+    ref = _as_keyed_time(x)
+    y_arr = _nt_to_array(y, ref)
+    X_seq, Y_seq = split_into_sequences(ref, y_arr; kwargs...)
     return X_seq, _array_to_nt(Y_seq, targetkeys)
 end
 

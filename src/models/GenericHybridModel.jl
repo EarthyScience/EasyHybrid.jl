@@ -585,6 +585,16 @@ end
     return _apply_loss(ŷ_i, y_i, nan_i, S)
 end
 
+@inline function _align_target_ŷ(ŷ_t::AbstractMatrix, y_t::AbstractMatrix)
+    nout = size(y_t, 1)
+    size(ŷ_t, 1) == nout && return ŷ_t
+    return ŷ_t[(end - nout + 1):end, :]
+end
+@inline function _align_target_ŷ(ŷ_t::Union{KeyedArray{T, 2}, AbstractDimArray{T, 2}}, y_t::Union{KeyedArray{T, 2}, AbstractDimArray{T, 2}}) where {T}
+    return _select_time(ŷ_t, _dim_keys(y_t, :time))
+end
+@inline _align_target_ŷ(ŷ_t, y_t) = ŷ_t
+
 @inline function _evaluate_fused_loss(
         y_pred, y, y_nan, ::Val{TG}, ::Val{S}, agg
     ) where {TG, S}
@@ -595,7 +605,8 @@ end
         t = TG[i]
         y_i = y isa NamedTuple ? getfield(y, t) : _get_target_y(y, t)
         nan_i = y_nan isa NamedTuple ? getfield(y_nan, t) : _get_target_y(y_nan, t)
-        ŷ_i = y_pred isa NamedTuple ? getfield(y_pred, t) : _get_target_ŷ(y_pred, y_i, t)
+        ŷ_raw = y_pred isa NamedTuple ? getfield(y_pred, t) : _get_target_ŷ(y_pred, y_i, t)
+        ŷ_i = _align_target_ŷ(ŷ_raw, y_i)
         _compute_target_loss(ŷ_i, y_i, nan_i, Val(S))
     end
     return agg(losses)
