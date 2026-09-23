@@ -261,39 +261,46 @@ using EasyHybrid, EasyHybrid.Transformers, Lux, Random
 Q1 = K1 = V1 = X[1:2, :]
 Q2 = K2 = V2 = X[3:4, :]
 
-# Applying RoPE to Head 1 (90 degrees for m=1, 180 degrees for m=2)
-R_90 = [0 -1; 1 0]
-R_180 = [-1 0; 0 -1]
-Q1_rotated = hcat(R_90 * Q1[:, 1], R_180 * Q1[:, 2])
-K1_rotated = hcat(R_90 * K1[:, 1], R_180 * K1[:, 2])
-
-# Dot Product & Softmax for Head 1 WITH RoPE
 d = 2
-S1 = Q1_rotated' * K1_rotated
-S1_probs = softmax(S1 ./ sqrt(d); dims=1)
-A1 = V1 * S1_probs'
+
+# (a) Standard Self-Attention (without RoPE)
+S1_unrot = Q1' * K1
+S1_unrot_probs = softmax(S1_unrot ./ sqrt(d); dims=1)
+A1_unrot = V1 * S1_unrot_probs'
 
 S2 = Q2' * K2
 S2_probs = softmax(S2 ./ sqrt(d); dims=1)
 A2 = V2 * S2_probs'
 
-A_manual = vcat(A1, A2)
-println("Manual Final Attention Output (A): \n", round.(A_manual; digits=2))
+A_manual = vcat(A1_unrot, A2)
+println("Manual Standard Attention Output (A): \n", round.(A_manual; digits=2))
+
+# (b) Optional: Applying RoPE to Head 1 (90° for m=1, 180° for m=2)
+R_90 = [0 -1; 1 0]
+R_180 = [-1 0; 0 -1]
+Q1_rotated = hcat(R_90 * Q1[:, 1], R_180 * Q1[:, 2])
+K1_rotated = hcat(R_90 * K1[:, 1], R_180 * K1[:, 2])
+S1_rope = Q1_rotated' * K1_rotated
+S1_rope_probs = softmax(S1_rope ./ sqrt(d); dims=1)
+A1_rope = V1 * S1_rope_probs'
+A_manual_rope = vcat(A1_rope, A2)
+println("\nManual Attention with RoPE on Head 1: \n", round.(A_manual_rope; digits=2))
 
 # 2. Library Validation (EasyHybrid)
 rng = Random.default_rng()
 attention_layer = MultiHeadSelfAttention(4, 2)
 ps, st = Lux.setup(rng, attention_layer)
 
-# Force weights to Identity to match our toy example assumptions
+# Force weights to Identity and zero biases to match theoretical equations
 ps.query.weight .= Float32.(I(4))
+ps.query.bias .= 0.0f0
 ps.key.weight .= Float32.(I(4))
 ps.value.weight .= Float32.(I(4))
+ps.value.bias .= 0.0f0
 ps.out.weight .= Float32.(I(4))
+ps.out.bias .= 0.0f0
 
 A_lux, _ = attention_layer(X_lux, ps, st)
-# Note: The library MultiHeadSelfAttention does not inherently apply RoPE (it relies on standard Q*K). 
-# To apply RoPE in the library, we would use EasyHybrid.apply_rotary_embeddings!
 println("\nLibrary MultiHeadSelfAttention Output: \n", round.(A_lux[:, :, 1]; digits=2))
 ```
 
@@ -302,7 +309,13 @@ We add the Attention output ``A`` back to the original input ``X`` (Residual Con
 ```math
 H' = X + A = \begin{bmatrix} 1 & 0 \\ 0 & 1 \\ 1 & 1 \\ 0 & 0 \end{bmatrix} + \begin{bmatrix} 0.67 & 0.33 \\ 0.33 & 0.67 \\ 1 & 1 \\ 0 & 0 \end{bmatrix} = \begin{bmatrix} 1.67 & 0.33 \\ 0.33 & 1.67 \\ 2 & 2 \\ 0 & 0 \end{bmatrix}
 ```
-LayerNorm then normalizes each column (time step) to have ``\mu=0, \sigma=1``. (e.g., column 1 has mean 1.0, and values shift relative to the mean).
+RMSNorm then normalizes each column (feature vector per time step) using root-mean-square:
+```math
+\text{RMS}(H'_1) = \sqrt{\frac{1.67^2 + 0.33^2 + 2^2 + 0^2}{4} + \epsilon} \approx 1.31
+```
+```math
+H'_{norm} \approx \begin{bmatrix} 1.34 & 0.14 \\ 0.14 & 1.34 \\ 1.48 & 1.48 \\ 0.0 & 0.0 \end{bmatrix}
+```
 
 ```@example toy
 using Statistics
@@ -356,26 +369,26 @@ Now, the Decoder wants to predict Time 3. It receives a concurrent forcing ``X_{
 ```math
 X_{dec} = \begin{bmatrix} 1 \\ 0 \\ 1 \\ 0 \end{bmatrix}
 ```
-This generates a single Query vector ``Q_{dec} = X_{dec}``.
-The Encoder memory ``M_{enc}`` provides the Keys ``K_{enc} = M_{enc}`` and Values ``V_{enc} = M_{enc}``.
+This is split into ``h=2`` heads (each ``d=2``):
+- **Head 1**: ``Q_1 = [1, 0]^T``, ``K_1 = V_1 = M_{enc}[1:2, :] = \begin{bmatrix} 2 & 0 \\ 0 & 2 \end{bmatrix}``
+  ```math
+  S_1 = Q_1^T K_1 = [2, 0] \implies \text{softmax}([2, 0] / \sqrt{2}) = [0.804, 0.196]
+  ```
+  ```math
+  A_1 = V_1 \times [0.804, 0.196]^T = \begin{bmatrix} 1.61 \\ 0.39 \end{bmatrix}
+  ```
+- **Head 2**: ``Q_2 = [1, 0]^T``, ``K_2 = V_2 = M_{enc}[3:4, :] = \begin{bmatrix} 1 & 1 \\ -1 & -1 \end{bmatrix}``
+  ```math
+  S_2 = Q_2^T K_2 = [1, 1] \implies \text{softmax}([1, 1] / \sqrt{2}) = [0.5, 0.5]
+  ```
+  ```math
+  A_2 = V_2 \times [0.5, 0.5]^T = \begin{bmatrix} 1.0 \\ -1.0 \end{bmatrix}
+  ```
 
-Compute Cross-Attention Scores (``S_{cross}``):
+Concatenating both heads yields:
 ```math
-S_{cross} = Q_{dec}^T K_{enc} = \begin{bmatrix} 1 & 0 & 1 & 0 \end{bmatrix} \begin{bmatrix} 2 & 0 \\ 0 & 2 \\ 1 & 1 \\ -1 & -1 \end{bmatrix} = \begin{bmatrix} 3 & 1 \end{bmatrix}
+A_{cross} = \begin{bmatrix} A_1 \\ A_2 \end{bmatrix} = \begin{bmatrix} 1.61 \\ 0.39 \\ 1.0 \\ -1.0 \end{bmatrix}
 ```
-*(Notice how the Target strongly prefers Time 1 over Time 2!)*
-
-Softmax gives probabilities:
-```math
-\text{softmax}([3, 1] / \sqrt{4}) = \begin{bmatrix} 0.73 & 0.27 \end{bmatrix}
-```
-
-Extract Values from Memory:
-```math
-A_{cross} = V_{enc} \times \text{softmax}^T = \begin{bmatrix} 2 & 0 \\ 0 & 2 \\ 1 & 1 \\ -1 & -1 \end{bmatrix} \begin{bmatrix} 0.73 \\ 0.27 \end{bmatrix} = \begin{bmatrix} 1.46 \\ 0.54 \\ 1.0 \\ -1.0 \end{bmatrix}
-```
-
-This final vector ``A_{cross}`` is then passed through the Decoder's FFN and projected to produce the final forecasted `Y_target` prediction!
 
 ```@example toy
 # 1. Manual Math Execution
@@ -405,9 +418,12 @@ println("Manual Final Cross-Attention Output (A_cross): \n", round.(A_cross_man;
 cross_attn = MultiHeadSelfAttention(4, 2)
 ps_ca, st_ca = Lux.setup(rng, cross_attn)
 ps_ca.query.weight .= Float32.(I(4))
+ps_ca.query.bias .= 0.0f0
 ps_ca.key.weight .= Float32.(I(4))
 ps_ca.value.weight .= Float32.(I(4))
+ps_ca.value.bias .= 0.0f0
 ps_ca.out.weight .= Float32.(I(4))
+ps_ca.out.bias .= 0.0f0
 
 X_dec_lux = reshape(X_dec, 4, 1, 1)
 M_enc_lux = reshape(M_enc, 4, 2, 1)
@@ -431,9 +447,10 @@ We will extract patches of size ``P=1``. Total patches ``N=4``. Model dimension 
 ### Phase 1: PatchEmbedding (Conv2D)
 A ``1 \times 1`` Conv2D acts as a linear map from ``C=1 \to D=2``.
 Assume our filter matrix ``W_{emb} \in \mathbb{R}^{2 \times 1}`` is ``\begin{bmatrix} 1 \\ -1 \end{bmatrix}``.
+In Julia's column-major ordering, the spatial grid ``X_{grid}`` is flattened column-by-column: ``(1,1) \to 1``, ``(2,1) \to 3``, ``(1,2) \to 2``, ``(2,2) \to 4``.
 Multiplying each scalar pixel by ``W_{emb}`` produces our sequence of ``N=4`` tokens, each with dimension ``D=2``:
 ```math
-H = \begin{bmatrix} 1 & 2 & 3 & 4 \\ -1 & -2 & -3 & -4 \end{bmatrix} \quad \in \mathbb{R}^{D \times N}
+H = \begin{bmatrix} 1 & 3 & 2 & 4 \\ -1 & -3 & -2 & -4 \end{bmatrix} \quad \in \mathbb{R}^{D \times N}
 ```
 
 *(Assume this sequence ``H`` now passes through the `TransformerBlock` stack but remains unchanged for this example).*
@@ -441,7 +458,7 @@ H = \begin{bmatrix} 1 & 2 & 3 & 4 \\ -1 & -2 & -3 & -4 \end{bmatrix} \quad \in \
 ### Scenario A: VisionTransformer (Scalar Classification)
 For classification, we want to compress this sequence into a single global scalar representation. We use **Global Average Pooling** (GAP) to collapse the ``N=4`` patches:
 ```math
-z = \frac{1}{4} \left( \begin{bmatrix} 1 \\ -1 \end{bmatrix} + \begin{bmatrix} 2 \\ -2 \end{bmatrix} + \begin{bmatrix} 3 \\ -3 \end{bmatrix} + \begin{bmatrix} 4 \\ -4 \end{bmatrix} \right) = \begin{bmatrix} 2.5 \\ -2.5 \end{bmatrix} \quad \in \mathbb{R}^{2 \times 1}
+z = \frac{1}{4} \left( \begin{bmatrix} 1 \\ -1 \end{bmatrix} + \begin{bmatrix} 3 \\ -3 \end{bmatrix} + \begin{bmatrix} 2 \\ -2 \end{bmatrix} + \begin{bmatrix} 4 \\ -4 \end{bmatrix} \right) = \begin{bmatrix} 2.5 \\ -2.5 \end{bmatrix} \quad \in \mathbb{R}^{2 \times 1}
 ```
 A final linear head maps this ``2 \times 1`` vector into class logits!
 
@@ -451,7 +468,7 @@ For spatial forecasting, we completely skip GAP. We must reconstruct the grid us
 **Step 1: Unflattening**
 We reshape ``H \in \mathbb{R}^{2 \times 4}`` back into the ``2 \times 2`` spatial dimensions (``D \times W \times H``):
 ```math
-H_{grid}[:, :, 1] = \begin{bmatrix} 1 \\ -1 \end{bmatrix}, \quad H_{grid}[:, :, 2] = \begin{bmatrix} 2 \\ -2 \end{bmatrix} \quad \dots
+H_{grid}[:, 1, 1] = \begin{bmatrix} 1 \\ -1 \end{bmatrix}, \quad H_{grid}[:, 2, 1] = \begin{bmatrix} 3 \\ -3 \end{bmatrix}, \quad H_{grid}[:, 1, 2] = \begin{bmatrix} 2 \\ -2 \end{bmatrix}, \quad H_{grid}[:, 2, 2] = \begin{bmatrix} 4 \\ -4 \end{bmatrix}
 ```
 
 **Step 2: ConvTranspose**
