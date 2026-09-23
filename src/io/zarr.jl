@@ -116,11 +116,11 @@ function _reconstruct_hybrid_model(info::AbstractDict; mechanistic_model = nothi
     param_keys = Tuple(Symbol(k) for k in keys(param_dict))
     param_vals = Tuple(
         begin
-                v = param_dict[string(k)]
-                d, l, u = Float64(v[1]), Float64(v[2]), Float64(v[3])
-                scale_sym = length(v) >= 4 ? Symbol(v[4]) : :linear
-                (d, l, u, scale_sym)
-            end
+            v = param_dict[string(k)]
+            d, l, u = Float64(v[1]), Float64(v[2]), Float64(v[3])
+            scale_sym = length(v) >= 4 ? Symbol(v[4]) : :linear
+            (d, l, u, scale_sym)
+        end
             for k in param_keys
     )
     parameters = ParameterContainer(NamedTuple{param_keys}(param_vals))
