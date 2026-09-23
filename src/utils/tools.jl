@@ -193,10 +193,10 @@ function toDataFrame(
     arr2 = (didx == 1 && dcols == 2) ? arr : permutedims(arr, (didx, dcols))
 
     data = _raw_array(arr2)
-    col_names = _key_to_colname.(collect(axiskeys(arr2, 2)))
+    col_names = _key_to_colname.(collect(_dim_keys(arr2, 2)))
 
     df = DataFrame(data, col_names; makeunique = true)
-    df[!, index_col] = collect(axiskeys(arr2, 1))
+    df[!, index_col] = collect(_dim_keys(arr2, 1))
     return df
 end
 
@@ -225,7 +225,7 @@ function toDataFrame(
     ) where {T}
 
     out = Dict{Any, DataFrame}()
-    for k in axiskeys(arr, slice_dim)
+    for k in _dim_keys(arr, slice_dim)
         slice = _select_at(arr, slice_dim, k)
         out[k] = toDataFrame(slice, cols_dim, index_dim; index_col = index_col)
     end

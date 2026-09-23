@@ -196,9 +196,9 @@ function split_into_sequences(x, y; input_window = 5, output_window = 1, output_
     nfeat, ntarget = size(x, 1), size(y, 1)
     L = Lx
 
-    featkeys = axiskeys(x, 1)
-    timekeys = axiskeys(x, 2)
-    targetkeys = axiskeys(y, 1)
+    featkeys = _dim_keys(x, 1)
+    timekeys = _dim_keys(x, 2)
+    targetkeys = _dim_keys(y, 1)
 
     lead_start = lead_time - output_window + 1
 
