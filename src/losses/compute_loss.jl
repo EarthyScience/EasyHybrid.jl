@@ -111,7 +111,7 @@ _select_time(ŷ_t::AbstractDimArray, time_keys) = ŷ_t[time = At(time_keys)]  # 
 # y_t has dims (time, batch_size), ŷ[target] has (time=input_window, batch_size)
 # We subset ŷ to match y_t's time dimension (output_window)
 _get_target_ŷ(ŷ, y_t::Union{KeyedArray{T, 2}, AbstractDimArray{T, 2}}, target) where {T} =
-    _select_time(ŷ[target], axiskeys(y_t, :time))
+    _select_time(ŷ[target], _dim_keys(y_t, :time))
 
 # For 1D y_t (from 2D y): no time subsetting needed
 _get_target_ŷ(ŷ, y_t::Union{KeyedArray{T, 1}, AbstractDimArray{T, 1}}, target) where {T} =

@@ -626,11 +626,11 @@ end
             expr = SN ? :(scale_single_param(Val($qk), slices[$idx], params)) : :(slices[$idx])
             push!(args, Expr(:kw, k, expr))
         elseif k in GP
-            push!(args, Expr(:kw, k, :(scale_single_param(Val($qk), getfield(ps, $qk), params))))
+            push!(args, Expr(:kw, k, :(scale_single_param(Val($qk), getproperty(ps, $qk), params))))
         elseif k in FP
-            push!(args, Expr(:kw, k, :(getfield(fixed, $qk))))
+            push!(args, Expr(:kw, k, :(getproperty(fixed, $qk))))
         else
-            push!(args, Expr(:kw, k, :(getfield(forcings, $qk))))
+            push!(args, Expr(:kw, k, :(getproperty(forcings, $qk))))
         end
     end
     return :(f(; $(args...)))
@@ -644,7 +644,7 @@ end
         slices = ()
         st_nn = st.st_nn
     else
-        nn_out, st_nn = LuxCore.apply(m.NNs, ds_k[1], ps.ps, st.st_nn)
+        nn_out, st_nn = LuxCore.apply(m.NNs, ds_k[1], getproperty(ps, :ps), st.st_nn)
         slices = eachslice(nn_out, dims = 1)
     end
     y_pred = _call_mechanistic_unrolled(

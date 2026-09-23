@@ -20,10 +20,7 @@ using ComponentArrays: ComponentArrays, ComponentArray
 using DataFrameMacros: DataFrameMacros, @transform
 using DataFrames: DataFrames, DataFrame, GroupedDataFrame, Missing, coalesce, mapcols, select, missing, All
 using DimensionalData: DimensionalData, AbstractDimArray, Dim, DimArray, dims, groupby, lookup, At
-# Extend axiskeys to work with DimArrays (delegates to lookup)
-AxisKeys.axiskeys(da::AbstractDimArray) = Tuple(lookup(da, d) for d in dims(da))
-AxisKeys.axiskeys(da::AbstractDimArray, i::Int) = lookup(da, dims(da)[i])
-AxisKeys.axiskeys(da::AbstractDimArray, name::Symbol) = lookup(da, name)
+
 using DocStringExtensions: TYPEDFIELDS
 using Downloads: Downloads
 using Logging: Logging, ConsoleLogger, with_logger

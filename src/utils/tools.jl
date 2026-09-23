@@ -148,6 +148,14 @@ end
 _raw_array(ka::KeyedArray) = Array(AxisKeys.keyless(ka))
 _raw_array(da::AbstractDimArray) = Array(parent(da))
 
+# Helper to extract axis/dimension keys (works for both KeyedArray and DimArray)
+_dim_keys(ka::KeyedArray) = AxisKeys.axiskeys(ka)
+_dim_keys(ka::KeyedArray, i::Int) = AxisKeys.axiskeys(ka, i)
+_dim_keys(ka::KeyedArray, name::Symbol) = AxisKeys.axiskeys(ka, name)
+_dim_keys(da::AbstractDimArray) = Tuple(lookup(da, d) for d in dims(da))
+_dim_keys(da::AbstractDimArray, i::Int) = lookup(da, dims(da)[i])
+_dim_keys(da::AbstractDimArray, name::Symbol) = lookup(da, name)
+
 # Helper to select a single value along a named dimension
 _select_at(ka::KeyedArray, dim_name::Symbol, key) = ka(; NamedTuple{(dim_name,)}((key,))...)
 _select_at(da::AbstractDimArray, dim_name::Symbol, key) = view(da, Dim{dim_name}(At(key)))
