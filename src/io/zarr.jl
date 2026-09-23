@@ -116,11 +116,11 @@ function _reconstruct_hybrid_model(info::AbstractDict; mechanistic_model = nothi
     param_keys = Tuple(Symbol(k) for k in keys(param_dict))
     param_vals = Tuple(
         begin
-                v = param_dict[string(k)]
-                d, l, u = Float64(v[1]), Float64(v[2]), Float64(v[3])
-                scale_sym = length(v) >= 4 ? Symbol(v[4]) : :linear
-                (d, l, u, scale_sym)
-            end
+            v = param_dict[string(k)]
+            d, l, u = Float64(v[1]), Float64(v[2]), Float64(v[3])
+            scale_sym = length(v) >= 4 ? Symbol(v[4]) : :linear
+            (d, l, u, scale_sym)
+        end
             for k in param_keys
     )
     parameters = ParameterContainer(NamedTuple{param_keys}(param_vals))
@@ -148,7 +148,7 @@ function _reconstruct_hybrid_model(info::AbstractDict; mechanistic_model = nothi
     )
 end
 
-function LuxZarr._reconstruct_layer(::Val{:HybridModel}, info::AbstractDict; mechanistic_model = nothing, kwargs...)
+function LuxZarr.reconstruct_layer(::Val{:HybridModel}, info::AbstractDict; mechanistic_model = nothing, kwargs...)
     return _reconstruct_hybrid_model(info; mechanistic_model = mechanistic_model, kwargs...)
 end
 
@@ -160,7 +160,7 @@ function LuxZarr.extract_model_info(m::InputBatchNorm)
     )
 end
 
-function LuxZarr._reconstruct_layer(::Val{:InputBatchNorm}, info::AbstractDict; kwargs...)
+function LuxZarr.reconstruct_layer(::Val{:InputBatchNorm}, info::AbstractDict; kwargs...)
     layer_info = get(info, "layer", nothing)
     layer = reconstruct_model_from_info(layer_info; kwargs...)
     layer === nothing && return nothing
@@ -175,7 +175,7 @@ function LuxZarr.extract_model_info(m::RecurrenceOutputDense)
     )
 end
 
-function LuxZarr._reconstruct_layer(::Val{:RecurrenceOutputDense}, info::AbstractDict; kwargs...)
+function LuxZarr.reconstruct_layer(::Val{:RecurrenceOutputDense}, info::AbstractDict; kwargs...)
     layer_info = get(info, "layer", nothing)
     layer = reconstruct_model_from_info(layer_info; kwargs...)
     layer === nothing && return nothing
