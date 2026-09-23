@@ -27,7 +27,7 @@ function compute_loss(
         logging::LoggingLoss{SymbolicLoss{S}, ExtraLoss{Nothing}, A, true}
     ) where {S, A}
     loss, st_nn = _hybrid_loss(HM, (x, forcings), ps, st, y_t, y_nan, Val(S), logging.agg)
-    return loss, ChainRulesCore.ignore_derivatives((; st_nn, fixed = st.fixed)), NamedTuple()
+    return loss, _drop_state_gradient((; st_nn, fixed = st.fixed)), NamedTuple()
 end
 
 function compute_loss(

@@ -475,73 +475,184 @@ function _run_nn(m::HybridModel{<:Any, <:Vector}, ds_k::Tuple, ps, st)
     return scaled_nn_params, (; st_nn = st_nn), (;)
 end
 
-@generated function _hybrid_loss(
+@inline function _extract_nn_params(
+        m::HybridModel{<:Any, <:Vector, MM, NP, GP, FP, KW, SN},
+        x, ps, st
+    ) where {MM, NP, GP, FP, KW, SN}
+    if NP === ()
+        return NamedTuple(), st.st_nn
+    end
+    nn_out, st_nn = LuxCore.apply(m.NNs, x, ps.ps, st.st_nn)
+    slices = eachslice(nn_out, dims = 1)
+    vals = ntuple(Val(length(NP))) do i
+        name = NP[i]
+        slice = slices[i]
+        SN ? scale_single_param(Val(name), slice, m.parameters) : slice
+    end
+    return NamedTuple{NP}(vals), st_nn
+end
+
+@inline function _extract_nn_params(
+        m::HybridModel{<:Any, <:NamedTuple, MM, NP, GP, FP, KW, SN},
+        x, ps, st
+    ) where {MM, NP, GP, FP, KW, SN}
+    scaled_nn_params, nn_states, _ = _run_nn(m, (x, nothing), ps, st)
+    return scaled_nn_params, nn_states
+end
+
+@inline function _extract_global_params(
+        m::HybridModel{<:Any, <:Any, MM, NP, GP},
+        ps
+    ) where {MM, NP, GP}
+    if GP === ()
+        return NamedTuple()
+    end
+    vals = ntuple(Val(length(GP))) do i
+        name = GP[i]
+        scale_single_param(Val(name), getproperty(ps, name), m.parameters)
+    end
+    return NamedTuple{GP}(vals)
+end
+
+@inline function _extract_fixed_params(
+        m::HybridModel{<:Any, <:Any, MM, NP, GP, FP},
+        st
+    ) where {MM, NP, GP, FP}
+    if FP === ()
+        return NamedTuple()
+    end
+    vals = ntuple(Val(length(FP))) do i
+        name = FP[i]
+        getproperty(st.fixed, name)
+    end
+    return NamedTuple{FP}(vals)
+end
+
+@inline function _combine_params(
+        nn_params::NamedTuple{NP},
+        global_params::NamedTuple{GP},
+        fixed_params::NamedTuple{FP}
+    ) where {NP, GP, FP}
+    all_names = (NP..., GP..., FP...)
+    all_vals = (values(nn_params)..., values(global_params)..., values(fixed_params)...)
+    return NamedTuple{all_names}(all_vals)
+end
+
+@inline function _call_mechanistic(
+        mechanistic_model::MM,
+        ::Val{KW},
+        all_params::NamedTuple{Names},
+        forcings
+    ) where {MM, KW, Names}
+    if KW === nothing
+        return mechanistic_model(; merge(forcings, all_params)...)
+    else
+        kw_vals = ntuple(Val(length(KW))) do i
+            k = KW[i]
+            if k in Names
+                getfield(all_params, k)
+            else
+                getfield(forcings, k)
+            end
+        end
+        kw_nt = NamedTuple{KW}(kw_vals)
+        return mechanistic_model(; kw_nt...)
+    end
+end
+
+@inline function _extract_extra_params(
+        m::HybridModel{<:Any, <:Any, MM, NP, GP, FP, KW},
+        all_params::NamedTuple
+    ) where {MM, NP, GP, FP, KW}
+    if KW === nothing
+        return _extra_params(m.mechanistic_model, all_params)
+    else
+        all_names = (NP..., GP..., FP...)
+        extra_names = _ignore_derivatives() do
+            Tuple(k for k in all_names if !(k in KW))
+        end
+        extra_vals = ntuple(Val(length(extra_names))) do i
+            getproperty(all_params, extra_names[i])
+        end
+        return NamedTuple{extra_names}(extra_vals)
+    end
+end
+
+@inline function _compute_target_loss(ŷ_i, y_i, nan_i, ::Val{:mse})
+    return mean(abs2, ŷ_i[nan_i] .- y_i[nan_i])
+end
+
+@inline function _compute_target_loss(ŷ_i, y_i, nan_i, ::Val{S}) where {S}
+    return _apply_loss(ŷ_i, y_i, nan_i, S)
+end
+
+@inline function _evaluate_fused_loss(
+        y_pred, y, y_nan, ::Val{TG}, ::Val{S}, agg
+    ) where {TG, S}
+    if TG === ()
+        return agg(())
+    end
+    losses = ntuple(Val(length(TG))) do i
+        t = TG[i]
+        y_i = y isa NamedTuple ? getfield(y, t) : _get_target_y(y, t)
+        nan_i = y_nan isa NamedTuple ? getfield(y_nan, t) : _get_target_y(y_nan, t)
+        ŷ_i = y_pred isa NamedTuple ? getfield(y_pred, t) : _get_target_ŷ(y_pred, y_i, t)
+        _compute_target_loss(ŷ_i, y_i, nan_i, Val(S))
+    end
+    return agg(losses)
+end
+
+@generated function _call_mechanistic_unrolled(
+        f::MM,
+        ::Val{KW},
+        ::Val{NP},
+        ::Val{GP},
+        ::Val{FP},
+        slices,
+        ps,
+        fixed,
+        forcings,
+        params,
+        ::Val{SN}
+    ) where {MM, KW, NP, GP, FP, SN}
+    if KW === nothing
+        return :(f(; merge(forcings, ps)...))
+    end
+    args = Expr[]
+    for k in KW
+        qk = QuoteNode(k)
+        if k in NP
+            idx = findfirst(==(k), NP)
+            expr = SN ? :(scale_single_param(Val($qk), slices[$idx], params)) : :(slices[$idx])
+            push!(args, Expr(:kw, k, expr))
+        elseif k in GP
+            push!(args, Expr(:kw, k, :(scale_single_param(Val($qk), getfield(ps, $qk), params))))
+        elseif k in FP
+            push!(args, Expr(:kw, k, :(getfield(fixed, $qk))))
+        else
+            push!(args, Expr(:kw, k, :(getfield(forcings, $qk))))
+        end
+    end
+    return :(f(; $(args...)))
+end
+
+@inline function _hybrid_loss(
         m::HybridModel{<:Any, <:Vector, MM, NP, GP, FP, KW, SN, TG},
         ds_k::Tuple, ps, st, y, y_nan, ::Val{S}, agg
     ) where {MM, NP, GP, FP, KW, SN, TG, S}
-    stmts = Expr[]
-    names = (NP..., GP..., FP...)
     if NP === ()
-        push!(stmts, :(st_nn = st.st_nn))
+        slices = ()
+        st_nn = st.st_nn
     else
-        push!(stmts, :((nn_out, st_nn) = LuxCore.apply(m.NNs, ds_k[1], ps.ps, st.st_nn)))
-        push!(stmts, :(slices = eachslice(nn_out, dims = 1)))
+        nn_out, st_nn = LuxCore.apply(m.NNs, ds_k[1], ps.ps, st.st_nn)
+        slices = eachslice(nn_out, dims = 1)
     end
-    for (i, n) in enumerate(NP)
-        rhs = SN ?
-            :(scale_single_param(Val($(QuoteNode(n))), slices[$i], m.parameters)) :
-            :(slices[$i])
-        push!(stmts, Expr(:(=), n, rhs))
-    end
-    for n in GP
-        push!(stmts, Expr(:(=), n, :(scale_single_param(Val($(QuoteNode(n))), getproperty(ps, $(QuoteNode(n))), m.parameters))))
-    end
-    for n in FP
-        push!(stmts, Expr(:(=), n, :(getproperty(st.fixed, $(QuoteNode(n))))))
-    end
-    NP === () && GP === () && push!(stmts, :(ChainRulesCore.ignore_derivatives(ps)))
-    NP === () && KW === () && push!(stmts, :(ChainRulesCore.ignore_derivatives(ds_k)))
-    !SN && GP === () && push!(stmts, :(ChainRulesCore.ignore_derivatives(m.parameters)))
-    if KW === nothing
-        push!(stmts, :(all_params = (; $(names...))))
-        push!(stmts, :(y_pred = m.mechanistic_model(; merge(ds_k[2], all_params)...)))
-    else
-        args = Expr[]
-        for n in KW
-            if n in names
-                push!(args, Expr(:kw, n, n))
-            else
-                push!(args, Expr(:kw, n, :(getfield(ds_k[2], $(QuoteNode(n))))))
-            end
-        end
-        push!(stmts, :(y_pred = m.mechanistic_model(; $(args...))))
-    end
-    if TG === ()
-        push!(stmts, :(ChainRulesCore.ignore_derivatives((y, y_nan, agg))))
-        push!(stmts, :(return agg(()), st_nn))
-    else
-        terms = Expr[]
-        for t in TG
-            qt = QuoteNode(t)
-            yi = y <: NamedTuple ? :(getfield(y, $qt)) : :(_get_target_y(y, $qt))
-            nani = y_nan <: NamedTuple ? :(getfield(y_nan, $qt)) : :(_get_target_y(y_nan, $qt))
-            loss = S === :mse ?
-                :(mean(abs2, ŷ_i[nan_i] .- y_i[nan_i])) :
-                :(_apply_loss(ŷ_i, y_i, nan_i, $(QuoteNode(S))))
-            push!(
-                terms, :(
-                    let
-                        y_i = $yi
-                        ŷ_i = _get_target_ŷ(y_pred, y_i, $qt)
-                        nan_i = $nani
-                        $loss
-                    end
-                )
-            )
-        end
-        push!(stmts, :(return agg(($(terms...),)), st_nn))
-    end
-    return Expr(:block, stmts...)
+    y_pred = _call_mechanistic_unrolled(
+        m.mechanistic_model, Val(KW), Val(NP), Val(GP), Val(FP),
+        slices, ps, st.fixed, ds_k[2], m.parameters, Val(SN)
+    )
+    loss = _evaluate_fused_loss(y_pred, y, y_nan, Val(TG), Val(S), agg)
+    return loss, st_nn
 end
 
 """
@@ -551,6 +662,18 @@ Forward pass of the hybrid model.
 Evaluates the neural networks to predict parameters, merges them with scaled global parameters and fixed parameters, and executes the mechanistic model.
 Returns a tuple `(out, st_new)`.
 """
+function (m::HybridModel{<:Any, <:Vector, MM, NP, GP, FP, KW, SN})(ds_k::Tuple, ps, st) where {MM, NP, GP, FP, KW, SN}
+    nn_params, st_nn = _extract_nn_params(m, ds_k[1], ps, st)
+    global_params = _extract_global_params(m, ps)
+    fixed_params = _extract_fixed_params(m, st)
+    all_params = _combine_params(nn_params, global_params, fixed_params)
+    y_pred = _call_mechanistic(m.mechanistic_model, Val(KW), all_params, ds_k[2])
+    extra_params = _extract_extra_params(m, all_params)
+    out = (; y_pred..., extra_params..., parameters = all_params)
+    st_new = _drop_state_gradient((; st_nn = st_nn, fixed = st.fixed))
+    return out, st_new
+end
+
 function (m::HybridModel)(ds_k::Tuple, ps, st)
     parameters = m.parameters
 
@@ -597,9 +720,9 @@ function (m::HybridModel)(ds_k::Tuple, ps, st)
     # and plotted, in addition to always being available under `parameters`.
     extra_params = _extra_params(m.mechanistic_model, all_params)
     out = (; y_pred..., extra_params..., parameters = all_params, out_extra...)
-    st_new = (; st_new_nns..., fixed = st.fixed)
+    st_new = _drop_state_gradient((; st_new_nns..., fixed = st.fixed))
 
-    return out, ChainRulesCore.ignore_derivatives(st_new)
+    return out, st_new
 end
 
 function (m::HybridModel)(ds_k, ps, st)
@@ -616,7 +739,7 @@ not need to be accepted by `f`. Falls back to passing everything when `f` slurps
 `kwargs...` or its keyword signature cannot be introspected.
 """
 function _mechanistic_kwargs(f, all_kwargs::NamedTuple)
-    keep = ChainRulesCore.ignore_derivatives() do
+    keep = _ignore_derivatives() do
         _accepted_kwarg_names(f, keys(all_kwargs))
     end
     keep === nothing && return all_kwargs
@@ -632,7 +755,7 @@ so they can be monitored/plotted, in addition to always being available under
 `parameters`. Returns an empty `NamedTuple` when `f` consumes everything.
 """
 function _extra_params(f, all_params::NamedTuple)
-    keep = ChainRulesCore.ignore_derivatives() do
+    keep = _ignore_derivatives() do
         acc = _accepted_kwarg_names(f, keys(all_params))
         acc === nothing ? () : Tuple(k for k in keys(all_params) if !(k in acc))
     end
