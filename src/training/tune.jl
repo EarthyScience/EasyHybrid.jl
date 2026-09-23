@@ -25,29 +25,29 @@ Construct a new hybrid model from `hybrid_model` plus hyperparameters, then call
 Returns a [`TrainResults`](@ref) (or `nothing` if data preparation fails, as in `train`).
 """
 function tune(hybrid_model, data, mspec::ModelSpec; kwargs...)
-    kwargs_model = merge(Base.structdiff(to_namedtuple(hybrid_model), NamedTuple{(:config,)}), hybrid_model.config, (; kwargs...), mspec.hyper_model)
+    kwargs_model = merge(_exclude_keys(to_namedtuple(hybrid_model), (:config,)), hybrid_model.config, (; kwargs...), mspec.hyper_model)
     hm = constructHybridModel(; kwargs_model...)
 
     kwargs_train = merge((; kwargs...), mspec.hyper_train, (; target_names = hm.targets))
-    train_cfg, data_cfg = EasyHybrid.kwargs_to_configs((), kwargs_train)
+    train_cfg, data_cfg = kwargs_to_configs((), kwargs_train)
     return train(hm, data; train_cfg, data_cfg)
 end
 
 function tune(hybrid_model, data; kwargs...)
-    kwargs_model = merge(Base.structdiff(to_namedtuple(hybrid_model), NamedTuple{(:config,)}), hybrid_model.config, (; kwargs...))
+    kwargs_model = merge(_exclude_keys(to_namedtuple(hybrid_model), (:config,)), hybrid_model.config, (; kwargs...))
     hm = constructHybridModel(; kwargs_model...)
 
     kwargs_train = merge((; kwargs...), (; target_names = hm.targets))
-    train_cfg, data_cfg = EasyHybrid.kwargs_to_configs((), kwargs_train)
+    train_cfg, data_cfg = kwargs_to_configs((), kwargs_train)
     return train(hm, data; train_cfg, data_cfg)
 end
 
 function tune(hybrid_model, data, train_cfg::TrainConfig; data_cfg::DataConfig = DataConfig(), kwargs...)
-    kwargs_model = merge(Base.structdiff(to_namedtuple(hybrid_model), NamedTuple{(:config,)}), hybrid_model.config, to_namedtuple(train_cfg), to_namedtuple(data_cfg), (; kwargs...))
+    kwargs_model = merge(_exclude_keys(to_namedtuple(hybrid_model), (:config,)), hybrid_model.config, to_namedtuple(train_cfg), to_namedtuple(data_cfg), (; kwargs...))
     hm = constructHybridModel(; kwargs_model...)
 
     kwargs_train = merge(to_namedtuple(train_cfg), to_namedtuple(data_cfg), (; kwargs...), (; target_names = hm.targets))
-    train_cfg_new, data_cfg_new = EasyHybrid.kwargs_to_configs((), kwargs_train)
+    train_cfg_new, data_cfg_new = kwargs_to_configs((), kwargs_train)
 
     return train(hm, data; train_cfg = train_cfg_new, data_cfg = data_cfg_new)
 end

@@ -46,7 +46,7 @@ function compute_loss(
             logging.training_loss.f(ŷ, y_t, y_nan, ps, targets, get(ŷ, :parameters, (;))) :
             _compute_loss(ŷ, y_t, y_nan, targets, training_loss(logging), logging.agg)
         # Add extra_loss if provided
-        if ext_loss !== nothing
+        if !isnothing(ext_loss)
             extra_loss_value = ext_loss(ŷ, ps)
             loss_value = logging.agg([loss_value, extra_loss_value...])
         end
@@ -55,7 +55,7 @@ function compute_loss(
         ŷ, _ = HM((x, forcings), ps, LuxCore.testmode(st))
         loss_value = _compute_loss(ŷ, y_t, y_nan, targets, loss_types(logging), logging.agg)
         # Add extra_loss entries if provided
-        if ext_loss !== nothing
+        if !isnothing(ext_loss)
             extra_loss_values = ext_loss(ŷ, ps)
             agg_extra_loss_value = logging.agg(extra_loss_values)
             loss_value = (; loss_value..., extra_loss = (; extra_loss_values..., Symbol(logging.agg) => agg_extra_loss_value))

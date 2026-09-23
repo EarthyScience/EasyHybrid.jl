@@ -153,7 +153,7 @@ function _run_minibatch!(
         streams, cfg::TrainConfig, solve_kwargs::NamedTuple,
     )
     loader = build_loader(x_train, forcings_train, y_train, mask_train, cfg)
-    inner_kwargs = Base.structdiff(solve_kwargs, (; maxiters = nothing, epochs = nothing))
+    inner_kwargs = _exclude_keys(solve_kwargs, (:maxiters, :epochs))
     ps = ps0
 
     # Build the problem once and reuse it across minibatches via `remake`, which

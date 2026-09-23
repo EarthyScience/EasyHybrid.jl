@@ -160,6 +160,10 @@ _dim_keys(da::AbstractDimArray, name::Symbol) = lookup(da, name)
 _select_at(ka::KeyedArray, dim_name::Symbol, key) = ka(; NamedTuple{(dim_name,)}((key,))...)
 _select_at(da::AbstractDimArray, dim_name::Symbol, key) = view(da, Dim{dim_name}(At(key)))
 
+# Helper to exclude specific keys from a NamedTuple (replacing non-public Base.structdiff)
+@inline _exclude_keys(nt::NamedTuple, exclude::Tuple) =
+    NamedTuple{filter(k -> !(k in exclude), keys(nt))}(nt)
+
 # 2D Labeled Array -> DataFrame (works for both KeyedArray and DimArray)
 """
     toDataFrame(arr::Union{KeyedArray{T, 2}, AbstractDimArray{T, 2}}, cols_dim=:variable, index_dim=:batch_size; index_col=:index)

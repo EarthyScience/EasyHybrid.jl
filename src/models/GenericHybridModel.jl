@@ -413,10 +413,9 @@ Enzyme, which then annotates the *layer* as `Active` whenever the layer type
 happens to hold floating-point fields (e.g. `Dropout`'s `p`/`q`) and errors with
 "Lux Layers only support `EnzymeCore.Const` annotation".
 """
-@generated function _apply_nns(nns::NamedTuple, xs, ps, st)
+@inline @generated function _apply_nns(nns::NamedTuple, xs, ps, st)
     calls = [:(LuxCore.apply(nns.$n, xs.$n, ps.$n, st.$n)) for n in fieldnames(nns)]
     return quote
-        Base.@_inline_meta
         ($(calls...),)
     end
 end
@@ -479,7 +478,7 @@ end
         m::HybridModel{<:Any, <:Vector, MM, NP, GP, FP, KW, SN},
         x, ps, st
     ) where {MM, NP, GP, FP, KW, SN}
-    if NP === ()
+    if isempty(NP)
         return NamedTuple(), st.st_nn
     end
     nn_out, st_nn = LuxCore.apply(m.NNs, x, ps.ps, st.st_nn)
@@ -504,7 +503,7 @@ end
         m::HybridModel{<:Any, <:Any, MM, NP, GP},
         ps
     ) where {MM, NP, GP}
-    if GP === ()
+    if isempty(GP)
         return NamedTuple()
     end
     vals = ntuple(Val(length(GP))) do i
@@ -518,7 +517,7 @@ end
         m::HybridModel{<:Any, <:Any, MM, NP, GP, FP},
         st
     ) where {MM, NP, GP, FP}
-    if FP === ()
+    if isempty(FP)
         return NamedTuple()
     end
     vals = ntuple(Val(length(FP))) do i
@@ -544,7 +543,7 @@ end
         all_params::NamedTuple{Names},
         forcings
     ) where {MM, KW, Names}
-    if KW === nothing
+    if isnothing(KW)
         return mechanistic_model(; merge(forcings, all_params)...)
     else
         kw_vals = ntuple(Val(length(KW))) do i
@@ -564,7 +563,7 @@ end
         m::HybridModel{<:Any, <:Any, MM, NP, GP, FP, KW},
         all_params::NamedTuple
     ) where {MM, NP, GP, FP, KW}
-    if KW === nothing
+    if isnothing(KW)
         return _extra_params(m.mechanistic_model, all_params)
     else
         all_names = (NP..., GP..., FP...)
@@ -589,7 +588,7 @@ end
 @inline function _evaluate_fused_loss(
         y_pred, y, y_nan, ::Val{TG}, ::Val{S}, agg
     ) where {TG, S}
-    if TG === ()
+    if isempty(TG)
         return agg(())
     end
     losses = ntuple(Val(length(TG))) do i
@@ -615,7 +614,7 @@ end
         params,
         ::Val{SN}
     ) where {MM, KW, NP, GP, FP, SN}
-    if KW === nothing
+    if isnothing(KW)
         return :(f(; merge(forcings, ps)...))
     end
     args = Expr[]
@@ -640,7 +639,7 @@ end
         m::HybridModel{<:Any, <:Vector, MM, NP, GP, FP, KW, SN, TG},
         ds_k::Tuple, ps, st, y, y_nan, ::Val{S}, agg
     ) where {MM, NP, GP, FP, KW, SN, TG, S}
-    if NP === ()
+    if isempty(NP)
         slices = ()
         st_nn = st.st_nn
     else
@@ -742,7 +741,7 @@ function _mechanistic_kwargs(f, all_kwargs::NamedTuple)
     keep = _ignore_derivatives() do
         _accepted_kwarg_names(f, keys(all_kwargs))
     end
-    keep === nothing && return all_kwargs
+    isnothing(keep) && return all_kwargs
     return NamedTuple{keep}(map(k -> all_kwargs[k], keep))
 end
 
@@ -757,7 +756,7 @@ so they can be monitored/plotted, in addition to always being available under
 function _extra_params(f, all_params::NamedTuple)
     keep = _ignore_derivatives() do
         acc = _accepted_kwarg_names(f, keys(all_params))
-        acc === nothing ? () : Tuple(k for k in keys(all_params) if !(k in acc))
+        isnothing(acc) ? () : Tuple(k for k in keys(all_params) if !(k in acc))
     end
     return NamedTuple{keep}(map(k -> all_params[k], keep))
 end
@@ -782,7 +781,7 @@ function (m::HybridModel)(df::DataFrame, ps, st)
     # Process numeric or missing-containing columns
     for col in names(df)
         what_type = eltype(df[!, col])
-        if what_type <: Union{Missing, Real} || what_type <: Real
+        if what_type <: Union{Missing, Real}
             df[!, col] = Float32.(coalesce.(df[!, col], NaN))
         end
     end
