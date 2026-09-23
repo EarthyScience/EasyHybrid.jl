@@ -5,6 +5,10 @@
 # Helper to detach state tree from AD gradient computation
 @inline _drop_state_gradient(st) = ChainRulesCore.ignore_derivatives(st)
 
+# Projection rule for KeyedArray with InplaceableThunk from ChainRulesCore
+(project::ChainRulesCore.ProjectTo{KeyedArray})(dx::ChainRulesCore.InplaceableThunk) =
+    project(ChainRulesCore.unthunk(dx))
+
 # Zygote traces Base's keyword-arg name sorting; the results are Bool/Symbol.
 for (fname, nargs) in ((:diff_names, 2), (:sym_in, 2), (:merge_names, 2))
     isdefined(Base, fname) || continue

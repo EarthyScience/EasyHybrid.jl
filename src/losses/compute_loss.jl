@@ -273,9 +273,3 @@ end
 function _loss_name(loss_spec::Tuple)
     return _loss_name(loss_spec[1])
 end
-
-import ChainRulesCore
-import AxisKeys: KeyedArray
-import ChainRulesCore: ProjectTo, InplaceableThunk, unthunk
-
-(project::ProjectTo{KeyedArray})(dx::InplaceableThunk) = project(unthunk(dx))
