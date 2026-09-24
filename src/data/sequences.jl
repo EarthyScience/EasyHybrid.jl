@@ -85,9 +85,10 @@ Slide a (input_window + lead_time) window over 2D `(feature, time)` arrays to pr
 function split_into_sequences(x::Tuple, y::NamedTuple; kwargs...)
     x_arr, forcings = x
     targetkeys = keys(y)
-    y_arr = _nt_to_array(y, x_arr)
-    X_seq, Y_seq = split_into_sequences(x_arr, y_arr; kwargs...)
-    forcings_seq = _window_forcings(forcings, x_arr; kwargs...)
+    ref = _as_keyed_time(x_arr)
+    y_arr = _nt_to_array(y, ref)
+    X_seq, Y_seq = split_into_sequences(ref, y_arr; kwargs...)
+    forcings_seq = _window_forcings(forcings, ref; kwargs...)
     Y_nt = _array_to_nt(Y_seq, targetkeys)
     return (X_seq, forcings_seq), Y_nt
 end
@@ -139,8 +140,9 @@ end
 
 function split_into_sequences(x, y::NamedTuple; kwargs...)
     targetkeys = keys(y)
-    y_arr = _nt_to_array(y, x)
-    X_seq, Y_seq = split_into_sequences(x, y_arr; kwargs...)
+    ref = _as_keyed_time(x)
+    y_arr = _nt_to_array(y, ref)
+    X_seq, Y_seq = split_into_sequences(ref, y_arr; kwargs...)
     return X_seq, _array_to_nt(Y_seq, targetkeys)
 end
 
@@ -196,9 +198,9 @@ function split_into_sequences(x, y; input_window = 5, output_window = 1, output_
     nfeat, ntarget = size(x, 1), size(y, 1)
     L = Lx
 
-    featkeys = axiskeys(x, 1)
-    timekeys = axiskeys(x, 2)
-    targetkeys = axiskeys(y, 1)
+    featkeys = _dim_keys(x, 1)
+    timekeys = _dim_keys(x, 2)
+    targetkeys = _dim_keys(y, 1)
 
     lead_start = lead_time - output_window + 1
 

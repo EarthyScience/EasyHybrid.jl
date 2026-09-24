@@ -76,9 +76,23 @@ scaletype(hm::ParameterContainer, name) = hm.scales[name]
 Map an unconstrained `raw_val` into the parameter's bounds `[ℓ, u]`, using the
 warp selected for `name` (`:linear`, `:log`, or `:logit`).
 """
-function scale_single_param(name, raw_val, hm::ParameterContainer)
-    return _scale(Val(scaletype(hm, name)), lower(hm)[name], upper(hm)[name], raw_val)
+@inline function scale_single_param(::Val{N}, raw_val, hm::ParameterContainer) where {N}
+    bounds = getfield(hm.values, N)
+    st = getfield(hm.scales, N)
+    if st === :linear
+        ℓ = bounds[2]
+        u = bounds[3]
+        return ℓ .+ (u .- ℓ) .* sigmoid.(raw_val)
+    elseif st === :log
+        return _scale(Val(:log), bounds[2], bounds[3], raw_val)
+    else
+        return _scale(Val(:logit), bounds[2], bounds[3], raw_val)
+    end
 end
+
+scale_single_param(name::Symbol, raw_val, hm::ParameterContainer) =
+    scale_single_param(Val(name), raw_val, hm)
+
 
 """ 
     scale_single_param_minmax(name, hm::ParameterContainer)

@@ -1,3 +1,4 @@
+include("ad_rules.jl")
 include("macro_hybrid.jl")
 include("wrap_tuples.jl")
 include("tools.jl")

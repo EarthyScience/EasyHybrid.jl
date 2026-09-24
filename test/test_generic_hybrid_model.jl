@@ -2,6 +2,7 @@ using Lux
 using Random
 using AxisKeys
 using ComponentArrays
+using Zygote
 
 # Test data generation
 dk = gen_linear_data()
@@ -255,6 +256,11 @@ end
         @test haskey(output.parameters, :c)
         @test haskey(new_st, :st_nn)
         @test haskey(new_st, :fixed)
+
+        # Gradient of a prediction-only loss (returned state unused)
+        g = Zygote.gradient(p -> sum(abs2, model(data_[1], p, st)[1].y_pred), ps)
+        @test !isnothing(g[1])
+        @test g[1].b isa AbstractVector
     end
 
     @testset "HybridModel with scale_nn_outputs=true" begin

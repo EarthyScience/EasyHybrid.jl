@@ -68,6 +68,7 @@ makedocs(;
             "Slurm" => "tutorials/slurm.md",
             "Cross-validation" => "tutorials/folds.md",
             "Sequence Hybrid Models (LSTM & Transformer)" => "tutorials/example_synthetic_sequence.md",
+            "Transformer Mathematics" => "transformer_math.md",
             "Loss Functions" => "tutorials/losses.md",
         ],
         "Research" => [

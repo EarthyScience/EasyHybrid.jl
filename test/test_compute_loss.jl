@@ -5,6 +5,7 @@ using Statistics
 using DimensionalData
 using Random
 using DataFrames
+using Zygote
 
 @testset "_compute_loss" begin
     # Test data setup
@@ -305,6 +306,16 @@ end
             ŷ_actual, y_t, y_nan, targets, :mse, sum
         )
         @test loss_value ≈ main_loss
+
+        g_fused = only(Zygote.gradient(p -> compute_loss(HM, p, st, (data[1], (data[2], y_nan)), logging)[1], ps))
+        g_pub = only(
+            Zygote.gradient(
+                p -> _compute_loss(HM(data[1], p, st)[1], y_t, y_nan, Tuple(targets), :mse, sum),
+                ps,
+            )
+        )
+        @test g_fused.b ≈ g_pub.b
+        @test g_fused.ps.layer_2.weight ≈ g_pub.ps.layer_2.weight
     end
 
     @testset "Evaluation mode with extra_loss" begin

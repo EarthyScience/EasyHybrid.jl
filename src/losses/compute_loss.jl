@@ -17,11 +17,23 @@ Main loss function for hybrid models that handles both training and evaluation m
 - In evaluation mode (`logging.train_mode = false`):
   - `(loss_values, st, ŷ)`: NamedTuple of losses, state and predictions
 """
+function compute_loss(HM::LuxCore.AbstractLuxContainerLayer, ps, st, data; logging::LoggingLoss)
+    return compute_loss(HM, ps, st, data, logging)
+end
+
 function compute_loss(
-        HM::LuxCore.AbstractLuxContainerLayer, ps, st, ((x, forcings), (y_t, y_nan));
+        HM::HybridModel{<:Any, <:Vector}, ps, st,
+        ((x, forcings), (y_t, y_nan)),
+        logging::LoggingLoss{SymbolicLoss{S}, ExtraLoss{Nothing}, A, true}
+    ) where {S, A}
+    loss, st_nn = _hybrid_loss(HM, (x, forcings), ps, st, y_t, y_nan, Val(S), logging.agg)
+    return loss, _drop_state_gradient((; st_nn, fixed = st.fixed)), NamedTuple()
+end
+
+function compute_loss(
+        HM::LuxCore.AbstractLuxContainerLayer, ps, st, ((x, forcings), (y_t, y_nan)),
         logging::LoggingLoss
     )
-
     targets = HM.targets
     ext_loss = extra_loss(logging)
     if logging.train_mode
@@ -34,7 +46,7 @@ function compute_loss(
             logging.training_loss.f(ŷ, y_t, y_nan, ps, targets, get(ŷ, :parameters, (;))) :
             _compute_loss(ŷ, y_t, y_nan, targets, training_loss(logging), logging.agg)
         # Add extra_loss if provided
-        if ext_loss !== nothing
+        if !isnothing(ext_loss)
             extra_loss_value = ext_loss(ŷ, ps)
             loss_value = logging.agg([loss_value, extra_loss_value...])
         end
@@ -43,7 +55,7 @@ function compute_loss(
         ŷ, _ = HM((x, forcings), ps, LuxCore.testmode(st))
         loss_value = _compute_loss(ŷ, y_t, y_nan, targets, loss_types(logging), logging.agg)
         # Add extra_loss entries if provided
-        if ext_loss !== nothing
+        if !isnothing(ext_loss)
             extra_loss_values = ext_loss(ŷ, ps)
             agg_extra_loss_value = logging.agg(extra_loss_values)
             loss_value = (; loss_value..., extra_loss = (; extra_loss_values..., Symbol(logging.agg) => agg_extra_loss_value))
@@ -99,7 +111,7 @@ _select_time(ŷ_t::AbstractDimArray, time_keys) = ŷ_t[time = At(time_keys)]  # 
 # y_t has dims (time, batch_size), ŷ[target] has (time=input_window, batch_size)
 # We subset ŷ to match y_t's time dimension (output_window)
 _get_target_ŷ(ŷ, y_t::Union{KeyedArray{T, 2}, AbstractDimArray{T, 2}}, target) where {T} =
-    _select_time(ŷ[target], axiskeys(y_t, :time))
+    _select_time(ŷ[target], _dim_keys(y_t, :time))
 
 # For 1D y_t (from 2D y): no time subsetting needed
 _get_target_ŷ(ŷ, y_t::Union{KeyedArray{T, 1}, AbstractDimArray{T, 1}}, target) where {T} =
@@ -261,9 +273,3 @@ end
 function _loss_name(loss_spec::Tuple)
     return _loss_name(loss_spec[1])
 end
-
-import ChainRulesCore
-import AxisKeys: KeyedArray
-import ChainRulesCore: ProjectTo, InplaceableThunk, unthunk
-
-(project::ProjectTo{KeyedArray})(dx::InplaceableThunk) = project(unthunk(dx))

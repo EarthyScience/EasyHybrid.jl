@@ -148,9 +148,21 @@ end
 _raw_array(ka::KeyedArray) = Array(AxisKeys.keyless(ka))
 _raw_array(da::AbstractDimArray) = Array(parent(da))
 
+# Helper to extract axis/dimension keys (works for both KeyedArray and DimArray)
+_dim_keys(ka::KeyedArray) = AxisKeys.axiskeys(ka)
+_dim_keys(ka::KeyedArray, i::Int) = AxisKeys.axiskeys(ka, i)
+_dim_keys(ka::KeyedArray, name::Symbol) = AxisKeys.axiskeys(ka, name)
+_dim_keys(da::AbstractDimArray) = Tuple(lookup(da, d) for d in dims(da))
+_dim_keys(da::AbstractDimArray, i::Int) = lookup(da, dims(da)[i])
+_dim_keys(da::AbstractDimArray, name::Symbol) = lookup(da, name)
+
 # Helper to select a single value along a named dimension
 _select_at(ka::KeyedArray, dim_name::Symbol, key) = ka(; NamedTuple{(dim_name,)}((key,))...)
 _select_at(da::AbstractDimArray, dim_name::Symbol, key) = view(da, Dim{dim_name}(At(key)))
+
+# Helper to exclude specific keys from a NamedTuple (replacing non-public Base.structdiff)
+@inline _exclude_keys(nt::NamedTuple, exclude::Tuple) =
+    NamedTuple{filter(k -> !(k in exclude), keys(nt))}(nt)
 
 # 2D Labeled Array -> DataFrame (works for both KeyedArray and DimArray)
 """
@@ -181,10 +193,10 @@ function toDataFrame(
     arr2 = (didx == 1 && dcols == 2) ? arr : permutedims(arr, (didx, dcols))
 
     data = _raw_array(arr2)
-    col_names = _key_to_colname.(collect(axiskeys(arr2, 2)))
+    col_names = _key_to_colname.(collect(_dim_keys(arr2, 2)))
 
     df = DataFrame(data, col_names; makeunique = true)
-    df[!, index_col] = collect(axiskeys(arr2, 1))
+    df[!, index_col] = collect(_dim_keys(arr2, 1))
     return df
 end
 
@@ -213,7 +225,7 @@ function toDataFrame(
     ) where {T}
 
     out = Dict{Any, DataFrame}()
-    for k in axiskeys(arr, slice_dim)
+    for k in _dim_keys(arr, slice_dim)
         slice = _select_at(arr, slice_dim, k)
         out[k] = toDataFrame(slice, cols_dim, index_dim; index_col = index_col)
     end

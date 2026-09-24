@@ -596,11 +596,11 @@ end
 """Predict the held-out `test_fold` with `final`; return `(scalar_loss, obs_pred_df)`."""
 function _evaluate_on_test(model, data, mspec, hp::NamedTuple, final::TrainResults; folds, test_fold::Int, kwargs...)
     kwargs_model = merge(
-        Base.structdiff(to_namedtuple(model), NamedTuple{(:config,)}),
+        _exclude_keys(to_namedtuple(model), (:config,)),
         model.config, (; kwargs...), mspec.hyper_model, hp,
     )
     hm = constructHybridModel(; kwargs_model...)
-    train_cfg, _ = EasyHybrid.kwargs_to_configs((), merge((; kwargs...), mspec.hyper_train, hp, (; target_names = hm.targets)))
+    train_cfg, _ = kwargs_to_configs((), merge((; kwargs...), mspec.hyper_train, hp, (; target_names = hm.targets)))
     (_, _), ((x, forcings), y) = split_data(data, hm; folds, val_fold = test_fold)
     mask, empty_mask = valid_mask(y)
     empty_mask && (@warn "Test fold $test_fold has no valid targets"; return (NaN, nothing))

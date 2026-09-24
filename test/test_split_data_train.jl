@@ -166,4 +166,42 @@ const RbQ10_PARAMS = (
         @test length(out_2.epoch_history) == 1
 
     end
+
+    @testset "test sequence LSTM HybridModel (DimArray and KeyedArray)" begin
+        nn_seq = Chain(
+            Recurrence(LSTMCell(15 => 15), return_sequence = true),
+        )
+        model_lstm = constructHybridModel(
+            predictors,
+            forcing,
+            target,
+            RbQ10,
+            RbQ10_PARAMS,
+            neural_param_names,
+            global_param_names;
+            hidden_layers = nn_seq,
+            scale_nn_outputs = true,
+            input_batchnorm = false,
+        )
+
+        df_seq = make_synth_df(64)
+        for pref in [:DimArray, :KeyedArray]
+            out = train(
+                model_lstm,
+                df_seq;
+                nepochs = 2,
+                batchsize = 16,
+                opt = RMSProp(0.01),
+                sequence_kwargs = (; input_window = 8, output_window = 1, output_shift = 1, lead_time = 0),
+                training_loss = :nseLoss,
+                loss_types = [:nseLoss, :nse],
+                array_type = pref,
+                show_progress = false,
+                plotting = false,
+                model_name = "test_seq_$(pref)",
+            )
+            @test out.best_loss isa Real
+            @test out.best_loss > 0
+        end
+    end
 end

@@ -3,9 +3,10 @@ export loss_types, training_loss, extra_loss
 
 abstract type LossSpec end
 
-struct SymbolicLoss <: LossSpec
+struct SymbolicLoss{S} <: LossSpec
     name::Symbol
 end
+SymbolicLoss(s::Symbol) = SymbolicLoss{s}(s)
 
 struct FunctionLoss <: LossSpec
     f::Function
@@ -21,8 +22,8 @@ ParameterizedLoss(f::Function) = ParameterizedLoss(f, (), NamedTuple())
 ParameterizedLoss(f::Function, args::Tuple) = ParameterizedLoss(f, args, NamedTuple())
 ParameterizedLoss(f::Function, kwargs::NamedTuple) = ParameterizedLoss(f, (), kwargs)
 
-struct ExtraLoss <: LossSpec
-    f::Union{Function, Nothing}
+struct ExtraLoss{F} <: LossSpec
+    f::F
 end
 
 """
@@ -105,10 +106,10 @@ logging = LoggingLoss(
 )
 ```
 """
-struct LoggingLoss{L <: Union{LossSpec, PerTarget}, T <: Function}
+struct LoggingLoss{L <: Union{LossSpec, PerTarget}, E <: LossSpec, T <: Function, TM}
     loss_types::Vector{LossSpec}
     training_loss::L
-    extra_loss::LossSpec
+    extra_loss::E
     agg::T
     train_mode::Bool
 end
@@ -125,11 +126,11 @@ function LoggingLoss(;
     tl = _to_loss_spec(training_loss)
     el = _to_extra_loss_spec(extra_loss)
 
-    return LoggingLoss{typeof(tl), F}(lt, tl, el, agg, train_mode)
+    return LoggingLoss{typeof(tl), typeof(el), F, train_mode}(lt, tl, el, agg, train_mode)
 end
 
 
-_to_loss_spec(s::Symbol) = SymbolicLoss(s)
+_to_loss_spec(s::Symbol) = SymbolicLoss{s}(s)
 _to_loss_spec(f::Function) = _accepts_params(f) ? ParamLoss(f) : FunctionLoss(f)
 _to_loss_spec(ls::LossSpec) = ls
 
