@@ -6,8 +6,6 @@
 #
 # ## 1. Load Packages
 
-# Set project path and activate environment
-
 using EasyHybrid
 using AxisKeys
 using DimensionalData
