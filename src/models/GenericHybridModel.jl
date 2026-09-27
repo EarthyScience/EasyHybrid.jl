@@ -580,7 +580,7 @@ end
 @inline function _compute_target_loss(ŷ_i, y_i, nan_i, ::Val{:mse})
     if isnothing(nan_i)
         return mean(abs2, ŷ_i .- y_i)
-    elseif nan_i isa AbstractArray{Bool} || nan_i isa BitArray
+    elseif nan_i isa AbstractArray{Bool}
         diff_sq = abs2.(ŷ_i .- y_i)
         return sum(diff_sq .* nan_i) / sum(nan_i)
     else
@@ -591,7 +591,7 @@ end
 @inline function _compute_target_loss(ŷ_i, y_i, nan_i, ::Val{:mae})
     if isnothing(nan_i)
         return mean(abs, ŷ_i .- y_i)
-    elseif nan_i isa AbstractArray{Bool} || nan_i isa BitArray
+    elseif nan_i isa AbstractArray{Bool}
         diff_abs = abs.(ŷ_i .- y_i)
         return sum(diff_abs .* nan_i) / sum(nan_i)
     else
