@@ -1,6 +1,6 @@
 using ForwardDiff
 # using Mooncake
-# using Enzyme
+using Enzyme
 
 @testset "autodiff backends" verbose = true begin
     df = make_synth_df(32)  # keep it small/fast
@@ -19,7 +19,7 @@ using ForwardDiff
     ka = prepare_data(model, df)
 
     _BACKENDS_SPEC = (
-        ("EnzymeConst",  AutoEnzyme(; function_annotation = Enzyme.Const)),
+        ("EnzymeConst", AutoEnzyme(; function_annotation = Enzyme.Const)),
         ("ForwardDiff", AutoForwardDiff()),
         # ("Mooncake", AutoMooncake(; config = nothing)), # ? it needs special rrules
         ("Zygote", AutoZygote()),
