@@ -10,17 +10,6 @@ function collect_dim_data(x::T, y, cfg) where {T}
     return ((x_col, forcing_nt), (targets_nt, masks_nt)) |> cfg.gdev
 end
 
-@inline function _resolve_autodiff_backend(backend::Lux.AutoEnzyme{Nothing, F}) where {F}
-    EnzymeMod = get(Base.loaded_modules, Base.PkgId(Base.UUID("7da242da-08ed-463a-9acd-ee780be4f1d9"), "Enzyme"), nothing)
-    if EnzymeMod !== nothing
-        fa = F === Nothing ? EnzymeMod.Const : F
-        return Lux.AutoEnzyme(;
-            mode = EnzymeMod.set_runtime_activity(EnzymeMod.Reverse),
-            function_annotation = fa
-        )
-    end
-    return backend
-end
 @inline _resolve_autodiff_backend(backend) = backend
 
 function run_epoch!(loader, model, ps, st, train_state, cfg::TrainConfig)
