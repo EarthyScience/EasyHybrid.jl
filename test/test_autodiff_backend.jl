@@ -6,7 +6,6 @@ using Random
 using DataFrames
 using Statistics
 
-Enzyme.API.strictAliasing!(false)
 
 @isdefined(make_synth_df) || function make_synth_df(n::Int = 64; seed::Int = 42)
     rng = MersenneTwister(seed)
@@ -39,7 +38,7 @@ end
     ka = prepare_data(model, df)
 
     _BACKENDS_SPEC = (
-        ("EnzymeConst", AutoEnzyme(; mode = Enzyme.set_runtime_activity(Enzyme.Reverse), function_annotation = Enzyme.Const)),
+        ("EnzymeConst", AutoEnzyme()),
         ("ForwardDiff", AutoForwardDiff()),
         # ("Mooncake", AutoMooncake(; config = nothing)), # ? it needs special rrules
         ("Zygote", AutoZygote()),
