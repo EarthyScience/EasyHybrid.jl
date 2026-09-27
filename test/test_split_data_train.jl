@@ -151,7 +151,7 @@ const RbQ10_PARAMS = (
             plotting = false,
             show_progress = false,
             keep_history = true,
-            hybrid_name = "keep_history_1"
+            model_name = "keep_history_1"
         )
         out_2 = train(
             model, ka, ();
@@ -160,7 +160,7 @@ const RbQ10_PARAMS = (
             plotting = false,
             show_progress = false,
             keep_history = false,
-            hybrid_name = "keep_history_2"
+            model_name = "keep_history_2"
         )
         @test length(out_1.epoch_history) == 6 # 5 epochs + initial values
         @test length(out_2.epoch_history) == 1
