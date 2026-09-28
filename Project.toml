@@ -47,9 +47,6 @@ Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 
-[sources]
-LuxZarr = {rev = "main", url = "https://github.com/LuxDL/LuxZarr.jl.git"}
-
 [extensions]
 EasyHybridEnzymeExt = "Enzyme"
 EasyHybridMakie = "Makie"
@@ -75,6 +72,7 @@ LinearAlgebra = "1.10.11, 1.12.0"
 Logging = "1"
 Lux = "1.21.1"
 LuxCore = "1.2.4"
+LuxZarr = "0.1.0"
 MLJ = "0.20, 0.21, 0.22, 0.23"
 MLUtils = "0.4.8"
 Makie = "0.24"
