@@ -34,7 +34,7 @@ A hybrid model in `EasyHybrid.jl` integrates:
 - `src/config/`: Configuration structs (`TrainingConfig`, `DataConfig`, `TrainingPaths`) and YAML serialization.
 - `src/io/`: Checkpoint management, model serialization (`JLD2.jl`), path resolvers.
 - `src/utils/`: Macro helpers (`@hybrid`), weight extraction, cross-validation helpers.
-- `ext/`: Package extensions (e.g., `EasyHybridMakie.jl` for Makie.jl plotting recipes and themes).
+- `ext/`: Package extensions (`EasyHybridMakie.jl` for Makie.jl plotting recipes, `EasyHybridEnzymeExt.jl` for Enzyme.jl autodiff support).
 - `test/`: Test suites executed by `runtests.jl`.
 - `tools/`:
   - `tools/formatter/`: Code formatting via [Runic.jl](https://github.com/fredrikekre/Runic.jl).

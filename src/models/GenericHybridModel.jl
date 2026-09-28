@@ -578,7 +578,29 @@ end
 end
 
 @inline function _compute_target_loss(ŷ_i, y_i, nan_i, ::Val{:mse})
-    return mean(abs2, ŷ_i[nan_i] .- y_i[nan_i])
+    if isnothing(nan_i)
+        return mean(abs2, ŷ_i .- y_i)
+    elseif nan_i isa AbstractArray{Bool}
+        diff_sq = abs2.(ŷ_i .- y_i)
+        return sum(diff_sq .* nan_i) / sum(nan_i)
+    else
+        return mean(abs2, ŷ_i[nan_i] .- y_i[nan_i])
+    end
+end
+
+@inline function _compute_target_loss(ŷ_i, y_i, nan_i, ::Val{:mae})
+    if isnothing(nan_i)
+        return mean(abs, ŷ_i .- y_i)
+    elseif nan_i isa AbstractArray{Bool}
+        diff_abs = abs.(ŷ_i .- y_i)
+        return sum(diff_abs .* nan_i) / sum(nan_i)
+    else
+        return mean(abs, ŷ_i[nan_i] .- y_i[nan_i])
+    end
+end
+
+@inline function _compute_target_loss(ŷ_i, y_i, nan_i, ::Val{:rmse})
+    return sqrt(_compute_target_loss(ŷ_i, y_i, nan_i, Val(:mse)))
 end
 
 @inline function _compute_target_loss(ŷ_i, y_i, nan_i, ::Val{S}) where {S}
@@ -594,6 +616,27 @@ end
     return _select_time(ŷ_t, _dim_keys(y_t, :time))
 end
 @inline _align_target_ŷ(ŷ_t, y_t) = ŷ_t
+
+@generated function _evaluate_fused_loss(
+        y_pred::NamedTuple, y::NamedTuple, y_nan::NamedTuple, ::Val{TG}, ::Val{S}, agg
+    ) where {TG, S}
+    isempty(TG) && return :(agg(()))
+    exprs = Expr[]
+    for t in TG
+        qt = QuoteNode(t)
+        push!(
+            exprs, :(
+                _compute_target_loss(
+                    _align_target_ŷ(getproperty(y_pred, $qt), getproperty(y, $qt)),
+                    getproperty(y, $qt),
+                    getproperty(y_nan, $qt),
+                    Val{$(QuoteNode(S))}()
+                )
+            )
+        )
+    end
+    return :(agg(tuple($(exprs...))))
+end
 
 @inline function _evaluate_fused_loss(
         y_pred, y, y_nan, ::Val{TG}, ::Val{S}, agg
@@ -655,7 +698,7 @@ end
         st_nn = st.st_nn
     else
         nn_out, st_nn = LuxCore.apply(m.NNs, ds_k[1], getproperty(ps, :ps), st.st_nn)
-        slices = eachslice(nn_out, dims = 1)
+        slices = ntuple(i -> selectdim(nn_out, 1, i), Val(length(NP)))
     end
     y_pred = _call_mechanistic_unrolled(
         m.mechanistic_model, Val(KW), Val(NP), Val(GP), Val(FP),

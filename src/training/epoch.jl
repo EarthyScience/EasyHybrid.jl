@@ -10,15 +10,18 @@ function collect_dim_data(x::T, y, cfg) where {T}
     return ((x_col, forcing_nt), (targets_nt, masks_nt)) |> cfg.gdev
 end
 
+@inline _resolve_autodiff_backend(backend) = backend
+
 function run_epoch!(loader, model, ps, st, train_state, cfg::TrainConfig)
     loss_fn = build_loss_fn(model, cfg)
+    ad_backend = _resolve_autodiff_backend(cfg.autodiff_backend)
     for (x, y) in loader
         (x_col, y_col) = collect_dim_data(x, y, cfg)
         if isemptybatch(y_col[2])
             continue
         end
         _, _, _, train_state = Lux.Training.single_train_step!(
-            cfg.autodiff_backend,
+            ad_backend,
             loss_fn,
             (x_col, y_col),
             train_state;

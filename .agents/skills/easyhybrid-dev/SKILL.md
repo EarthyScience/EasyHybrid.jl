@@ -37,6 +37,7 @@ This skill guides you through developing and debugging components in `EasyHybrid
   - `extract_weights.jl`, `wrap_tuples.jl`, `helpers_cross_validation.jl`.
 - **`ext/`**:
   - `EasyHybridMakie.jl`, `HybridTheme.jl`, `recipes/`: Makie plotting recipes.
+  - `EasyHybridEnzymeExt.jl`: Enzyme.jl autodiff support extension.
 - **`test/`**:
   - `runtests.jl` and individual test files for each component.
 
