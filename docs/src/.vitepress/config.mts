@@ -98,6 +98,7 @@ export default defineConfig({
     },
     nav,
     sidebar: 'REPLACE_ME_DOCUMENTER_VITEPRESS',
+    sidebarDrawer: 'REPLACE_ME_DOCUMENTER_VITEPRESS_SIDEBAR_DRAWER',
     editLink: 'REPLACE_ME_DOCUMENTER_VITEPRESS',
     socialLinks: [
       // setup empty, so that padding is reserved for the user to add their own, or add more links if they want.
