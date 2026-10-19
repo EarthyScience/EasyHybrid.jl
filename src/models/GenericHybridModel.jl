@@ -416,9 +416,9 @@ function _run_nn(m::HybridModel{<:Any, <:NamedTuple}, ds_k::Tuple, ps, st)
 
     scaled_vals = Tuple(
         begin
-                val = eachslice(nn_outputs[nn_name]; dims = 1)[1]
-                m.scale_nn_outputs ? scale_single_param(param_name, val, m.parameters) : val
-            end
+            val = eachslice(nn_outputs[nn_name]; dims = 1)[1]
+            m.scale_nn_outputs ? scale_single_param(param_name, val, m.parameters) : val
+        end
             for (nn_name, param_name) in zip(keys(m.NNs), m.neural_param_names)
     )
     scaled_nn_params = NamedTuple{Tuple(m.neural_param_names)}(scaled_vals)

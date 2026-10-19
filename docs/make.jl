@@ -31,6 +31,7 @@ if !isempty(jl_files)
                 Literate.notebook(inpath, nb_target; execute = false, documenter = false, credit = false, preprocess = notebook_preprocess)
             end
         end
+        return
     end
     render_tree(joinpath(literate_root, "tutorials"), joinpath(src_root, "tutorials"), joinpath(notebook_outroot, "tutorials"))
     render_tree(joinpath(literate_root, "research"), joinpath(src_root, "research"), joinpath(notebook_outroot, "research"))

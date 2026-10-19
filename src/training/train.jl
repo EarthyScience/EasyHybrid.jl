@@ -367,10 +367,10 @@ end
 function styled_values(nt; digits = 5, color = nothing, paddings = nothing)
     formatted = [
         begin
-                value_str = @sprintf("%.*f", digits, v)
-                padded = isnothing(paddings) ? value_str : rpad(value_str, paddings[i])
-                isnothing(color) ? padded : styled"{$color:$padded}"
-            end
+            value_str = @sprintf("%.*f", digits, v)
+            padded = isnothing(paddings) ? value_str : rpad(value_str, paddings[i])
+            isnothing(color) ? padded : styled"{$color:$padded}"
+        end
             for (i, v) in enumerate(values(nt))
     ]
     return join(formatted, "  ")
