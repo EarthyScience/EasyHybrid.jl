@@ -5,6 +5,8 @@
 # This example demonstrates how to use EasyHybrid to train a hybrid model
 # on synthetic data for respiration modeling with Q10 temperature sensitivity.
 #
+#md # [![Jupyter notebook](https://img.shields.io/badge/Jupyter-notebook-F37626?logo=jupyter)](https://github.com/EarthyScience/EasyHybrid.jl/blob/gh-pages/dev/notebooks/research/synthetic_respiration.ipynb)
+#md #
 
 using EasyHybrid
 

@@ -4,6 +4,8 @@
 # Previously, users defined bespoke structs (like `LinearHM`, `RespirationRbQ10`) for different configurations.
 # Here we demonstrate how those legacy model architectures can be trivially constructed via `HybridModel`.
 #
+#md # [![Jupyter notebook](https://img.shields.io/badge/Jupyter-notebook-F37626?logo=jupyter)](https://github.com/EarthyScience/EasyHybrid.jl/blob/gh-pages/dev/notebooks/tutorials/building_models.ipynb)
+#md #
 # ## Setup
 # First, let's load our required packages:
 using EasyHybrid
