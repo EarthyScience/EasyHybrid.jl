@@ -3,6 +3,8 @@ using EasyHybrid
 using Documenter, DocumenterVitepress
 literate_root = joinpath(@__DIR__, "literate")
 notebook_root = joinpath(@__DIR__, "notebooks")
+# files under src/public are copied verbatim to the site root, e.g. gh-pages:dev/notebooks/...
+notebook_outroot = joinpath(@__DIR__, "src", "public", "notebooks")
 
 jl_files = isdir(literate_root) ?
     [joinpath(root, f) for (root, _, files) in walkdir(literate_root) for f in files if endswith(f, ".jl")] :
@@ -30,8 +32,8 @@ if !isempty(jl_files)
             end
         end
     end
-    render_tree(joinpath(literate_root, "tutorials"), joinpath(src_root, "tutorials"), joinpath(notebook_root, "tutorials"))
-    render_tree(joinpath(literate_root, "research"), joinpath(src_root, "research"), joinpath(notebook_root, "research"))
+    render_tree(joinpath(literate_root, "tutorials"), joinpath(src_root, "tutorials"), joinpath(notebook_outroot, "tutorials"))
+    render_tree(joinpath(literate_root, "research"), joinpath(src_root, "research"), joinpath(notebook_outroot, "research"))
 end
 
 # -----------------------------------------------------------------------------

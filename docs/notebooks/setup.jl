@@ -21,7 +21,7 @@ isdefined(Base, :__EH_REQUIRE_WORLD) || let world = Base.get_world_counter()
                     if name == "EasyHybrid"
                         start = dirname(something(active_project(), pwd()))
                         root = nothing
-                        for n in 0:3
+                        for n in 0:5
                             cand = normpath(joinpath(start, (".." for _ in 1:n)...))
                             f = joinpath(cand, "Project.toml")
                             isfile(f) && occursin("name = \"EasyHybrid\"", read(f, String)) && (root = cand; break)

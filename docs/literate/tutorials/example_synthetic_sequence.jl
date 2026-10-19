@@ -2,8 +2,10 @@
 #
 # This tutorial demonstrates how to use EasyHybrid to train a hybrid model with sequence
 # neural networks (LSTMs and Transformers) on synthetic data for respiration modeling with Q10 temperature sensitivity.
-# The code for this tutorial can be found in [docs/src/literate/tutorials](https://github.com/EarthyScience/EasyHybrid.jl/tree/main/docs/src/literate/tutorials/) => example_synthetic_sequence.jl.
+# The code for this tutorial can be found in [docs/literate/tutorials](https://github.com/EarthyScience/EasyHybrid.jl/tree/main/docs/literate/tutorials/) => example_synthetic_sequence.jl.
 #
+#md # [![Jupyter notebook](https://img.shields.io/badge/Jupyter-notebook-F37626?logo=jupyter)](https://github.com/EarthyScience/EasyHybrid.jl/blob/gh-pages/dev/notebooks/tutorials/example_synthetic_sequence.ipynb)
+#md #
 # ## 1. Load Packages
 
 using EasyHybrid
