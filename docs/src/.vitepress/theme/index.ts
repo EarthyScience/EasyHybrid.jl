@@ -19,7 +19,9 @@ import Authors from '@/Authors.vue'
 import LayoutContainer from '@/LayoutContainer.vue' 
 import Footer from '@/Footer.vue'
 
+import SidebarDrawerToggle from '@/SidebarDrawerToggle.vue'
 import { enhanceAppWithTabs } from 'vitepress-plugin-tabs/client'
+// __DV_PLUGIN_COMPONENT_IMPORTS__
 
 import '@nolebase/vitepress-plugin-enhanced-readabilities/client/style.css'
 import './style.css'
@@ -39,6 +41,8 @@ export const Theme: ThemeConfig = {
           h(NolebaseEnhancedReadabilitiesMenu), // Enhanced Readabilities menu
         ],
         'nav-screen-content-after': () => h(NolebaseEnhancedReadabilitiesScreenMenu),
+        // Sidebar drawer toggle button (to the left of search bar)
+        'nav-bar-content-before': () => h(SidebarDrawerToggle),
         'doc-bottom': () => h(Footer), // maybe?, the behaviour is not perfect
         'layout-bottom': () => {
           const { frontmatter } = useData()
@@ -52,6 +56,7 @@ export const Theme: ThemeConfig = {
     app.component('VersionPicker', VersionPicker);
     app.component('AuthorBadge', AuthorBadge)
     app.component('Authors', Authors)
+    // __DV_PLUGIN_COMPONENT_REGISTRATIONS__
   }
 }
 export default Theme

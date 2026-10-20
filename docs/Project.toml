@@ -22,5 +22,5 @@ EasyHybrid = {path = ".."}
 
 [compat]
 Documenter = "1"
-DocumenterVitepress = "0.3"
+DocumenterVitepress = "0.3.8"
 Enzyme = "0.13"

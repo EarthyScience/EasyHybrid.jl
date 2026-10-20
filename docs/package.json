@@ -10,7 +10,7 @@
     "docs:preview": "vitepress preview build/.documenter"
   },
   "dependencies": {
-    "@nolebase/vitepress-plugin-enhanced-readabilities": "^2.18.2",
+    "@nolebase/vitepress-plugin-enhanced-readabilities": "~2.18.2",
     "markdown-it": "^14.1.0",
     "markdown-it-footnote": "^4.0.0",
     "@mdit/plugin-mathjax": "^0.26.1",
