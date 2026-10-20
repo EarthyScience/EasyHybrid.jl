@@ -33,7 +33,7 @@ A hybrid model in `EasyHybrid.jl` integrates:
   - `loaders.jl`: Data loader utilities.
 - `src/config/`: Configuration structs (`TrainingConfig`, `DataConfig`, `TrainingPaths`) and YAML serialization.
 - `src/io/`: Checkpoint management, model serialization (`JLD2.jl`), path resolvers.
-- `src/utils/`: Macro helpers (`@hybrid`), weight extraction, cross-validation helpers.
+- `src/utils/`: Macro helpers (`@hybrid`), weight extraction, cross-validation helpers, FLUXNET Shuttle data loading (`fluxnet_shuttle.jl`: `fluxnet_shuttle_zip`, `load_fluxnet_shuttle`), FLUXNET feature engineering helpers (`fluxnet_feature_engineering.jl`: `nan`, `fillgaps`, `moving`, `moving_slope`, `soil_bucket`, `esat`, `flux_features`).
 - `ext/`: Package extensions (`EasyHybridMakie.jl` for Makie.jl plotting recipes, `EasyHybridEnzymeExt.jl` for Enzyme.jl autodiff support).
 - `test/`: Test suites executed by `runtests.jl`.
 - `tools/`:

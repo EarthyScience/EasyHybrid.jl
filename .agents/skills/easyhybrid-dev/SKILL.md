@@ -35,10 +35,11 @@ This skill guides you through developing and debugging components in `EasyHybrid
 - **`src/utils/`**:
   - `macro_hybrid.jl`: `@hybrid` macro.
   - `extract_weights.jl`, `wrap_tuples.jl`, `helpers_cross_validation.jl`.
+  - `fluxnet_shuttle.jl`: FLUXNET Shuttle data loading (`fluxnet_shuttle_zip`, `load_fluxnet_shuttle`) from the ICOS Carbon Portal.
+  - `fluxnet_feature_engineering.jl`: gap filling and moving-window helpers (`nan`, `fillgaps`, `moving`, `moving_slope`), `soil_bucket`, `esat`, and `flux_features` (predictors of the NEE partitioning example).
 - **`ext/`**:
   - `EasyHybridMakie.jl`, `HybridTheme.jl`, `recipes/`: Makie plotting recipes.
-  - `EasyHybridEnzymeExt.jl`: Enzyme.jl autodiff support extension.
-- **`test/`**:
+  - `EasyHybridEnzymeExt.jl`: Enzyme.jl autodiff support extension.- **`test/`**:
   - `runtests.jl` and individual test files for each component.
 
 ---
