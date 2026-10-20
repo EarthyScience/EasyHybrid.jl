@@ -22,16 +22,27 @@ params_linear = (
 )
 
 # ### HybridModel Construction
-# We use `x` as forcing data, predict `α` with a neural network based on some predictors `a` and `b`,
+# We use `x` as forcing data, predict `α` with a neural network based on predictors `a` and `b`,
 # and leave `β` as a globally optimized constant parameter.
+#
+# We can construct this model either with the declarative `@hybrid` macro:
+lhm = @hybrid begin
+    mechanistic = linear_mechanistic
+    targets = :obs
+    forcing = :x
+    neural = [:a, :b] => :α
+    parameters = params_linear
+    hidden_layers = [4, 4]
+    activation = tanh
+end
+
+# Or with the functional `constructHybridModel` following the physics-first argument order:
 lhm = constructHybridModel(
-    [:a, :b],          # predictors for the NN (predicts α)
-    [:x],              # forcing variable
-    [:obs],            # targets
-    linear_mechanistic, # our mechanistic model
-    params_linear,     # parameter container
-    [:α],              # parameters predicted by the NN
-    [:β];              # globally optimized constant parameters
+    linear_mechanistic, # mechanistic model
+    :obs,               # targets
+    :x,                 # forcing variable
+    [:a, :b] => :α,     # neural mapping (predictors => predicted parameter)
+    params_linear;      # parameter container (global parameter β is auto-inferred)
     hidden_layers = [4, 4],
     activation = tanh
 )
@@ -54,16 +65,14 @@ params_rbq10 = (
 )
 
 # ### HybridModel Construction
-m_rbq10 = constructHybridModel(
-    [:SWC, :TA], # predictors for Rb
-    [:Temp],     # forcing variable
-    [:R_soil],   # targets
-    mRbQ10,      # mechanistic model
-    params_rbq10,
-    [:Rb],       # predicted by NN
-    [:Q10];      # globally optimized
+m_rbq10 = @hybrid begin
+    mechanistic = mRbQ10
+    targets = :R_soil
+    forcing = [:Temp]
+    neural = [:SWC, :TA] => :Rb
+    parameters = params_rbq10
     hidden_layers = [8, 8]
-)
+end
 
 
 # ## 3. Respiration Components
@@ -89,16 +98,14 @@ params_rs_comp = (
 )
 
 # ### HybridModel Construction
-m_rs_comp = constructHybridModel(
-    [:SWC, :TA],  # predictors for all 3 Rb parameters
-    [:Temp],
-    [:R_soil],
-    rs_comp,
-    params_rs_comp,
-    [:Rb_het, :Rb_root, :Rb_myc],
-    [:Q10_het, :Q10_root, :Q10_myc];
+m_rs_comp = @hybrid begin
+    mechanistic = rs_comp
+    targets = :R_soil
+    forcing = [:Temp]
+    neural = [:SWC, :TA] => [:Rb_het, :Rb_root, :Rb_myc]
+    parameters = params_rs_comp
     hidden_layers = [16, 16]
-)
+end
 
 
 # ## 4. Flux Partitioning with Multiple NNs
@@ -120,23 +127,20 @@ params_flux = (
 )
 
 # ### HybridModel Construction
-# By passing a `NamedTuple` to `predictors`, `HybridModel` automatically provisions
+# By passing a `NamedTuple` to `neural`/`predictors`, `HybridModel` automatically provisions
 # an independent Neural Network for each key.
-predictors_multi = (
-    RUE = [:SWC, :TA, :SW_IN],
-    Rb = [:SWC, :TA],
-)
-
-m_flux = constructHybridModel(
-    predictors_multi, # Triggers Multi-NN construction
-    [:SW_IN, :TA],    # Forcing variables
-    [:NEE],           # Targets
-    flux_part,        # Mechanistic model
-    params_flux,
-    [:Q10];           # Global parameter
-    hidden_layers = (RUE = [8, 8], Rb = [4, 4]), # Custom architectures per NN
+m_flux = @hybrid begin
+    mechanistic = flux_part
+    targets = [:NEE]
+    forcing = [:SW_IN, :TA]
+    neural = (
+        RUE = [:SWC, :TA, :SW_IN],
+        Rb = [:SWC, :TA],
+    )
+    parameters = params_flux
+    hidden_layers = (RUE = [8, 8], Rb = [4, 4])
     activation = (RUE = Lux.sigmoid, Rb = tanh)
-)
+end
 
 
 # ## 5. Process-Based Model (Zero NNs)
@@ -149,16 +153,14 @@ function mRbQ10_0(; Temp, Rb, Q10)
 end
 
 # ### HybridModel Construction
-# Passing an empty `Symbol[]` array to `predictors` prevents any Neural Networks from being created.
-m_pbm = constructHybridModel(
-    Symbol[],      # No predictors -> No Neural Network
-    [:Temp],       # Forcing
-    [:R_soil],     # Target
-    mRbQ10_0,
-    params_rbq10,
-    Symbol[],      # No neural params
-    [:Rb, :Q10]    # Both are optimized as global parameters
-)
+# Setting `neural = nothing` (or passing `nothing` in `constructHybridModel`) prevents any Neural Networks from being created.
+m_pbm = @hybrid begin
+    mechanistic = mRbQ10_0
+    targets = [:R_soil]
+    forcing = [:Temp]
+    neural = nothing
+    parameters = params_rbq10
+end
 
 # ## 6. Per-Parameter Scaling (`:linear`, `:log`, `:logit`)
 # Every optimizable parameter is mapped from an unconstrained value into its
@@ -190,17 +192,15 @@ params_scaled = (
 )
 
 # ### HybridModel Construction
-m_scaled = constructHybridModel(
-    [:SWC, :TA],   # predictors for CUE
-    [:Corg],       # forcing variable
-    [:flux],       # target
-    decomp,
-    params_scaled,
-    [:CUE],        # predicted by NN
-    [:k, :σ];      # globally optimized (with :log warp)
-    hidden_layers = [8, 8],
-    scale_nn_outputs = true,
-)
+m_scaled = @hybrid begin
+    mechanistic = decomp
+    targets = :flux
+    forcing = [:Corg]
+    neural = [:SWC, :TA] => :CUE
+    parameters = params_scaled
+    hidden_layers = [8, 8]
+    scale_nn_outputs = true
+end
 
 # The chosen warp is recorded per parameter and used for both initialization and
 # the forward pass; nothing else in your training code needs to change.

@@ -3,6 +3,7 @@ using Test
 
 # Include GenericHybridModel tests
 include("test_generic_hybrid_model.jl")
+include("test_macro_hybrid.jl")
 # Include SplitData tests
 include("test_split_data_train.jl")
 include("test_cv_test.jl")

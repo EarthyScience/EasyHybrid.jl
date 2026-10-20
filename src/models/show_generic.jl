@@ -152,7 +152,24 @@ function _show_hybrid_parameters(io::IO, hm::HybridModel)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", hm::HybridModel)
-    if hm.predictors isa NamedTuple
+    if isempty(hm.neural_param_names)
+        _print_header(io, "Hybrid Model (Zero NN / Process-Based)")
+        println(io)
+
+        # Configuration
+        _print_header(io, "Configuration:", color = :light_blue, bold = false)
+        _print_field(io, "mechanistic_model", hm.mechanistic_model, value_color = :light_blue)
+        _print_field(io, "targets", hm.targets)
+        _print_field(io, "forcing", hm.forcing)
+        _print_field(io, "global_param_names", hm.global_param_names, value_color = :green)
+        _print_field(io, "fixed_param_names", hm.fixed_param_names, value_color = :yellow)
+        _print_field(
+            io, "start_from_default", hm.start_from_default,
+            value_color = hm.start_from_default ? :green : :red
+        )
+        _print_field(io, "config", hm.config, value_color = :cyan)
+
+    elseif hm.predictors isa NamedTuple
         _print_header(io, "Hybrid Model (Multi NN)")
 
         # Neural networks
@@ -173,6 +190,10 @@ function Base.show(io::IO, ::MIME"text/plain", hm::HybridModel)
 
         # Configuration
         _print_header(io, "Configuration:", color = :light_blue, bold = false)
+        _print_field(io, "mechanistic_model", hm.mechanistic_model, value_color = :light_blue)
+        _print_field(io, "targets", hm.targets)
+        _print_field(io, "forcing", hm.forcing)
+        _print_field(io, "neural_param_names", hm.neural_param_names, value_color = :light_blue)
 
         # Predictors are per-network (NamedTuple)
         printstyled(io, "  predictors", color = :light_black)
@@ -184,6 +205,18 @@ function Base.show(io::IO, ::MIME"text/plain", hm::HybridModel)
             printstyled(io, preds, color = :cyan)
             println(io)
         end
+
+        _print_field(io, "global_param_names", hm.global_param_names, value_color = :green)
+        _print_field(io, "fixed_param_names", hm.fixed_param_names, value_color = :yellow)
+        _print_field(
+            io, "scale_nn_outputs", hm.scale_nn_outputs,
+            value_color = hm.scale_nn_outputs ? :green : :red
+        )
+        _print_field(
+            io, "start_from_default", hm.start_from_default,
+            value_color = hm.start_from_default ? :green : :red
+        )
+        _print_field(io, "config", hm.config, value_color = :cyan)
     else
         _print_header(io, "Hybrid Model (Single NN)")
 
@@ -192,24 +225,23 @@ function Base.show(io::IO, ::MIME"text/plain", hm::HybridModel)
         println(io)
 
         _print_header(io, "Configuration:", color = :light_blue, bold = false)
+        _print_field(io, "mechanistic_model", hm.mechanistic_model, value_color = :light_blue)
+        _print_field(io, "targets", hm.targets)
+        _print_field(io, "forcing", hm.forcing)
+        _print_field(io, "neural_param_names", hm.neural_param_names, value_color = :light_blue)
         _print_field(io, "predictors", hm.predictors)
+        _print_field(io, "global_param_names", hm.global_param_names, value_color = :green)
+        _print_field(io, "fixed_param_names", hm.fixed_param_names, value_color = :yellow)
+        _print_field(
+            io, "scale_nn_outputs", hm.scale_nn_outputs,
+            value_color = hm.scale_nn_outputs ? :green : :red
+        )
+        _print_field(
+            io, "start_from_default", hm.start_from_default,
+            value_color = hm.start_from_default ? :green : :red
+        )
+        _print_field(io, "config", hm.config, value_color = :cyan)
     end
-
-    _print_field(io, "forcing", hm.forcing)
-    _print_field(io, "targets", hm.targets)
-    _print_field(io, "mechanistic_model", hm.mechanistic_model, value_color = :light_blue)
-    _print_field(io, "neural_param_names", hm.neural_param_names, value_color = :light_blue)
-    _print_field(io, "global_param_names", hm.global_param_names, value_color = :green)
-    _print_field(io, "fixed_param_names", hm.fixed_param_names, value_color = :yellow)
-    _print_field(
-        io, "scale_nn_outputs", hm.scale_nn_outputs,
-        value_color = hm.scale_nn_outputs ? :green : :red
-    )
-    _print_field(
-        io, "start_from_default", hm.start_from_default,
-        value_color = hm.start_from_default ? :green : :red
-    )
-    _print_field(io, "config", hm.config, value_color = :cyan)
 
     println(io)
     _print_header(io, "Parameters:", color = :light_blue, bold = false)

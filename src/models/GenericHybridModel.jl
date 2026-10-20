@@ -112,20 +112,201 @@ function _warn_forcing_param_overlap(forcing, param_names)
 end
 
 """
-    constructHybridModel(predictors::Vector{Symbol}, forcing, targets, mechanistic_model, parameters, neural_param_names, global_param_names; kwargs...)
+    _to_symbol_vector(x)
 
-Construct a `HybridModel` with a single neural network architecture predicting all `neural_param_names` from the `predictors`.
-
-# Arguments:
-- `predictors::Vector{Symbol}`: Variables used as inputs to the neural network.
-- `forcing`: Variables passed directly to the mechanistic model.
-- `targets`: The target variables to predict.
-- `mechanistic_model`: A function implementing the process-based model.
-- `parameters`: A parameter container defining defaults, lowers, and uppers.
-- `neural_param_names`: Names of the parameters to be predicted by the neural network.
-- `global_param_names`: Names of the parameters to be globally optimized.
-- `kwargs`: Additional configuration like `hidden_layers`, `activation`, `scale_nn_outputs`, etc.
+Internal helper to normalize a Symbol, Vector, or Tuple into a `Vector{Symbol}`.
 """
+_to_symbol_vector(s::Symbol) = [s]
+_to_symbol_vector(v::Vector{Symbol}) = v
+_to_symbol_vector(t::Tuple) = [Symbol(x) for x in t]
+_to_symbol_vector(v::AbstractVector) = [Symbol(x) for x in v]
+_to_symbol_vector(::Nothing) = Symbol[]
+
+"""
+    constructHybridModel(
+        mechanistic_model,
+        targets,
+        forcing,
+        neural,
+        parameters,
+        global_param_names = nothing;
+        hidden_layers = [32, 32],
+        activation = tanh,
+        scale_nn_outputs = false,
+        input_batchnorm = false,
+        start_from_default = true,
+        fixed_param_names = nothing,
+        kwargs...
+    )
+
+Construct a `HybridModel` following a physics-first mental model:
+1. `mechanistic_model`: Process function `f(; forcing..., params...)`.
+2. `targets`: Target variable(s) (`Symbol`, `Vector{Symbol}`, or `Tuple`).
+3. `forcing`: Forcing variable(s) (`Symbol`, `Vector{Symbol}`, or `Tuple`).
+4. `neural`: Neural network parametrization specification:
+   - `Pair` (e.g. `[:in1, :in2] => [:p1, :p2]` or `[:in1] => :p1`): Single-NN architecture.
+   - `NamedTuple` (e.g. `(p1 = [:in1, :in2], p2 = [:in3])`): Multi-NN architecture.
+   - `nothing` or `Symbol[]`: Pure mechanistic model (zero NNs).
+5. `parameters`: `ParameterContainer` or `NamedTuple` defining parameter defaults and bounds.
+6. `global_param_names` (optional): Variables globally optimized. If `nothing`, automatically inferred from `parameters` excluding neural and forcing variables.
+
+# Keyword Arguments:
+- `hidden_layers`: Architecture for the hidden layers (Vector of Ints, Chain, or NamedTuple per NN).
+- `activation`: Activation function (e.g., `tanh`, `sigmoid`, `relu`, or NamedTuple per NN).
+- `scale_nn_outputs`: Whether to scale NN outputs to parameter bounds (default `false`).
+- `input_batchnorm`: Whether to apply batch normalization to NN inputs (default `false`).
+- `start_from_default`: Whether global parameters start from their default values (default `true`).
+- `fixed_param_names`: Explicit fixed parameters (default `nothing`, inferred automatically).
+"""
+function constructHybridModel(
+        mechanistic_model::Any,
+        targets::Union{AbstractVector, Tuple, Symbol},
+        forcing::Union{AbstractVector, Tuple, Symbol, Nothing},
+        neural::Union{Pair, NamedTuple, AbstractVector, Tuple, Nothing},
+        parameters::Union{ParameterContainer, NamedTuple},
+        global_param_names::Union{AbstractVector, Tuple, Symbol, Nothing} = nothing;
+        hidden_layers::Union{Vector{Int}, Chain, NamedTuple} = [32, 32],
+        activation::Union{Function, NamedTuple} = tanh,
+        scale_nn_outputs::Bool = false,
+        input_batchnorm::Bool = false,
+        start_from_default::Bool = true,
+        fixed_param_names::Union{AbstractVector, Tuple, Symbol, Nothing} = nothing,
+        kwargs...
+    )
+    if !isa(parameters, ParameterContainer)
+        parameters = ParameterContainer(parameters)
+    end
+
+    all_names = pnames(parameters)
+    tgt_vec = _to_symbol_vector(targets)
+    frc_vec = _to_symbol_vector(forcing)
+    _warn_forcing_param_overlap(frc_vec, all_names)
+
+    # 1. Multi-NN Architecture (neural is NamedTuple)
+    if neural isa NamedTuple
+        preds_nt = NamedTuple{keys(neural)}(Tuple(_to_symbol_vector(v) for v in values(neural)))
+        neural_param_names = collect(keys(preds_nt))
+
+        # Auto-infer or validate global & fixed params
+        if isnothing(global_param_names)
+            if fixed_param_names !== nothing
+                fp_vec = _to_symbol_vector(fixed_param_names)
+                gp_vec = [n for n in all_names if !(n in neural_param_names) && !(n in frc_vec) && !(n in fp_vec)]
+            else
+                gp_vec = [n for n in all_names if !(n in neural_param_names) && !(n in frc_vec)]
+                fp_vec = Symbol[]
+            end
+        else
+            gp_vec = _to_symbol_vector(global_param_names)
+            if fixed_param_names !== nothing
+                fp_vec = _to_symbol_vector(fixed_param_names)
+            else
+                fp_vec = [n for n in all_names if !(n in [neural_param_names..., gp_vec...]) && !(n in frc_vec)]
+            end
+        end
+
+        # Build sub-networks
+        NNs = NamedTuple()
+        for (nn_name, preds) in pairs(preds_nt)
+            in_dim = length(preds)
+            out_dim = 1
+            hl = hidden_layers isa NamedTuple ? hidden_layers[nn_name] : hidden_layers
+            act = activation isa NamedTuple ? activation[nn_name] : activation
+            nn = prepare_hidden_chain(hl, in_dim, out_dim; activation = act, input_batchnorm = input_batchnorm)
+            NNs = merge(NNs, NamedTuple{(nn_name,), Tuple{typeof(nn)}}((nn,)))
+        end
+
+        config = (;
+            hidden_layers,
+            activation,
+            scale_nn_outputs,
+            input_batchnorm,
+            start_from_default,
+            kwargs...,
+        )
+
+        return HybridModel(
+            NNs,
+            preds_nt,
+            frc_vec,
+            tgt_vec,
+            mechanistic_model,
+            parameters,
+            neural_param_names,
+            gp_vec,
+            fp_vec,
+            scale_nn_outputs,
+            start_from_default,
+            config
+        )
+
+        # 2. Single-NN Architecture or Zero-NN
+    else
+        if neural isa Pair
+            preds_vec = _to_symbol_vector(neural.first)
+            neural_param_names = _to_symbol_vector(neural.second)
+        elseif isnothing(neural) || (neural isa Union{AbstractVector, Tuple} && isempty(neural))
+            preds_vec = Symbol[]
+            neural_param_names = Symbol[]
+        else
+            throw(ArgumentError("`neural` must be a Pair (e.g. `[:in1] => [:p1]`), a NamedTuple, `nothing`, or `Symbol[]`. Got: $(typeof(neural))"))
+        end
+
+        @assert all(n in all_names for n in neural_param_names) "neural_param_names ⊆ param_names"
+
+        # Auto-infer or validate global & fixed params
+        if isnothing(global_param_names)
+            if fixed_param_names !== nothing
+                fp_vec = _to_symbol_vector(fixed_param_names)
+                gp_vec = [n for n in all_names if !(n in neural_param_names) && !(n in frc_vec) && !(n in fp_vec)]
+            else
+                gp_vec = [n for n in all_names if !(n in neural_param_names) && !(n in frc_vec)]
+                fp_vec = Symbol[]
+            end
+        else
+            gp_vec = _to_symbol_vector(global_param_names)
+            if fixed_param_names !== nothing
+                fp_vec = _to_symbol_vector(fixed_param_names)
+            else
+                fp_vec = [n for n in all_names if !(n in [neural_param_names..., gp_vec...]) && !(n in frc_vec)]
+            end
+        end
+
+        if length(preds_vec) > 0 && length(neural_param_names) > 0
+            in_dim = length(preds_vec)
+            out_dim = length(neural_param_names)
+            NN = prepare_hidden_chain(hidden_layers, in_dim, out_dim; activation = activation, input_batchnorm = input_batchnorm)
+        else
+            NN = Chain()
+        end
+
+        config = (;
+            hidden_layers,
+            activation,
+            scale_nn_outputs,
+            input_batchnorm,
+            start_from_default,
+            kwargs...,
+        )
+
+        return HybridModel(
+            NN,
+            preds_vec,
+            frc_vec,
+            tgt_vec,
+            mechanistic_model,
+            parameters,
+            neural_param_names,
+            gp_vec,
+            fp_vec,
+            scale_nn_outputs,
+            start_from_default,
+            config
+        )
+    end
+end
+
+# Legacy positional single-NN constructor
 function constructHybridModel(
         predictors::Vector{Symbol},
         forcing,
@@ -134,82 +315,20 @@ function constructHybridModel(
         parameters,
         neural_param_names,
         global_param_names;
-        hidden_layers::Union{Vector{Int}, Chain} = [32, 32],
-        activation = tanh,
-        scale_nn_outputs = false,
-        input_batchnorm = false,
-        start_from_default = true,
         kwargs...
     )
-
-    if !isa(parameters, ParameterContainer)
-        parameters = ParameterContainer(parameters)
-    end
-
-    all_names = pnames(parameters)
-    @assert all(n in all_names for n in neural_param_names) "neural_param_names ⊆ param_names"
-    _warn_forcing_param_overlap(forcing, all_names)
-
-    # if empty predictors do not construct NN
-    if length(predictors) > 0 && length(neural_param_names) > 0
-
-        in_dim = length(predictors)
-        out_dim = length(neural_param_names)
-
-        NN = prepare_hidden_chain(
-            hidden_layers, in_dim, out_dim;
-            activation = activation,
-            input_batchnorm = input_batchnorm
-        )
-    else
-        NN = Chain()
-    end
-
-    # Names also supplied as forcing are driven by data (forcing wins), so they are
-    # not treated as fixed parameters even though they carry a default/bounds.
-    forcing_names = Symbol.(forcing)
-    fixed_param_names = [ n for n in all_names if !(n in [neural_param_names..., global_param_names...]) && !(n in forcing_names) ]
-
-    # capture the configuration used for construction
-    config = (;
-        hidden_layers,
-        activation,
-        scale_nn_outputs,
-        input_batchnorm,
-        start_from_default,
-        kwargs...,
-    )
-
-    return HybridModel(
-        NN,
-        predictors,
-        forcing,
-        targets,
+    return constructHybridModel(
         mechanistic_model,
+        targets,
+        forcing,
+        predictors => neural_param_names,
         parameters,
-        neural_param_names,
-        global_param_names,
-        fixed_param_names,
-        scale_nn_outputs,
-        start_from_default,
-        config
+        global_param_names;
+        kwargs...
     )
 end
 
-"""
-    constructHybridModel(predictors::NamedTuple, forcing, targets, mechanistic_model, parameters, global_param_names; kwargs...)
-
-Construct a `HybridModel` with multiple neural network architectures. A separate neural network is built for each key in the `predictors` NamedTuple.
-
-# Arguments:
-- `predictors::NamedTuple`: A NamedTuple where keys are network names, and values are vectors of predictor variables for that network.
-- `forcing`: Variables passed directly to the mechanistic model.
-- `targets`: The target variables to predict.
-- `mechanistic_model`: A function implementing the process-based model.
-- `parameters`: A parameter container defining defaults, lowers, and uppers.
-- `global_param_names`: Names of the parameters to be globally optimized.
-- `kwargs`: Additional configuration. `hidden_layers` and `activation` can also be NamedTuples to configure each network independently.
-"""
+# Legacy positional multi-NN constructor
 function constructHybridModel(
         predictors::NamedTuple,
         forcing,
@@ -217,93 +336,54 @@ function constructHybridModel(
         mechanistic_model,
         parameters,
         global_param_names;
-        hidden_layers::Union{Vector{Int}, Chain, NamedTuple} = [32, 32],
-        activation::Union{Function, NamedTuple} = tanh,
-        scale_nn_outputs = false,
-        input_batchnorm = false,
-        start_from_default = true,
         kwargs...
     )
-
-    if !isa(parameters, ParameterContainer)
-        parameters = ParameterContainer(parameters)
-    end
-
-    all_names = pnames(parameters)
-    _warn_forcing_param_overlap(forcing, all_names)
-    neural_param_names = collect(keys(predictors))
-    # Create neural networks based on predictors
-    NNs = NamedTuple()
-    for (nn_name, preds) in pairs(predictors)
-        # Create a simple NN for each predictor set
-        in_dim = length(preds)
-        out_dim = 1
-        if hidden_layers isa NamedTuple
-            if activation isa NamedTuple
-                nn = prepare_hidden_chain(
-                    hidden_layers[nn_name], in_dim, out_dim;
-                    activation = activation[nn_name],
-                    input_batchnorm = input_batchnorm
-                )
-            else
-                nn = prepare_hidden_chain(
-                    hidden_layers[nn_name], in_dim, out_dim;
-                    activation = activation,
-                    input_batchnorm = input_batchnorm
-                )
-            end
-        else
-            nn = prepare_hidden_chain(
-                hidden_layers, in_dim, out_dim;
-                activation = activation,
-                input_batchnorm = input_batchnorm
-            )
-        end
-        NNs = merge(NNs, NamedTuple{(nn_name,), Tuple{typeof(nn)}}((nn,)))
-    end
-
-    # Names also supplied as forcing are driven by data (forcing wins), so they are
-    # not treated as fixed parameters even though they carry a default/bounds.
-    forcing_names = Symbol.(forcing)
-    fixed_param_names = [ n for n in all_names if !(n in [neural_param_names..., global_param_names...]) && !(n in forcing_names) ]
-
-    # capture the configuration used for construction
-    config = (;
-        hidden_layers,
-        activation,
-        scale_nn_outputs,
-        input_batchnorm,
-        start_from_default,
-        kwargs...,
-    )
-
-    return HybridModel(
-        NNs,
-        predictors,
-        forcing,
-        targets,
+    return constructHybridModel(
         mechanistic_model,
+        targets,
+        forcing,
+        predictors,
         parameters,
-        neural_param_names,
-        global_param_names,
-        fixed_param_names,
-        scale_nn_outputs,
-        start_from_default,
-        config
+        global_param_names;
+        kwargs...
     )
 end
 
+# Keyword-based constructor supporting both new and legacy keyword names
 function constructHybridModel(
-        ; predictors,
-        forcing,
-        targets,
-        mechanistic_model,
-        parameters,
+        ; mechanistic_model = nothing,
+        targets = nothing,
+        forcing = nothing,
+        neural = nothing,
+        parameters = nothing,
+        global_param_names = nothing,
+        predictors = nothing,
         neural_param_names = nothing,
-        global_param_names,
         kwargs...
     )
-    if predictors isa Vector{Symbol}
+    if mechanistic_model !== nothing && targets !== nothing && parameters !== nothing
+        neural_spec = if neural !== nothing
+            neural
+        elseif predictors isa NamedTuple
+            predictors
+        elseif predictors !== nothing && neural_param_names !== nothing
+            predictors => neural_param_names
+        elseif predictors !== nothing && isempty(predictors)
+            nothing
+        else
+            nothing
+        end
+
+        return constructHybridModel(
+            mechanistic_model,
+            targets,
+            forcing,
+            neural_spec,
+            parameters,
+            global_param_names;
+            kwargs...
+        )
+    elseif predictors isa Vector{Symbol}
         @assert neural_param_names !== nothing "Provide neural_param_names for Vector predictors"
         return constructHybridModel(
             predictors, forcing, targets, mechanistic_model, parameters,
@@ -315,7 +395,7 @@ function constructHybridModel(
             global_param_names; kwargs...
         )
     else
-        throw(ArgumentError("predictors must be Vector{Symbol} or NamedTuple, got $(typeof(predictors))"))
+        throw(ArgumentError("Invalid arguments for constructHybridModel. Please provide mechanistic_model, targets, forcing, neural/predictors, parameters."))
     end
 end
 
