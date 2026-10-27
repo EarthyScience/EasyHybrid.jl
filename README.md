@@ -74,6 +74,9 @@ $$
 where $\hat{y}$ denotes the predicted output of the hybrid model, $h(x;\theta)$ is a neural network with inputs $x$ and learnable parameters $\theta$, $z$ denotes forcing passed directly to the mechanistic model $\mathcal{M}(\cdot, z;\, \phi)$, which is parameterized by $\phi$. The parameters $\phi$ may be known, learned from data or fixed.
 
 
+[9-minute talk using EasyHybrid from JuliaCon 2026](https://pretalx.com/juliacon-2026/talk/DTEEQC/)
+
+
 ## Installation
 
 Since `EasyHybrid.jl` is registered in the Julia General registry, it is available through the Julia package manager. You can enter it by pressing `]` in the `REPL` and then typing `add EasyHybrid`. Alternatively, you can also do
