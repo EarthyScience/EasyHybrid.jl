@@ -74,7 +74,7 @@ makedocs(;
         "Research" => [
             "Overview" => "research/overview.md",
             "Synthetic Respiration" => "research/synthetic_respiration.md",
-            "FLUXNET Partitioning (DE-Hai)" => "research/fluxnet_partitioning.md",
+            "FLUXNET Partitioning (ES-LM1)" => "research/fluxnet_partitioning.md",
         ],
         "API" => "api.md",
     ],
