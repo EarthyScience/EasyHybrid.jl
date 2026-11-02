@@ -133,5 +133,3 @@ pred = hybrid_model(select(df, Not(:DateTime)), out.ps, out.st)
 
 daily = combine_flux_partition(raw, pred; scale = :daily)
 fig = plot_flux_partition(raw, pred; scale = :daily)
-
-

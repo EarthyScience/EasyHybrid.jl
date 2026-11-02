@@ -205,7 +205,7 @@ a `DateTime` column is aligned to `raw`; without one it must have the same row o
 `scale` is `:halfhourly`, `:hourly`, or `:daily` (`:hh`, `:hour`, `:day`, and those
 strings are accepted). Fluxes, temperature, and soil water are means of the finite
 values in each bin. Precipitation is the sum, so the bin width is the unit of `P`.
-Hourly bins group `TIMESTAMP_START` timestamps with [`Dates.floor`](@ref) to the hour.
+Hourly bins group `TIMESTAMP_START` timestamps with `Dates.floor` to the hour.
 The aggregated time is the column `time` (`Date` at daily scale, `DateTime` otherwise).
 
 # Example
@@ -486,4 +486,3 @@ function _aggregate_fluxes(frame::DataFrame, scale::Symbol)
     end
     return DataFrames.sort!(out, :time)
 end
-

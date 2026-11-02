@@ -36,7 +36,7 @@ using Dates: Dates, DateTime
     @test slope_at_max_x(x, y; min_x = 0, min_range = 0) ≈ (y[5] - quantile(y, 0.9)) / x[5]
     @test slope_at_max_x([1.0, NaN, 3.0, 4.0, 10.0], [0.0, 100.0, 2.0, 3.0, -5.0]; min_x = 0, min_range = 0) ≈
         slope_at_max_x([1.0, 3.0, 4.0, 10.0], [0.0, 2.0, 3.0, -5.0]; min_x = 0, min_range = 0)
-    @test isnan(slope_at_max_x([0.0, 0.0, 0.0, 1.7], [3.56, 2.0, 1.5, 1.30]))
+    @test isnan(slope_at_max_x([0.0, 0.0, 0.0, 1.7], [3.56, 2.0, 1.5, 1.3]))
     xhi = [0.0, 100.0, 400.0, 800.0]
     yhi = [2.0, 1.0, 0.0, -4.0]
     @test slope_at_max_x(xhi, yhi) ≈ (yhi[4] - quantile(yhi, 0.9)) / xhi[4]
