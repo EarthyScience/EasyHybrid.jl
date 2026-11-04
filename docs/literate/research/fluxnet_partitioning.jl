@@ -41,7 +41,6 @@ size(raw)
 # 200 W/m² or span less than 50 W/m². Pass `min_x = 0, min_range = 0` to keep them.
 
 df = flux_features(raw);
-df = flux_features(raw; min_x = 0, min_range = 0)
 first(df, 5)
 
 # ## Process-based Model
