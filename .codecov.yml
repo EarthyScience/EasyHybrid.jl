@@ -1,4 +1,9 @@
 comment: false
+codecov:
+  notify:
+    # Test jobs and the docs build each upload a report. Wait until those
+    # workflows finish so the status includes the documentation run.
+    wait_for_ci: true
 coverage:
   status:
     project:
