@@ -123,12 +123,12 @@ out = train(
 # pass builds one numeric matrix. Row order matches `raw`, and measured NEE is
 # read from `raw`.
 
-pred = hybrid_model(select(df, Not(:DateTime)), out.ps, out.st)
+pred = hybrid_model(select(df, Not(:DateTime)), out.ps, out.st);
 
 
 # [`plot_flux_partition`](@ref) shows the same series at daily and hourly scale.
 # Measured NEE uses QC-passed half-hours only, mostly daytime, so a daily mean
 # is biased toward uptake.
 
-daily = combine_flux_partition(raw, pred; scale = :daily)
+daily = combine_flux_partition(raw, pred; scale = :daily);
 fig = plot_flux_partition(raw, pred; scale = :daily)
