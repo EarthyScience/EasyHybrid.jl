@@ -33,8 +33,8 @@ A hybrid model in `EasyHybrid.jl` integrates:
   - `loaders.jl`: Data loader utilities.
 - `src/config/`: Configuration structs (`TrainingConfig`, `DataConfig`, `TrainingPaths`) and YAML serialization.
 - `src/io/`: Checkpoint management, model serialization (`JLD2.jl`), path resolvers.
-- `src/utils/`: Macro helpers (`@hybrid`), weight extraction, cross-validation helpers.
-- `ext/`: Package extensions (`EasyHybridMakie.jl` for Makie.jl plotting recipes, `EasyHybridEnzymeExt.jl` for Enzyme.jl autodiff support).
+- `src/utils/`: Macro helpers (`@hybrid`), weight extraction, cross-validation helpers, plotting stubs (`plotrecipes.jl`, including `combine_flux_partition` and `plot_flux_partition` / `plot_flux_partition!`), FLUXNET Shuttle data loading (`fluxnet_shuttle.jl`: `fluxnet_shuttle_zip`, `load_fluxnet_shuttle`), FLUXNET feature engineering helpers (`fluxnet_feature_engineering.jl`: `nan`, `fillgaps`, `moving`, `moving_slope`, `slope_at_max_x`, `soil_bucket`, `esat`, `flux_features`).
+- `ext/`: Package extensions (`EasyHybridMakie.jl` for Makie.jl plotting recipes, including `recipes/FluxPartitionPlot.jl`, `EasyHybridEnzymeExt.jl` for Enzyme.jl autodiff support).
 - `test/`: Test suites executed by `runtests.jl`.
 - `tools/`:
   - `tools/formatter/`: Code formatting via [Runic.jl](https://github.com/fredrikekre/Runic.jl).

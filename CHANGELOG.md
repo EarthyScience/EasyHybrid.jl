@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Added `combine_flux_partition` and `plot_flux_partition` / `plot_flux_partition!` for the FLUXNET NEE partition figure. Site observations and any number of hybrid outputs are aggregated at `:halfhourly`, `:hourly`, or `:daily`; measured NEE is a gap-filled line. `swc_caps = :all` draws every soil-water depth (1, 5, 25, 125 and 625 mm), and a single number draws that depth only.
 - Fix and update docs settings
 - Faster default `HybridModel` training without changing the user API. Mechanistic models stay keyword functions; the public `HybridModel` call still returns predictions, `parameters`, extras, and `nn_outputs`. On the synthetic RbQ10 example from the docs (neural `:rb`, global `:Q10`, hidden `[16, 16]`, sigmoid, `scale_nn_outputs=true`, `input_batchnorm=true`, batch 512) the training-loss gradient is about 3× faster than before (~1007 µs → ~315 µs) and about 1.17× a hand-written Lux model of the same math (was ~3×). `train` on 20 000 rows, 20 epochs, batch 512 goes from ~1.55 s to ~0.45 s. Only the default Vector `:mse` path (no `extra_loss`) is fused; the public forward is unchanged.
 - Default `train` keeps `NamedTuple` parameters from `Lux.setup`; a `ComponentArray` is used only for `AutoForwardDiff` and `Optimization.jl`. Whole-vector ops on `out.ps` (`length`, `norm`, `Array`) need `ComponentArray(ps)` first.
