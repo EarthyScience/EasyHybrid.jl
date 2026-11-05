@@ -114,6 +114,8 @@ out = train(
     patience = 30,
     shuffleobs = true,
     show_progress = false,
+    plotting = false,
+    save_training = false,
     model_name = "FluxPart_$(site)",
 )
 
