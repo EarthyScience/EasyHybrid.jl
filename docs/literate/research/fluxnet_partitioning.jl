@@ -150,7 +150,7 @@ diurnal = DataFrame(
     NEE_DT = (df.RECO_DT_VUT_USTAR50 .- df.GPP_DT_VUT_USTAR50)[qc],
     SW_IN = df.SW_IN[qc],
     SW_IN_POT = df.SW_IN_POT[qc],
-)
+);
 diurnal.RECO_NT = df.RECO_NT_VUT_USTAR50[qc]
 fig_diurnal = diurnalPlot(
     diurnal;
