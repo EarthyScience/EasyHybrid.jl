@@ -4,7 +4,7 @@
 - **Adding Functionality**: Whenever new modules, files, types, macros, or core workflows are introduced:
   - Update the Source Code Map in `AGENTS.md`.
   - Update relevant `.agents/rules/` and navigation maps in `.agents/skills/easyhybrid-dev/SKILL.md`.
-  - Add corresponding unit tests in `test/` and update `test/runtests.jl`.
+  - Add a corresponding unit test in `test/` and update `test/runtests.jl`, or use the change when building the documentation in `docs/`.
 - **Modifying or Deleting Functionality**: When refactoring, deprecating, or deleting code:
   - Remove or update references in `AGENTS.md`, `.agents/rules/`, and `.agents/skills/`.
   - Update or remove obsolete tests in `test/`.

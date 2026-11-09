@@ -12,7 +12,7 @@
   ```
 
 ## Regression & Feature Testing
-- Every bug fix or new feature must be accompanied by unit tests.
+- Every bug fix or new feature must include a corresponding unit test in `test/` (included in `test/runtests.jl`) or be used in building the documentation in `docs/`.
 - When creating tests for hybrid models, use minimal synthetic test datasets (`SyntheticTestData` or small matrices) to ensure tests execute quickly and reliably.
 - Verify both CPU forward/backward passes and type correctness in test suites.
 

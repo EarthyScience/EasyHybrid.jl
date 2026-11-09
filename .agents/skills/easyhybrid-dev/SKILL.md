@@ -68,4 +68,4 @@ When implementing changes or fixing issues:
    ```
 5. **Run & Add Tests**:
    - Run relevant test suite in `test/` or run all tests via `Pkg.test()`.
-   - Add unit tests for every bug fix or new feature.
+   - Every bug fix or new feature must include a corresponding unit test in `test/` (included in `test/runtests.jl`) or be used in building the documentation in `docs/`.
