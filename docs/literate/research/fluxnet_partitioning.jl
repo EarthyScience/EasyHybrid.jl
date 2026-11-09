@@ -9,6 +9,10 @@
 # Data from the [FLUXNET Shuttle](https://github.com/fluxnet/shuttle)
 # (ONEFlux v1.3, CC-BY-4.0).
 
+# using Pkg
+# Pkg.activate("/User/homes/bahrens/BGI/scratch/bahrens/projects/EasyHybrid_Xin/docs")
+# Pkg.develop(path = "/Net/Groups/BGI/scratch/bahrens/projects/EasyHybrid_Xin")
+
 using EasyHybrid
 using CairoMakie
 
@@ -117,7 +121,7 @@ out = train(
     plotting = false,
     save_training = false,
     model_name = "FluxPart_$(site)",
-)
+);
 
 # ## Partitioned Fluxes
 #
@@ -130,7 +134,27 @@ pred = hybrid_model(select(df, Not(:DateTime)), out.ps, out.st);
 
 # [`plot_flux_partition`](@ref) shows the same series at daily and hourly scale.
 # Measured NEE uses QC-passed half-hours only, mostly daytime, so a daily mean
-# is biased toward uptake.
+# is biased toward uptake. The time axis is ticked once a month, and the year
+# is written only in front of January.
 
-daily = combine_flux_partition(raw, pred; scale = :daily);
-fig = plot_flux_partition(raw, pred; scale = :daily)
+daily = combine_flux_partition(raw, pred; scale = :daily, labels = ["UN"]);
+fig = plot_flux_partition(raw, pred; scale = :daily, labels = ["UN"])
+
+# ## Diurnal cycle
+
+qc = isfinite.(df.NEE)
+diurnal = DataFrame(
+    DateTime = df.DateTime[qc],
+    NEE = df.NEE[qc],
+    NEE_hybrid = vec(pred.NEE_pred)[qc],
+    NEE_DT = (df.RECO_DT_VUT_USTAR50 .- df.GPP_DT_VUT_USTAR50)[qc],
+    SW_IN = df.SW_IN[qc],
+    SW_IN_POT = df.SW_IN_POT[qc],
+)
+diurnal.RECO_NT = df.RECO_NT_VUT_USTAR50[qc]
+fig_diurnal = diurnalPlot(
+    diurnal;
+    yvars = [:NEE, :NEE_hybrid, :NEE_DT, :RECO_NT],
+    obs = :NEE,
+    ylabel = "NEE [μmol m⁻² s⁻¹]",
+)

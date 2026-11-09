@@ -5,6 +5,7 @@ export timeseriesplot, timeseriesplot!
 export train_dashboard, update_step_dashboard!
 export build_dashboards, update_step_dashboards!
 export combine_flux_partition, plot_flux_partition, plot_flux_partition!
+export diurnal_cycle, diurnal_skill, diurnalPlot
 
 export cv_scatter
 
@@ -266,6 +267,9 @@ are the legend entries. Soil water is drawn as storage over bucket capacity, in 
 `swc_caps` selects those depths: `(25, 625)` by default, `:all` for 1, 5, 25, 125 and
 625 mm, or one number for a single depth.
 Precipitation is a bar of one bin width, labelled `mm/half-hour`, `mm/h`, or `mm/day`.
+The time axis has a tick on the first of each month inside the series. January is
+labelled with the year in front of the month (`2018 Jan`); every other month is
+the month abbreviation alone.
 
 Load a Makie backend first, for example `using CairoMakie`. The plain method returns
 the `Figure`. The `!` method draws into a figure cell or `GridLayout`, so several
@@ -292,6 +296,33 @@ function plot_flux_partition! end
 
 function plot_flux_partition!(args...; kwargs...)
     return @error("Please load `Makie.jl` (e.g. `using CairoMakie`) before calling `plot_flux_partition!`.")
+end
+
+_as_datetime(time::DateTime) = time
+_as_datetime(time::Dates.Date) = DateTime(time)
+
+# First of each month inside the series. A timestamp later on the 1st still
+# keeps that month, so a half-hour starting at 00:30 is ticked at midnight.
+function _month_ticks(time)
+    isempty(time) && return DateTime[], String[]
+    lo_dt = _as_datetime(minimum(time))
+    hi_dt = _as_datetime(maximum(time))
+    cursor = DateTime(year(lo_dt), Dates.month(lo_dt))
+    if cursor < lo_dt && Dates.Date(cursor) != Dates.Date(lo_dt)
+        cursor += Dates.Month(1)
+    end
+    stop = DateTime(year(hi_dt), Dates.month(hi_dt))
+    ticks = DateTime[]
+    while cursor <= hi_dt && cursor <= stop
+        push!(ticks, cursor)
+        cursor += Dates.Month(1)
+    end
+    return ticks, _month_ticklabel.(ticks)
+end
+
+function _month_ticklabel(time::DateTime)
+    abbr = Dates.monthabbr(Dates.month(time))
+    return Dates.month(time) == 1 ? string(year(time), " ", abbr) : abbr
 end
 
 function _normalize_scale(scale::Symbol)
@@ -485,4 +516,336 @@ function _aggregate_fluxes(frame::DataFrame, scale::Symbol)
         DataFrames.combine(DataFrames.groupby(work, :time), specs...; renamecols = false)
     end
     return DataFrames.sort!(out, :time)
+end
+
+"""
+    diurnal_cycle(df; time = :DateTime) -> DataFrame
+
+Mean of each numeric column by month and clock hour.
+
+`time` is a `DateTime` column. `Month` is that column's calendar month, or the
+integer `Month` column when the frame already has one. The two half-hours of a
+clock hour are averaged together. Non-finite values are left out of the mean.
+The result is sorted by `Month` and `hour`.
+
+# Example
+```julia
+cycle = diurnal_cycle(paired)
+```
+"""
+function diurnal_cycle(df::DataFrame; time::Symbol = :DateTime)
+    _require_column(df, time)
+    value_cols = _diurnal_value_columns(df)
+    isempty(value_cols) && throw(ArgumentError("diurnal_cycle found no numeric columns to average"))
+    work = DataFrame(Month = _month_numbers(df, time), hour = Dates.hour.(df[!, time]))
+    for col in value_cols
+        work[!, col] = df[!, col]
+    end
+    specs = [col => _finite_mean for col in value_cols]
+    out = DataFrames.combine(DataFrames.groupby(work, [:Month, :hour]), specs...; renamecols = false)
+    return DataFrames.sort!(out, [:Month, :hour])
+end
+
+"""
+    diurnal_skill(df; time = :DateTime, obs = :NEE, methods, sw_in = :SW_IN, sw_pot = :SW_IN_POT) -> DataFrame
+
+Pearson `r²`, bias ratio, and α of each series in `methods` against `obs`.
+
+Each pair is one row of `df`, a half-hour. The hourly means from [`diurnal_cycle`](@ref)
+are not used. Rows are the calendar month (`Month`), the method column name
+(`method`), and the window (`window`: `"night"`, `"midday"`, or `"day"`). `r2` is
+the square of the Pearson correlation. `beta` is the bias ratio `μ_method / μ_obs`.
+`alpha` is `σ_method / σ_obs`, the Kling–Gupta variability ratio. `n` is the number
+of finite pairs. A window with fewer than two pairs is `NaN`.
+
+Night is `sw_in <= 0`. Day is `sw_in >= 20`, every daytime half-hour. Midday is
+the four half-hours closest to that calendar day's maximum of `sw_pot`. Two
+half-hours at the same distance resolve to the earlier one.
+
+# Example
+```julia
+skill = diurnal_skill(paired; obs = :NEE, methods = [:NEE_hybrid, :NEE_NT, :NEE_DT])
+```
+"""
+function diurnal_skill(
+        df::DataFrame;
+        time::Symbol = :DateTime,
+        obs::Symbol = :NEE,
+        methods,
+        sw_in::Symbol = :SW_IN,
+        sw_pot::Symbol = :SW_IN_POT,
+    )
+    _require_column(df, time)
+    _require_column(df, obs)
+    _require_column(df, sw_in)
+    _require_column(df, sw_pot)
+    method_cols = Symbol.(collect(methods))
+    foreach(col -> _require_column(df, col), method_cols)
+    months = _month_numbers(df, time)
+    windows = _nee_windows(df[!, time], df[!, sw_in], df[!, sw_pot])
+    obs_v = Float64.(df[!, obs])
+    rows = NamedTuple[]
+    for month in sort(unique(months))
+        in_month = months .== month
+        for method in method_cols
+            pred_v = Float64.(df[!, method])
+            for window in (:night, :midday, :day)
+                skill = _ratio_skill(pred_v[in_month .& windows[window]], obs_v[in_month .& windows[window]])
+                push!(
+                    rows,
+                    (;
+                        Month = month,
+                        method = string(method),
+                        window = string(window),
+                        r2 = skill.r2,
+                        beta = skill.β,
+                        alpha = skill.α,
+                        n = skill.n,
+                    ),
+                )
+            end
+        end
+    end
+    return isempty(rows) ? _empty_diurnal_skill() : DataFrame(rows)
+end
+
+"""
+    diurnalPlot(df; yvars, obs = :NEE, time = :DateTime, sw_in = :SW_IN, sw_pot = :SW_IN_POT, ylabel = string(obs), size = (1680, 1200))
+
+Mean diurnal cycle of `yvars`, one panel per month, with `r²`, the bias ratio, and
+`α` annotated on each panel.
+
+The drawn lines are the [`diurnal_cycle`](@ref) means. Night, day, and midday are
+shaded. The numbers in each band are that month's [`diurnal_skill`](@ref) on the
+half-hours in the band, not on the mean curve: Pearson `r²`, the bias ratio, and
+`α` (`σ_method / σ_obs`) for every `yvars` column other than `obs`.
+Load a Makie backend first, for example `using CairoMakie`.
+
+`yvars` is a list of column names or a regular expression, as in the Fluxparti
+`diurnalPlot`.
+
+# Example
+```julia
+using CairoMakie
+fig = diurnalPlot(paired; yvars = [:NEE, :NEE_hybrid, :NEE_NT, :NEE_DT], obs = :NEE)
+```
+"""
+function diurnalPlot end
+
+function diurnalPlot(args...; kwargs...)
+    return @error("Please load `Makie.jl` (e.g. `using CairoMakie`) before calling `diurnalPlot`.")
+end
+
+function _require_column(df, name)
+    string(name) in names(df) || throw(ArgumentError("column $name is missing"))
+    return nothing
+end
+
+function _month_numbers(df, time)
+    col = "Month" in names(df) ? df.Month : Dates.month.(df[!, time])
+    eltype(col) <: Integer || throw(ArgumentError("Month must be an integer month number"))
+    return Int.(col)
+end
+
+function _diurnal_value_columns(df)
+    skip = Set(["Month", "hour"])
+    cols = String[]
+    for col in names(df)
+        col in skip && continue
+        eltype(df[!, col]) <: Union{Missing, Real} || continue
+        push!(cols, col)
+    end
+    return cols
+end
+
+function _diurnal_yvars(df, yvars::Regex)
+    cols = Symbol.(names(df, yvars))
+    isempty(cols) && throw(ArgumentError("no columns matched $yvars"))
+    return cols
+end
+
+function _diurnal_yvars(df, yvars)
+    cols = Symbol.(collect(yvars))
+    isempty(cols) && throw(ArgumentError("yvars is empty"))
+    foreach(col -> _require_column(df, col), cols)
+    return cols
+end
+
+_diurnal_label(col) = _diurnal_label(string(col))
+function _diurnal_label(name::AbstractString)
+    name == "NEE" && return "measured"
+    name in ("hybrid", "NEE_hybrid", "pred", "NEE_pred") && return "UN"
+    name == "RECO_NT" && return "RECO NT"
+    startswith(name, "NEE_") && return String(name[(length("NEE_") + 1):end])
+    return String(name)
+end
+
+function _diurnal_color(col, i)
+    label = _diurnal_label(col)
+    label == "measured" && return :green
+    label == "UN" && return :purple
+    label in ("NT", "RECO NT") && return :black
+    label == "DT" && return :orange
+    palette = [:purple, :teal, :brown, :magenta, :olivedrab, :gray]
+    return palette[mod1(i, length(palette))]
+end
+
+function _nee_windows(time, sw_in, sw_pot)
+    sw = Float64.(sw_in)
+    night = isfinite.(sw) .& (sw .<= 0)
+    day = isfinite.(sw) .& (sw .>= 20)
+    midday = _midday_mask(time, Float64.(sw_pot))
+    return (; night, day, midday)
+end
+
+function _midday_mask(time, pot)
+    mask = falses(length(time))
+    dates = Dates.Date.(time)
+    for d in unique(dates)
+        idx = findall(==(d), dates)
+        finite = findall(i -> isfinite(pot[idx[i]]), eachindex(idx))
+        isempty(finite) && continue
+        peak_local = finite[argmax(pot[idx[finite]])]
+        peak_time = time[idx[peak_local]]
+        order = sort(finite; by = j -> (abs(Dates.value(time[idx[j]] - peak_time)), time[idx[j]]))
+        take = order[1:min(4, length(order))]
+        mask[idx[take]] .= true
+    end
+    return mask
+end
+
+function _ratio_skill(pred, obs)
+    m = isfinite.(pred) .& isfinite.(obs)
+    n = count(m)
+    n < 2 && return (; r2 = NaN, β = NaN, α = NaN, n)
+    r = loss_fn(pred, obs, m, Val(:pearson))
+    β = loss_fn(pred, obs, m, Val(:β))
+    α = loss_fn(pred, obs, m, Val(:α))
+    return (; r2 = r * r, β, α, n)
+end
+
+function _empty_diurnal_skill()
+    return DataFrame(
+        Month = Int[],
+        method = String[],
+        window = String[],
+        r2 = Float64[],
+        beta = Float64[],
+        alpha = Float64[],
+        n = Int[],
+    )
+end
+
+_window_title(window) = window === :night ? "night" : window === :midday ? "midday" : "day"
+
+function _fmt_skill_cell(x)
+    isfinite(x) || return "    —"
+    return @sprintf("%5.2f", x)
+end
+
+# Pad by character count. Printf's `%s` width mis-counts `β`.
+_gap(s, w) = (n = w - length(string(s)); n > 0 ? " "^n : "")
+_pad_left(s, w) = _gap(s, w) * string(s)
+_pad_right(s, w) = string(s) * _gap(s, w)
+
+function _score_row(name, r2, beta, alpha; name_w = 4)
+    return _pad_right(name, name_w) * " " * _pad_left(r2, 5) * " " * _pad_left(beta, 5) * " " * _pad_left(alpha, 5)
+end
+
+function _window_annotation(skill::DataFrame, month, methods, window)
+    shown = Tuple{String, String, String, String}[]
+    for method in methods
+        hit = skill[
+            (skill.Month .== month) .& (skill.method .== string(method)) .& (skill.window .== string(window)),
+            :,
+        ]
+        isempty(hit) && continue
+        hit.n[1] < 2 && continue
+        string(method) == "RECO_NT" && window !== :night && continue
+        push!(
+            shown,
+            (
+                _diurnal_label(method),
+                _fmt_skill_cell(hit.r2[1]),
+                _fmt_skill_cell(hit.beta[1]),
+                _fmt_skill_cell(hit.alpha[1]),
+            ),
+        )
+    end
+    isempty(shown) && return ""
+    name_w = maximum(length(row[1]) for row in shown)
+    lines = String[_window_title(window), _score_row("", "r²", "β", "α"; name_w)]
+    for (name, r2, beta, alpha) in shown
+        push!(lines, _score_row(name, r2, beta, alpha; name_w))
+    end
+    return join(lines, "\n")
+end
+
+function _empty_diurnal_bands()
+    return (;
+        night = Tuple{Float64, Float64}[],
+        day = Tuple{Float64, Float64}[],
+        midday = Tuple{Float64, Float64}[],
+    )
+end
+
+"""
+Clock-hour bands for one month. An hour is night, day, or midday when more than
+half of its half-hours fall in that window. Midday wins over day. The spans are
+`[first hour, hour after the run)`.
+"""
+function _diurnal_bands(
+        df::DataFrame, month::Integer;
+        time::Symbol = :DateTime, sw_in::Symbol = :SW_IN, sw_pot::Symbol = :SW_IN_POT,
+    )
+    if !(string(time) in names(df) && string(sw_in) in names(df) && string(sw_pot) in names(df))
+        return _empty_diurnal_bands()
+    end
+    keep = _month_numbers(df, time) .== month
+    any(keep) || return _empty_diurnal_bands()
+    sub_time = df[keep, time]
+    windows = _nee_windows(sub_time, df[keep, sw_in], df[keep, sw_pot])
+    hours = Dates.hour.(sub_time)
+    classes = fill(:none, 24)
+    for h in 0:23
+        sel = hours .== h
+        n = count(sel)
+        n == 0 && continue
+        if count(windows.midday[sel]) / n > 0.5
+            classes[h + 1] = :midday
+        elseif count(windows.night[sel]) / n > 0.5
+            classes[h + 1] = :night
+        elseif count(windows.day[sel]) / n > 0.5
+            classes[h + 1] = :day
+        end
+    end
+    return (
+        night = _hour_spans(classes, :night),
+        day = _hour_spans(classes, :day),
+        midday = _hour_spans(classes, :midday),
+    )
+end
+
+function _hour_spans(classes, which)
+    spans = Tuple{Float64, Float64}[]
+    h = 0
+    while h <= 23
+        if classes[h + 1] != which
+            h += 1
+            continue
+        end
+        start = h
+        h += 1
+        while h <= 23 && classes[h + 1] == which
+            h += 1
+        end
+        push!(spans, (float(start), float(h)))
+    end
+    return spans
+end
+
+function _longest_span_center(spans)
+    isempty(spans) && return nothing
+    start, stop = spans[argmax([stop - start for (start, stop) in spans])]
+    return (start + stop) / 2
 end

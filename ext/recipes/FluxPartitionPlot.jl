@@ -35,7 +35,18 @@ function EasyHybrid.plot_flux_partition!(
     end
     push!(axes, _flux_panel!(gl, has_drivers ? 4 : 3, :GPP, frame, labs; ticks = true))
     Makie.linkxaxes!(axes...)
+    _apply_month_ticks!(axes, frame.time)
     return gl
+end
+
+function _apply_month_ticks!(axes, time)
+    ticks, labels = EasyHybrid._month_ticks(time)
+    isempty(ticks) && return nothing
+    for ax in axes
+        ax.xticks = (ticks, labels)
+        ax.xminorticksvisible = false
+    end
+    return nothing
 end
 
 function _flux_series(frame, flux, labels)

@@ -38,6 +38,7 @@ include("recipes/MonitorPlot.jl")
 include("recipes/PredictionPlot.jl")
 include("recipes/TimeSeriesPlot.jl")
 include("recipes/FluxPartitionPlot.jl")
+include("recipes/DiurnalPlot.jl")
 
 # =============================================================================
 # Prediction vs Observed Plotting Functions
