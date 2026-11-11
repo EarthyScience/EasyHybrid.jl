@@ -55,6 +55,7 @@ makedocs(;
         "Get Started" => "get_started.md",
         "Tutorial" => [
             "Overview" => "tutorials/overview.md",
+            "Syllabus" => "tutorials/tut1.md",
             "Building Models Examples" => "tutorials/building_models.md",
             "Dashboard" => "tutorials/dashboard.md",
             "Exponential Response" => "tutorials/exponential_res.md",
