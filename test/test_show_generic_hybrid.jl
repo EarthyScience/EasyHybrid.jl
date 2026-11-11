@@ -1,3 +1,4 @@
+using Test
 using EasyHybrid: ParameterContainer, HybridModel, constructHybridModel
 using EasyHybrid: _print_field, _print_header, IndentedIO
 
@@ -75,6 +76,22 @@ using EasyHybrid: _print_field, _print_header, IndentedIO
         @test occursin("Hybrid Model (Multi NN)", result)
         @test occursin("Neural Networks:", result) && occursin("Configuration:", result)
         @test all(occursin.(["predictors", "a", "d", "forcing", "targets", "config", "Parameters:"], Ref(result)))
+    end
+
+    @testset "HybridModel show - Zero NN" begin
+        function test_model_0(; x1, a, b)
+            return (; obs = a .* x1 .+ b)
+        end
+
+        model = constructHybridModel(
+            test_model_0, [:obs], [:x1], nothing,
+            (a = (1.0, 0.0, 5.0), b = (2.0, 0.0, 10.0))
+        )
+
+        result = sprint(show, MIME"text/plain"(), model, context = :color => false)
+        @test occursin("Hybrid Model (Zero NN / Process-Based)", result)
+        @test occursin("Configuration:", result)
+        @test occursin("mechanistic_model", result)
     end
 
     @testset "IndentedIO" begin
