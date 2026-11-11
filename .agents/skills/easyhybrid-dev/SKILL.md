@@ -35,10 +35,12 @@ This skill guides you through developing and debugging components in `EasyHybrid
 - **`src/utils/`**:
   - `macro_hybrid.jl`: `@hybrid` macro.
   - `extract_weights.jl`, `wrap_tuples.jl`, `helpers_cross_validation.jl`.
+  - `fluxnet_shuttle.jl`: FLUXNET Shuttle data loading (`fluxnet_shuttle_zip`, `load_fluxnet_shuttle`) from the ICOS Carbon Portal.
+  - `fluxnet_feature_engineering.jl`: gap filling and moving-window helpers (`nan`, `fillgaps`, `moving`, `moving_slope`, `slope_at_max_x`), `soil_bucket`, `esat`, and `flux_features` (predictors of the NEE partitioning example).
+  - `plotrecipes.jl`: Makie plot stubs, plus `combine_flux_partition` (joins FLUXNET site data with hybrid outputs and aggregates to `:halfhourly`, `:hourly`, or `:daily`) and `plot_flux_partition` / `plot_flux_partition!` (drawn in `ext/recipes/FluxPartitionPlot.jl` once Makie is loaded). `diurnal_cycle` averages numeric columns by month and hour, `diurnal_skill` reports Pearson r², bias ratio, and variance ratio for night, midday, and day, and `diurnalPlot` draws the month panels with those three bands shaded and the scores written in each band (in `ext/recipes/DiurnalPlot.jl`).
 - **`ext/`**:
   - `EasyHybridMakie.jl`, `HybridTheme.jl`, `recipes/`: Makie plotting recipes.
-  - `EasyHybridEnzymeExt.jl`: Enzyme.jl autodiff support extension.
-- **`test/`**:
+  - `EasyHybridEnzymeExt.jl`: Enzyme.jl autodiff support extension.- **`test/`**:
   - `runtests.jl` and individual test files for each component.
 
 ---
@@ -66,4 +68,4 @@ When implementing changes or fixing issues:
    ```
 5. **Run & Add Tests**:
    - Run relevant test suite in `test/` or run all tests via `Pkg.test()`.
-   - Add unit tests for every bug fix or new feature.
+   - Every bug fix or new feature must include a corresponding unit test in `test/` (included in `test/runtests.jl`) or be used in building the documentation in `docs/`.

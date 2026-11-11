@@ -19,6 +19,7 @@ using ChainRulesCore: ChainRulesCore
 using ComponentArrays: ComponentArrays, ComponentArray
 using DataFrameMacros: DataFrameMacros, @transform
 using DataFrames: DataFrames, DataFrame, GroupedDataFrame, Missing, coalesce, mapcols, select, missing, All
+using Dates: Dates, DateTime, @dateformat_str, year
 using DimensionalData: DimensionalData, AbstractDimArray, Dim, DimArray, dims, groupby, lookup, At
 
 using DocStringExtensions: TYPEDFIELDS
@@ -42,6 +43,7 @@ using Reexport: @reexport
 using Statistics: Statistics, mean, cor, quantile, var
 using StyledStrings: StyledStrings, @styled_str
 using YAML: load_file, write_file
+using ZipArchives: ZipReader, zip_names, zip_openentry
 using Zygote: Zygote
 using Static: False, True
 
