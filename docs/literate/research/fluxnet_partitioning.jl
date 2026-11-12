@@ -49,7 +49,8 @@ first(df, 5)
 
 # ## Process-based Model
 #
-# `GPP` from incoming radiation and NN `RUE`; `NEE = RECO - GPP`.
+# ``GPP = RUE ⋅ SW_{IN}`` and ``NEE = RECO - GPP``. Two neural networks predict ``RUE`` and ``RECO``.
+# 12.011f0 is the unit conversion factor
 
 function flux_part_mechanistic_model(; SW_IN, RECO, RUE)
     ## µmol/m2/s = J/s/m2 * g/MJ / g/mol
@@ -67,7 +68,19 @@ parameters = (
 
 # ## Hybrid Model
 #
-# One network each for `RECO` and `RUE`. Both see soil water and harmonics.
+# One network each for `RECO` and `RUE`.
+# Input features for `RECO`: 
+# -diurnal...,seasonal...: diurnal and seasonal harmonics
+# -soil water...: soil water availability based on a bucket model using a range of bucket sizes given observed P and ET
+# -TA and TA_night_movmean: air temperature (TA) and centered moving median of TA at night
+# -NEE_night_movmean: centered moving median of NEE at night with good turbulence conditions
+# Input features for `RUE`:
+# -standard meteorology: air temperature (TA), relative humidity (RH), incoming shortwave radiation (SW_IN), potential incoming shortwave radiation (SW_IN_POT), and first derivative of SW_IN_POT (SW_IN_POT_diff)
+# -NEE_RUE_at_max_SW: radiation use efficiency at the light-saturated condition
+# -NEE_SWin_lowlight_lm_slope: radiation use efficiency at the light-limited condition
+# -NEE_light_night_diff: NEE difference between day and night
+# -diurnal...,seasonal...: diurnal and seasonal harmonics
+# -soil water...: soil water availability based on a bucket model using a range of bucket sizes given observed P and ET
 
 soilwater = Symbol.("SWC_capa_" .* string.((1, 5, 25, 125, 625)))
 diurnal = [:cosHR, :sinHR]
