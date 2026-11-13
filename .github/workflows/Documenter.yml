@@ -7,7 +7,7 @@ on:
   # using the `main` branch as the default branch.
   push:
     branches:
-      - main
+    - main
     tags: ['*']
   pull_request:
 
@@ -21,16 +21,16 @@ permissions:
   id-token: write
   statuses: write
 
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+# One docs run per ref. A new push to a pull request replaces the run already
+# going for that ref. Pushes to main are not cancelled.
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: pages-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Build job
+  # Build job. The Metal and FLUXNET tutorials run in the other jobs.
   build:
-    runs-on: macOS-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -85,7 +85,88 @@ jobs:
         id: julia-cache-save
         if: cancelled() || failure()
         uses: actions/cache/save@v4
-        with: 
+        with:
+          path: |
+            ${{ steps.julia-cache.outputs.cache-paths }}
+          key: ${{ steps.julia-cache.outputs.cache-key }}
+
+  # Runs the FLUXNET tutorial. make.jl only publishes that page's source.
+  fluxnet:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Julia
+        uses: julia-actions/setup-julia@v2
+      - name: Load Julia packages from cache
+        id: julia-cache
+        uses: julia-actions/cache@v2
+      - name: Install unregistered dependencies
+        run: |
+          julia --project=docs/fluxnet -e '
+            using Pkg
+            Pkg.develop(PackageSpec(path=pwd()))
+            Pkg.add(url = "https://github.com/LuxDL/LuxZarr.jl.git")
+            Pkg.instantiate()
+          '
+      - name: Run the FLUXNET tutorial
+        run: |
+          julia --color=yes --code-coverage=user --project=docs/fluxnet docs/literate/research/fluxnet_partitioning.jl
+        env:
+          DATADEPS_ALWAYS_ACCEPT: true
+          GKSwstype: "100"
+      - uses: julia-actions/julia-processcoverage@v1
+      - uses: codecov/codecov-action@v5
+        with:
+          files: lcov.info
+          flags: documentation
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+      - name: Save Julia depot cache on cancel or failure
+        id: julia-cache-save
+        if: cancelled() || failure()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ steps.julia-cache.outputs.cache-paths }}
+          key: ${{ steps.julia-cache.outputs.cache-key }}
+
+  # Runs the Metal tutorial. make.jl only publishes that page's source.
+  gpu:
+    runs-on: macOS-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Julia
+        uses: julia-actions/setup-julia@v2
+      - name: Load Julia packages from cache
+        id: julia-cache
+        uses: julia-actions/cache@v2
+      - name: Install unregistered dependencies
+        run: |
+          julia --project=docs/gpu -e '
+            using Pkg
+            Pkg.develop(PackageSpec(path=pwd()))
+            Pkg.add(url = "https://github.com/LuxDL/LuxZarr.jl.git")
+            Pkg.instantiate()
+          '
+      - name: Run the Metal tutorial
+        run: |
+          julia --color=yes --code-coverage=user --project=docs/gpu docs/literate/tutorials/synthetic_respiration_gpu.jl
+        env:
+          DATADEPS_ALWAYS_ACCEPT: true
+      - uses: julia-actions/julia-processcoverage@v1
+      - uses: codecov/codecov-action@v5
+        with:
+          files: lcov.info
+          flags: documentation
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+      - name: Save Julia depot cache on cancel or failure
+        id: julia-cache-save
+        if: cancelled() || failure()
+        uses: actions/cache/save@v4
+        with:
           path: |
             ${{ steps.julia-cache.outputs.cache-paths }}
           key: ${{ steps.julia-cache.outputs.cache-key }}

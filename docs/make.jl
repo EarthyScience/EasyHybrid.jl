@@ -27,7 +27,11 @@ if !isempty(jl_files)
             for f in files
                 endswith(f, ".jl") || continue
                 inpath = joinpath(root, f)
-                Literate.markdown(inpath, md_target; documenter = true, execute = false, credit = false)
+                # These run in their own jobs: Metal on macOS, FLUXNET on a second Ubuntu runner.
+                # This build only publishes their source.
+                separate_job = endswith(inpath, "synthetic_respiration_gpu.jl") ||
+                    endswith(inpath, "fluxnet_partitioning.jl")
+                Literate.markdown(inpath, md_target; documenter = !separate_job, execute = false, credit = false)
                 Literate.notebook(inpath, nb_target; execute = false, documenter = false, credit = false, preprocess = notebook_preprocess)
             end
         end

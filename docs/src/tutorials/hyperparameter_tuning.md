@@ -97,12 +97,12 @@ out = train(
     hybrid_model, 
     ds, 
     (); 
-    nepochs = 100,               # Number of training epochs
+    nepochs = 20,                # Number of training epochs
     batchsize = 512,             # Batch size for training
     opt = AdamW(0.001),        # Optimizer and learning rate
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
     yscale = identity,           # Scaling for outputs
-    patience = 30,               # Early stopping patience
+    patience = 10,               # Early stopping patience
     show_progress=false,
     hybrid_name="before"
 )
@@ -160,7 +160,7 @@ ho = @hyperopt for i=nhyper,
         ds, 
         mspempty; 
         hyper_parameters..., 
-        nepochs = 10, 
+        nepochs = 5,
         plotting = false, 
         show_progress = false, 
         file_name = "test$i.jld2",
@@ -188,7 +188,8 @@ out_tuned = EasyHybrid.tune(
     ds, 
     mspempty; 
     best_hyperp...,
-    nepochs = 100,
+    nepochs = 20,
+    patience = 10,
     monitor_names = [:rb, :Q10],
     hybrid_name="after"
 )
