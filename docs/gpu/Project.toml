@@ -1,0 +1,8 @@
+[deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+EasyHybrid = "61bb816a-e6af-4913-ab9e-91bff2e122e3"
+Lux = "b2108857-7c20-44ae-9111-449ecde12c47"
+Metal = "dde4c033-4e86-420c-a63e-0dd931031962"
+
+[sources]
+EasyHybrid = {path = "../.."}
