@@ -69,7 +69,7 @@ parameters = (
 # ## Hybrid Model
 #
 # One network each for `RECO` and `RUE`.
-# Input features for `RECO`: 
+# Input features for `RECO`:
 # -diurnal...,seasonal...: diurnal and seasonal harmonics
 # -soil water...: soil water availability based on a bucket model using a range of bucket sizes given observed P and ET
 # -TA and TA_night_movmean: air temperature (TA) and centered moving median of TA at night
