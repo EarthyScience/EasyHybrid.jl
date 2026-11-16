@@ -144,7 +144,7 @@ jobs:
         continue-on-error: true
         with:
           pattern: docs-media-*
-          path: docs/src/public
+          path: docs/src
           merge-multiple: true
       - name: Setup Julia
         uses: julia-actions/setup-julia@v2
