@@ -151,4 +151,7 @@ EasyHybrid.poplot(out)
 
 ## More Examples
 
-Check out the `projects/` directory for additional examples and use cases. Each project demonstrates different aspects of hybrid modeling with EasyHybrid.
+Further examples are written in [`docs/literate/`](https://github.com/EarthyScience/EasyHybrid.jl/tree/main/docs/literate) and rendered in this documentation:
+
+- [Tutorials](./tutorials/overview.md), from [`docs/literate/tutorials/`](https://github.com/EarthyScience/EasyHybrid.jl/tree/main/docs/literate/tutorials)
+- [Research](./research/overview.md), from [`docs/literate/research/`](https://github.com/EarthyScience/EasyHybrid.jl/tree/main/docs/literate/research)
