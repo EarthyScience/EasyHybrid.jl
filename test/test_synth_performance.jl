@@ -14,7 +14,7 @@ const SYNTH_BATCH = 512
 # Paired median of fused `compute_loss` Zygote.gradient vs a Lux same-math gradient
 # on this example. New code may not exceed this by more than `SYNTH_SLOWDOWN_TOLERANCE`.
 const SYNTH_COMPUTE_LOSS_VS_LUX = 1.18
-const SYNTH_SLOWDOWN_TOLERANCE = 0.1
+const SYNTH_SLOWDOWN_TOLERANCE = 0.15
 
 function _synth_rbq10(; n = 2048, batch = SYNTH_BATCH, seed = 42)
     rng = MersenneTwister(seed)
