@@ -28,14 +28,124 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Build job. The Metal and FLUXNET tutorials run in the other jobs.
+  # One runner per executable page. The build job only publishes the site.
+  pages:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: get_started
+            os: ubuntu-latest
+            project: docs
+            page: docs/src/get_started.md
+          - name: exponential_res
+            os: ubuntu-latest
+            project: docs
+            page: docs/src/tutorials/exponential_res.md
+          - name: hyperparameter_tuning
+            os: ubuntu-latest
+            project: docs
+            page: docs/src/tutorials/hyperparameter_tuning.md
+          - name: transformer_math
+            os: ubuntu-latest
+            project: docs
+            page: docs/src/transformer_math.md
+          - name: losses
+            os: ubuntu-latest
+            project: docs
+            page: docs/src/tutorials/losses.md
+          - name: building_models
+            os: ubuntu-latest
+            project: docs
+            page: docs/literate/tutorials/building_models.jl
+          - name: sequence
+            os: ubuntu-latest
+            project: docs
+            page: docs/literate/tutorials/example_synthetic_sequence.jl
+          - name: folds
+            os: ubuntu-latest
+            project: docs
+            page: docs/literate/tutorials/folds.jl
+          - name: synthetic_respiration
+            os: ubuntu-latest
+            project: docs
+            page: docs/literate/research/synthetic_respiration.jl
+          - name: fluxnet
+            os: ubuntu-latest
+            project: docs/fluxnet
+            page: docs/literate/research/fluxnet_partitioning.jl
+          - name: gpu
+            os: macOS-latest
+            project: docs/gpu
+            page: docs/literate/tutorials/synthetic_respiration_gpu.jl
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Julia
+        uses: julia-actions/setup-julia@v2
+      - name: Load Julia packages from cache
+        id: julia-cache
+        uses: julia-actions/cache@v2
+      - name: Install unregistered dependencies
+        run: |
+          julia --project=${{ matrix.project }} -e '
+            using Pkg
+            Pkg.develop(PackageSpec(path=pwd()))
+            Pkg.add(url = "https://github.com/LuxDL/LuxZarr.jl.git")
+            Pkg.instantiate()
+          '
+      - name: Run documentation page
+        run: |
+          julia --color=yes --code-coverage=user --project=${{ matrix.project }} docs/runpage.jl ${{ matrix.page }}
+        env:
+          DATADEPS_ALWAYS_ACCEPT: true
+          GKSwstype: "100"
+      - name: Collect training videos
+        if: always()
+        run: |
+          mkdir -p docs/media
+          find docs -path '*/build/*.mp4' -exec cp {} docs/media/ \;
+      - name: Upload training videos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-media-${{ matrix.name }}
+          path: docs/media
+          if-no-files-found: ignore
+      - uses: julia-actions/julia-processcoverage@v1
+      - uses: codecov/codecov-action@v5
+        with:
+          files: lcov.info
+          flags: documentation
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+      - name: Save Julia depot cache on cancel or failure
+        id: julia-cache-save
+        if: cancelled() || failure()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ steps.julia-cache.outputs.cache-paths }}
+          key: ${{ steps.julia-cache.outputs.cache-key }}
+
+  # Publishes the site. Page code has already run on `pages`.
   build:
+    needs: pages
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Needed if lastUpdated is set to true
+      - name: Download training videos
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: docs-media-*
+          path: docs/src/public
+          merge-multiple: true
       - name: Setup Julia
         uses: julia-actions/setup-julia@v2
       - name: Load Julia packages from cache
@@ -73,87 +183,6 @@ jobs:
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }} # For authentication with SSH deploy key
           GKSwstype: "100" # for Plots.jl plots (if you have them)
           JULIA_DEBUG: "Documenter"
-          DATADEPS_ALWAYS_ACCEPT: true
-      - uses: julia-actions/julia-processcoverage@v1
-      - uses: codecov/codecov-action@v5
-        with:
-          files: lcov.info
-          flags: documentation
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
-      - name: Save Julia depot cache on cancel or failure
-        id: julia-cache-save
-        if: cancelled() || failure()
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ${{ steps.julia-cache.outputs.cache-paths }}
-          key: ${{ steps.julia-cache.outputs.cache-key }}
-
-  # Runs the FLUXNET tutorial. make.jl only publishes that page's source.
-  fluxnet:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Julia
-        uses: julia-actions/setup-julia@v2
-      - name: Load Julia packages from cache
-        id: julia-cache
-        uses: julia-actions/cache@v2
-      - name: Install unregistered dependencies
-        run: |
-          julia --project=docs/fluxnet -e '
-            using Pkg
-            Pkg.develop(PackageSpec(path=pwd()))
-            Pkg.add(url = "https://github.com/LuxDL/LuxZarr.jl.git")
-            Pkg.instantiate()
-          '
-      - name: Run the FLUXNET tutorial
-        run: |
-          julia --color=yes --code-coverage=user --project=docs/fluxnet docs/literate/research/fluxnet_partitioning.jl
-        env:
-          DATADEPS_ALWAYS_ACCEPT: true
-          GKSwstype: "100"
-      - uses: julia-actions/julia-processcoverage@v1
-      - uses: codecov/codecov-action@v5
-        with:
-          files: lcov.info
-          flags: documentation
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
-      - name: Save Julia depot cache on cancel or failure
-        id: julia-cache-save
-        if: cancelled() || failure()
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ${{ steps.julia-cache.outputs.cache-paths }}
-          key: ${{ steps.julia-cache.outputs.cache-key }}
-
-  # Runs the Metal tutorial. make.jl only publishes that page's source.
-  gpu:
-    runs-on: macOS-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Julia
-        uses: julia-actions/setup-julia@v2
-      - name: Load Julia packages from cache
-        id: julia-cache
-        uses: julia-actions/cache@v2
-      - name: Install unregistered dependencies
-        run: |
-          julia --project=docs/gpu -e '
-            using Pkg
-            Pkg.develop(PackageSpec(path=pwd()))
-            Pkg.add(url = "https://github.com/LuxDL/LuxZarr.jl.git")
-            Pkg.instantiate()
-          '
-      - name: Run the Metal tutorial
-        run: |
-          julia --color=yes --code-coverage=user --project=docs/gpu docs/literate/tutorials/synthetic_respiration_gpu.jl
-        env:
           DATADEPS_ALWAYS_ACCEPT: true
       - uses: julia-actions/julia-processcoverage@v1
       - uses: codecov/codecov-action@v5
