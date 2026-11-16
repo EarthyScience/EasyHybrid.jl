@@ -162,9 +162,8 @@ $(TYPEDFIELDS)
 
     """
     `Optimization.jl` path only: promote `ps` to `Float64` before optimization.
-    Mirrors the workaround documented in `projects/RbQ10/Q10_lbfgs.jl` for
-    [Lux.jl#1260](https://github.com/LuxDL/Lux.jl/issues/1260). Has no effect
-    on the `Optimisers.jl` path. Default: `false`.
+    Workaround for [Lux.jl#1260](https://github.com/LuxDL/Lux.jl/issues/1260).
+    Has no effect on the `Optimisers.jl` path. Default: `false`.
     """
     promote_f64::Bool = false
 

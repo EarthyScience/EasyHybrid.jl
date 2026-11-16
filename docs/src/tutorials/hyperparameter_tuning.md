@@ -219,4 +219,4 @@ When tuning your hybrid model, consider these important hyperparameters:
 
 ## More Examples
 
-Check out the [overview](./overview.md) page for additional examples and use cases. Each project demonstrates different aspects of hybrid modeling with EasyHybrid.
+Further examples are in [`docs/literate/`](https://github.com/EarthyScience/EasyHybrid.jl/tree/main/docs/literate). See the [tutorial overview](./overview.md) and the [research examples](../research/overview.md).

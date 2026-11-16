@@ -138,7 +138,7 @@ function EasyHybrid.diurnalPlot(
     fig = Makie.Figure(; size, fontsize = 12)
     Makie.Label(
         fig[0, 1:ncols],
-        "Blue is night, gold is day, orange is midday. Numbers are the half-hourly r², bias ratio β, and α.";
+        "Blue is night, gold is day, orange is midday. Numbers are the half-hourly Pearson r², bias ratio β, and α.";
         fontsize = 14,
         tellwidth = false,
     )

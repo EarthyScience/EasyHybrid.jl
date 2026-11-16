@@ -110,7 +110,15 @@ Clone the repository
 git clone https://github.com/EarthyScience/EasyHybrid.jl.git
 ```
 
-and start using it by opening one of the `env` in `projects`, i.e. `Q10.jl`. There executing the first 4 lines should get you all needed dependencies: `shift + enter`.
+Worked examples live in [`docs/literate/`](docs/literate/). From the repository root, activate the docs environment and instantiate its dependencies:
+
+```julia
+using Pkg
+Pkg.activate("docs")
+Pkg.instantiate()
+```
+
+Then run an example such as [`docs/literate/research/synthetic_respiration.jl`](docs/literate/research/synthetic_respiration.jl). The same pages are rendered in the [documentation](https://earthyscience.github.io/EasyHybrid.jl/dev/).
 
 
 Or if you are already working in a project and want to add EasyHybrid in dev mode then do
@@ -213,7 +221,10 @@ out.train_diffs.Q10
 
 ## More Examples
 
-Check out the `projects/` directory for additional examples and use cases. Each project demonstrates different aspects of hybrid modeling with EasyHybrid.
+Worked examples are in [`docs/literate/`](docs/literate/) and rendered in the documentation:
+
+- [Tutorials](https://earthyscience.github.io/EasyHybrid.jl/dev/tutorials/overview), sources in [`docs/literate/tutorials/`](docs/literate/tutorials/)
+- [Research](https://earthyscience.github.io/EasyHybrid.jl/dev/research/overview), sources in [`docs/literate/research/`](docs/literate/research/)
 
 ## Acknowledgments & Funding
 

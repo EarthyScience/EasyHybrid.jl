@@ -554,7 +554,7 @@ Pearson `r²`, bias ratio, and α of each series in `methods` against `obs`.
 Each pair is one row of `df`, a half-hour. The hourly means from [`diurnal_cycle`](@ref)
 are not used. Rows are the calendar month (`Month`), the method column name
 (`method`), and the window (`window`: `"night"`, `"midday"`, or `"day"`). `r2` is
-the square of the Pearson correlation. `beta` is the bias ratio `μ_method / μ_obs`.
+Pearson r², the square of the Pearson correlation. `beta` is the bias ratio `μ_method / μ_obs`.
 `alpha` is `σ_method / σ_obs`, the Kling–Gupta variability ratio. `n` is the number
 of finite pairs. A window with fewer than two pairs is `NaN`.
 
@@ -612,7 +612,7 @@ end
 """
     diurnalPlot(df; yvars, obs = :NEE, time = :DateTime, sw_in = :SW_IN, sw_pot = :SW_IN_POT, ylabel = string(obs), size = (1680, 1200))
 
-Mean diurnal cycle of `yvars`, one panel per month, with `r²`, the bias ratio, and
+Mean diurnal cycle of `yvars`, one panel per month, with Pearson `r²`, the bias ratio, and
 `α` annotated on each panel.
 
 The drawn lines are the [`diurnal_cycle`](@ref) means. Night, day, and midday are
@@ -721,6 +721,7 @@ function _ratio_skill(pred, obs)
     r = loss_fn(pred, obs, m, Val(:pearson))
     β = loss_fn(pred, obs, m, Val(:β))
     α = loss_fn(pred, obs, m, Val(:α))
+    # Pearson r², the square of the correlation.
     return (; r2 = r * r, β, α, n)
 end
 
@@ -748,8 +749,8 @@ _gap(s, w) = (n = w - length(string(s)); n > 0 ? " "^n : "")
 _pad_left(s, w) = _gap(s, w) * string(s)
 _pad_right(s, w) = string(s) * _gap(s, w)
 
-function _score_row(name, r2, beta, alpha; name_w = 4)
-    return _pad_right(name, name_w) * " " * _pad_left(r2, 5) * " " * _pad_left(beta, 5) * " " * _pad_left(alpha, 5)
+function _score_row(name, r2, beta, alpha; name_w = 4, r2_w = 5)
+    return _pad_right(name, name_w) * " " * _pad_left(r2, r2_w) * " " * _pad_left(beta, 5) * " " * _pad_left(alpha, 5)
 end
 
 function _window_annotation(skill::DataFrame, month, methods, window)
@@ -774,9 +775,11 @@ function _window_annotation(skill::DataFrame, month, methods, window)
     end
     isempty(shown) && return ""
     name_w = maximum(length(row[1]) for row in shown)
-    lines = String[_window_title(window), _score_row("", "r²", "β", "α"; name_w)]
+    r2_label = "Pearson r²"
+    r2_w = max(5, length(r2_label))
+    lines = String[_window_title(window), _score_row("", r2_label, "β", "α"; name_w, r2_w)]
     for (name, r2, beta, alpha) in shown
-        push!(lines, _score_row(name, r2, beta, alpha; name_w))
+        push!(lines, _score_row(name, r2, beta, alpha; name_w, r2_w))
     end
     return join(lines, "\n")
 end
