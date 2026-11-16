@@ -18,8 +18,8 @@ using CairoMakie
 # Load synthetic dataset from GitHub - it's tabular data
 df = load_timeseries_netcdf("https://github.com/bask0/q10hybrid/raw/master/data/Synthetic4BookChap.nc");
 
-# Select a subset of data for faster execution
-df = df[1:20000, :];
+# Each row becomes one window, and the three trainings below run on all of them.
+df = df[1:2000, :];
 first(df, 5);
 
 # ## 3. Define Neural Network Architectures
@@ -191,6 +191,7 @@ out_lstm = train(
     hlstm,
     df;
     nepochs = 100,           # Number of training epochs
+    patience = 10,
     batchsize = 128,         # Batch size of training windows/samples
     opt = RMSProp(0.01),   # Optimizer and learning rate
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
@@ -233,6 +234,7 @@ single_nn_out = train(
     hm,
     df;
     nepochs = 100,           # Number of training epochs
+    patience = 10,
     batchsize = 128,         # Batch size for training
     opt = RMSProp(0.01),   # Optimizer and learning rate
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
@@ -286,24 +288,38 @@ hm_transformer = constructHybridModel(
     input_batchnorm = false,
 );
 
-# Train the Transformer hybrid model
-transformer_out = train(
-    hm_transformer,
-    df;
-    nepochs = 100,           # Number of training epochs
-    batchsize = 128,         # Batch size for training
-    opt = RMSProp(0.005),    # Optimizer and learning rate
-    monitor_names = [:rb, :Q10],
-    yscale = identity,
-    shuffleobs = true,
-    training_loss = :nseLoss,
-    loss_types = [:nseLoss, :nse],
-    sequence_kwargs = (; input_window = input_window, output_window = output_window, output_shift = output_shift, lead_time = 0),
-    array_type = :DimArray,
-    plotting = true,
-    show_progress = false,
-    model_name = "RbQ10_synthetic_transformer"
-);
+# Time the same training with the dashboard recorded, and without it.
+# One untimed epoch pays for compilation. Both timed runs use 100 epochs and `patience = 10`.
+
+function train_transformer(; plotting, save_training, model_name, nepochs = 100)
+    return train(
+        hm_transformer,
+        df;
+        nepochs,
+        patience = 10,
+        batchsize = 128,         # Batch size for training
+        opt = RMSProp(0.005),    # Optimizer and learning rate
+        monitor_names = [:rb, :Q10],
+        yscale = identity,
+        shuffleobs = true,
+        training_loss = :nseLoss,
+        loss_types = [:nseLoss, :nse],
+        sequence_kwargs = (; input_window = input_window, output_window = output_window, output_shift = output_shift, lead_time = 0),
+        array_type = :DimArray,
+        plotting,
+        save_training,
+        show_progress = false,
+        model_name,
+    )
+end
+
+train_transformer(; plotting = false, save_training = false, model_name = "RbQ10_transformer_warmup_plain", nepochs = 1)
+seconds_plain = @elapsed train_transformer(; plotting = false, save_training = false, model_name = "RbQ10_transformer_plain")
+
+train_transformer(; plotting = true, save_training = true, model_name = "RbQ10_transformer_warmup_plot", nepochs = 1)
+seconds_plot = @elapsed transformer_out = train_transformer(; plotting = true, save_training = true, model_name = "RbQ10_synthetic_transformer")
+
+seconds_plain, seconds_plot
 
 # ```@raw html
 # <video src="../training_history_RbQ10_synthetic_transformer.mp4" controls="controls" autoplay="autoplay"></video>
