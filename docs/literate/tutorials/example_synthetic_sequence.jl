@@ -319,6 +319,7 @@ seconds_plain = @elapsed train_transformer(; plotting = false, save_training = f
 train_transformer(; plotting = true, save_training = true, model_name = "RbQ10_transformer_warmup_plot", nepochs = 1)
 seconds_plot = @elapsed transformer_out = train_transformer(; plotting = true, save_training = true, model_name = "RbQ10_synthetic_transformer")
 
+# `seconds_plain` is the time taken to train the transformer model without plotting, and `seconds_plot` is the time taken to train the transformer model with plotting.
 seconds_plain, seconds_plot
 
 # ```@raw html

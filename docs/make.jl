@@ -27,7 +27,6 @@ if !isempty(jl_files)
             for f in files
                 endswith(f, ".jl") || continue
                 inpath = joinpath(root, f)
-                # Page code runs in the `pages` matrix, one job per file. Publish the source here.
                 Literate.markdown(inpath, md_target; documenter = true, execute = false, credit = false)
                 Literate.notebook(inpath, nb_target; execute = false, documenter = false, credit = false, preprocess = notebook_preprocess)
             end
@@ -40,11 +39,7 @@ end
 
 # -----------------------------------------------------------------------------
 
-# Examples run on the `pages` jobs. Set DOCS_DRAFT=false to execute them inside this process.
-draft = get(ENV, "DOCS_DRAFT", "true") == "true"
-
 makedocs(;
-    draft,
     modules = [EasyHybrid],
     authors = "Lazaro Alonso, Bernhard Ahrens, Markus Reichstein",
     sitename = "EasyHybrid.jl",

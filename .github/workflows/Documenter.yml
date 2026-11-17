@@ -130,22 +130,14 @@ jobs:
             ${{ steps.julia-cache.outputs.cache-paths }}
           key: ${{ steps.julia-cache.outputs.cache-key }}
 
-  # Publishes the site. Page code has already run on `pages`.
+  # Publishes the site and executes the example blocks.
   build:
-    needs: pages
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Needed if lastUpdated is set to true
-      - name: Download training videos
-        uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          pattern: docs-media-*
-          path: docs/src
-          merge-multiple: true
       - name: Setup Julia
         uses: julia-actions/setup-julia@v2
       - name: Load Julia packages from cache
