@@ -6,6 +6,8 @@ Welcome to the EasyHybrid.jl tutorials! This section provides comprehensive guid
 
 If you're new to EasyHybrid.jl, we recommend starting with the [Getting Started](../get_started.md) guide, which walks through building your first hybrid model step by step.
 
+The [Syllabus](tut1.md) lays out a monthly Interactive Tutorial Hour: twelve sessions that move from a mechanistic model to hybrid training, evaluation, and larger experiments, with a recurring Bring Your Own Model slot.
+
 ## Tutorial Topics
 
 ### Core Tutorials
@@ -71,6 +73,7 @@ Run EasyHybrid.jl models on HPC clusters using Slurm job scheduling. This tutori
 
 ## Choosing the Right Tutorial
 
+- **Planning a tutorial series?** → Follow the [Syllabus](tut1.md)
 - **New to EasyHybrid?** → Start with [Exponential Respiration Model](exponential_res.md)
 - **Working with time series?** → Check out [Sequence Hybrid Models (LSTM & Transformer)](example_synthetic_sequence.md)
 - **Need robust evaluation?** → See [Cross-Validation](folds.md)
