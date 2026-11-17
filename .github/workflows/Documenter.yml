@@ -88,12 +88,11 @@ jobs:
       - name: Load Julia packages from cache
         id: julia-cache
         uses: julia-actions/cache@v2
-      - name: Install unregistered dependencies
+      - name: Develop EasyHybrid and instantiate
         run: |
           julia --project=${{ matrix.project }} -e '
             using Pkg
             Pkg.develop(PackageSpec(path=pwd()))
-            Pkg.add(url = "https://github.com/LuxDL/LuxZarr.jl.git")
             Pkg.instantiate()
           '
       - name: Run documentation page
@@ -143,13 +142,6 @@ jobs:
       - name: Load Julia packages from cache
         id: julia-cache
         uses: julia-actions/cache@v2
-      - name: Install unregistered dependencies
-        run: |
-          julia --project=docs -e '
-            using Pkg
-            Pkg.develop(PackageSpec(path=pwd()))
-            Pkg.add(url = "https://github.com/LuxDL/LuxZarr.jl.git")
-          '
       # julia-docdeploy turns on --code-coverage only while instantiating.
       # The process that runs docs/make.jl has to carry the flag, because that
       # is the run whose line hits we upload.
