@@ -100,7 +100,7 @@ single_nn_out = train(
     single_nn_hybrid_model,
     df,
     ();
-    nepochs = 100,           # Number of training epochs
+    nepochs = 5,             # Number of training epochs
     batchsize = 512,         # Batch size for training
     opt = AdamW(0.1),   # Optimizer and learning rate
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
@@ -108,6 +108,8 @@ single_nn_out = train(
     shuffleobs = true,
     loss_types = [:mse, :nse],
     show_progress = false,
+    plotting = false,
+    save_training = false,
     extra_loss = rb_prior_extra_loss,
     model_name = "RbQ10_synthetic1"
 )
@@ -168,7 +170,7 @@ model_σ_global = constructHybridModel(
 nll_global_out = train(
     model_σ_global,
     df;
-    nepochs = 100,
+    nepochs = 5,
     batchsize = 512,
     opt = AdamW(0.1),
     monitor_names = [:rb, :Q10, :sigma], # σ is surfaced top-level in `ŷ` (and in `ŷ.parameters`)
@@ -177,6 +179,8 @@ nll_global_out = train(
     loss_types = [:mse, :nse],   # metrics for logging (still masked f(ŷ, y))
     training_loss = gaussian_nll, # full-context loss, auto-detected
     show_progress = false,
+    plotting = false,
+    save_training = false,
     model_name = "RbQ10_nll_global"
 )
 
@@ -205,7 +209,7 @@ nll_nn_out = train(
     model_σ_nn,
     df,
     ();
-    nepochs = 100,
+    nepochs = 5,
     batchsize = 512,
     opt = AdamW(0.1),
     monitor_names = [:rb, :Q10, :sigma], # σ is surfaced top-level in `ŷ` (and in `ŷ.parameters`)
@@ -214,6 +218,8 @@ nll_nn_out = train(
     loss_types = [:mse, :nse],
     training_loss = gaussian_nll,
     show_progress = false,
+    plotting = false,
+    save_training = false,
     model_name = "RbQ10_nll_nn"
 )
 
@@ -223,12 +229,14 @@ single_nn_out = train(
     single_nn_hybrid_model,
     ka,
     ();
-    nepochs = 10,           # Number of training epochs
+    nepochs = 3,            # Number of training epochs
     batchsize = 512,         # Batch size for training
     opt = AdamW(0.1),   # Optimizer and learning rate
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
     yscale = identity,       # Scaling for outputs
     show_progress = false,
+    plotting = false,
+    save_training = false,
     shuffleobs = true,
     model_name = "RbQ10_synthetic2"
 )
@@ -239,12 +247,14 @@ single_nn_out = train(
     single_nn_hybrid_model,
     da,
     ();
-    nepochs = 10,           # Number of training epochs
+    nepochs = 3,            # Number of training epochs
     batchsize = 512,         # Batch size for training
     opt = AdamW(0.1),   # Optimizer and learning rate
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
     yscale = identity,       # Scaling for outputs
     show_progress = false,
+    plotting = false,
+    save_training = false,
     shuffleobs = true,
     model_name = "RbQ10_synthetic3"
 )
@@ -274,12 +284,14 @@ multi_nn_out = train(
     multi_nn_hybrid_model,
     ka,
     ();
-    nepochs = 10,           # Number of training epochs
+    nepochs = 3,            # Number of training epochs
     batchsize = 512,         # Batch size for training
     opt = AdamW(0.1),   # Optimizer and learning rate
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
     yscale = identity,       # Scaling for outputs
     show_progress = false,
+    plotting = false,
+    save_training = false,
     shuffleobs = true,
     model_name = "RbQ10_synthetic4"
 )
@@ -296,7 +308,7 @@ using EasyHybrid.Lux: AutoEnzyme   # ADTypes constructors are not re-exported
 nll_enzyme_out = train(
     model_σ_global,
     df;
-    nepochs = 100,
+    nepochs = 5,
     batchsize = 512,
     opt = AdamW(0.1),
     monitor_names = [:rb, :Q10, :sigma],
@@ -306,6 +318,8 @@ nll_enzyme_out = train(
     training_loss = gaussian_nll,
     autodiff_backend = AutoEnzyme(mode = Enzyme.set_runtime_activity(Enzyme.Reverse)),
     show_progress = false,
+    plotting = false,
+    save_training = false,
     model_name = "RbQ10_nll_enzyme"
 )
 

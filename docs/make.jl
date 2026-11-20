@@ -27,7 +27,12 @@ if !isempty(jl_files)
             for f in files
                 endswith(f, ".jl") || continue
                 inpath = joinpath(root, f)
-                Literate.markdown(inpath, md_target; documenter = true, execute = false, credit = false)
+                # synthetic_respiration_gpu.jl loads Metal and BenchmarkTools from the
+                # docs/gpu project. The macOS `gpu` page job executes it. This build runs
+                # on Ubuntu with the docs project, so publish the source instead of
+                # @example blocks.
+                documenter = f != "synthetic_respiration_gpu.jl"
+                Literate.markdown(inpath, md_target; documenter, execute = false, credit = false)
                 Literate.notebook(inpath, nb_target; execute = false, documenter = false, credit = false, preprocess = notebook_preprocess)
             end
         end

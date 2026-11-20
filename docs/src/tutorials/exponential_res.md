@@ -134,10 +134,11 @@ hybrid_model = constructHybridModel(
 ## Train the Model
 
 ```@example expo
-out =  train(hybrid_model, df, (:k,); nepochs=300, batchsize=64,
+out =  train(hybrid_model, df, (:k,); nepochs=20, batchsize=64,
     opt=AdamW(0.01, (0.9, 0.999), 0.01), loss_types=[:mse, :nse, :nseLoss],
     training_loss=:nseLoss, random_seed=123, yscale = identity,
     monitor_names=[:Resp0, :k],
+    patience=10,
     show_progress=false,
     hybrid_name="expo_response"
     );

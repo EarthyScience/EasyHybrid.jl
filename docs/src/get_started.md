@@ -117,12 +117,12 @@ out = train(
     hybrid_model, 
     ds, 
     (); 
-    nepochs = 100,               # Number of training epochs
+    nepochs = 20,                # Number of training epochs
     batchsize = 512,             # Batch size for training
     opt = RMSProp(0.001),        # Optimizer and learning rate
     monitor_names = [:rb, :Q10], # Parameters to monitor during training
     yscale = identity,           # Scaling for outputs
-    patience = 30,               # Early stopping patience
+    patience = 10,               # Early stopping patience
     show_progress=false,
     model_name="RbQ10"
 )

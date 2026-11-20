@@ -7,7 +7,7 @@ on:
   # using the `main` branch as the default branch.
   push:
     branches:
-      - main
+    - main
     tags: ['*']
   pull_request:
 
@@ -21,16 +21,117 @@ permissions:
   id-token: write
   statuses: write
 
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+# One docs run per ref. A new push to a pull request replaces the run already
+# going for that ref. Pushes to main are not cancelled.
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: pages-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Build job
+  # One runner per executable page. The build job only publishes the site.
+  pages:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: get_started
+            os: ubuntu-latest
+            project: docs
+            page: docs/src/get_started.md
+          - name: exponential_res
+            os: ubuntu-latest
+            project: docs
+            page: docs/src/tutorials/exponential_res.md
+          - name: hyperparameter_tuning
+            os: ubuntu-latest
+            project: docs
+            page: docs/src/tutorials/hyperparameter_tuning.md
+          - name: transformer_math
+            os: ubuntu-latest
+            project: docs
+            page: docs/src/transformer_math.md
+          - name: losses
+            os: ubuntu-latest
+            project: docs
+            page: docs/src/tutorials/losses.md
+          - name: building_models
+            os: ubuntu-latest
+            project: docs
+            page: docs/literate/tutorials/building_models.jl
+          - name: sequence
+            os: ubuntu-latest
+            project: docs
+            page: docs/literate/tutorials/example_synthetic_sequence.jl
+          - name: folds
+            os: ubuntu-latest
+            project: docs
+            page: docs/literate/tutorials/folds.jl
+          - name: synthetic_respiration
+            os: ubuntu-latest
+            project: docs
+            page: docs/literate/research/synthetic_respiration.jl
+          - name: fluxnet
+            os: ubuntu-latest
+            project: docs/fluxnet
+            page: docs/literate/research/fluxnet_partitioning.jl
+          - name: gpu
+            os: macOS-latest
+            project: docs/gpu
+            page: docs/literate/tutorials/synthetic_respiration_gpu.jl
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Julia
+        uses: julia-actions/setup-julia@v2
+      - name: Load Julia packages from cache
+        id: julia-cache
+        uses: julia-actions/cache@v2
+      - name: Develop EasyHybrid and instantiate
+        run: |
+          julia --project=${{ matrix.project }} -e '
+            using Pkg
+            Pkg.develop(PackageSpec(path=pwd()))
+            Pkg.instantiate()
+          '
+      - name: Run documentation page
+        run: |
+          julia --color=yes --code-coverage=user --project=${{ matrix.project }} docs/runpage.jl ${{ matrix.page }}
+        env:
+          DATADEPS_ALWAYS_ACCEPT: true
+          GKSwstype: "100"
+      - name: Collect training videos
+        if: always()
+        run: |
+          mkdir -p docs/media
+          find docs -path '*/build/*.mp4' -exec cp {} docs/media/ \;
+      - name: Upload training videos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-media-${{ matrix.name }}
+          path: docs/media
+          if-no-files-found: ignore
+      - uses: julia-actions/julia-processcoverage@v1
+      - uses: codecov/codecov-action@v5
+        with:
+          files: lcov.info
+          flags: documentation
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+      - name: Save Julia depot cache on cancel or failure
+        id: julia-cache-save
+        if: cancelled() || failure()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ steps.julia-cache.outputs.cache-paths }}
+          key: ${{ steps.julia-cache.outputs.cache-key }}
+
+  # Publishes the site and executes the example blocks.
   build:
-    runs-on: macOS-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,13 +142,6 @@ jobs:
       - name: Load Julia packages from cache
         id: julia-cache
         uses: julia-actions/cache@v2
-      - name: Install unregistered dependencies
-        run: |
-          julia --project=docs -e '
-            using Pkg
-            Pkg.develop(PackageSpec(path=pwd()))
-            Pkg.add(url = "https://github.com/LuxDL/LuxZarr.jl.git")
-          '
       # julia-docdeploy turns on --code-coverage only while instantiating.
       # The process that runs docs/make.jl has to carry the flag, because that
       # is the run whose line hits we upload.
@@ -85,7 +179,7 @@ jobs:
         id: julia-cache-save
         if: cancelled() || failure()
         uses: actions/cache/save@v4
-        with: 
+        with:
           path: |
             ${{ steps.julia-cache.outputs.cache-paths }}
           key: ${{ steps.julia-cache.outputs.cache-key }}

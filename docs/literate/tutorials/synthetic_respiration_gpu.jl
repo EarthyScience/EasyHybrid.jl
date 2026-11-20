@@ -96,7 +96,7 @@ large_nn_hybrid_model = constructHybridModel(
 # Train the hybrid model
 
 cfg = EasyHybrid.TrainConfig(
-    nepochs = 20,
+    nepochs = 3,
     batchsize = 64,
     opt = RMSProp(0.01),
     loss_types = [:mse, :nse],
@@ -136,13 +136,13 @@ nothing # hide
 
 # ## With Large NN CPU is slower than GPU
 # Large NN on GPU
-@benchmark gpu_large_nn() samples = 4 evals = 1
+@benchmark gpu_large_nn() samples = 1 evals = 1
 # Large NN on CPU
-@benchmark cpu_large_nn() samples = 4 evals = 1
+@benchmark cpu_large_nn() samples = 1 evals = 1
 
 # ## With Small NN CPU and GPU are on par
 using BenchmarkTools
 # Small NN on GPU
-@benchmark gpu_small_nn() samples = 4 evals = 1
+@benchmark gpu_small_nn() samples = 1 evals = 1
 # Small NN on CPU
-@benchmark cpu_small_nn() samples = 4 evals = 1
+@benchmark cpu_small_nn() samples = 1 evals = 1
