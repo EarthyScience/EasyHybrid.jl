@@ -58,19 +58,28 @@ makedocs(;
     pages = [
         "Home" => "index.md",
         "Get Started" => "get_started.md",
-        "Tutorial" => [
+        "Tutorials" => [
             "Overview" => "tutorials/overview.md",
-            "Building Models Examples" => "tutorials/building_models.md",
-            "Dashboard" => "tutorials/dashboard.md",
-            "Exponential Response" => "tutorials/exponential_res.md",
-            "Hyperparameter Tuning" => "tutorials/hyperparameter_tuning.md",
-            "GPU Acceleration" => "tutorials/gpu.md",
-            "Synthetic Respiration on GPU" => "tutorials/synthetic_respiration_gpu.md",
-            "Slurm" => "tutorials/slurm.md",
-            "Cross-validation" => "tutorials/folds.md",
-            "Sequence Hybrid Models (LSTM & Transformer)" => "tutorials/example_synthetic_sequence.md",
-            "Transformer Mathematics" => "transformer_math.md",
-            "Loss Functions" => "tutorials/losses.md",
+            "Fundamentals" => [
+                "Building Models" => "tutorials/building_models.md",
+                "Soil Respiration (Exponential Response)" => "tutorials/exponential_res.md",
+                "Loss Functions" => "tutorials/losses.md",
+            ],
+            "Training & Evaluation" => [
+                "Training Dashboard" => "tutorials/dashboard.md",
+                "Cross-validation" => "tutorials/folds.md",
+                "Hyperparameter Tuning" => "tutorials/hyperparameter_tuning.md",
+            ],
+            "Sequence Models" => [
+                "LSTM & Transformer Hybrids" => "tutorials/example_synthetic_sequence.md",
+                "Transformer Mathematics" => "transformer_math.md",
+                "Forecasting Approaches" => "forecasting_approaches.md",
+            ],
+            "Scaling & HPC" => [
+                "GPU Acceleration" => "tutorials/gpu.md",
+                "Synthetic Respiration on GPU" => "tutorials/synthetic_respiration_gpu.md",
+                "Slurm Jobs" => "tutorials/slurm.md",
+            ],
         ],
         "Research" => [
             "Overview" => "research/overview.md",
