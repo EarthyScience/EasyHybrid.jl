@@ -24,8 +24,13 @@ Manifest.toml
 !Bernhard_Ahrens.png
 *.err
 *.out
-/docs/src/tutorials/folds.md
+# Markdown generated from docs/literate/ by docs/make.jl (add new Literate scripts here)
 /docs/src/tutorials/building_models.md
+/docs/src/tutorials/example_synthetic_sequence.md
+/docs/src/tutorials/folds.md
+/docs/src/tutorials/synthetic_respiration_gpu.md
+/docs/src/research/fluxnet_partitioning.md
+/docs/src/research/synthetic_respiration.md
 /docs/src/public/notebooks/
 *.jl.cov
 *.jl.*.cov
