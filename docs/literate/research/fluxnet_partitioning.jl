@@ -9,9 +9,12 @@
 # Data from the [FLUXNET Shuttle](https://github.com/fluxnet/shuttle)
 # (ONEFlux v1.3, CC-BY-4.0).
 
-# using Pkg
-# Pkg.activate("/User/homes/bahrens/BGI/scratch/bahrens/projects/EasyHybrid_Xin/docs")
-# Pkg.develop(path = "/Net/Groups/BGI/scratch/bahrens/projects/EasyHybrid_Xin")
+# ```julia
+# # To develop this package, run the following from the repository root:
+# # using Pkg
+# # Pkg.activate("docs")
+# # Pkg.develop(path = ".")
+# ```
 
 using EasyHybrid
 using CairoMakie
