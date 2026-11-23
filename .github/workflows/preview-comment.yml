@@ -2,7 +2,7 @@ name: Preview comment
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, unlabeled]
 
 permissions:
   pull-requests: write
@@ -12,7 +12,7 @@ jobs:
     name: Post preview URL
     runs-on: ubuntu-latest
     # Only run on PRs from the same repo (not forks)
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event.pull_request.head.repo.full_name == github.repository && !contains(github.event.pull_request.labels.*.name, 'skip-docs')
 
     steps:
       - name: Checkout

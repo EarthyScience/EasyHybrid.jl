@@ -10,6 +10,7 @@ on:
     - main
     tags: ['*']
   pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -31,6 +32,7 @@ jobs:
   # One runner per executable page. The build job only publishes the site.
   pages:
     name: ${{ matrix.name }}
+    if: "!contains(github.event.pull_request.labels.*.name, 'skip-docs')"
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -131,6 +133,7 @@ jobs:
 
   # Publishes the site and executes the example blocks.
   build:
+    if: "!contains(github.event.pull_request.labels.*.name, 'skip-docs')"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
