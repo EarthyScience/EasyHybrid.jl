@@ -1,0 +1,15 @@
+/* Gradient text for section titles in nav dropdown menus (e.g. Tutorials → Fundamentals) */
+.VPMenuGroup p.title {
+    color: var(--vp-home-hero-name-color);
+    background: var(--vp-home-hero-name-background);
+    background-clip: text;
+    -webkit-background-clip: text;
+}
+
+/* Same gradient for nested section titles in the sidebar */
+.VPSidebarItem.level-1.collapsible > .item > .text {
+    color: var(--vp-home-hero-name-color);
+    background: var(--vp-home-hero-name-background);
+    background-clip: text;
+    -webkit-background-clip: text;
+}
