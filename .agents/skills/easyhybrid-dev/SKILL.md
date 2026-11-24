@@ -20,6 +20,7 @@ This skill guides you through developing and debugging components in `EasyHybrid
   - `show_generic.jl`: Display methods for hybrid models.
 - **`src/training/`**:
   - `train.jl` / `train_optimization.jl`: Training routines using `Optimization.jl`.
+  - `evaluate_split.jl`: `evaluate_split`, `predict_split`, `observations`, `full_batch_data` for in-memory and lazy splits.
   - `dashboard.jl`, `history.jl`, `early_stopping.jl`: Training tracking and metrics.
   - `tune.jl`: Hyperparameter tuning integration.
 - **`src/losses/`**:
@@ -27,7 +28,9 @@ This skill guides you through developing and debugging components in `EasyHybrid
   - `loss_fn.jl`: Custom loss constructors and wrappers.
 - **`src/data/`**:
   - `prepare_data.jl`, `sequences.jl`, `seq2seq.jl`: Sequence windowing, batch creation.
-  - `split_data.jl`, `splits.jl`, `loaders.jl`: Train/val/test splitting and DataLoader helpers.
+  - `split_data.jl`, `splits.jl`, `loaders.jl`: Train/val/test splitting (`split_indices`) and DataLoader helpers.
+  - `training_splits.jl`: `InMemorySplit` / `prepare_training_splits`, the split objects the training loops consume.
+  - `lazy_data.jl`: Lazy disk-backed data (`LazyHybridData`, `LazyBatchLoader`, `is_lazy_data`, `lazy_splits`); see `docs/literate/tutorials/lazy_data.jl`.
 - **`src/config/`**:
   - `TrainingConfig.jl`, `DataConfig.jl`, `TrainingPaths.jl`, `config_yaml.jl`.
 - **`src/io/`**:
@@ -40,7 +43,9 @@ This skill guides you through developing and debugging components in `EasyHybrid
   - `plotrecipes.jl`: Makie plot stubs, plus `combine_flux_partition` (joins FLUXNET site data with hybrid outputs and aggregates to `:halfhourly`, `:hourly`, or `:daily`) and `plot_flux_partition` / `plot_flux_partition!` (drawn in `ext/recipes/FluxPartitionPlot.jl` once Makie is loaded). `diurnal_cycle` averages numeric columns by month and hour, `diurnal_skill` reports Pearson r², bias ratio, and variance ratio for night, midday, and day, and `diurnalPlot` draws the month panels with those three bands shaded and the scores written in each band (in `ext/recipes/DiurnalPlot.jl`).
 - **`ext/`**:
   - `EasyHybridMakie.jl`, `HybridTheme.jl`, `recipes/`: Makie plotting recipes.
-  - `EasyHybridEnzymeExt.jl`: Enzyme.jl autodiff support extension.- **`test/`**:
+  - `EasyHybridEnzymeExt.jl`: Enzyme.jl autodiff support extension.
+  - `EasyHybridDiskArraysExt.jl`: disk-backed array detection and chunk sizes for lazy training.
+- **`test/`**:
   - `runtests.jl` and individual test files for each component.
 
 ---

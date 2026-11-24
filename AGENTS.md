@@ -23,18 +23,21 @@ A hybrid model in `EasyHybrid.jl` integrates:
   - `train.jl` & `train_optimization.jl`: Training loops and `Optimization.jl` integration.
   - `dashboard.jl`, `history.jl`, `early_stopping.jl`: Training progress metrics and stopping criteria.
   - `initialization.jl`: Parameter initialization strategies.
+  - `evaluate_split.jl`: Split-level evaluation (`evaluate_split`, `predict_split`, `observations`, `full_batch_data`), block-wise for lazy data.
   - `tune.jl`: Hyperparameter optimization with `Hyperopt.jl`.
 - `src/losses/`:
   - `compute_loss_types.jl` & `compute_loss.jl`: Core loss dispatch and evaluation.
   - `loss_fn.jl`: Custom hybrid loss constructors.
 - `src/data/`:
   - `prepare_data.jl`, `sequences.jl`, `seq2seq.jl`: Data formatting, time-series windowing, batching.
-  - `splits.jl`, `split_data.jl`: Train/validation/test dataset splitting.
-  - `loaders.jl`: Data loader utilities.
+  - `splits.jl`, `split_data.jl`: Train/validation/test dataset splitting (`split_indices` holds the shared index logic).
+  - `training_splits.jl`: `InMemorySplit` and `prepare_training_splits`, the split objects consumed by the training loops.
+  - `lazy_data.jl`: Lazy (disk-backed, e.g. `YAXArray`/Zarr) training data: `LazyHybridData`, chunk-aware `LazyBatchLoader`, `is_lazy_data`, `lazy_splits`.
+  - `loaders.jl`: Data loader utilities (`build_loader` for in-memory and lazy splits).
 - `src/config/`: Configuration structs (`TrainingConfig`, `DataConfig`, `TrainingPaths`) and YAML serialization.
 - `src/io/`: Checkpoint management, model serialization (`JLD2.jl`), path resolvers.
 - `src/utils/`: Macro helpers (`@hybrid`), weight extraction, cross-validation helpers, plotting stubs (`plotrecipes.jl`, including `combine_flux_partition` and `plot_flux_partition` / `plot_flux_partition!`, plus `diurnal_cycle`, `diurnal_skill`, and `diurnalPlot`), FLUXNET Shuttle data loading (`fluxnet_shuttle.jl`: `fluxnet_shuttle_zip`, `load_fluxnet_shuttle`), FLUXNET feature engineering helpers (`fluxnet_feature_engineering.jl`: `nan`, `fillgaps`, `moving`, `moving_slope`, `slope_at_max_x`, `soil_bucket`, `esat`, `flux_features`).
-- `ext/`: Package extensions (`EasyHybridMakie.jl` for Makie.jl plotting recipes, including `recipes/FluxPartitionPlot.jl` and `recipes/DiurnalPlot.jl`, `EasyHybridEnzymeExt.jl` for Enzyme.jl autodiff support).
+- `ext/`: Package extensions (`EasyHybridMakie.jl` for Makie.jl plotting recipes, including `recipes/FluxPartitionPlot.jl` and `recipes/DiurnalPlot.jl`, `EasyHybridEnzymeExt.jl` for Enzyme.jl autodiff support, `EasyHybridDiskArraysExt.jl` for detecting disk-backed arrays and their chunking for lazy training).
 - `test/`: Test suites executed by `runtests.jl`.
 - `tools/`:
   - `tools/formatter/`: Code formatting via [Runic.jl](https://github.com/fredrikekre/Runic.jl).
