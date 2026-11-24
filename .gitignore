@@ -29,6 +29,7 @@ Manifest.toml
 /docs/src/tutorials/example_synthetic_sequence.md
 /docs/src/tutorials/folds.md
 /docs/src/tutorials/synthetic_respiration_gpu.md
+/docs/src/tutorials/lazy_data.md
 /docs/src/research/fluxnet_partitioning.md
 /docs/src/research/synthetic_respiration.md
 /docs/src/public/notebooks/
