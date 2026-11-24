@@ -22,14 +22,15 @@ function save_epoch!(paths::TrainingPaths, model, ps, st, snapshot::EpochSnapsho
     return nothing
 end
 
-function save_final!(paths::TrainingPaths, model, ps, st, x_train, forcings_train, y_train, x_val, forcings_val, y_val, stopper::EarlyStopping, cfg::TrainConfig)
+function save_final!(paths::TrainingPaths, model, ps, st, train_pred, val_pred, stopper::EarlyStopping, cfg::TrainConfig)
     if cfg.save_training
         target_names = model.targets
         save_epoch = stopper.best_epoch == 0 ? 0 : stopper.best_epoch
         save_ps_st(paths.best_model, model, cfg.cdev(ps), cfg.cdev(st), cfg.tracked_params, save_epoch)
 
-        ŷ_train, αst_train = model((cfg.cdev(x_train), cfg.cdev(forcings_train)), cfg.cdev(ps), LuxCore.testmode(cfg.cdev(st)))
-        ŷ_val, αst_val = model((cfg.cdev(x_val), cfg.cdev(forcings_val)), cfg.cdev(ps), LuxCore.testmode(cfg.cdev(st)))
+        # final predictions in test mode, from `predict_split`: (ŷ, st_out, y)
+        ŷ_train, αst_train, y_train = train_pred
+        ŷ_val, αst_val, y_val = val_pred
 
         save_predictions!(paths.checkpoint, ŷ_train, αst_train, "training")
         save_predictions!(paths.checkpoint, ŷ_val, αst_val, "validation")

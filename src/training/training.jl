@@ -1,6 +1,7 @@
 include("initialization.jl")
 include("history.jl")
 include("epoch.jl")
+include("evaluate_split.jl")
 include("dashboard.jl")
 include("early_stopping.jl")
 include("train.jl")

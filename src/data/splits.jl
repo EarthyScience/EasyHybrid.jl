@@ -1,5 +1,13 @@
 export prepare_splits, maybe_build_sequences
 
+"""
+    prepare_splits(data, model, cfg::DataConfig)
+
+Load `data` into memory and split it into
+`((x_train, forcings_train), y_train), ((x_val, forcings_val), y_val)` according to
+`cfg` (see [`split_data`](@ref)). Already-split tuples are returned unchanged.
+For lazy (disk-backed) data use [`prepare_training_splits`](@ref) instead.
+"""
 function prepare_splits(data, model, cfg::DataConfig)
     # Already-split train/val tuple from split_data — skip re-splitting (e.g. cv_test folds).
     if data isa Tuple && length(data) == 2 &&

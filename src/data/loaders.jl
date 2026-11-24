@@ -19,3 +19,15 @@ function build_loader(x_train, forcings_train, y_train, mask, cfg::TrainConfig)
 
     return Iterators.map(((x, y),) -> ((x, forcings_train), y), loader)
 end
+
+"""
+    build_loader(split, cfg::TrainConfig)
+
+Minibatch iterator over a training split, yielding `((x, forcings), (y, mask))`.
+In-memory splits use a shuffled `MLUtils.DataLoader`; [`LazyHybridData`](@ref)
+uses the chunk-aware [`LazyBatchLoader`](@ref).
+"""
+build_loader(s::InMemorySplit, cfg::TrainConfig) = build_loader(s.x, s.forcings, s.y, s.mask, cfg)
+
+build_loader(d::LazyHybridData, cfg::TrainConfig) =
+    LazyBatchLoader(d; batchsize = cfg.batchsize, shuffle = true, shuffle_buffer = d.shuffle_buffer)
