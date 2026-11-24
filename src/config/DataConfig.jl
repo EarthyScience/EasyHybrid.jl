@@ -58,4 +58,31 @@ $(TYPEDFIELDS)
 
     "Whether to apply batch normalization to the model inputs. Default: `false`."
     input_batchnorm::Bool = false
+
+    """
+    Train on lazily loaded (disk-backed) data, reading it block by block instead of
+    loading it into memory; see [`LazyHybridData`](@ref). `nothing` (default) detects
+    it automatically (`true` for disk-backed arrays such as a `YAXArray` opened from Zarr).
+    """
+    lazy::Union{Nothing, Bool} = nothing
+
+    """
+    Lazy data only: number of observations read per block. Rounded up to a multiple of
+    the storage chunk length. `nothing` (default) reads one storage chunk per block.
+    """
+    lazy_block_size::Union{Nothing, Int} = nothing
+
+    """
+    Lazy data only: number of observations, taken from randomly chosen blocks, that are
+    shuffled together to build training minibatches. Time-contiguous chunks hold strongly
+    autocorrelated observations, so mixing several of them is needed for stable training.
+    Larger values approach a global shuffle at the cost of memory. Default: `65536`.
+    """
+    lazy_shuffle_buffer::Int = 65536
+
+    """
+    Lazy data only: read the next block on another thread while the current one is used
+    (effective when Julia runs with more than one thread). Default: `true`.
+    """
+    lazy_prefetch::Bool = true
 end

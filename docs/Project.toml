@@ -4,6 +4,7 @@ CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
+DiskArrays = "3c3547ce-8d99-4f5e-a174-61eb10b00ae3"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 DocumenterVitepress = "4710194d-e776-4893-9690-8d956a29c365"
 EasyHybrid = "61bb816a-e6af-4913-ab9e-91bff2e122e3"
@@ -14,6 +15,9 @@ Lux = "b2108857-7c20-44ae-9111-449ecde12c47"
 MLDataDevices = "7e8f7934-dd98-4c1a-8fe8-92b47a384d40"
 NNlib = "872c559c-99b0-510c-b3b7-b6c96a88d5cd"
 OhMyThreads = "67456a42-1dca-4109-a031-0a68de7e3ad5"
+YAXArrays = "c21b50f5-aa40-41ea-b809-c0f5e47bfa5c"
+Zarr = "0a941bbe-ad1d-11e8-39d9-ab76183a1d99"
+
 [sources]
 EasyHybrid = {path = ".."}
 

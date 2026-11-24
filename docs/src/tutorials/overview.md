@@ -94,6 +94,14 @@ A complete example that trains a Q10 respiration hybrid model on synthetic data 
 
 **Best for**: Seeing a full GPU training workflow end to end.
 
+#### [Lazy (Out-of-Memory) Data](lazy_data.md)
+Train directly on a disk-backed `YAXArray` (e.g. a Zarr store) without loading it into memory. This tutorial shows how to:
+- Repack a NetCDF file into a Zarr store with a training-friendly layout and chunking
+- Open the store lazily and pass it to `train`
+- Tune block size, shuffle buffer and prefetching for chunked time series
+
+**Best for**: Datasets that are larger than memory or live in cloud storage.
+
 #### [Slurm Jobs](slurm.md)
 Run EasyHybrid.jl models on HPC clusters using Slurm job scheduling. This tutorial provides:
 - Example Slurm batch scripts
@@ -111,6 +119,7 @@ Run EasyHybrid.jl models on HPC clusters using Slurm job scheduling. This tutori
 - **Want to optimize performance?** → Try [Hyperparameter Tuning](hyperparameter_tuning.md)
 - **Customizing training?** → Read [Losses and LoggingLoss](losses.md)
 - **Training on GPU?** → See [GPU Acceleration](gpu.md)
+- **Data larger than memory?** → See [Lazy (Out-of-Memory) Data](lazy_data.md)
 - **Running on clusters?** → Follow [Slurm Jobs](slurm.md)
 
 ## Next Steps

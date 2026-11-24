@@ -70,12 +70,12 @@ function best_or_final(stopper::EarlyStopping, ps, st, cfg::TrainConfig)
     end
 end
 
-function build_results(model, history::TrainingHistory, stopper::EarlyStopping, ps, st, x_train, forcings_train, y_train, x_val, forcings_val, y_val, cfg::TrainConfig)
+function build_results(model, history::TrainingHistory, stopper::EarlyStopping, ps, st, train_pred, val_pred, cfg::TrainConfig)
     target_names = model.targets
 
-    # final predictions in test mode
-    ŷ_train, _ = model((cfg.cdev(x_train), cfg.cdev(forcings_train)), cfg.cdev(ps), LuxCore.testmode(st))
-    ŷ_val, _ = model((cfg.cdev(x_val), cfg.cdev(forcings_val)), cfg.cdev(ps), LuxCore.testmode(st))
+    # final predictions in test mode, from `predict_split`: (ŷ, st_out, y)
+    ŷ_train, _, y_train = train_pred
+    ŷ_val, _, y_val = val_pred
 
     # observed vs predicted DataFrames
     train_obs_pred = hcat(toDataFrame(y_train), toDataFrame(ŷ_train, target_names, y_train))

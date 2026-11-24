@@ -53,16 +53,30 @@ function compute_loss(
         stats = NamedTuple()
     else
         ŷ, _ = HM((x, forcings), ps, LuxCore.testmode(st))
-        loss_value = _compute_loss(ŷ, y_t, y_nan, targets, loss_types(logging), logging.agg)
-        # Add extra_loss entries if provided
-        if !isnothing(ext_loss)
-            extra_loss_values = ext_loss(ŷ, ps)
-            agg_extra_loss_value = logging.agg(extra_loss_values)
-            loss_value = (; loss_value..., extra_loss = (; extra_loss_values..., Symbol(logging.agg) => agg_extra_loss_value))
-        end
+        loss_value = evaluation_loss(HM, ŷ, y_t, y_nan, ps, logging)
         stats = (; ŷ...)
     end
     return loss_value, st, stats
+end
+
+"""
+    evaluation_loss(HM, ŷ, y_t, y_nan, ps, logging::LoggingLoss)
+
+Evaluation-mode losses (all `loss_types`, plus `extra_loss` entries if configured)
+for predictions `ŷ` that were already computed, e.g. block by block for lazy data
+and then concatenated. Returns the same `NamedTuple` as `compute_loss` in
+evaluation mode.
+"""
+function evaluation_loss(HM, ŷ, y_t, y_nan, ps, logging::LoggingLoss)
+    loss_value = _compute_loss(ŷ, y_t, y_nan, HM.targets, loss_types(logging), logging.agg)
+    # Add extra_loss entries if provided
+    ext_loss = extra_loss(logging)
+    if !isnothing(ext_loss)
+        extra_loss_values = ext_loss(ŷ, ps)
+        agg_extra_loss_value = logging.agg(extra_loss_values)
+        loss_value = (; loss_value..., extra_loss = (; extra_loss_values..., Symbol(logging.agg) => agg_extra_loss_value))
+    end
+    return loss_value
 end
 
 function _compute_loss(ŷ, y, y_nan, targets, loss_spec, agg::Function)

@@ -78,6 +78,7 @@ makedocs(;
             "Scaling & HPC" => [
                 "GPU Acceleration" => "tutorials/gpu.md",
                 "Synthetic Respiration on GPU" => "tutorials/synthetic_respiration_gpu.md",
+                "Lazy (Out-of-Memory) Data" => "tutorials/lazy_data.md",
                 "Slurm Jobs" => "tutorials/slurm.md",
             ],
         ],

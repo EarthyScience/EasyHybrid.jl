@@ -97,13 +97,11 @@ function _train(model, data, train_cfg::TrainConfig, data_cfg::DataConfig)
     ext = load_makie_extension(train_cfg)
     seed!(train_cfg.random_seed)
 
-    ((x_train, forcings_train), y_train), ((x_val, forcings_val), y_val) = prepare_splits(data, model, data_cfg)
-    mask_train, _ = valid_mask(y_train)
-    mask_val, _ = valid_mask(y_val)
-    loader = build_loader(x_train, forcings_train, y_train, mask_train, train_cfg)
+    train_split, val_split = prepare_training_splits(data, model, data_cfg)
+    loader = build_loader(train_split, train_cfg)
     ps, st, train_state = init_model_state(model, train_cfg)
 
-    init = compute_initial_state(model, x_train, forcings_train, y_train, mask_train, x_val, forcings_val, y_val, mask_val, ps, st, train_cfg)
+    init = compute_initial_state(model, train_split, val_split, ps, st, train_cfg)
     history = TrainingHistory(init)
     stopper = EarlyStopping(init.l_val, ps, st, train_cfg)
     paths = resolve_paths(train_cfg)
@@ -114,7 +112,7 @@ function _train(model, data, train_cfg::TrainConfig, data_cfg::DataConfig)
     # @show get_loss_value_t(history, train_cfg.training_loss, Symbol("$(train_cfg.agg)"))
     # @show get_loss_value_v(history, train_cfg.val_loss, Symbol("$(train_cfg.agg)"))
 
-    dashboard = init_dashboard(ext, history, train_cfg, y_train, y_val, model.targets)
+    dashboard = init_dashboard(ext, history, train_cfg, observations(train_split), observations(val_split), model.targets)
 
     save_initial_state!(paths, model, ps, st, train_cfg)
     ps = ps |> train_cfg.gdev
@@ -123,9 +121,10 @@ function _train(model, data, train_cfg::TrainConfig, data_cfg::DataConfig)
     record_or_run(ext, dashboard, paths, train_cfg) do streams
         for epoch in 1:train_cfg.nepochs
             ps, st, train_state = run_epoch!(loader, model, ps, st, train_state, train_cfg)
-            snapshot = evaluate_epoch(model, x_train, forcings_train, y_train, mask_train, x_val, forcings_val, y_val, mask_val, ps, st, epoch, init, train_cfg)
+            snapshot = evaluate_epoch(model, train_split, val_split, ps, st, epoch, init, train_cfg)
 
             update!(stopper, history, snapshot, ps, st, train_cfg)
+            compact_history!(history, train_split, train_cfg)
             save_epoch!(paths, model, ps, st, snapshot, epoch, train_cfg)
             update_dashboard!(dashboard, ext, history, streams, train_cfg)
             log_progress!(prog, init, snapshot, epoch, train_cfg)
@@ -136,9 +135,11 @@ function _train(model, data, train_cfg::TrainConfig, data_cfg::DataConfig)
 
     save_dashboard_img!(dashboard, ext, paths, train_cfg, stopper.best_epoch)
     ps, st = best_or_final(stopper, ps, st, train_cfg)
-    save_final!(paths, model, ps, st, x_train, forcings_train, y_train, x_val, forcings_val, y_val, stopper, train_cfg)
+    train_pred = predict_split(model, train_split, ps, st, train_cfg)
+    val_pred = predict_split(model, val_split, ps, st, train_cfg)
+    save_final!(paths, model, ps, st, train_pred, val_pred, stopper, train_cfg)
 
-    return build_results(model, history, stopper, ps, st, x_train, forcings_train, y_train, x_val, forcings_val, y_val, train_cfg)
+    return build_results(model, history, stopper, ps, st, train_pred, val_pred, train_cfg)
 end
 
 """
@@ -194,6 +195,9 @@ Returns `nothing` if data preparation fails (zero-size dimension in training or 
 # Arguments
 - `model`: The hybrid model to train.
 - `data`: Training data, a single `DimArray`, a single `DataFrame`, or a single `KeyedArray`.
+  Disk-backed `(variable × observation)` arrays, e.g. a `YAXArray` opened from Zarr, are
+  trained on lazily, block by block, without loading them into memory; see
+  [`LazyHybridData`](@ref) and the `lazy*` options of [`DataConfig`](@ref).
 
 # Keyword Arguments
 - `train_cfg`: Training configuration. See [`TrainConfig`](@ref) for all options.
@@ -224,19 +228,6 @@ function train(
     kwargs = haskey(kwargs, :target_names) ? kwargs : (; kwargs..., target_names = model.targets)
     train_cfg, data_cfg, solve_kwargs = override_configs(train_cfg, data_cfg, kwargs)
     return _train(model, data, train_cfg, data_cfg, solve_kwargs)
-end
-
-function valid_mask(y)
-    nt = (;)
-    isempty = true
-    for (k, v) in pairs(y)
-        k_mask = .!isnan.(v)
-        if !all(k_mask .== false)
-            isempty = false
-        end
-        nt = merge(nt, NamedTuple([k => .!isnan.(v)]))
-    end
-    return nt, isempty
 end
 
 function train(model, data, save_ps; kwargs...)

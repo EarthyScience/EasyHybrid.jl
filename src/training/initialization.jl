@@ -62,15 +62,9 @@ struct EpochSnapshot
     epoch
 end
 
-function compute_initial_state(model, x_train, forcings_train, y_train, mask_train, x_val, forcings_val, y_val, mask_val, ps, st, cfg::TrainConfig)
-    l_train, _, ŷ_train = evaluate_acc(
-        model, x_train, forcings_train, y_train, mask_train,
-        ps, st, cfg.loss_types, cfg.training_loss, cfg.extra_loss, cfg.agg
-    )
-    l_val, _, ŷ_val = evaluate_acc(
-        model, x_val, forcings_val, y_val, mask_val,
-        ps, st, cfg.loss_types, cfg.training_loss, cfg.extra_loss, cfg.agg
-    )
+function compute_initial_state(model, train_split, val_split, ps, st, cfg::TrainConfig)
+    l_train, ŷ_train, _ = evaluate_split(model, train_split, ps, st, cfg)
+    l_val, ŷ_val, _ = evaluate_split(model, val_split, ps, st, cfg)
 
     @debug "Initial train loss: $(l_train) | val loss: $(l_val)"
 

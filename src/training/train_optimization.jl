@@ -35,10 +35,9 @@ function _train_optimization(model, data, train_cfg::TrainConfig, data_cfg::Data
     ext = load_makie_extension(train_cfg)
     seed!(train_cfg.random_seed)
 
-    ((x_train, forcings_train), y_train), ((x_val, forcings_val), y_val) =
-        prepare_splits(data, model, data_cfg)
-    mask_train, _ = valid_mask(y_train)
-    mask_val, _ = valid_mask(y_val)
+    train_split, val_split = prepare_training_splits(data, model, data_cfg)
+    # Fail before the initial evaluation pass reads the whole (lazy) dataset.
+    train_cfg.full_batch && train_split isa LazyHybridData && full_batch_data(train_split, train_cfg)
 
     ps, st, _ = init_model_state(model, train_cfg)
     ps_ca = ComponentArray(ps)
@@ -46,15 +45,12 @@ function _train_optimization(model, data, train_cfg::TrainConfig, data_cfg::Data
         ps_ca = ps_ca .|> Float64
     end
 
-    init = compute_initial_state(
-        model, x_train, forcings_train, y_train, mask_train,
-        x_val, forcings_val, y_val, mask_val, ps_ca, st, train_cfg,
-    )
+    init = compute_initial_state(model, train_split, val_split, ps_ca, st, train_cfg)
     history = TrainingHistory(init)
     stopper = EarlyStopping(init.l_val, ps_ca, st, train_cfg)
     paths = resolve_paths(train_cfg)
     prog = build_progress(train_cfg)
-    dashboard = init_dashboard(ext, history, train_cfg, y_train, y_val, model.targets)
+    dashboard = init_dashboard(ext, history, train_cfg, observations(train_split), observations(val_split), model.targets)
 
     save_initial_state!(paths, model, ps_ca, st, train_cfg)
 
@@ -66,14 +62,11 @@ function _train_optimization(model, data, train_cfg::TrainConfig, data_cfg::Data
         if train_cfg.full_batch
             # Convert once (not per objective/gradient evaluation): the full
             # training set is the fixed `p` for the entire solve.
-            data_arg = collect_dim_data(
-                (x_train, forcings_train), (y_train, mask_train), train_cfg,
-            )
+            data_arg = full_batch_data(train_split, train_cfg)
             opt_prob = OptimizationProblem(opt_func, ps_ca, data_arg)
             cb = _optim_callback(
                 model, st, init, history, stopper, dashboard, ext, prog, paths,
-                x_train, forcings_train, y_train, mask_train,
-                x_val, forcings_val, y_val, mask_val,
+                train_split, val_split,
                 streams, train_cfg, final_ps,
             )
             res = solve(opt_prob, train_cfg.opt; callback = cb, solve_kwargs...)
@@ -82,8 +75,7 @@ function _train_optimization(model, data, train_cfg::TrainConfig, data_cfg::Data
             _run_minibatch!(
                 final_ps, opt_func, ps_ca, model, st, init, history, stopper,
                 dashboard, ext, prog, paths,
-                x_train, forcings_train, y_train, mask_train,
-                x_val, forcings_val, y_val, mask_val,
+                train_split, val_split,
                 streams, train_cfg, solve_kwargs,
             )
         end
@@ -92,19 +84,11 @@ function _train_optimization(model, data, train_cfg::TrainConfig, data_cfg::Data
     ps_out = final_ps[]
     save_dashboard_img!(dashboard, ext, paths, train_cfg, stopper.best_epoch)
     ps_out, st_out = best_or_final(stopper, ps_out, st, train_cfg)
-    save_final!(
-        paths, model, ps_out, st_out,
-        x_train, forcings_train, y_train,
-        x_val, forcings_val, y_val,
-        stopper, train_cfg,
-    )
+    train_pred = predict_split(model, train_split, ps_out, st_out, train_cfg)
+    val_pred = predict_split(model, val_split, ps_out, st_out, train_cfg)
+    save_final!(paths, model, ps_out, st_out, train_pred, val_pred, stopper, train_cfg)
 
-    return build_results(
-        model, history, stopper, ps_out, st_out,
-        x_train, forcings_train, y_train,
-        x_val, forcings_val, y_val,
-        train_cfg,
-    )
+    return build_results(model, history, stopper, ps_out, st_out, train_pred, val_pred, train_cfg)
 end
 
 """
@@ -148,11 +132,10 @@ is `cfg.inner_maxiters` and the pass count is `cfg.nepochs`); any remaining
 function _run_minibatch!(
         final_ps, opt_func, ps0, model, st, init, history, stopper,
         dashboard, ext, prog, paths,
-        x_train, forcings_train, y_train, mask_train,
-        x_val, forcings_val, y_val, mask_val,
+        train_split, val_split,
         streams, cfg::TrainConfig, solve_kwargs::NamedTuple,
     )
-    loader = build_loader(x_train, forcings_train, y_train, mask_train, cfg)
+    loader = build_loader(train_split, cfg)
     inner_kwargs = _exclude_keys(solve_kwargs, (:maxiters, :epochs))
     ps = ps0
 
@@ -160,7 +143,7 @@ function _run_minibatch!(
     # recreates it cheaply with a new initial guess (`u0`) and minibatch data
     # (`p`) while keeping the same `OptimizationFunction` — see the SciML
     # polyalgorithm tutorial. The placeholder batch is immediately replaced.
-    x0b, y0b = first(loader)
+    x0b, y0b = _placeholder_batch(loader)
     opt_prob = OptimizationProblem(opt_func, ps, collect_dim_data(x0b, y0b, cfg))
 
     for epoch in 1:cfg.nepochs
@@ -176,12 +159,9 @@ function _run_minibatch!(
             final_ps[] = ps
         end
 
-        snapshot = evaluate_epoch(
-            model, x_train, forcings_train, y_train, mask_train,
-            x_val, forcings_val, y_val, mask_val,
-            ps, st, epoch, init, cfg,
-        )
+        snapshot = evaluate_epoch(model, train_split, val_split, ps, st, epoch, init, cfg)
         update!(stopper, history, snapshot, ps, st, cfg)
+        compact_history!(history, train_split, cfg)
         save_epoch!(paths, model, ps, st, snapshot, epoch, cfg)
         update_dashboard!(dashboard, ext, history, streams, cfg)
         log_progress!(prog, init, snapshot, epoch, cfg)
@@ -194,8 +174,7 @@ end
 
 function _optim_callback(
         model, st, init, history, stopper, dashboard, ext, prog, paths,
-        x_train, forcings_train, y_train, mask_train,
-        x_val, forcings_val, y_val, mask_val,
+        train_split, val_split,
         streams, cfg::TrainConfig, final_ps,
     )
     return function (state, _loss)
@@ -204,12 +183,9 @@ function _optim_callback(
         final_ps[] = ps_cur
 
         if iter > 0 && iter % cfg.eval_every == 0
-            snapshot = evaluate_epoch(
-                model, x_train, forcings_train, y_train, mask_train,
-                x_val, forcings_val, y_val, mask_val,
-                ps_cur, st, iter, init, cfg,
-            )
+            snapshot = evaluate_epoch(model, train_split, val_split, ps_cur, st, iter, init, cfg)
             update!(stopper, history, snapshot, ps_cur, st, cfg)
+            compact_history!(history, train_split, cfg)
             save_epoch!(paths, model, ps_cur, st, snapshot, iter, cfg)
             update_dashboard!(dashboard, ext, history, streams, cfg)
             log_progress!(prog, init, snapshot, iter, cfg)

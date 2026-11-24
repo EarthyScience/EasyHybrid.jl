@@ -46,10 +46,12 @@ ZipArchives = "49080126-0e18-4c2a-b176-c102e4b3760c"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [weakdeps]
+DiskArrays = "3c3547ce-8d99-4f5e-a174-61eb10b00ae3"
 Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 
 [extensions]
+EasyHybridDiskArraysExt = "DiskArrays"
 EasyHybridEnzymeExt = "Enzyme"
 EasyHybridMakie = "Makie"
 
@@ -64,6 +66,7 @@ DataFrames = "1"
 DataStructures = "0.19.4"
 Dates = "1"
 DimensionalData = "0.29.24, 0.30"
+DiskArrays = "0.4"
 DocStringExtensions = "0.9.5"
 Downloads = "1.6.0"
 Enzyme = "0.13.120"
