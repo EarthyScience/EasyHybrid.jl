@@ -34,31 +34,57 @@ function split_data(
         (x_all, forcings_all), y_all = data_
     end
 
+    ids = isa(split_by_id, Symbol) ? getbyname(data, split_by_id) : split_by_id
+    f = isa(folds, Symbol) ? getbyname(data, folds) : folds
+    train_idx, val_idx = split_indices(
+        _num_samples(x_all);
+        split_by_id = ids, id_name = split_by_id, folds = f, val_fold = val_fold,
+        shuffleobs = shuffleobs, split_data_at = split_data_at,
+    )
+    return _split_and_pack(x_all, forcings_all, y_all, train_idx, val_idx)
+end
+
+"""
+    split_indices(n; split_by_id = nothing, id_name = split_by_id, folds = nothing, val_fold = nothing, shuffleobs = false, split_data_at = 0.8)
+
+Return `(train_idx, val_idx)`, the training and validation positions among `n`
+observations. Shared by [`split_data`](@ref) (in-memory data) and the lazy data path.
+
+- `split_by_id`: vector with one ID per observation; whole IDs go to either split.
+- `folds` / `val_fold`: external fold assignment (one fold per observation); `val_fold` is held out.
+- Otherwise a chronological (or shuffled, `shuffleobs = true`) split at `split_data_at`.
+"""
+function split_indices(
+        n::Integer;
+        split_by_id = nothing, id_name = split_by_id,
+        folds = nothing, val_fold = nothing,
+        shuffleobs::Bool = false, split_data_at::Real = 0.8,
+    )
     if split_by_id !== nothing && folds !== nothing
 
         throw(ArgumentError("split_by_id and folds are not supported together; do the split when constructing folds"))
 
     elseif split_by_id !== nothing
         # --- Option A: split by ID ---
-        ids = isa(split_by_id, Symbol) ? getbyname(data, split_by_id) : split_by_id
+        ids = split_by_id
         unique_ids = unique(ids)
         train_ids, val_ids = splitobs(unique_ids; at = split_data_at, shuffle = shuffleobs)
         train_idx = findall(in(train_ids), ids)
         val_idx = findall(in(val_ids), ids)
 
-        @info "Splitting data by $(split_by_id)"
-        @info "Number of unique $(split_by_id): $(length(unique_ids))"
+        id_label = id_name isa Symbol ? id_name : "IDs"
+        @info "Splitting data by $(id_label)"
+        @info "Number of unique $(id_label): $(length(unique_ids))"
         @info "Train IDs: $(length(train_ids)) | Val IDs: $(length(val_ids))"
 
-        return _split_and_pack(x_all, forcings_all, y_all, train_idx, val_idx)
+        return train_idx, val_idx
 
     elseif folds !== nothing || val_fold !== nothing
         # --- Option B: external K-fold assignment ---
         @assert val_fold !== nothing "Provide val_fold when using folds."
         @assert folds !== nothing "Provide folds when using val_fold."
         shuffleobs && @warn "shuffleobs is not supported when using folds and val_fold, this will be ignored and should be done during fold constructions"
-        f = isa(folds, Symbol) ? getbyname(data, folds) : folds
-        n = _num_samples(x_all)
+        f = folds
         @assert length(f) == n "length(folds) ($(length(f))) must equal number of samples/columns ($n)."
         @assert 1 ≤ val_fold ≤ maximum(f) "val_fold=$val_fold is out of range 1:$(maximum(f))."
 
@@ -68,17 +94,16 @@ function split_data(
 
         @debug "K-fold via external assignments: val_fold=$val_fold → train=$(length(train_idx)) val=$(length(val_idx))"
 
-        return _split_and_pack(x_all, forcings_all, y_all, train_idx, val_idx)
+        return train_idx, val_idx
 
     else
         # --- Fallback: simple random/chronological split of prepared data ---
-        n = _num_samples(x_all)
         train_idx, val_idx = splitobs(1:n; at = split_data_at, shuffle = shuffleobs)
         if shuffleobs
             train_idx = sort(train_idx)
             val_idx = sort(val_idx)
         end
-        return _split_and_pack(x_all, forcings_all, y_all, train_idx, val_idx)
+        return train_idx, val_idx
     end
 end
 
